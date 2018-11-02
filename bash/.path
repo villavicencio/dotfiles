@@ -8,3 +8,6 @@ export PATH="$HOME/bin:$PATH";
 
 # Add RVM to PATH for scripting.
 export PATH="$HOME/.rvm/bin:$PATH"
+
+# Add Yarn to PATH
+export PATH="$HOME/.yarn/bin:$PATH"

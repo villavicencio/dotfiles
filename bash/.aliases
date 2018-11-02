@@ -148,6 +148,8 @@ if [ -f `brew --prefix`/etc/bash_completion.d/tma ]; then
 	alias tma='tmux attach -t $1'
 fi
 
+# Set shortcuts for some custom functions
 alias crm='docker_compose_stop_all'
 alias man='man_colorful'
 alias suz='user_switch'
+alias stt='session_title_set'
