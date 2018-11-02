@@ -2,23 +2,31 @@
 
 # Load the shell dotfiles
 source $HOME/.path          # Extend $PATH
-source $HOME/.bash_prompt   # Customize prompt and color scheme
 source $HOME/.exports       # Define environment variables
-source $HOME/.aliases       # Define shortcuts
+source $HOME/.bash_prompt   # Customize prompt and color scheme
 source $HOME/.functions     # Bash functions
+source $HOME/.aliases       # Define shortcuts
 
-# Set system JDK.
-#setJDK 1.8
+# Set system JDK
+#jdk_set 1.8
 #echo "Now using java v"$(java -version 2>&1 | head -n 1 | awk -F '"' '{print $2}')""
 
-# Load NVM.
+# Load Node Version Manager
 [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
 
-# Load RVM into shell session as a function.
+# Load Ruby VErsion Manager into shell session as a function
 [[ -s "$HOME/.rvm/scripts/rvm" ]] && source "$HOME/.rvm/scripts/rvm"
 
-# Set system Node.js
+# Set Node version
 nvm use v10.11.0
+
+# Set Python version
+eval "$(pyenv init -)"
+eval "$(pyenv virtualenv-init -)"
+echo "$(python -V 2>&1)"
+
+# Print PHP version
+php -i | grep 'PHP Version' | head -1
 
 # Enable grunt shell tab auto-completion
 eval "$(grunt --completion=bash)"
@@ -81,10 +89,5 @@ complete -o "nospace" -W "Contacts Calendar Dock Finder Mail Safari iTunes Syste
 
 # OPAM configuration
 . /Users/david/.opam/opam-init/init.sh > /dev/null 2 > /dev/null || true
-
-eval "$(pyenv init -)"
-eval "$(pyenv virtualenv-init -)"
-echo "$(python -V 2>&1)"
-php -i | grep 'PHP Version' | head -1
 
 HISTIGNORE='suz'

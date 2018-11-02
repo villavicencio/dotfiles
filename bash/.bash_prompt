@@ -85,7 +85,7 @@ export LSCOLORS=bxFxBxDxCxegedabagacad
 # Set the terminal title to the current working directory.
 PS1="\[\033]0;\w\007\]";
 PS1+="\[${green}\]\w"; # working directory
-PS1+="\$(prompt_git \"${white} on ${red}\")"; # Git repository details
+PS1+="\$(git_current_branch \"${white} on ${red}\")"; # Git repository details
 PS1+="\[${white}\]\$ \[${reset}\]"; # `$` (and reset color)
 export PS1;
 

@@ -141,13 +141,13 @@ alias crci='docker-compose run --rm ci'
 alias crwt='docker-compose run --rm watchtest'
 alias cps='docker-compose ps'
 alias clogs='docker-compose logs --tail=5 -f'
-crm() {
-	docker-compose stop $1
-	docker-compose rm --force $1
-}
 alias docker_clean_images='docker rmi $(docker images -a --filter=dangling=true -q)'
 alias docker_clean_ps='docker rm $(docker ps --filter=status=exited --filter=status=created -q)'
 
 if [ -f `brew --prefix`/etc/bash_completion.d/tma ]; then
 	alias tma='tmux attach -t $1'
 fi
+
+alias crm='docker_compose_stop_all'
+alias man='man_colorful'
+alias suz='user_switch'
