@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+
+# Add basic PATH stuff
+export PATH="/usr/local/bin:/usr/local/sbin:/usr/local/mysql/bin:/usr/local/share/npm/bin:$PATH"
+
+# Add experimental stuff in ~/bin to PATH
+export PATH="$HOME/bin:$PATH";
+
+# Add RVM to PATH for scripting.
+export PATH="$HOME/.rvm/bin:$PATH"

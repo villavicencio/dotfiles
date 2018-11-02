@@ -50,19 +50,11 @@ export NODE_PATH="/usr/local/lib/node"
 # Node environment.
 export NODE_ENV=development
 
-# Add RVM to PATH for scripting.
-export PATH="$PATH:$HOME/.rvm/bin"
-
 # Ant options.
 export ANT_OPTS=-Dbuild.sysclasspath=ignore
 
 # Gist-scope token for HyperTerm backup plugin.
 export HYPERTERM_SYNC_SETTINGS_PERSONAL_ACCESS_TOKEN="77a6b9bd97f6a15b3ee659e89ac472f303b33d4a"
-
-#export PATH="/usr/local/php5/bin:$PATH"
-
-# Other classpath stuff.
-export PATH="/usr/local/bin:/usr/local/sbin:/usr/local/mysql/bin:/usr/local/share/npm/bin:$PATH"
 
 # Directory shortcuts
 export HOLOGRAM_MARKETING="$HOME/Projects/Hologram/hologram-web/wp-content/themes/hologram_dev"

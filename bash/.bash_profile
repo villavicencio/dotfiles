@@ -1,12 +1,11 @@
 #!/usr/bin/env bash
 
-export PATH="$HOME/bin:$PATH";
-
-# Load the shell dotfiles, and then some:
-for file in $HOME/.path $HOME/.bash_prompt $HOME/.exports $HOME/.aliases $HOME/.functions $HOME/.extra; do
-	[ -r "$file" ] && [ -f "$file" ] && source "$file";
-done;
-unset file;
+# Load the shell dotfiles
+source $HOME/.path          # Extend $PATH
+source $HOME/.bash_prompt   # Customize prompt and color scheme
+source $HOME/.exports       # Define environment variables
+source $HOME/.aliases       # Define shortcuts
+source $HOME/.functions     # Bash functions
 
 # Set system JDK.
 #setJDK 1.8
