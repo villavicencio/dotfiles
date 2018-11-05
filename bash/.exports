@@ -4,10 +4,10 @@
 export EDITOR='vim';
 
 # Enable persistent REPL history for `node`.
-NODE_REPL_HISTORY_FILE=~/.node_history;
+export NODE_REPL_HISTORY_FILE=~/.node_history;
 
 # Allow 32³ entries; the default is 1000.
-NODE_REPL_HISTORY_SIZE='32768';
+export NODE_REPL_HISTORY_SIZE='32768';
 
 # Increase Bash history size. Allow 32³ entries; the default is 500.
 export HISTSIZE='32768';
@@ -67,5 +67,7 @@ export PHP_REMOTE_DEBUG_HOST_IP=10.254.254.254
 #export HOLOAPI_CONFIGDEBUG=true
 
 export HOMEBREW_GITHUB_API_TOKEN="339c6c067512ad2766787c488deda847c8960677"
+
+# Linker and compiler flags for zlib
 export LDFLAGS="-L/usr/local/opt/zlib/lib"
 export CPPFLAGS="-I/usr/local/opt/zlib/include"

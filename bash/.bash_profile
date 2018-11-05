@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# Load the shell dotfiles
+# Load dotfiles
 source $HOME/.path          # Extend $PATH
 source $HOME/.exports       # Define environment variables
 source $HOME/.bash_prompt   # Customize prompt and color scheme
@@ -86,13 +86,6 @@ complete -W "NSGlobalDomain" defaults;
 
 # Add `killall` tab completion for common apps
 complete -o "nospace" -W "Contacts Calendar Dock Finder Mail Safari iTunes SystemUIServer Terminal Twitter" killall;
-
-# tabtab source for serverless package
-# uninstall by removing these lines or running `tabtab uninstall serverless`
-[ -f /Users/david/.nvm/versions/node/v10.11.0/lib/node_modules/serverless/node_modules/tabtab/.completions/serverless.bash ] && . /Users/david/.nvm/versions/node/v10.11.0/lib/node_modules/serverless/node_modules/tabtab/.completions/serverless.bash
-# tabtab source for sls package
-# uninstall by removing these lines or running `tabtab uninstall sls`
-[ -f /Users/david/.nvm/versions/node/v10.11.0/lib/node_modules/serverless/node_modules/tabtab/.completions/sls.bash ] && . /Users/david/.nvm/versions/node/v10.11.0/lib/node_modules/serverless/node_modules/tabtab/.completions/sls.bash
 
 # OPAM configuration
 . /Users/david/.opam/opam-init/init.sh > /dev/null 2 > /dev/null || true

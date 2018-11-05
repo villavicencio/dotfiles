@@ -150,6 +150,7 @@ fi
 
 # Set shortcuts for some custom functions
 alias crm='docker_compose_stop_all'
+alias fs='size_of_file_or_directory'
 alias man='man_colorful'
-alias suz='user_switch'
 alias stt='session_title_set'
+alias suz='user_switch'
