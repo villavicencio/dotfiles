@@ -127,7 +127,7 @@ alias afk="/System/Library/CoreServices/Menu\ Extras/User.menu/Contents/Resource
 # Reload the shell (i.e. invoke as a login shell)
 alias reload="exec $SHELL -l"
 
-# Docker aliases
+# Docker shortcuts
 alias c='docker-compose'
 alias cb='docker-compose build'
 alias cup='docker-compose up'
@@ -144,7 +144,7 @@ alias clogs='docker-compose logs --tail=5 -f'
 alias docker_clean_images='docker rmi $(docker images -a --filter=dangling=true -q)'
 alias docker_clean_ps='docker rm $(docker ps --filter=status=exited --filter=status=created -q)'
 
-if [ -f `brew --prefix`/etc/bash_completion.d/tma ]; then
+if [[ -f $(brew --prefix)/etc/bash_completion.d/tma ]]; then
 	alias tma='tmux attach -t $1'
 fi
 
@@ -152,5 +152,7 @@ fi
 alias crm='docker_compose_stop_all'
 alias fs='size_of_file_or_directory'
 alias man='man_colorful'
+alias o='open_directory_or_file'
 alias stt='session_title_set'
 alias suz='user_switch'
+alias s='open_with_sublime'

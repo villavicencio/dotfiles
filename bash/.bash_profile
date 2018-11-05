@@ -7,15 +7,15 @@ source $HOME/.bash_prompt   # Customize prompt and color scheme
 source $HOME/.functions     # Bash functions
 source $HOME/.aliases       # Define shortcuts
 
+brew_prefix=$(brew --prefix)
+nvm_prefix=$(printenv NVM_DIR)
+
 # Set system JDK
 #jdk_set 1.8
 #echo "Now using java v"$(java -version 2>&1 | head -n 1 | awk -F '"' '{print $2}')""
 
 # Load Node Version Manager
-[ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
-
-# Load Ruby VErsion Manager into shell session as a function
-[[ -s "$HOME/.rvm/scripts/rvm" ]] && source "$HOME/.rvm/scripts/rvm"
+[[ -s "${nvm_prefix}/nvm.sh" ]] && . "${nvm_prefix}/nvm.sh"
 
 # Set Node version
 nvm use v10.11.0
@@ -54,21 +54,21 @@ for option in autocd globstar; do
 done;
 
 # Load bash-completion scripts.
-if [ -f $(brew --prefix)/etc/bash_completion ]; then
-	. $(brew --prefix)/etc/bash_completion
+if [[ -f $(brew --prefix)/etc/bash_completion ]]; then
+	. ${brew_prefix}/etc/bash_completion
 fi
 
 # Load bash completion support for Git.
 source $HOME/.git-completion.bash
 
 # Load bash completion for Arcanist.
-if [ -d "/usr/local/php/arcanist" ]; then
+if [[ -d "/usr/local/php/arcanist" ]]; then
 	export PATH="$PATH:/usr/local/php/arcanist/bin"
 	source /usr/local/php/arcanist/resources/shell/bash-completion
 fi
 
 # Add tab completion for SSH hostnames based on ~/.ssh/config, ignoring wildcards
-[ -e "$HOME/.ssh/config" ] && complete -o "default" -o "nospace" -W \
+[[ -e "$HOME/.ssh/config" ]] && complete -o "default" -o "nospace" -W \
  "$(grep "^Host" ~/.ssh/config | grep -v "[?*]" | cut -d " " -f2- | tr ' ' '\n')" scp sftp ssh;
 
 # Ignore case in bash completion
