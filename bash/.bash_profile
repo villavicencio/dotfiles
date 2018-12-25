@@ -1,14 +1,19 @@
 #!/usr/bin/env bash
 
 # Load dotfiles
-source $HOME/.path          # Extend $PATH
-source $HOME/.exports       # Define environment variables
-source $HOME/.bash_prompt   # Customize prompt and color scheme
-source $HOME/.functions     # Bash functions
-source $HOME/.aliases       # Define shortcuts
+source $HOME/.config/bash/.options      # Shell options
+source $HOME/.config/bash/.path         # Extend $PATH
+source $HOME/.config/bash/.exports      # Define environment variables
+source $HOME/.config/bash/.bash_prompt  # Customize prompt and color scheme
+source $HOME/.config/bash/.functions    # Bash functions
+source $HOME/.config/bash/.aliases      # Define shortcuts
+
+# Load Ruby Version Manager
+[[ -s "$HOME/.rvm/scripts/rvm" ]] && source "$HOME/.rvm/scripts/rvm"
 
 brew_prefix=$(brew --prefix)
 nvm_prefix=$(printenv NVM_DIR)
+cls_prefix=$(dirname $(gem which colorls))
 
 # Set system JDK
 #jdk_set 1.8
@@ -17,10 +22,10 @@ nvm_prefix=$(printenv NVM_DIR)
 # Load Node Version Manager
 [[ -s "${nvm_prefix}/nvm.sh" ]] && . "${nvm_prefix}/nvm.sh"
 
-# Set Node version
-nvm use v10.11.0
+# Print Node version
+echo "Node $(node -v 2>&1) (npm $(npm -v 2>&1))"
 
-# Set Python version
+# Set and print Python version
 eval "$(pyenv init -)"
 eval "$(pyenv virtualenv-init -)"
 echo "$(python -V 2>&1)"
@@ -34,25 +39,6 @@ eval "$(grunt --completion=bash)"
 # Make Grunt print stack traces by default
 command -v grunt > /dev/null && alias grunt="grunt --stack"
 
-# Case-insensitive globbing (used in pathname expansion)
-shopt -s nocaseglob;
-
-# Append to the Bash history file, rather than overwriting it
-shopt -s histappend;
-
-# Autocorrect typos in path names when using `cd`
-shopt -s cdspell;
-
-# After each command, checks the windows size and changes lines and columns
-shopt -s checkwinsize
-
-# Enable some Bash 4 features when possible:
-# * `autocd`, e.g. `**/qux` will enter `./foo/bar/baz/qux`
-# * Recursive globbing, e.g. `echo **/*.txt`
-for option in autocd globstar; do
-	shopt -s "$option" 2> /dev/null;
-done;
-
 # Load bash-completion scripts.
 if [[ -f $(brew --prefix)/etc/bash_completion ]]; then
 	. ${brew_prefix}/etc/bash_completion
@@ -60,6 +46,9 @@ fi
 
 # Load bash completion support for Git.
 source $HOME/.git-completion.bash
+
+# Load bash completion for colorls gem.
+source ${cls_prefix}/tab_complete.sh
 
 # Load bash completion for Arcanist.
 if [[ -d "/usr/local/php/arcanist" ]]; then
