@@ -4,10 +4,17 @@
 export PATH="/usr/local/bin:/usr/local/sbin:/usr/local/mysql/bin:/usr/local/share/npm/bin:$PATH"
 
 # Add experimental stuff in ~/bin to PATH
-export PATH="$HOME/bin:$PATH";
+export PATH="$PATH:$HOME/bin";
 
-# Add RVM to PATH for scripting.
-export PATH="$HOME/.rvm/bin:$PATH"
+# Add RVM to PATH for scripting
+export PATH="$PATH:$HOME/.rvm/bin"
 
 # Add Yarn to PATH
-export PATH="$HOME/.yarn/bin:$PATH"
+export PATH="$PATH:$HOME/.yarn/bin"
+
+# Add GNU coreutils to PATH
+export PATH="$PATH:/usr/local/opt/coreutils/libexec/gnubin"
+
+# Export openssl compiler flags
+export LDFLAGS="-L/usr/local/opt/openssl/lib"
+export CPPFLAGS="-I/usr/local/opt/openssl/include"
