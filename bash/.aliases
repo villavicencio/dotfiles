@@ -169,10 +169,10 @@ alias getcertnames='get_cert_names'
 # Move standard ls
 alias ols="ls"
 # Base formats
-alias ls="colorls -A"           # short, multi-line
-alias ll="colorls -1A"          # list, 1 per line
+alias ls="ls -A"           # short, multi-line
+alias ll="ls -1A"          # list, 1 per line
 alias ld="ll"                   # ^^^, NOTE: Trying to move to this for alternate hand commands
-alias la="colorls -lA"          # list w/ info
+alias la="ls -lA"          # list w/ info
 # [d] Sort output with directories first
 alias lsd="ls --sort-dirs"
 alias lld="ll --sort-dirs"

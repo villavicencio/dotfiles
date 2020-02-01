@@ -13,7 +13,6 @@ source $HOME/.config/bash/.aliases      # Define shortcuts
 
 brew_prefix=$(brew --prefix)
 nvm_prefix=$(printenv NVM_DIR)
-cls_prefix=$(dirname $(gem which colorls))
 
 # Set system JDK
 #jdk_set 1.8
@@ -46,9 +45,6 @@ fi
 
 # Load bash completion support for Git.
 source $HOME/.git-completion.bash
-
-# Load bash completion for colorls gem.
-source ${cls_prefix}/tab_complete.sh
 
 # Load bash completion for Arcanist.
 if [[ -d "/usr/local/php/arcanist" ]]; then
