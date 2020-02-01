@@ -8,6 +8,7 @@ fi;
 
 export CLICOLOR=1
 export LSCOLORS=bxFxBxDxCxegedabagacad
+export HSTR_CONFIG=hicolor
 
 # Set the terminal title to the current working directory.
 PS1="➜ \[${green:?}\]\w"; # working directory

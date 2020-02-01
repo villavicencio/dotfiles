@@ -148,6 +148,9 @@ if [[ -f $(brew --prefix)/etc/bash_completion.d/tma ]]; then
 	tma() { tmux attach -t "$1"; }
 fi
 
+# Shorter alias to HSTR (https://github.com/dvorka/hstr)
+alias hh=hstr
+
 # Set shortcuts for some custom functions
 alias crm='docker_stop_all'
 alias fs='size_of_file_or_directory'
