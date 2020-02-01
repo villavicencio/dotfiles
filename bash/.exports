@@ -56,11 +56,6 @@ export ANT_OPTS=-Dbuild.sysclasspath=ignore
 # Gist-scope token for HyperTerm backup plugin.
 export HYPERTERM_SYNC_SETTINGS_PERSONAL_ACCESS_TOKEN="77a6b9bd97f6a15b3ee659e89ac472f303b33d4a"
 
-# Directory shortcuts
-export HOLOGRAM_MARKETING="$HOME/Projects/Hologram/hologram-web/wp-content/themes/hologram_dev"
-export HOLOGRAM_DOCS="$HOME/Projects/Hologram/hologram-web/wp-content/themes/hologram_docs"
-export HOLOGRAM_DASHBOARD="$HOME/Projects/Hologram/hologram-dashboard"
-
 # Docker
 export PHP_REMOTE_DEBUG_HOST_IP=10.254.254.254
 
