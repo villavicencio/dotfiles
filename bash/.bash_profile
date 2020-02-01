@@ -46,12 +46,6 @@ fi
 # Load bash completion support for Git.
 source $HOME/.git-completion.bash
 
-# Load bash completion for Arcanist.
-if [[ -d "/usr/local/php/arcanist" ]]; then
-	export PATH="$PATH:/usr/local/php/arcanist/bin"
-	source /usr/local/php/arcanist/resources/shell/bash-completion
-fi
-
 # Add tab completion for SSH hostnames based on ~/.ssh/config, ignoring wildcards
 [[ -e "$HOME/.ssh/config" ]] && complete -o "default" -o "nospace" -W \
  "$(grep "^Host" ~/.ssh/config | grep -v "[?*]" | cut -d " " -f2- | tr ' ' '\n')" scp sftp ssh;
