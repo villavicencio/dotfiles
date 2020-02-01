@@ -63,10 +63,10 @@ export HOLOGRAM_DASHBOARD="$HOME/Projects/Hologram/hologram-dashboard"
 
 # Docker
 export PHP_REMOTE_DEBUG_HOST_IP=10.254.254.254
-#export HOLOAPI_ENV=docker
-#export HOLOAPI_CONFIGDEBUG=true
 
+# Homebrew
 export HOMEBREW_GITHUB_API_TOKEN="339c6c067512ad2766787c488deda847c8960677"
+export HOMEBREW_INSTALL_CLEANUP=1
 
 # Linker and compiler flags for zlib
 export LDFLAGS="-L/usr/local/opt/zlib/lib"
