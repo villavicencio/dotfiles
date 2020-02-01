@@ -156,10 +156,35 @@ alias mkd='mkdir_and_cd'
 alias o='open_directory_or_file'
 alias s='open_with_sublime'
 alias stt='session_title_set'
-alias suz='user_switch'
 alias tgz='tar_and_gzip'
 alias dataurl='dataurl'
 alias server='server'
 alias phpserver='server_php'
 alias gz='gzip_compare'
 alias getcertnames='get_cert_names'
+
+
+
+
+# Move standard ls
+alias ols="ls"
+# Base formats
+alias ls="colorls -A"           # short, multi-line
+alias ll="colorls -1A"          # list, 1 per line
+alias ld="ll"                   # ^^^, NOTE: Trying to move to this for alternate hand commands
+alias la="colorls -lA"          # list w/ info
+# [d] Sort output with directories first
+alias lsd="ls --sort-dirs"
+alias lld="ll --sort-dirs"
+alias ldd="ld --sort-dirs"
+alias lad="la --sort-dirs"
+# [t] Sort output with recent modified first
+alias lst="ls -t"
+alias llt="ll -t"
+alias ldt="ld -t"
+alias lat="la -t"
+# [g] Add git status of each item in output
+alias lsg="ls --git-status"
+alias llg="ll --git-status"
+alias ldg="ld --git-status"
+alias lag="la --git-status"
