@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# shellcheck disable=SC2139
+
 # Easier navigation: .., ..., ...., ....., ~ and -
 alias ..="cd .."
 alias ...="cd ../.."
@@ -31,13 +33,10 @@ alias la="ls -laF ${colorflag}"
 alias ll="la"
 
 # List only directories
-alias lsd="ls -lF ${colorflag} | grep --color=never '^d'"
+alias lsd="ls -lF ${colorflag}"
 
 # Always use color output for `ls`
 alias ls="command ls ${colorflag}"
-
-# Solarized colorscheme for OS X `ls` environment variable:
-#export LSCOLORS=gxfxbEaEBxxEhEhBaDaCaD
 
 # Enable aliases to be sudo’ed
 alias sudo='sudo '
@@ -60,7 +59,8 @@ alias ips="ifconfig -a | grep -o 'inet6\? \(addr:\)\?\s\?\(\(\([0-9]\+\.\)\{3\}[
 alias flush="dscacheutil -flushcache && killall -HUP mDNSResponder"
 
 # Clean up LaunchServices to remove duplicates in the “Open With” menu
-alias lscleanup="/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -kill -r -domain local -domain system -domain user && killall Finder"
+alias lscleanup="/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister\
+ -kill -r -domain local -domain system -domain user && killall Finder"
 
 # View HTTP traffic
 alias sniff="sudo ngrep -d 'en1' -t '^(GET|POST) ' 'tcp and port 80'"
@@ -145,7 +145,7 @@ alias docker_clean_images='docker rmi $(docker images -a --filter=dangling=true 
 alias docker_clean_ps='docker rm $(docker ps --filter=status=exited --filter=status=created -q)'
 
 if [[ -f $(brew --prefix)/etc/bash_completion.d/tma ]]; then
-	alias tma='tmux attach -t $1'
+	tma() { tmux attach -t "$1"; }
 fi
 
 # Set shortcuts for some custom functions
@@ -162,29 +162,3 @@ alias server='server'
 alias phpserver='server_php'
 alias gz='gzip_compare'
 alias getcertnames='get_cert_names'
-
-
-
-
-# Move standard ls
-alias ols="ls"
-# Base formats
-alias ls="ls -A"           # short, multi-line
-alias ll="ls -1A"          # list, 1 per line
-alias ld="ll"                   # ^^^, NOTE: Trying to move to this for alternate hand commands
-alias la="ls -lA"          # list w/ info
-# [d] Sort output with directories first
-alias lsd="ls --sort-dirs"
-alias lld="ll --sort-dirs"
-alias ldd="ld --sort-dirs"
-alias lad="la --sort-dirs"
-# [t] Sort output with recent modified first
-alias lst="ls -t"
-alias llt="ll -t"
-alias ldt="ld -t"
-alias lat="la -t"
-# [g] Add git status of each item in output
-alias lsg="ls --git-status"
-alias llg="ll --git-status"
-alias ldg="ld --git-status"
-alias lag="la --git-status"

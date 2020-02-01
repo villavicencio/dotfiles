@@ -2,5 +2,6 @@
 
 # Remove the system JDK version
 function jdk_unset() {
-	export PATH=$(echo $PATH | sed -E -e "s;:$1;;" -e "s;$1:?;;");
+  PATH=$(echo "$PATH" | sed -E -e "s;:$1;;" -e "s;$1:?;;")
+	export PATH;
 }

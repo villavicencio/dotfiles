@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
 
+# Ignore shellcheck errors for sourced files
+# shellcheck source=/dev/null
+
 # Syntax-highlight JSON strings or files
 # Usage: `json '{"foo":42}'` or `echo '{"foo":42}' | json`
 function json() {
@@ -17,7 +20,7 @@ function digga() {
 
 # UTF-8-encode a string of Unicode symbols
 function escape() {
-	printf "\\\x%s" $(printf "$@" | xxd -p -c1 -u);
+	printf "\\\x%s" "$(printf "%s" "$@" | xxd -p -c1 -u)";
 	# print a newline unless we’re piping the output to another program
 	if [ -t 1 ]; then
 		echo ""; # newline
@@ -26,7 +29,7 @@ function escape() {
 
 # Decode \x{ABCD}-style Unicode escape sequences
 function unidecode() {
-	perl -e "binmode(STDOUT, ':utf8'); print \"$@\"";
+	perl -e "binmode(STDOUT, ':utf8'); print \"$*\"";
 	# print a newline unless we’re piping the output to another program
 	if [ -t 1 ]; then
 		echo ""; # newline
@@ -35,7 +38,7 @@ function unidecode() {
 
 # Get a character’s Unicode code point
 function codepoint() {
-	perl -e "use utf8; print sprintf('U+%04X', ord(\"$@\"))";
+	perl -e "use utf8; print sprintf('U+%04X', ord(\"$*\"))";
 	# print a newline unless we’re piping the output to another program
 	if [ -t 1 ]; then
 		echo ""; # newline
@@ -50,4 +53,4 @@ function tre() {
 	tree -aC -I '.git|node_modules|bower_components' --dirsfirst "$@" | less -FRNX;
 }
 
-for function in $HOME/Projects/Personal/dotfiles/bash/functions/*.sh; do source ${function}; done
+for function in "$HOME/Projects/Personal/dotfiles/bash/functions"/*.sh; do source "${function}"; done

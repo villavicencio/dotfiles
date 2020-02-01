@@ -6,89 +6,16 @@ elif infocmp xterm-256color >/dev/null 2>&1; then
 	export TERM='xterm-256color';
 fi;
 
-# Reset
-reset='\e[0m'							# Text Reset
-
-# Regular Colors
-black='\e[0;30m'						# Black
-red='\e[0;31m'							# Red
-green='\e[0;32m'						# Green
-yellow='\e[0;33m'						# Yellow
-blue='\e[0;34m'							# Blue
-purple='\e[0;35m'						# Purple
-cyan='\e[0;36m'							# Cyan
-white='\e[0;37m'						# White
-
-# Bold
-bold_black='\e[1;30m'					# Bold Black
-bold_red='\e[1;31m'						# Bold Red
-bold_green='\e[1;32m'					# Bold Green
-bold_yellow='\e[1;33m'					# Bold Yellow
-bold_blue='\e[1;34m'					# Bold Blue
-bold_purple='\e[1;35m'					# Bold Purple
-bold_cyan='\e[1;36m'					# Bold Cyan
-bold_white='\e[1;37m'					# Bold White
-
-# Underline
-underline_black='\e[4;30m'				# Underline Black
-underline_red='\e[4;31m'				# Underline Red
-underline_green='\e[4;32m'				# Underline Green
-underline_yellow='\e[4;33m'				# Underline Yellow
-underline_blue='\e[4;34m'				# Underline Blue
-underline_purple='\e[4;35m'				# Underline Purple
-underline_cyan='\e[4;36m'				# Underline Cyan
-underline_white='\e[4;37m'				# Underline White
-
-# Background
-background_black='\e[40m'				# Background Black
-background_red='\e[41m'					# Background Red
-background_green='\e[42m'				# Background Green
-background_yellow='\e[43m'				# Background Yellow
-background_blue='\e[44m'				# Background Blue
-background_purple='\e[45m'				# Background Purple
-background_cyan='\e[46m'				# Background Cyan
-background_white='\e[47m'				# Background White
-
-# High Intensity
-intense_black='\e[0;90m'				# High Intensity Black
-intense_red='\e[0;91m'					# High Intensity Red
-intense_green='\e[0;92m'				# High Intensity Green
-intense_yellow='\e[0;93m'				# High Intensity Yellow
-intense_blue='\e[0;94m'					# High Intensity Blue
-intense_purple='\e[0;95m'				# High Intensity Purple
-intense_cyan='\e[0;96m'					# High Intensity Cyan
-intense_white='\e[0;97m'				# High Intensity White
-
-# Bold High Intensity
-bold_intense_black='\e[1;90m'			# Bold High Intensity Black
-bold_intense_red='\e[1;91m'				# Bold High Intensity Red
-bold_intense_green='\e[1;92m'			# Bold High Intensity Green
-bold_intense_yellow='\e[1;93m'			# Bold High Intensity Yellow
-bold_intense_blue='\e[1;94m'			# Bold High Intensity Blue
-bold_intense_purple='\e[1;95m'			# Bold High Intensity Purple
-bold_intense_cyan='\e[1;96m'			# Bold High Intensity Cyan
-bold_intense_white='\e[1;97m'			# Bold High Intensity White
-
-# High Intensity Backgrounds
-background_intense_black='\e[0;100m'	# High Intensity Background Black
-background_intense_red='\e[0;101m'		# High Intensity Background Red
-background_intense_green='\e[0;102m'	# High Intensity Background Green
-background_intense_yellow='\e[0;103m'	# High Intensity Background Yellow
-background_intense_blue='\e[0;104m'		# High Intensity Background Blue
-background_intense_purple='\e[0;105m'	# High Intensity Background Purple
-background_intense_cyan='\e[0;106m'		# High Intensity Background Cyan
-background_intense_white='\e[0;107m'	# High Intensity Background White
-
 export CLICOLOR=1
 export LSCOLORS=bxFxBxDxCxegedabagacad
 
 # Set the terminal title to the current working directory.
-PS1="➜ \[${green}\]\w"; # working directory
-PS1+="\$(git_current_branch \"${white} on ${red}\")"; # Git repository details
-PS1+="\[${white}\]\$ \[${reset}\]"; # `$` (and reset color)
+PS1="➜ \[${green:?}\]\w"; # working directory
+PS1+="\$(git_current_branch \"${white:?} on ${red:?}\")"; # Git repository details
+PS1+="\[${white:?}\]\$ \[${reset:?}\]"; # `$` (and reset color)
 export PS1;
 
-PS2="\[${yellow}\]→ \[${reset}\]";
+PS2="\[${yellow:?}\]→ \[${reset:?}\]";
 export PS2;
 
 # Current virtualenv

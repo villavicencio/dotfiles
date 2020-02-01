@@ -1,12 +1,16 @@
 #!/usr/bin/env bash
 
+# Ignore shellcheck errors for sourced files
+# shellcheck source=/dev/null
+
 # Load dotfiles
-source $HOME/.config/bash/.options      # Shell options
-source $HOME/.config/bash/.path         # Extend $PATH
-source $HOME/.config/bash/.exports      # Define environment variables
-source $HOME/.config/bash/.bash_prompt  # Customize prompt and color scheme
-source $HOME/.config/bash/.functions    # Bash functions
-source $HOME/.config/bash/.aliases      # Define shortcuts
+source "$HOME/.config/bash/.options"      # Shell options
+source "$HOME/.config/bash/.vars"         # Variables
+source "$HOME/.config/bash/.path"         # Extend $PATH
+source "$HOME/.config/bash/.bash_prompt"  # Customize prompt and color scheme
+source "$HOME/.config/bash/.exports"      # Define environment variables
+source "$HOME/.config/bash/.functions"    # Bash functions
+source "$HOME/.config/bash/.aliases"      # Define shortcuts
 
 # Load Ruby Version Manager
 [[ -s "$HOME/.rvm/scripts/rvm" ]] && source "$HOME/.rvm/scripts/rvm"
@@ -27,7 +31,7 @@ echo "Node $(node -v 2>&1) (npm $(npm -v 2>&1))"
 # Set and print Python version
 eval "$(pyenv init -)"
 eval "$(pyenv virtualenv-init -)"
-echo "$(python -V 2>&1)"
+python -V 2>&1
 
 # Print PHP version
 php -i | grep 'PHP Version' | head -1
@@ -40,11 +44,11 @@ command -v grunt > /dev/null && alias grunt="grunt --stack"
 
 # Load bash-completion scripts.
 if [[ -f $(brew --prefix)/etc/bash_completion ]]; then
-	. ${brew_prefix}/etc/bash_completion
+	. "${brew_prefix}/etc/bash_completion"
 fi
 
 # Load bash completion support for Git.
-source $HOME/.git-completion.bash
+source "$HOME/.git-completion.bash"
 
 # Add tab completion for SSH hostnames based on ~/.ssh/config, ignoring wildcards
 [[ -e "$HOME/.ssh/config" ]] && complete -o "default" -o "nospace" -W \
