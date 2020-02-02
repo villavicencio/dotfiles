@@ -69,3 +69,8 @@ export RAINBARF=~/.rainbarf.conf rainbarf
 
 # Pyenv virtualenv
 export PYENV_VIRTUALENV_DISABLE_PROMPT=1
+
+# Set default AWS region and session TTL
+export AWS_REGION=us-east-1
+export AWS_SESSION_TTL=12h
+export AWS_ASSUME_ROLE_TTL=12h
