@@ -70,9 +70,6 @@ complete -W "NSGlobalDomain" defaults;
 # Add `killall` tab completion for common apps
 complete -o "nospace" -W "Contacts Calendar Dock Finder Mail Safari iTunes SystemUIServer Terminal Twitter" killall;
 
-# OPAM configuration
-. /Users/david/.opam/opam-init/init.sh > /dev/null 2 > /dev/null || true
-
 # Ignore some useless commands in history
 HISTIGNORE='&:ls:[bf]g:exit:pwd:clear:mount:umount:suz:history'
 
