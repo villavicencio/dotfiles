@@ -36,12 +36,6 @@ python -V 2>&1
 # Print PHP version
 php -i | grep 'PHP Version' | head -1
 
-# Enable grunt shell tab auto-completion
-eval "$(grunt --completion=bash)"
-
-# Make Grunt print stack traces by default
-command -v grunt > /dev/null && alias grunt="grunt --stack"
-
 # Load bash-completion scripts.
 if [[ -f $(brew --prefix)/etc/bash_completion ]]; then
 	. "${brew_prefix}/etc/bash_completion"
