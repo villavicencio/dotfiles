@@ -1,87 +1,64 @@
 [user]
-	name = David Villavicencio
-	email = villavicencio.david@gmail.com
+    name = David Villavicencio
+    email = villavicencio.david@gmail.com
+[push]
+    default = current
+    recurseSubmodules = on-demand
+[commit]
+    template = ~/.gitcommit.template
+[color]
+    ui = true
+    status = true
+    branch = true
+    interactive = true
+    diff = true
+[core]
+    editor = vim
+    ignorecase = false
+    excludesfile = /Users/david/.gitignore
+    attributesfile = /Users/david/.gitattributes
+	pager = vim -
+[help]
+    autocorrect = 1
+[gitflow "branch"]
+    master = master
+    develop = develop
+[gitflow "prefix"]
+    feature = feature/
+    release = release/
+    hotfix = hotfix/
+    support = support/
+    versiontag =
+[diff "exif"]
+    textconv = exiftool
+[diff]
+	submodule = log
+[status]
+	submoduleSummary = true
+[fetch]
+	recurseSubmodules = on-demand
+[merge]
+    ff = only
 [credential]
 	helper = osxkeychain
-[core]
-	editor = nano --fill=72
-	excludesfile = /Users/david/.gitignore_global
-	autocrlf = input
-	whitespace = trailing-space,space-before-tab,indent-with-non-tab
-[color]
-	ui = auto
-	status = auto
-	branch = auto
-	interactive = auto
-	diff = auto
-[difftool "sourcetree"]
-	cmd = opendiff \"$LOCAL\" \"$REMOTE\"
-	path =
-[mergetool "sourcetree"]
-	cmd = /Applications/SourceTree.app/Contents/Resources/opendiff-w.sh \"$LOCAL\" \"$REMOTE\" -ancestor \"$BASE\" -merge \"$MERGED\"
-	trustExitCode = true
+[pager]
+    diff = diff-so-fancy | less --tabs=4 -RFX
+    show = diff-so-fancy | less --tabs=4 -RFX
 [alias]
-	add-commit = !git add . -A && git commit
+	# Basic aliases
 	push = push -u
 	stat = status
-	co = checkout
-	hist = log --pretty=format:\"%h %ad | %s%d [%an]\" --graph --date=short
-	last = cat-file commit HEAD
-	switch = !legit switch \"$@\"
-	branches = !legit branches
-	sprout = !legit sprout \"$@\"
-	unpublish = !legit unpublish \"$@\"
-	harvest = !legit harvest \"$@\"
-	sync = !legit sync \"$@\"
-	publish = !legit publish \"$@\"
-	graft = !legit graft \"$@\"
+    co = checkout
+    ci = commit
 
-	# View abbreviated SHA, description, and history graph of the latest commits
-	ls = log --pretty=format:"%C(yellow)%h\\ %ad%Cred%d\\ %Creset%s%Cgreen\\ [%cn]" --decorate --date=short
-	ll = log --pretty=format:"%C(yellow)%h%Cred%d\\ %Creset%s%Cgreen\\ [%cn]" --decorate --numstat
+    # View abbreviated SHA, description, and history graph of the latest commits
+    ls = log --pretty=format:"%C(yellow)%h\\ %ad%Cred%d\\ %Creset%s%Cgreen\\ [%cn]" --decorate --date=short
+    ll = log --pretty=format:"%C(yellow)%h%Cred%d\\ %Creset%s%Cgreen\\ [%cn]" --decorate --numstat
 
-	# View the current working tree status using the short format
-	s = status -s
+    # Find commits by commit message
+    fm = "!f() { git log --pretty=format:'%C(yellow)%h  %Cblue%ad  %Creset%s%Cgreen  [%cn] %Cred%d' --decorate --date=short --grep=$1; }; f"
 
-	# Show the diff between the latest commit and the current state
-	d = !"git diff-index --quiet HEAD -- || clear; git --no-pager diff --patch-with-stat"
-
-	# `git di $number` shows the diff between the state `$number` revisions ago and the current state
-	di = !"d() { git diff --patch-with-stat HEAD~$1; }; git diff-index --quiet HEAD -- || clear; d"
-
-	# Find commits by commit message
-	fm = "!f() { git log --pretty=format:'%C(yellow)%h  %Cblue%ad  %Creset%s%Cgreen  [%cn] %Cred%d' --decorate --date=short --grep=$1; }; f"
-
-	# Find branches containing commit
-	fb = "!f() { git branch -a --contains $1; }; f"
-
-	# Find tags containing commit
-	ft = "!f() { git describe --always --contains $1; }; f"
-
-	# Find commits by source code
-	fc = "!f() { git log --pretty=format:'%C(yellow)%h  %Cblue%ad  %Creset%s%Cgreen  [%cn] %Cred%d' --decorate --date=short -S$1; }; f"
-
-	# Remove branches that have already been merged with master
-	# a.k.a. ‘delete merged’
-	dm = "!git branch --merged | grep -v '\\*' | xargs -n 1 git branch -d"
-
-	# List contributors with number of commits
-	contributors = shortlog --summary --numbered
-[commit]
-	template = /Users/david/.gitmessage.txt
-[http]
-	#proxy = http://dvillavi@proxy.peapod.com:10000
-[https]
-	#proxy = https://dvillavi@proxy.peapod.com:10000
-[filter "hawser"]
-	clean = git hawser clean %f
-	smudge = git hawser smudge %f
-	required = true
-[diff]
-	tool = opendiff
-[mergetool]
-	keepBackup = true
-[filter "lfs"]
-	clean = git-lfs clean %f
-	smudge = git-lfs smudge %f
-	required = true
+    # List contributors with number of commits
+    contributors = shortlog --summary --numbered
+[submodule]
+    fetchJobs = 4
