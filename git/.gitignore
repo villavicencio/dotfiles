@@ -1,0 +1,13 @@
+*~
+*.bak
+Thumbs.db
+desktop.ini
+.DS_Store
+.apdisk
+.fseventsd/
+.Trashes
+.trashes
+.phpcomplete_extended/
+.agignore
+Session.vim
+.undodir
