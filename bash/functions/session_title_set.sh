@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# shellcheck disable=SC2001
 
 # Set the terminal tab title.
 function session_title_set() {
@@ -8,10 +9,12 @@ function session_title_set() {
     fi
 
     case $TERM in
-        xterm*) local title="\[\033]0;$@\007\]";;
+        xterm*) local title="\[\033]0;$*\007\]";;
         *) local title=''
     esac
 
-    local prompt=$(echo "$PS1" | sed -e 's/\\\[\\033\]0;.*\\007\\\]//')
+    prompt=$(echo "$PS1" | sed -e 's/\\\[\\033\]0;.*\\007\\\]//')
+
+    local prompt
     PS1="${title}${prompt}"
 }

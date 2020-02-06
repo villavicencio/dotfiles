@@ -7,9 +7,9 @@ function size_of_file_or_directory() {
 	else
 		local arg=-sh;
 	fi
-	if [[ -n "$@" ]]; then
+	if [[ -n "$*" ]]; then
 		du $arg -- "$@";
 	else
-		du $arg .[^.]* *;
+		du $arg .[^.]* -- *;
 	fi;
 }

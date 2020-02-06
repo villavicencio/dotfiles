@@ -6,7 +6,7 @@ function git_current_branch() {
 	local branchName='';
 
 	# Check if the current directory is in a Git repository.
-	if [ $(git rev-parse --is-inside-work-tree &>/dev/null; echo "${?}") == '0' ]; then
+	if [ "$(git rev-parse --is-inside-work-tree &>/dev/null; echo "${?}")" == '0' ]; then
 
 		# check if the current directory is in .git before running git checks
 		if [ "$(git rev-parse --is-inside-git-dir 2> /dev/null)" == 'false' ]; then
@@ -15,12 +15,12 @@ function git_current_branch() {
 			git update-index --really-refresh -q &>/dev/null;
 
 			# Check for uncommitted changes in the index.
-			if ! $(git diff --quiet --ignore-submodules --cached); then
+			if ! git diff --quiet --ignore-submodules --cached; then
 				s+='+';
 			fi;
 
 			# Check for unstaged changes.
-			if ! $(git diff-files --quiet --ignore-submodules --); then
+			if ! git diff-files --quiet --ignore-submodules --; then
 				s+='!';
 			fi;
 
@@ -30,7 +30,7 @@ function git_current_branch() {
 			fi;
 
 			# Check for stashed files.
-			if $(git rev-parse --verify refs/stash &>/dev/null); then
+			if git rev-parse --verify refs/stash &>/dev/null; then
 				s+='$';
 			fi;
 

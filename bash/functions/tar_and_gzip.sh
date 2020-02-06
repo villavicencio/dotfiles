@@ -2,7 +2,7 @@
 
 # Create a .tar.gz archive, using `zopfli`, `pigz` or `gzip` for compression
 function targ_and_gzip() {
-	local tmpFile="${@%/}.tar";
+	local tmpFile="${*%/}.tar";
 	tar -cvf "${tmpFile}" --exclude=".DS_Store" "${@}" || return 1;
 
 	size=$(
