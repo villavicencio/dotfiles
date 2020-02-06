@@ -7,10 +7,10 @@
 source "$HOME/.config/bash/.options"      # Shell options
 source "$HOME/.config/bash/.vars"         # Variables
 source "$HOME/.config/bash/.path"         # Extend $PATH
-source "$HOME/.config/bash/.bash_prompt"  # Customize prompt and color scheme
 source "$HOME/.config/bash/.exports"      # Define environment variables
 source "$HOME/.config/bash/.functions"    # Bash functions
 source "$HOME/.config/bash/.aliases"      # Define shortcuts
+source "$HOME/.config/bash/.bash_prompt"  # Customize prompt and color scheme
 
 # Load Ruby Version Manager
 [[ -s "$HOME/.rvm/scripts/rvm" ]] && source "$HOME/.rvm/scripts/rvm"
