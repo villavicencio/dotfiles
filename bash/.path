@@ -1,11 +1,13 @@
 #!/usr/bin/env bash
 
 # Add basic PATH stuff
-export PATH="/usr/local/bin:/usr/local/sbin:/usr/local/mysql/bin:/usr/local/share/npm/bin:$PATH"
+export PATH="/usr/local/bin:/usr/local/sbin:$PATH"
 
-# Add experimental stuff in ~/bin to PATH
-export PATH="$PATH:$HOME/bin";
-export PATH="$PATH:$HOME/.local/bin";
+# Add brew curl first to path
+export PATH="/usr/local/opt/curl/bin:$PATH"
+
+# Add MySQL to path
+export PATH="$PATH:/usr/local/mysql/bin"
 
 # Add RVM to PATH for scripting
 export PATH="$PATH:$HOME/.rvm/bin"
@@ -15,6 +17,10 @@ export PATH="$PATH:$HOME/.yarn/bin"
 
 # Add GNU coreutils to PATH
 export PATH="$PATH:/usr/local/opt/coreutils/libexec/gnubin"
+
+# Add my experimental stuff to PATH
+export PATH="$PATH:$HOME/bin";
+export PATH="$PATH:$HOME/.local/bin";
 
 # Export openssl compiler flags
 export LDFLAGS="-L/usr/local/opt/openssl/lib"
