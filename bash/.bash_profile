@@ -44,6 +44,9 @@ fi
 # Load bash completion support for Git.
 source "$HOME/.git-completion.bash"
 
+# Load fzf config if it exists.
+[ -f ~/.fzf.bash ] && source ~/.fzf.bash
+
 # Add tab completion for SSH hostnames based on ~/.ssh/config, ignoring wildcards
 [[ -e "$HOME/.ssh/config" ]] && complete -o "default" -o "nospace" -W \
  "$(grep "^Host" ~/.ssh/config | grep -v "[?*]" | cut -d " " -f2- | tr ' ' '\n')" scp sftp ssh;
