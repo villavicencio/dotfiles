@@ -12,6 +12,9 @@ source "$HOME/.config/bash/.functions"    # Bash functions
 source "$HOME/.config/bash/.aliases"      # Define shortcuts
 source "$HOME/.config/bash/.bash_prompt"  # Customize prompt and color scheme
 
+# Load local/sensitive config that should not be committed.
+[[ -r $HOME/.config/bash/.bashrc.local ]] && source "$HOME/.config/bash/.bashrc.local"
+
 # Load Ruby Version Manager
 [[ -s "$HOME/.rvm/scripts/rvm" ]] && source "$HOME/.rvm/scripts/rvm"
 
@@ -52,6 +55,7 @@ source "$HOME/.git-completion.bash"
  "$(grep "^Host" ~/.ssh/config | grep -v "[?*]" | cut -d " " -f2- | tr ' ' '\n')" scp sftp ssh;
 
 # Ignore case in bash completion
+bind "set show-all-if-ambiguous on"
 bind "set completion-ignore-case on"
 
 # No bell
@@ -66,9 +70,6 @@ complete -W "NSGlobalDomain" defaults;
 
 # Add `killall` tab completion for common apps
 complete -o "nospace" -W "Contacts Calendar Dock Finder Mail Safari iTunes SystemUIServer Terminal Twitter" killall;
-
-# Ignore some useless commands in history
-HISTIGNORE='&:ls:[bf]g:exit:pwd:clear:mount:umount:suz:history'
 
 # Ensure synchronization between bash memory and history file
 export PROMPT_COMMAND="history -a; history -n; ${PROMPT_COMMAND}"

@@ -10,7 +10,7 @@ export NODE_REPL_HISTORY_FILE=~/.node_history;
 export NODE_REPL_HISTORY_SIZE='32768';
 
 # Increase Bash history size. Allow 32³ entries; the default is 500.
-export HISTSIZE='32768';
+export HISTSIZE=1000000;
 export HISTFILESIZE="${HISTSIZE}";
 
 # Add timestamps to Bash history entries.
@@ -18,6 +18,9 @@ export HISTTIMEFORMAT="%d/%m/%y %T "
 
 # Omit duplicates and commands that begin with a space from history.
 export HISTCONTROL='ignoreboth';
+
+# Ignore some useless commands in history
+HISTIGNORE='&:ls:[bf]g:exit:pwd:clear:mount:umount:suz:history'
 
 # After each command, append to the history file and reread it.
 export PROMPT_COMMAND="${PROMPT_COMMAND:+$PROMPT_COMMAND$'\n'}history -a; history -c; history -r";
@@ -50,14 +53,7 @@ export NODE_ENV=development
 # Ant options.
 export ANT_OPTS=-Dbuild.sysclasspath=ignore
 
-# Gist-scope token for HyperTerm backup plugin.
-export HYPERTERM_SYNC_SETTINGS_PERSONAL_ACCESS_TOKEN="77a6b9bd97f6a15b3ee659e89ac472f303b33d4a"
-
-# Docker
-export PHP_REMOTE_DEBUG_HOST_IP=10.254.254.254
-
 # Homebrew
-export HOMEBREW_GITHUB_API_TOKEN="339c6c067512ad2766787c488deda847c8960677"
 export HOMEBREW_INSTALL_CLEANUP=1
 
 # Linker and compiler flags for zlib
@@ -74,3 +70,5 @@ export PYENV_VIRTUALENV_DISABLE_PROMPT=1
 export AWS_REGION=us-east-1
 export AWS_SESSION_TTL=12h
 export AWS_ASSUME_ROLE_TTL=12h
+
+export XML_CATALOG_FILES="/usr/local/etc/xml/catalog"

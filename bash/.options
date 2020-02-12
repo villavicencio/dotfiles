@@ -1,16 +1,27 @@
 #!/usr/bin/env bash
 
-# Case-insensitive globbing (used in pathname expansion)
+# Case-insensitive globbing (used in pathname expansion).
 shopt -s nocaseglob;
 
-# Append to the Bash history file, rather than overwriting it
+# Append to the Bash history file, rather than overwriting it.
 shopt -s histappend;
 
-# Autocorrect typos in path names when using `cd`
+# If set, Bash attempts to save all lines of a multiple-line command in the same history entry.
+# This allows easy re-editing of multi-line commands.
+shopt -s cmdhist;
+
+# Enable history verification. Bang commands (!, !!, !?) will print to shell and not be auto executed.
+# http://superuser.com/a/7416
+shopt -s histverify;
+
+# instead of 'cd Pictures', just run Pictures.
+shopt -s autocd;
+
+# Autocorrect typos in path names when using `cd`.
 shopt -s cdspell;
 
-# After each command, checks the windows size and changes lines and columns
-shopt -s checkwinsize
+# After each command, checks the windows size and changes lines and columns.
+shopt -s checkwinsize;
 
 # Enable some Bash 4 features when possible:
 # * `autocd`, e.g. `**/qux` will enter `./foo/bar/baz/qux`
