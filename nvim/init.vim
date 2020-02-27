@@ -1,7 +1,8 @@
 " Use the Solarized Dark theme
 set background=dark
-colorscheme solarized
-let g:solarized_termtrans=1
+"colorscheme solarized
+colorscheme pencil
+"let g:solarized_termtrans=1
 
 " Make Vim more useful
 set nocompatible
@@ -81,6 +82,17 @@ set showcmd
 " Start scrolling three lines before the horizontal window border
 set scrolloff=3
 
+" Checkboxes
+augroup MappyTime
+  autocmd!
+  autocmd FileType markdown nnoremap <buffer> <silent> - :call winrestview(<SID>toggle('^\s*-\s*\[\zs.\ze\]', {' ': '.', '.': 'x', 'x': ' '}))<cr>
+augroup END
+function s:toggle(pattern, dict, ...)
+  let view = winsaveview()
+  execute 'keeppatterns s/' . a:pattern . '/\=get(a:dict, submatch(0), a:0 ? a:1 : " ")/e'
+  return view
+endfunction
+
 " Strip trailing whitespace (,ss)
 function! StripWhitespace()
 	let save_cursor = getpos(".")
@@ -92,6 +104,9 @@ endfunction
 noremap <leader>ss :call StripWhitespace()<CR>
 " Save a file as root (,W)
 noremap <leader>W :w !sudo tee % > /dev/null<CR>
+
+" Right-align with <leader><tab> (https://unix.stackexchange.com/a/260277)
+nnoremap <leader><tab> mc80A <esc>080lDgelD`cP
 
 " Automatic commands
 if has("autocmd")
@@ -114,13 +129,11 @@ let g:neomake_serialize_abort_on_error = 1
 nnoremap <Leader>gy :Goyo<CR>
 
 " Turn Limelight on/off depending if Goyo is enabled.
-autocmd! User GoyoEnter Limelight
+autocmd! User GoyoEnter Limelight 0.33
 autocmd! User GoyoLeave Limelight!
 
-" Set Limelight color for dimmed text.
-let g:limelight_conceal_ctermfg = 240
-
 " Initialize Pencil automatically for editing prose.
+let g:pencil#wrapModeDefault = 'soft'
 augroup pencil
   autocmd!
   autocmd FileType markdown,mkd call pencil#init()
@@ -136,9 +149,15 @@ call plug#begin('~/.config/nvim/plugged')
 Plug 'vimwiki/vimwiki'
 Plug 'junegunn/goyo.vim'
 Plug 'junegunn/limelight.vim'
+Plug 'junegunn/fzf', { 'do': './install --bin' }
+Plug 'junegunn/fzf.vim'
 Plug 'godlygeek/tabular'
 Plug 'plasticboy/vim-markdown'
 Plug 'neomake/neomake'
 Plug 'reedes/vim-pencil'
+Plug 'reedes/vim-wordy'
+Plug 'reedes/vim-colors-pencil'
+Plug 'ron89/thesaurus_query.vim'
+Plug 'python-mode/python-mode'
 " Initialize plugin system
 call plug#end()
