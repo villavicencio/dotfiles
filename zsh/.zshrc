@@ -66,6 +66,7 @@ source "$HOME/.config/zsh/options"      # Shell options
 source "$HOME/.config/zsh/path"         # Extend $PATH
 source "$HOME/.config/zsh/export.sh"		# Define environment variables
 source "$HOME/.config/zsh/functions"		# Bash functions
+source "$HOME/.config/zsh/iterm2.zsh"		# iTerm2 shell integration
 source "$HOME/.config/zsh/alias.sh"			# Define shortcuts
 source "$HOME/.config/zsh/prompt.sh"		# Customize prompt and color scheme
 
@@ -94,3 +95,4 @@ export LANG=en_US.UTF-8
 # alias ohmyzsh="mate ~/.oh-my-zsh"
 
 [ -f ~/.fzf.zsh ] && source ~/.fzf.zsh
+
