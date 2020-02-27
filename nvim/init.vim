@@ -23,10 +23,10 @@ set encoding=utf-8 nobomb
 " Change mapleader
 let mapleader=","
 " Centralize backups, swapfiles and undo history
-set backupdir=~/.vim/backups
-set directory=~/.vim/swaps
+set backupdir=$HOME/.config/nvim/backups
+set directory=$HOME/.config/nvim/swaps
 if exists("&undodir")
-	set undodir=~/.vim/undo
+	set undodir=$HOME/.config/nvim/undo
 endif
 
 " Don’t create backups when editing files in certain directories
