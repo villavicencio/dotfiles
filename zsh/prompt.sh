@@ -5,7 +5,7 @@ export TERM='xterm-256color'
 export CLICOLOR=1
 export LSCOLORS=bxFxBxDxCxegedabagacad
 export HSTR_CONFIG=hicolor
-neofetch
+
 # shellcheck disable=SC2154
 RESET=$reset_color
 # shellcheck disable=SC2016
