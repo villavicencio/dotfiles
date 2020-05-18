@@ -157,6 +157,9 @@ if type nvim > /dev/null 2>&1; then
   alias vi='vim'
 fi
 
+# Open tmux with custom config location
+alias tmux='tmux -f "$XDG_CONFIG_HOME"/tmux/tmux.conf'
+
 # Set shortcuts for some custom functions
 alias crm='docker_stop_all'
 alias fs='size_of_file_or_directory'
