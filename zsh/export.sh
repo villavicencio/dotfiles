@@ -1,7 +1,6 @@
-#!/usr/bin/env sh
-
 # Make vim the default editor.
 export EDITOR='nvim'
+export MYVIMRC=$HOME/.config/nvim/init.vim
 
 # Enable persistent REPL history for `node`.
 export NODE_REPL_HISTORY_FILE=~/.node_history

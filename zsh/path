@@ -18,6 +18,9 @@ export PATH="$PATH:$HOME/.yarn/bin"
 # Add GNU coreutils to PATH
 #export PATH="$PATH:/usr/local/opt/coreutils/libexec/gnubin"
 
+# Add Rust bin to PATH
+export PATH="$PATH:$HOME/.cargo/bin";
+
 # Add my experimental stuff to PATH
 export PATH="$PATH:$HOME/bin";
 export PATH="$PATH:$HOME/.local/bin";

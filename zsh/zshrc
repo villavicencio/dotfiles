@@ -90,7 +90,8 @@ export LANG=en_US.UTF-8
 [ -f ~/.fzf.zsh ] && source ~/.fzf.zsh
 
 # Load Node Version Manager
-[[ -s "$NVM_DIR/nvm.sh" ]] && . "$NVM_DIR/nvm.sh"
+# [[ -s "$NVM_DIR/nvm.sh" ]] && . "$NVM_DIR/nvm.sh"
+source $(brew --prefix nvm)/nvm.sh
 
 # Hacky solution to automatically restore previous tmux sessions after restart.
 tmux ls >/dev/null 2>&1 || (tmux start-server && tmux new -s dummy -d && sleep 1s && tmux kill-session -t dummy)
