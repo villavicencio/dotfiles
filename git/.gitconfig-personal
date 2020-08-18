@@ -62,3 +62,5 @@
     contributors = shortlog --summary --numbered
 [submodule]
     fetchJobs = 4
+[pull]
+	rebase = false
