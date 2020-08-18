@@ -69,7 +69,7 @@ source "$HOME/.config/zsh/functions"		# Bash functions
 source "$HOME/.config/zsh/iterm2.zsh"		# iTerm2 shell integration
 source "$HOME/.config/zsh/alias.sh"			# Define shortcuts
 source "$HOME/.config/zsh/prompt.sh"		# Customize prompt and color scheme
-
+eval "$(starship init zsh)"
 # export MANPATH="/usr/local/man:$MANPATH"
 
 # You may need to manually set your language environment
