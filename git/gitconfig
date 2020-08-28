@@ -5,7 +5,7 @@
     default = current
     recurseSubmodules = on-demand
 [commit]
-    template = ~/.gitcommit.template
+    #template = ~/.gitcommit.template
 [color]
     ui = true
     status = true
@@ -15,9 +15,9 @@
 [core]
     editor = vim
     ignorecase = false
-    excludesfile = /Users/david/.gitignore
-    attributesfile = /Users/david/.gitattributes
-	pager = vim -
+    excludesfile = ~/Projects/Personal/dotfiles/git/gitignore
+    attributesfile = ~/Projects/Personal/dotfiles/git/gitattributes
+    pager = vim -
 [help]
     autocorrect = 1
 [gitflow "branch"]
