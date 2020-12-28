@@ -1,11 +1,3 @@
-"  ________                ___ ___               .__
-"  \______ \   _______  __/   |   \   ___________|  |   ____   ______
-"   |    |  \_/ __ \  \/ /    ~    \_/ __ \_  __ \  | _/ __ \ /  ___/
-"   |    `   \  ___/\   /\    Y    /\  ___/|  | \/  |_\  ___/ \___ \
-"  /_______  /\___  >\_/  \___|_  /  \___  >__|  |____/\___  >____  >
-"          \/     \/            \/       \/                \/     \/
-" | Author: HerlesINC | Github: DevHerles | Email: herles.incalla@gmail.com |
-
 " auto-install vim-plug
 if empty(glob('~/.config/nvim/autoload/plug.vim'))
   silent !curl -fLo ~/.config/nvim/autoload/plug.vim --create-dirs
@@ -24,7 +16,8 @@ Plug 'voldikss/vim-floaterm'
 
 " MARKDOWN {{{
 
-Plug 'tpope/vim-markdown' " ------------------------ Vim Markdown runtime files
+"Plug 'tpope/vim-markdown' " ------------------------ Vim Markdown runtime files
+Plug 'plasticboy/vim-markdown'
 Plug 'iamcco/markdown-preview.nvim', { 'do': { -> mkdp#util#install() }, 'for': ['markdown', 'vim-plug']}
 
 " }}}
@@ -169,21 +162,18 @@ endif
 " }}}
 
 
-"filetype plugin on
-" Specify a directory for plugins
-"call plug#begin('~/.config/nvim/plugged')
 Plug 'vimwiki/vimwiki'
 Plug 'junegunn/goyo.vim'
 Plug 'junegunn/limelight.vim'
 Plug 'godlygeek/tabular'
-"Plug 'plasticboy/vim-markdown'
 Plug 'reedes/vim-pencil'
-Plug 'reedes/vim-wordy'
+Plug 'reedes/vim-lexical' " Better spellcheck mappings
+Plug 'reedes/vim-litecorrect' " Better autocorrections
+Plug 'reedes/vim-textobj-sentence' " Treat sentences as text objects
+Plug 'reedes/vim-wordy' " Weasel words and passive voice
+Plug 'tpope/vim-abolish' " Fancy abbreviation replacements
 Plug 'reedes/vim-colors-pencil'
 Plug 'ron89/thesaurus_query.vim'
-" Initialize plugin system
-"call plug#end()
-
 
 
 call plug#end() " -------------------------------------- End of Vim-Plug define

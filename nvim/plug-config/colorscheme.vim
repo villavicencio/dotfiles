@@ -1,4 +1,4 @@
-" DEFAULT-COLORSCHEME {{{
+" Default colorscheme {{{
 
 set termguicolors
 let g:tokyonight_style = 'night' " -------------------- available: night, storm
@@ -7,53 +7,10 @@ colorscheme tokyonight
 
 " }}}
 
-" {{{ Generate random integer to choose color scheme
-
-function! RandInt(Low, High) abort
-python3 << EOF
-import vim
-import random
-idx = random.randint(int(vim.eval('a:Low')), int(vim.eval('a:High')))
-vim.command("let index = {}".format(idx))
-EOF
-return index
-endfunction
-
-function! RandInt2(Low, High) abort
-python << EOF
-import vim
-import random
-idx = random.randint(int(vim.eval('a:Low')), int(vim.eval('a:High')))
-vim.command("let index = {}".format(idx))
-EOF
-return index
-endfunction
-
-" }}}
-
-" {{{ Function called anytime the colorscheme is to be changed randomly
-
-function! Init(Max) abort
-  let s:p3 = 0
-  if has('python3')
-    let s:idx = RandInt(0, a:Max)
-    let s:p3 = 1
-  endif
-
-  if has('python') && !s:p3
-    let s:idx = RandInt2(0, a:Max)
-  endif
-
-  execute ":call SwitchColor(" . s:idx . ")"
-endfunction
-
-" }}}
 
 " SWITCH COLORSCHEME {{{
-let loaded_switchcolor = 1
-
-let s:colorschemes = [ 'tokyonight-night', 'nord', 'tokyonight-storm',
-      \ 'onedark', 'aranda', 'one', 'iceberg' ]
+let s:colorschemes = [ 'tokyonight-night', 'tokyonight-storm', 'nord',
+      \ 'onedark', 'aranda', 'one', 'iceberg', 'palenight' ]
 let s:swback = 0 " -------- background variants light/dark was not yet switched
 let s:swindex = 0
 
@@ -69,17 +26,17 @@ function! SwitchColor(swinc)
       let g:tokyonight_enable_italic = 1
       let g:tokyonight_transparent_background = 0
       let g:airline_theme='tokyonight' " --------------- Set status bar's theme
-      execute "colorscheme " . s:colorscheme[0]
+      execute "colorscheme " . s:colorscheme[i]
     elseif (s:colorschemes[i] == 'tokyonight-storm')
       let g:tokyonight_style = 'storm' " ------------------------- night, storm
       let g:tokyonight_enable_italic = 1
       let g:tokyonight_transparent_background = 0
       let g:airline_theme='tokyonight' " --------------- Set status bar's theme
-      execute "colorscheme " . s:colorscheme[0]
+      execute "colorscheme " . s:colorscheme[i]
     elseif (s:colorschemes[i] == 'nord')
       set termguicolors
       let g:airline_theme='nord' " --------------------- Set status bar's theme
-      execute "colorscheme " . s:colorscheme[0]
+      execute "colorscheme " . s:colorscheme[i]
     elseif (s:colorschemes[i] == 'onedark')
       let g:airline_theme='onedark'
       execute "colorscheme " . s:colorschemes[i]
@@ -124,19 +81,3 @@ endfunction
 
 " }}}
 
-" {{{ change color randomly on command
-
-function! ChangeRandomColorscheme() abort
-  let g:indicies = Init(len(s:colorschemes))
-endfunction
-
-" }}}
-
-" MAPPINGS {{{
-
-map <silent><F8> :call ChangeRandomColorscheme()<CR>
-map <silent><F9> :colorscheme aranda<CR>
-
-" }}}
-"
-" autocmd VimEnter * execute ChangeRandomColorscheme()

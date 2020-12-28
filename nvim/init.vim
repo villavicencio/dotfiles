@@ -7,17 +7,20 @@ source $DOTFILES/nvim/general/spell.vim
 source $DOTFILES/nvim/keys/mappings.vim
 source $DOTFILES/nvim/keys/which_key.vim
 
-source $DOTFILES/nvim/themes/airline.vim " --------- Airline theme settings
-source $DOTFILES/nvim/plug-config/plugins.vim " ---------- Pluggins configs
-source $DOTFILES/nvim/plug-config/coc.vim " ------------------- Coc configs
-source $DOTFILES/nvim/plug-config/autoformat.vim " ----- CODEFoRMAT configs
-source $DOTFILES/nvim/plug-config/floaterm.vim " --------- Floaterm configs
-source $DOTFILES/nvim/plug-config/fzf.vim " ------------------- FZF configs
-source $DOTFILES/nvim/plug-config/sneak.vim " --------------- Sneak configs
-source $DOTFILES/nvim/plug-config/gitgutter.vim " ------- GitGutter configs
-source $DOTFILES/nvim/plug-config/rnvimr.vim " -----Rnvimr (Ranger) configs
-source $DOTFILES/nvim/plug-config/vim-commentary.vim " vim-commentary confs
-source $DOTFILES/nvim/plug-config/colorscheme.vim " ---- Random Colorscheme
-source $DOTFILES/nvim/plug-config/goyo.vim " ----------------- Goyo configs
-source $DOTFILES/nvim/plug-config/pencil.vim " ------------- Pencil configs
+source $DOTFILES/nvim/themes/airline.vim
+source $DOTFILES/nvim/plug-config/plugins.vim
+source $DOTFILES/nvim/plug-config/coc.vim
+source $DOTFILES/nvim/plug-config/autoformat.vim
+source $DOTFILES/nvim/plug-config/floaterm.vim
+source $DOTFILES/nvim/plug-config/fzf.vim
+source $DOTFILES/nvim/plug-config/sneak.vim
+source $DOTFILES/nvim/plug-config/gitgutter.vim
+source $DOTFILES/nvim/plug-config/rnvimr.vim
+source $DOTFILES/nvim/plug-config/vim-commentary.vim
+source $DOTFILES/nvim/plug-config/colorscheme.vim
+source $DOTFILES/nvim/plug-config/goyo.vim
+source $DOTFILES/nvim/plug-config/pencil.vim
+source $DOTFILES/nvim/plug-config/markdown-preview.vim
+source $DOTFILES/nvim/plug-config/vim-wiki.vim
+
 luafile $DOTFILES/nvim/lua/plug-colorizer.lua

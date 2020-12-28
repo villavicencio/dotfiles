@@ -1,5 +1,5 @@
-" , Leader key
-let mapleader=","
+" Map leader to spacebar
+let mapleader=" "
 " let localleader=" "
 nnoremap <Space> <Nop>
 

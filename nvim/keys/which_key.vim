@@ -53,7 +53,7 @@ let g:which_key_map['r'] = [ ':Rg'                        , 'search text' ]
 let g:which_key_map['S'] = [ '<Plug>(easymotion-overwin-f)' , 'easymotion-f' ]
 let g:which_key_map['v'] = [ '<C-W>v'                     , 'split right' ]
 let g:which_key_map['w'] = [ 'w'                          , 'write' ]
-let g:which_key_map['y'] = [ 'yaw'                        , 'yank current word' ]
+let g:which_key_map['y'] = [ ':Goyo'                      , 'Goyo' ]
 let g:which_key_map['x'] = [ 'daw'                        , 'cut word' ]
 let g:which_key_map['z'] = [':FloatermToggle'             , 'zhell' ]
 
@@ -86,15 +86,14 @@ let g:which_key_map.B = {
 
 let g:which_key_map.C = {
       \ 'name' : '+colorscheme' ,
-      \ '1' : [':call SwitchColor(0)'            , 'nord'],
-      \ '2' : [':call SwitchColor(1)'            , 'tokyonight-night'],
-      \ '3' : [':call SwitchColor(2)'            , 'tokyonight-storm'],
+      \ '1' : [':call SwitchColor(0)'            , 'tokyonight-night'],
+      \ '2' : [':call SwitchColor(1)'            , 'tokyonight-storm'],
+      \ '3' : [':call SwitchColor(2)'            , 'nord'],
       \ '4' : [':call SwitchColor(3)'            , 'onedark'],
       \ '5' : [':call SwitchColor(4)'            , 'aranda'],
       \ '6' : [':call SwitchColor(5)'            , 'one'],
       \ '7' : [':call SwitchColor(6)'            , 'iceberg'],
       \ '8' : [':call SwitchColor(7)'            , 'palenight'],
-      \ '0' : [':call ChangeRandomColorscheme()' , 'random'],
       \ }
 
 " s is for search
@@ -229,29 +228,5 @@ let g:which_key_map.W = {
       \ }
 
 " Global
-" <Plug>VimwikiIndex
-" <Plug>VimwikiTabIndex
-" <Plug>VimwikiUISelect
-" <Plug>VimwikiDiaryIndex
-" <Plug>VimwikiMakeDiaryNote
-" <Plug>VimwikiTabMakeDiaryNote
-" <Plug>VimwikiMakeYesterdayDiaryNote
-" <Plug>VimwikiMakeTomorrowDiaryNote
-"
-" " Local
-" <Plug>Vimwiki2HTML
-" <Plug>Vimwiki2HTMLBrowse
-" <Plug>VimwikiDiaryGenerateLinks
-" <Plug>VimwikiFollowLink
-" <Plug>VimwikiSplitLink
-" <Plug>VimwikiVSplitLink
-" <Plug>VimwikiTabnewLink
-" <Plug>VimwikiGoBackLink
-" <Plug>VimwikiNextLink
-" <Plug>VimwikiPrevLink
-" <Plug>VimwikiGoto
-" <Plug>VimwikiDeleteLink
-" <Plug>VimwikiRenameLink
-" <Plug>VimwikiAddHeaderLevel
 
 autocmd! User vim-which-key call which_key#register('<Space>', 'g:which_key_map')

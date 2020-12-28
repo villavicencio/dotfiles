@@ -1,6 +1,6 @@
 " PYTHON PROVIDERS {{{
-
-let g:python3_host_prog = '/usr/local/bin/python3' " -- Set python 3 provider
+"let g:python_version = matchstr(system("python --version | cut -f2 -d' '"), '^[0-9]')
+let g:python3_host_prog = '~/.pyenv/shims/python3' " -- Set python 3 provider
 let g:python_host_prog = '/usr/bin/python' " --- Set python 2 provider
 
 " }}}
