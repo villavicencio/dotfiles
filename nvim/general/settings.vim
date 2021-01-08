@@ -66,7 +66,10 @@ autocmd FileType * setlocal formatoptions-=c formatoptions-=r formatoptions-=o
 
 syntax on " -------------------------------------------- Enable Syntax for Code
 syntax enable
-set foldmethod=manual " -------------------------------- Support fold by indent
+set foldmethod=syntax " -------------------------------- Syntax highlighting items specify folds
+set foldcolumn=0 " ------------------------------------- Hide the foldcolumn which indicates foldlevel
+let javaScript_fold=1 " -------------------------------- Activate folding by JS syntax
+set foldlevelstart=99 " -------------------------------- Start file with all folds opened
 
 " }}}
 
