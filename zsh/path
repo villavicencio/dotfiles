@@ -15,6 +15,9 @@ export PATH="$PATH:$HOME/.rvm/bin"
 # Add Yarn to PATH
 export PATH="$PATH:$HOME/.yarn/bin"
 
+# Add cargo-installed binaries to the path
+export PATH="$PATH:$CARGO_HOME/bin"
+
 # Add GNU coreutils to PATH
 #export PATH="$PATH:/usr/local/opt/coreutils/libexec/gnubin"
 
