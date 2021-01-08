@@ -22,7 +22,7 @@ set winbl=10 " ----------------- Set floating window to be slightly transparent
 
 set encoding=utf8
 set nowrap " -------------------------------- do not automatically wrap on load
-set colorcolumn=80 " -------------------------------------- 80 line column show
+set colorcolumn= " ---------------------------------------- Disable colorcolumn
 set nospell " ------------------------------------------------ Disable spelling
 set formatoptions-=t " ------------- Do not automatically wrap text when typing
 set listchars=tab:\|\ ,trail:▫
