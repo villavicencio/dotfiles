@@ -1,5 +1,6 @@
 #!/usr/bin/env sh
 
+export TERM='xterm-256color'
 # Make vim the default editor.
 export EDITOR='nvim'
 
