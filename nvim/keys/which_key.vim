@@ -23,20 +23,14 @@ autocmd  FileType which_key set laststatus=0 noshowmode noruler
 let g:which_key_map['/'] = [ ':call Comment()'            , 'comment' ]
 let g:which_key_map['0'] = [ ':source $MYVIMRC'           , 'reload init.vim' ]
 let g:which_key_map['1'] = [ ':e!'                        , 'reload file' ]
-let g:which_key_map['2'] = [ ':diffget //2'               , 'git ours' ]
-let g:which_key_map['3'] = [ ':diffget //3'               , 'git theirs' ]
-let g:which_key_map['4'] = [ ':CocCommand flutter.emulators' , 'flutter emuls' ]
-let g:which_key_map['5'] = [ ':CocCommand flutter.run'    , 'flutter run' ]
 let g:which_key_map['.'] = [ '<Plug>(coc-codeaction)'     , 'coc-codeaction' ]
-let g:which_key_map[','] = [ '<Plug>(GitGutterNextHunk)'  , 'git next hunk' ]
-let g:which_key_map['<'] = [ '<Plug>(GitGutterPrevHunk)'  , 'git prev hunk' ]
 let g:which_key_map['$'] = [ ':e $MYVIMRC'                , 'open init.vim' ]
 let g:which_key_map[';'] = [ ':Commands'                  , 'commands' ]
 let g:which_key_map['+'] = [ ':vertical resize +20'       , 'vertical+resize' ]
 let g:which_key_map['-'] = [ ':vertical resize -20'       , 'vertical-resize' ]
 let g:which_key_map['='] = [ '<C-W>='                     , 'balance windows' ]
 let g:which_key_map['a'] = [ ':call FoldUnfodlAll()'      , 'unfold-all' ]
-let g:which_key_map['c'] = [ ':call ConcealUnconceal()'   , 'counceal' ]
+let g:which_key_map['?'] = [ 'Buffers'                    , 'fzf-buffer' ]
 let g:which_key_map['d'] = [ ':Bdelete'                   , 'delete buffer' ]
 let g:which_key_map['D'] = [ ':Bonly'                     , 'delete other buffs' ]
 let g:which_key_map['e'] = [ ':CocCommand explorer'       , 'explorer' ]
@@ -48,11 +42,9 @@ let g:which_key_map['j'] = [ '<Plug>(easymotion-j)'       , 'easymotion-j' ]
 let g:which_key_map['k'] = [ '<Plug>(easymotion-k)'       , 'easymotion-k' ]
 let g:which_key_map['m'] = [ ':Marks'                     , 'marks' ]
 let g:which_key_map['o'] = [ 'zA'                         , 'fold/unfold' ]
-let g:which_key_map['q'] = [ 'q'                          , 'quit' ]
 let g:which_key_map['r'] = [ ':Rg'                        , 'search text' ]
 let g:which_key_map['S'] = [ '<Plug>(easymotion-overwin-f)' , 'easymotion-f' ]
 let g:which_key_map['v'] = [ '<C-W>v'                     , 'split right' ]
-let g:which_key_map['w'] = [ 'w'                          , 'write' ]
 let g:which_key_map['y'] = [ ':Goyo'                      , 'Goyo' ]
 let g:which_key_map['x'] = [ 'daw'                        , 'cut word' ]
 let g:which_key_map['z'] = [':FloatermToggle'             , 'zhell' ]
@@ -68,32 +60,6 @@ let g:which_key_map.A = {
       \ 't' : [':FloatermToggle'         , 'terminal'],
       \ 'V' : [':Vista!!'                , 'tag viewer'],
       \ 'w' : [':w'                      , 'write buffer'],
-      \ }
-
-" b is for buffer
-let g:which_key_map.B = {
-      \ 'name' : '+buffer' ,
-      \ '1' : ['b1'        , 'buffer 1']        ,
-      \ '2' : ['b2'        , 'buffer 2']        ,
-      \ 'd' : ['bd'        , 'delete-buffer']   ,
-      \ 'f' : ['bfirst'    , 'first-buffer']    ,
-      \ 'h' : ['Startify'  , 'home-buffer']     ,
-      \ 'l' : ['blast'     , 'last-buffer']     ,
-      \ 'n' : ['bnext'     , 'next-buffer']     ,
-      \ 'p' : ['bprevious' , 'previous-buffer'] ,
-      \ '?' : ['Buffers'   , 'fzf-buffer']      ,
-      \ }
-
-let g:which_key_map.C = {
-      \ 'name' : '+colorscheme' ,
-      \ '1' : [':call SwitchColor(0)'            , 'tokyonight-night'],
-      \ '2' : [':call SwitchColor(1)'            , 'tokyonight-storm'],
-      \ '3' : [':call SwitchColor(2)'            , 'nord'],
-      \ '4' : [':call SwitchColor(3)'            , 'onedark'],
-      \ '5' : [':call SwitchColor(4)'            , 'aranda'],
-      \ '6' : [':call SwitchColor(5)'            , 'one'],
-      \ '7' : [':call SwitchColor(6)'            , 'iceberg'],
-      \ '8' : [':call SwitchColor(7)'            , 'palenight'],
       \ }
 
 " s is for search
@@ -123,33 +89,6 @@ let g:which_key_map.F = {
       \ 'w' : [':Windows'               , 'search windows'],
       \ 'y' : [':Filetypes'             , 'file types'],
       \ 'z' : [':FZF'                   , 'FZF'],
-      \ }
-
-" g is for git
-let g:which_key_map.G = {
-      \ 'name' : '+git' ,
-      \ 'a' : [':Git add .'                        , 'add all'],
-      \ 'A' : [':Git add %'                        , 'add current'],
-      \ 'b' : [':Git blame'                        , 'blame'],
-      \ 'B' : [':GBrowse'                          , 'browse'],
-      \ 'c' : [':Git commit'                       , 'commit'],
-      \ 'd' : [':Git diff'                         , 'diff'],
-      \ 'D' : [':Gdiffsplit!'                      , 'diff split'],
-      \ 'g' : [':GGrep'                            , 'git grep'],
-      \ 'G' : [':Gstatus'                          , 'status'],
-      \ 'h' : [':GitGutterLineHighlightsToggle'    , 'highlight hunks'],
-      \ 'H' : ['<Plug>(GitGutterPreviewHunk)'      , 'preview hunk'],
-      \ 'j' : ['<Plug>(GitGutterNextHunk)'         , 'next hunk'],
-      \ 'k' : ['<Plug>(GitGutterPrevHunk)'         , 'prev hunk'],
-      \ 'l' : [':Git log'                          , 'log'],
-      \ 'p' : [':Git push'                         , 'push'],
-      \ 'P' : [':Git pull'                         , 'pull'],
-      \ 'r' : [':GRemove'                          , 'remove'],
-      \ 's' : ['<Plug>(GitGutterStageHunk)'        , 'stage hunk'],
-      \ 't' : [':GitGutterSignsToggle'             , 'toggle signs'],
-      \ 'u' : ['<Plug>(GitGutterUndoHunk)'         , 'undo hunk'],
-      \ 'v' : [':GV'                               , 'view commits'],
-      \ 'V' : [':GV!'                              , 'view buffer commits'],
       \ }
 
 " l is for language server protocol
@@ -204,27 +143,6 @@ let g:which_key_map.T = {
       \ 'r' : [':FloatermNew ranger'                            , 'ranger'],
       \ 'y' : [':FloatermNew ytop'                              , 'ytop'],
       \ 's' : [':FloatermNew ncdu'                              , 'ncdu'],
-      \ }
-
-" w is for wiki
-let g:which_key_map.W = {
-      \ 'name' : '+wiki' ,
-      \ 'w' : ['<Plug>VimwikiIndex'                             , 'ncdu'],
-      \ 'n' : ['<plug>(wiki-open)'                              , 'ncdu'],
-      \ 'j' : ['<plug>(wiki-journal)'                           , 'ncdu'],
-      \ 'R' : ['<plug>(wiki-reload)'                            , 'ncdu'],
-      \ 'c' : ['<plug>(wiki-code-run)'                          , 'ncdu'],
-      \ 'b' : ['<plug>(wiki-graph-find-backlinks)'              , 'ncdu'],
-      \ 'g' : ['<plug>(wiki-graph-in)'                          , 'ncdu'],
-      \ 'G' : ['<plug>(wiki-graph-out)'                         , 'ncdu'],
-      \ 'l' : ['<plug>(wiki-link-toggle)'                       , 'ncdu'],
-      \ 'd' : ['<plug>(wiki-page-delete)'                       , 'ncdu'],
-      \ 'r' : ['<plug>(wiki-page-rename)'                       , 'ncdu'],
-      \ 't' : ['<plug>(wiki-page-toc)'                          , 'ncdu'],
-      \ 'T' : ['<plug>(wiki-page-toc-local)'                    , 'ncdu'],
-      \ 'e' : ['<plug>(wiki-export)'                            , 'ncdu'],
-      \ 'u' : ['<plug>(wiki-list-uniq)'                         , 'ncdu'],
-      \ 'U' : ['<plug>(wiki-list-uniq-local)'                   , 'ncdu'],
       \ }
 
 " Global
