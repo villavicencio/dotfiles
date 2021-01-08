@@ -125,6 +125,7 @@ Plug 'mg979/vim-visual-multi' " ------------------------------- Multiple Cursor
 Plug 'NLKNguyen/copy-cut-paste.vim' " -------------- Copy, Paste with Clipboard
 "Plug 'segeljakt/vim-silicon' " --------------------------- Coud be enteresting
 Plug 'RRethy/vim-illuminate' " - Auto highlight other uses of word under cursor
+Plug 'TaDaa/vimade'
 " }}}
 
 " COC {{{

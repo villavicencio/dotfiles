@@ -22,5 +22,6 @@ source $DOTFILES/nvim/plug-config/goyo.vim
 source $DOTFILES/nvim/plug-config/pencil.vim
 source $DOTFILES/nvim/plug-config/markdown-preview.vim
 source $DOTFILES/nvim/plug-config/vim-wiki.vim
+source $DOTFILES/nvim/plug-config/vimade.vim
 
 luafile $DOTFILES/nvim/lua/plug-colorizer.lua
