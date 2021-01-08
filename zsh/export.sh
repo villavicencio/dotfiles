@@ -1,6 +1,7 @@
 #!/usr/bin/env sh
 
 export TERM='xterm-256color'
+
 # Make vim the default editor.
 export EDITOR='nvim'
 
@@ -37,6 +38,11 @@ export MANPAGER='less -X'
 
 # Colorful MAN pages.
 export PAGER=most
+
+# Colorful less.
+LESSPIPE=`which src-hilite-lesspipe.sh`
+export LESSOPEN="| ${LESSPIPE} %s"
+export LESS=' -R -X -F '
 
 # Always enable colored `grep` output.
 export GREP_OPTIONS='--color=auto'
