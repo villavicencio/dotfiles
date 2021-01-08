@@ -176,6 +176,7 @@ Plug 'reedes/vim-wordy' " Weasel words and passive voice
 Plug 'tpope/vim-abolish' " Fancy abbreviation replacements
 Plug 'reedes/vim-colors-pencil'
 Plug 'ron89/thesaurus_query.vim'
+Plug 'vitalk/vim-shebang' " Vim filetype detection by the she·bang
 
 
 call plug#end() " -------------------------------------- End of Vim-Plug define
