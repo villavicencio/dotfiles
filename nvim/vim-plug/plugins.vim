@@ -116,6 +116,7 @@ Plug 'tpope/vim-surround' " ------------------------------------- Auto surround
 Plug 'tpope/vim-repeat' " ---------------------------- dot repeat with pluggins
 Plug 'tpope/vim-commentary' " ------------------------------- Comment stuff out
 Plug 'Yggdroot/indentLine' " -------------------------- Indent code with v-line
+Plug 'lukas-reineke/indent-blankline.nvim'
 Plug 'mg979/vim-visual-multi' " ------------------------------- Multiple Cursor
 
 " }}}
