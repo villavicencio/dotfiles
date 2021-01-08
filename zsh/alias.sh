@@ -20,9 +20,9 @@ alias uuidgenc='uuidgen | cut -c1-8 | pbcopy'
 
 # Detect which `ls` flavor is in use
 if ls --color > /dev/null 2>&1; then # GNU `ls`
-	colorflag="--color"
+  colorflag="--color"
 else # OS X `ls`
-	colorflag="-G"
+  colorflag="-G"
 fi
 
 # List all files colorized in long format
@@ -144,8 +144,11 @@ alias clogs='docker-compose logs --tail=5 -f'
 alias docker_clean_images='docker rmi $(docker images -a --filter=dangling=true -q)'
 alias docker_clean_ps='docker rm $(docker ps --filter=status=exited --filter=status=created -q)'
 
+# Open tmux with custom config location
+alias tmux='tmux -f "$XDG_CONFIG_HOME"/tmux/tmux.conf'
+
 if [ -f "$(brew --prefix)/etc/bash_completion.d/tma" ]; then
-	tma() { tmux attach -t "$1"; }
+  tma() { tmux attach -t "$1"; }
 fi
 
 # Shorter alias to HSTR (https://github.com/dvorka/hstr)
@@ -156,9 +159,6 @@ if type nvim > /dev/null 2>&1; then
   alias vim='nvim'
   alias vi='vim'
 fi
-
-# Open tmux with custom config location
-alias tmux='tmux -f "$XDG_CONFIG_HOME"/tmux/tmux.conf'
 
 # Set shortcuts for some custom functions
 alias crm='docker_stop_all'
