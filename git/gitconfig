@@ -64,3 +64,5 @@
     fetchJobs = 4
 [pull]
 	rebase = false
+[init]
+	defaultBranch = main

@@ -157,3 +157,11 @@ nnoremap   <silent>   <F12>   :FloatermToggle<CR>
 tnoremap   <silent>   <F12>   <C-\><C-n>:FloatermToggle<CR>
 
 " }}}
+
+" Map go to definition to list out ctags
+:nnoremap <CR> g<C-]>
+
+"
+set switchbuf=usetab
+nnoremap <C-Left> :sbprevious<CR>
+nnoremap <C-Right> :sbnext<CR>
