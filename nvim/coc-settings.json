@@ -17,7 +17,6 @@
     "xml",
     "dart",
     "css",
-    "markdown",
     "javascript",
     "graphql",
     "html",
@@ -37,7 +36,7 @@
   "diagnostic-languageserver.filetypes": {
     "vim": "vint",
     "email": "languagetool",
-    "markdown": ["write-good", "markdownlint"],
+    "markdown": ["write-good"],
     "sh": "shellcheck",
     "php": ["phpstan", "psalm"]
   },

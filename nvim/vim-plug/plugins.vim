@@ -11,8 +11,9 @@ Plug 'airblade/vim-gitgutter'
 Plug 'airblade/vim-rooter' " --------- Auto changes working dir to project root
 Plug 'christoomey/vim-tmux-navigator' " ---- Easier nav between vim tmux splits
 Plug 'easymotion/vim-easymotion' " --------- Jump around the screen like a boss
+Plug 'elzr/vim-json' " --------------------- JSON front matter highlight plugin
 Plug 'ghifarit53/tokyonight-vim'
-Plug 'godlygeek/tabular'
+Plug 'godlygeek/tabular' " ------------ tabular plugin is used to format tables
 Plug 'google/vim-codefmt'
 Plug 'google/vim-maktaba'
 Plug 'google/yapf'
@@ -55,10 +56,9 @@ Plug 'tpope/vim-repeat' " ----------------------------- dot repeat with plugins
 Plug 'tpope/vim-sleuth' " ----------------------------- Auto set indent setting
 Plug 'tpope/vim-surround' " ------------------------------------- Auto surround
 Plug 'vim-airline/vim-airline' " -------------------------- Status bar, Tabline
+Plug 'vim-pandoc/vim-pandoc-syntax'
 Plug 'vim-scripts/BufOnly.vim' " --------------- Allows to delete other buffers
 Plug 'vitalk/vim-shebang' " ------------ Vim filetype detection by the she·bang
-Plug 'voldikss/vim-floaterm'
-Plug 'Yggdroot/indentLine' " -------------------------- Indent code with v-line
 
 if has('nvim') || has('patch-8.0.902')
   Plug 'mhinz/vim-signify' " - indicate added, modified and removed lines (VCS)

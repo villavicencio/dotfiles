@@ -171,6 +171,8 @@ endif
 " }}
 
 
+" SOME CUSTOM MARKDOWN SETTINGS {{{
+
 " Checkboxes
 augroup MappyTime
   autocmd!
@@ -182,9 +184,32 @@ function s:toggle(pattern, dict, ...)
   return view
 endfunction
 
-
 let g:enable_bold_font = 1
 
 " Disable automatic VIM Markdown folding.
 let g:vim_markdown_folding_disabled = 1
+" do not use conceal feature, the implementation is not so good
+let g:vim_markdown_conceal = 0
+
+" disable math tex conceal feature
+let g:tex_conceal = ""
+let g:vim_markdown_math = 1
+
+" support front matter of various format
+let g:vim_markdown_frontmatter = 1  " for YAML format
+let g:vim_markdown_toml_frontmatter = 1  " for TOML format
+let g:vim_markdown_json_frontmatter = 1  " for JSON format
+
+augroup pandoc_syntax
+    au! BufNewFile,BufFilePre,BufRead *.md set filetype=markdown.pandoc
+augroup END
+
+augroup daily_log
+    autocmd!
+    autocmd ColorScheme,BufRead,BufNewFile *
+        \  syntax match DailyLogDate "\v(Mon|Tue|Wed|Thu|Fri|Sat|Sun) (Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) \d\d, \d\d\d\d"
+        \| highlight DailyLogDate ctermfg=blue guifg=blue
+  augroup END
+
+" }}}
 
