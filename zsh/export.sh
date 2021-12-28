@@ -1,4 +1,4 @@
-#!/usr/bin/env sh
+#!/usr/bin/env bash
 
 export TERM='xterm-256color'
 
@@ -75,10 +75,4 @@ export AWS_ASSUME_ROLE_TTL=12h
 
 export XML_CATALOG_FILES="/usr/local/etc/xml/catalog"
 
-# Add XDG base directory specification support.
-export XDG_CONFIG_HOME=$HOME/.config
-export XDG_DATA_HOME=$HOME/.local/share
-export XDG_CACHE_HOME=$HOME/.cache
-
-export DOTFILES=$HOME/Projects/Personal/dotfiles
 export MYVIMRC=$XDG_CONFIG_HOME/nvim/init.vim

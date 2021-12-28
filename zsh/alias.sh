@@ -1,22 +1,11 @@
-#!/usr/bin/env sh
-# shellcheck disable=SC2139
+#!/usr/bin/env bash
 
-# Easier navigation: .., ..., ...., ....., ~ and -
+# Easier navigation
 alias ..="cd .."
 alias ...="cd ../.."
-alias ....="cd ../../.."
-alias .....="cd ../../../.."
-alias ~="cd ~" # `cd` is probably faster to type though
-alias -- -="cd -"
 
 # List the size of all the folders and files.
 alias ducks='du -cksh * | sort -rn | head -11'
-
-## Generate lowercase UUID strings.
-alias uuidgen='uuidgen | tr [:upper:] [:lower:]'
-
-## Copy the first 8 chars from uuidgen to clipboard
-alias uuidgenc='uuidgen | cut -c1-8 | pbcopy'
 
 # Detect which `ls` flavor is in use
 if ls --color > /dev/null 2>&1; then # GNU `ls`
@@ -161,15 +150,7 @@ if type nvim > /dev/null 2>&1; then
 fi
 
 # Set shortcuts for some custom functions
-alias crm='docker_stop_all'
 alias fs='size_of_file_or_directory'
 alias man='man_colorful'
 alias mkd='mkdir_and_cd'
-alias o='open_directory_or_file'
-alias stt='session_title_set'
 alias tgz='tar_and_gzip'
-alias dataurl='dataurl'
-alias server='server'
-alias phpserver='server_php'
-alias gz='gzip_compare'
-alias getcertnames='get_cert_names'

@@ -1,0 +1,35 @@
+- defaults:
+    link:
+      relink: true
+    shell:
+      quiet: true
+
+- clean: ['~']
+
+- create:
+    - ~/.hushlogin
+    - ~/.config
+    - ~/.config/btop
+    - ~/.config/tmux
+    - ~/.config/tmux/resurrect
+    - ~/.config/tmux/plugins
+    - ~/.config/lazygit
+
+- link:
+    ~/.config/btop/btop.conf: btop/btop.conf
+    ~/.config/lazygit/config.yml: lazygit/config.yml
+    ~/.config/nvim/lua/custom: nvim/custom
+    ~/.config/tmux/tmux.conf: tmux/tmux.conf
+    ~/.zshrc: zsh/zshrc
+    
+- brewfile:
+    - brew/Brewfile
+
+- shell:
+  - [git submodule update --init --recursive, Installing submodules]
+  - [git clone https://github.com/tmux-plugins/tpm ~/.config/tmux/plugins/tpm || true, Installing tpm]
+  - [~/.config/tmux/plugins/tpm/bin/install_plugins, Installing tmux plugins]
+  - [git clone https://github.com/NvChad/NvChad ~/.config/nvim || true, Installing nvim config]
+  - [nvim --headless -c 'autocmd User PackerComplete quitall' -c 'PackerSync', Installing nvim plugins]
+  - [git clone git@github.com:welcoMattic/kymsu.git ~/.config/kymsu || true, Cloning kymsu]
+  - [_pwd=`pwd` && cd ~/.config/kymsu && ./install.sh && cd $_pwd, Installing kymsu]
