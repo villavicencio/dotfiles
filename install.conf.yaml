@@ -10,10 +10,11 @@
     - ~/.hushlogin
     - ~/.config
     - ~/.config/btop
+    - ~/.config/kymsu
+    - ~/.config/lazygit
     - ~/.config/tmux
     - ~/.config/tmux/resurrect
     - ~/.config/tmux/plugins
-    - ~/.config/lazygit
 
 - link:
     ~/.config/btop/btop.conf: btop/btop.conf
