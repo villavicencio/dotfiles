@@ -21,9 +21,6 @@
     ~/.config/tmux/tmux.conf: tmux/tmux.conf
     ~/.zshrc: zsh/zshrc
     
-- shell:
-  - [/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)" || true, Installing brew]
-
 - brewfile:
     - brew/Brewfile
 
