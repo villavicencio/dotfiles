@@ -76,6 +76,7 @@ brew "jesseduffield/lazygit/lazygit"
 brew "saulpw/vd/visidata"
 cask "adoptopenjdk15"
 cask "font-fira-code"
+cask "iterm2"
 mas "1Password 7", id: 1333542190
 mas "Agenda", id: 1287445660
 mas "Color Picker", id: 1545870783

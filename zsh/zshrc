@@ -59,6 +59,7 @@ source "$DOTFILES/zsh/path.sh"      # Extend $PATH
 source "$DOTFILES/zsh/functions.sh"	# Shell functions
 source "$DOTFILES/zsh/iterm2.zsh"		# iTerm2 shell integration
 source "$DOTFILES/zsh/alias.sh"			# Define shortcuts
+
 eval "$(starship init zsh)"
 
 # You may need to manually set your language environment
