@@ -18,7 +18,6 @@
 - link:
     ~/.config/btop/btop.conf: btop/btop.conf
     ~/.config/lazygit/config.yml: lazygit/config.yml
-    ~/.config/nvim/lua/custom: nvim/custom
     ~/.config/tmux/tmux.conf: tmux/tmux.conf
     ~/.zshrc: zsh/zshrc
     
@@ -36,3 +35,7 @@
   - [nvim --headless -c 'autocmd User PackerComplete quitall' -c 'PackerSync', Installing nvim plugins]
   - [git clone git@github.com:welcoMattic/kymsu.git ~/.config/kymsu || true, Cloning kymsu]
   - [_pwd=`pwd` && cd ~/.config/kymsu && ./install.sh && cd $_pwd, Installing kymsu]
+
+- link:
+    ~/.config/nvim/lua/custom: nvim/custom
+
