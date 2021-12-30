@@ -76,3 +76,4 @@ export AWS_ASSUME_ROLE_TTL=12h
 export XML_CATALOG_FILES="/usr/local/etc/xml/catalog"
 
 export MYVIMRC=$XDG_CONFIG_HOME/nvim/init.vim
+export TMUX_PLUGIN_MANAGER_PATH=$XDG_CONFIG_HOME/tmux/plugins/
