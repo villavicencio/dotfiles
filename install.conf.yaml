@@ -19,6 +19,9 @@
     ~/.config/btop/btop.conf: btop/btop.conf
     ~/.config/lazygit/config.yml: lazygit/config.yml
     ~/.config/tmux/tmux.conf: tmux/tmux.conf
+    ~/.zshrc:
+      force: true
+      path: zsh/zshrc
     
 - brewfile:
     - brew/Brewfile
@@ -40,5 +43,4 @@
 
 - link:
     ~/.config/nvim/lua/custom: nvim/custom
-    ~/.zshrc: zsh/zshrc
 
