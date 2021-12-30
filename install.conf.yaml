@@ -27,12 +27,13 @@
 
 - shell:
   - [git submodule update --init --recursive, Installing submodules]
-  - [git clone https://github.com/tmux-plugins/tpm ~/.config/tmux/plugins/tpm || true, Installing tpm]
+  - ["[ -d ~/.config/tmux/plugins/tpm ] || git clone https://github.com/tmux-plugins/tpm ~/.config/tmux/plugins/tpm", Installing tmux Plugin Manager]
   - [~/.config/tmux/plugins/tpm/bin/install_plugins, Installing tmux plugins]
-  - [git clone https://github.com/NvChad/NvChad ~/.config/nvim || true, Installing nvim config]
+  - ["[ -d ~/.config/nvim ] || git clone https://github.com/NvChad/NvChad ~/.config/nvim", Installing nvim config]
   - [nvim --headless -c 'autocmd User PackerComplete quitall' -c 'PackerSync', Installing nvim plugins]
-  - [git clone https://github.com/welcoMattic/kymsu ~/.config/kymsu || true, Cloning kymsu]
+  - "[ -d ~/.config/kymsu ] || git clone https://github.com/welcoMattic/kymsu ~/.config/kymsu"
   - [_pwd=`pwd` && cd ~/.config/kymsu && ./install.sh && cd $_pwd, Installing kymsu]
+  - ["[ -d ~/.oh-my-zsh ] || sh -c \"$(curl -fsSL https://raw.githubusercontent.com/robbyrussell/oh-my-zsh/master/tools/install.sh)\"", Installing oh-my-zsh]
 
 - link:
     ~/.config/nvim/lua/custom: nvim/custom
