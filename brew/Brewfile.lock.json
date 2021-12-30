@@ -11,13 +11,13 @@
         "revision": "060b85b685e8e4fe9076197f3147583f49581348"
       },
       "homebrew/cask": {
-        "revision": "5199f644da1c2e221d96e4e0c8ee24d21a3a9ac7"
+        "revision": "5bdcdf7f2918ca6035f232e531191b9fc704ad0d"
       },
       "homebrew/cask-fonts": {
         "revision": "fe8fa7d17f920b699881de3d90c6a135600ec5af"
       },
       "homebrew/core": {
-        "revision": "a0f47689825db7e77c645e3160f36f4d6e9830a6"
+        "revision": "fc71fff784b0f81689d5ee343d15177ac7bcfa6f"
       },
       "homebrew/services": {
         "revision": "b8628a6bc2affd17b5624013de1b464003d3c3d5"
@@ -2623,6 +2623,12 @@
         "options": {
           "full_name": "iterm2"
         }
+      },
+      "font-fira-code-nerd-font": {
+        "version": "2.1.0",
+        "options": {
+          "full_name": "font-fira-code-nerd-font"
+        }
       }
     },
     "mas": {
@@ -2721,7 +2727,7 @@
       "big_sur": {
         "HOMEBREW_VERSION": "3.3.9",
         "HOMEBREW_PREFIX": "/usr/local",
-        "Homebrew/homebrew-core": "a0f47689825db7e77c645e3160f36f4d6e9830a6",
+        "Homebrew/homebrew-core": "fc71fff784b0f81689d5ee343d15177ac7bcfa6f",
         "CLT": "13.0.0.0.1.1630607135",
         "Xcode": "13.2.1",
         "macOS": "11.6"

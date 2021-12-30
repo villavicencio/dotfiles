@@ -10,7 +10,6 @@
     - ~/.hushlogin
     - ~/.config
     - ~/.config/btop
-    - ~/.config/kymsu
     - ~/.config/lazygit
     - ~/.config/tmux
     - ~/.config/tmux/resurrect
@@ -31,9 +30,14 @@
   - [~/.config/tmux/plugins/tpm/bin/install_plugins, Installing tmux plugins]
   - ["[ -d ~/.config/nvim ] || git clone https://github.com/NvChad/NvChad ~/.config/nvim", Installing nvim config]
   - [nvim --headless -c 'autocmd User PackerComplete quitall' -c 'PackerSync', Installing nvim plugins]
-  - "[ -d ~/.config/kymsu ] || git clone https://github.com/welcoMattic/kymsu ~/.config/kymsu"
-  - [_pwd=`pwd` && cd ~/.config/kymsu && ./install.sh && cd $_pwd, Installing kymsu]
+  - 
+    command: "[ -d ~/.config/kymsu ] || $(git clone https://github.com/welcoMattic/kymsu ~/.config/kymsu && cd ~/.config/kymsu && ./install.sh)"
+    stdout: true
+    description: Installing kymsu
+    quiet: true
   - ["[ -d ~/.oh-my-zsh ] || sh -c \"$(curl -fsSL https://raw.githubusercontent.com/robbyrussell/oh-my-zsh/master/tools/install.sh)\"", Installing oh-my-zsh]
+  - "[ -d ~/.oh-my-zsh/custom/plugins/zsh-256color ] || $(cd ~/.oh-my-zsh/custom/plugins && git clone https://github.com/chrissicool/zsh-256color)"
+  - cp fonts/* ~/Library/Fonts/
 
 - link:
     ~/.config/nvim/lua/custom: nvim/custom
