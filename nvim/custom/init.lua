@@ -4,15 +4,16 @@
 -- This is where your custom modules and plugins go.
 -- Please check NvChad docs if you're totally new to nvchad + dont know lua!!
 
--- local hooks = require "core.hooks"
+local hooks = require "core.hooks"
 
 -- MAPPINGS
 -- To add new plugins, use the "setup_mappings" hook,
 
--- hooks.add("setup_mappings", function(map)
---    map("n", "<leader>cc", ":Telescope <CR>", opt)
---    map("n", "<leader>q", ":q <CR>", opt)
--- end)
+hooks.add("setup_mappings", function(map)
+   map("n", "<leader>cc", ":Telescope <CR>", opt)
+   map("n", "<leader>q", ":q <CR>", opt)
+   map("n", "<leader>f", ":TZAtaraxis <CR>", opt)
+end)
 
 -- NOTE : opt is a variable  there (most likely a table if you want multiple options),
 -- you can remove it if you dont have any custom options
@@ -22,17 +23,16 @@
 
 -- examples below:
 
--- hooks.add("install_plugins", function(use)
---    use {
---       "max397574/better-escape.nvim",
---       event = "InsertEnter",
---    }
---
---    use {
---       "user or orgname/reponame",
---       --further packer options
---    }
--- end)
+hooks.add("install_plugins", function(use)
+   -- use {
+   --    "junegunn/goyo.vim",
+   --    event = "VimEnter"
+   -- }
+   use {
+     "Pocco81/TrueZen.nvim",
+     event = "VimEnter"
+   }
+end)
 
 -- NOTE: we heavily suggest using Packer's lazy loading (with the 'event' field)
 -- see: https://github.com/wbthomason/packer.nvim
