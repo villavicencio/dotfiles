@@ -24,15 +24,43 @@ end)
 -- examples below:
 
 hooks.add("install_plugins", function(use)
-   -- use {
-   --    "junegunn/goyo.vim",
-   --    event = "VimEnter"
-   -- }
-   use {
-     "Pocco81/TrueZen.nvim",
-     event = "VimEnter"
-   }
+  use {
+    "Pocco81/TrueZen.nvim",
+    cmd = {
+      "TZAtaraxis",
+      "TZMinimalist",
+      "TZFocus",
+    },
+    config = function()
+      -- check https://github.com/Pocco81/TrueZen.nvim#setup-configuration (init.lua version)
+    end
+  }  
+  
+  use {
+    "karb94/neoscroll.nvim",
+    opt = true,
+    config = function()
+      require("neoscroll").setup()
+    end,
+    
+    -- lazy loading
+    setup = function()
+      require("core.utils").packer_lazy_load "neoscroll.nvim"
+    end,
+  }
+
+  use { 
+    "nathom/filetype.nvim"
+  }
+
+  use {
+    "luukvbaal/stabilize.nvim",
+    config = function() require("stabilize").setup() end
+  }
 end)
+
+-- Stop sourcing filetype.vim
+vim.g.did_load_filetypes = 1
 
 -- NOTE: we heavily suggest using Packer's lazy loading (with the 'event' field)
 -- see: https://github.com/wbthomason/packer.nvim
