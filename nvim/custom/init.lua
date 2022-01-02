@@ -10,7 +10,7 @@ local hooks = require "core.hooks"
 -- To add new plugins, use the "setup_mappings" hook,
 
 hooks.add("setup_mappings", function(map)
-   map("n", "<leader>cc", ":Telescope <CR>", opt)
+   map("n", "<leader>fg", ":Telescope live_grep <CR>", opt)
    map("n", "<leader>q", ":q <CR>", opt)
    map("n", "<leader>f", ":TZAtaraxis <CR>", opt)
 end)
