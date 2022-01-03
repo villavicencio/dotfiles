@@ -57,10 +57,25 @@ hooks.add("install_plugins", function(use)
     "luukvbaal/stabilize.nvim",
     config = function() require("stabilize").setup() end
   }
+
+  use {
+    "SidOfc/mkdx"
+  }
+
+  use {
+    "vim-pandoc/vim-pandoc-syntax"
+  }
+
+  use {
+    "reedes/vim-pencil"
+  }
 end)
 
 -- Stop sourcing filetype.vim
 vim.g.did_load_filetypes = 1
+
+vim.cmd[[ au! BufNewFile,BufFilePre,BufRead *.md set filetype=markdown.pandoc ]]
+vim.cmd[[ autocmd FileType markdown,md,markdown.pandoc call pencil#init({'wrap': 'soft'}) ]]
 
 -- NOTE: we heavily suggest using Packer's lazy loading (with the 'event' field)
 -- see: https://github.com/wbthomason/packer.nvim
