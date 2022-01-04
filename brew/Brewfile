@@ -44,7 +44,6 @@ brew "jq"
 brew "libxslt"
 brew "lua"
 brew "luajit"
-brew "mas"
 brew "mono"
 brew "most"
 brew "neofetch"
@@ -67,6 +66,7 @@ brew "tig"
 brew "tldr"
 brew "tmux"
 brew "tree"
+brew "vale"
 brew "watch"
 brew "wget"
 brew "yarn"
@@ -76,25 +76,3 @@ brew "jesseduffield/lazygit/lazygit"
 brew "saulpw/vd/visidata"
 cask "adoptopenjdk15"
 cask "iterm2"
-mas "1Password 7", id: 1333542190
-mas "Agenda", id: 1287445660
-mas "Color Picker", id: 1545870783
-mas "Drafts", id: 1435957248
-mas "Evernote", id: 406056744
-mas "Fugit", id: 1577870027
-mas "GarageBand", id: 682658836
-mas "Honey", id: 1472777122
-mas "iMovie", id: 408981434
-mas "Keynote", id: 409183694
-mas "MindNode", id: 1289197285
-mas "Numbers", id: 409203825
-mas "Pages", id: 409201541
-mas "Paste", id: 967805235
-mas "Pocket", id: 568494494
-mas "Raindrop.io for Safari", id: 957810159
-mas "Red Lines Tools", id: 1469400117
-mas "Save to Pocket", id: 1477385213
-mas "Simplenote", id: 692867256
-mas "The Unarchiver", id: 425424353
-mas "Todoist", id: 585829637
-mas "Xcode", id: 497799835
