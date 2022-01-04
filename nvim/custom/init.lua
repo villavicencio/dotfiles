@@ -69,6 +69,30 @@ hooks.add("install_plugins", function(use)
   use {
     "reedes/vim-pencil"
   }
+
+  use({
+    "jose-elias-alvarez/null-ls.nvim",
+    after = "nvim-lspconfig",
+    config = function()
+      require("null-ls").setup({
+        sources = {
+          require("null-ls").builtins.diagnostics.vale.with({
+            filetypes = { "markdown", "tex", "markdown.pandoc" },
+            extra_args = {
+              "--config",
+              vim.fn.expand("$DOTFILES/vale/vale.ini"),
+            },
+          }),
+        },
+        on_attach = function(client)
+          if client.resolved_capabilities.document_formatting then
+            vim.cmd("autocmd BufWritePre <buffer> lua vim.lsp.buf.formatting_sync()")
+          end
+        end,
+      })
+    end,
+    requires = { "nvim-lua/plenary.nvim" },
+  })
 end)
 
 -- Stop sourcing filetype.vim
