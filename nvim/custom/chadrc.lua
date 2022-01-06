@@ -27,6 +27,9 @@ M.plugins = {
    status = {
       dashboard = true,
    },
+   default_plugin_config_replace = {
+      lspconfig = "custom.plugins.lspconfig",
+   },
  }
 
 return M
