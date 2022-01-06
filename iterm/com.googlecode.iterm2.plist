@@ -1673,17 +1673,7 @@
 		</dict>
 	</dict>
 	<key>GlobalTouchBarMap</key>
-	<dict>
-		<key>touchbar:0176C78C-A975-4E63-B85F-2072B464996F</key>
-		<dict>
-			<key>Action</key>
-			<integer>10</integer>
-			<key>Label</key>
-			<string>floaterm</string>
-			<key>Text</key>
-			<string>[24~</string>
-		</dict>
-	</dict>
+	<dict/>
 	<key>HapticFeedbackForEsc</key>
 	<true/>
 	<key>HideActivityIndicator</key>
