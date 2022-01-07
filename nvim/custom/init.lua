@@ -98,8 +98,13 @@ end)
 -- Stop sourcing filetype.vim
 vim.g.did_load_filetypes = 1
 
+-- Set md filetype to pandoc
 vim.cmd[[ au! BufNewFile,BufFilePre,BufRead *.md set filetype=markdown.pandoc ]]
+
+-- Set soft wrap when editing markdown
 vim.cmd[[ autocmd FileType markdown,md,markdown.pandoc call pencil#init({'wrap': 'soft'}) ]]
+
+-- Disable cmp completion when editing markdown
 vim.cmd[[ au FileType markdown,md,markdown.pandoc lua require("cmp").setup.buffer({completion={autocomplete=false}}) ]]
 
 -- NOTE: we heavily suggest using Packer's lazy loading (with the 'event' field)
