@@ -100,6 +100,7 @@ vim.g.did_load_filetypes = 1
 
 vim.cmd[[ au! BufNewFile,BufFilePre,BufRead *.md set filetype=markdown.pandoc ]]
 vim.cmd[[ autocmd FileType markdown,md,markdown.pandoc call pencil#init({'wrap': 'soft'}) ]]
+vim.cmd[[ au FileType markdown,md,markdown.pandoc lua require("cmp").setup.buffer({completion={autocomplete=false}}) ]]
 
 -- NOTE: we heavily suggest using Packer's lazy loading (with the 'event' field)
 -- see: https://github.com/wbthomason/packer.nvim
