@@ -87,6 +87,7 @@ hooks.add("install_plugins", function(use)
         on_attach = function(client)
           if client.resolved_capabilities.document_formatting then
             vim.cmd("autocmd BufWritePre <buffer> lua vim.lsp.buf.formatting_sync()")
+            vim.cmd[[ au FileType markdown.pandoc lua require("cmp").setup.buffer({completion={autocomplete=false}}) ]]
           end
         end,
       })
@@ -103,9 +104,6 @@ vim.cmd[[ au! BufNewFile,BufFilePre,BufRead *.md set filetype=markdown.pandoc ]]
 
 -- Set soft wrap when editing markdown
 vim.cmd[[ autocmd FileType markdown,md,markdown.pandoc call pencil#init({'wrap': 'soft'}) ]]
-
--- Disable cmp completion when editing markdown
-vim.cmd[[ au FileType markdown,md,markdown.pandoc lua require("cmp").setup.buffer({completion={autocomplete=false}}) ]]
 
 -- NOTE: we heavily suggest using Packer's lazy loading (with the 'event' field)
 -- see: https://github.com/wbthomason/packer.nvim
