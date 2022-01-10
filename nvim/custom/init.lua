@@ -59,7 +59,14 @@ hooks.add("install_plugins", function(use)
   }
 
   use {
-    "SidOfc/mkdx"
+    "SidOfc/mkdx",
+
+    setup = function()
+      -- Disable tab mapping which was preventing tabbing buffers
+      vim.g["mkdx#settings"] = {
+        tab = {enable = 0},
+      }
+    end,
   }
 
   use {
@@ -94,6 +101,17 @@ hooks.add("install_plugins", function(use)
     end,
     requires = { "nvim-lua/plenary.nvim" },
   })
+
+  use {
+    "folke/which-key.nvim",
+    config = function()
+      require("which-key").setup {
+        -- your configuration comes here
+        -- or leave it empty to use the default settings
+        -- refer to the configuration section below
+      }
+    end
+  }
 end)
 
 -- Stop sourcing filetype.vim

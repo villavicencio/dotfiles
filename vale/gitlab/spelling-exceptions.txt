@@ -328,6 +328,7 @@ Kubesec
 Kustomize
 Laravel
 ldapsearch
+Lakshay
 Lefthook
 Leiningen
 libFuzzer
@@ -422,6 +423,7 @@ Overcommit
 Packagist
 parallelization
 parallelizations
+Partha
 passwordless
 Patroni
 performant
