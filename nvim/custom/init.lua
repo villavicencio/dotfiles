@@ -4,26 +4,19 @@
 -- This is where your custom modules and plugins go.
 -- Please check NvChad docs if you're totally new to nvchad + dont know lua!!
 
-local hooks = require "core.hooks"
+local customPlugins = require "core.customPlugins"
+local map = require("core.utils").map
 
--- MAPPINGS
--- To add new plugins, use the "setup_mappings" hook,
-
-hooks.add("setup_mappings", function(map)
-   map("n", "<leader>fg", ":Telescope live_grep <CR>", opt)
-   map("n", "<leader>q", ":q <CR>", opt)
-   map("n", "<leader>f", ":TZAtaraxis <CR>", opt)
-end)
+-- hooks.add("setup_mappings", function(map)
+map("n", "<leader>fg", ":Telescope live_grep <CR>", opt)
+map("n", "<leader>q", ":q <CR>", opt)
+map("n", "<leader>f", ":TZAtaraxis <CR>", opt)
+-- end)
 
 -- NOTE : opt is a variable  there (most likely a table if you want multiple options),
 -- you can remove it if you dont have any custom options
 
--- Install plugins
--- To add new plugins, use the "install_plugin" hook,
-
--- examples below:
-
-hooks.add("install_plugins", function(use)
+customPlugins.add(function(use)
   use {
     "Pocco81/TrueZen.nvim",
     cmd = {
