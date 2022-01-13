@@ -29,6 +29,12 @@ M.plugins = {
    },
    default_plugin_config_replace = {
       lspconfig = "custom.plugins.lspconfig",
+      dashboard = "custom.plugins.dashboard",
+   },
+   options = {
+     lspconfig = {
+       setup_lspconf = "custom.plugins.lspconfig_options",
+     },
    },
  }
 
