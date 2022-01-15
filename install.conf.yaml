@@ -16,6 +16,9 @@
     - ~/.config/tmux/plugins
     - ~/.local/share/fonts 
 
+- shell:
+  - ["[ -d ~/.oh-my-zsh ] || sh -c \"$(curl -fsSL https://raw.githubusercontent.com/robbyrussell/oh-my-zsh/master/tools/install.sh)\"", Installing oh-my-zsh] 
+
 - link:
     ~/.config/btop/btop.conf: btop/btop.conf
     ~/.config/lazygit/config.yml: lazygit/config.yml
@@ -38,7 +41,6 @@
     stdout: true
     description: Installing kymsu
     quiet: true
-  - ["[ -d ~/.oh-my-zsh ] || sh -c \"$(curl -fsSL https://raw.githubusercontent.com/robbyrussell/oh-my-zsh/master/tools/install.sh)\"", Installing oh-my-zsh]
   - "[ -d ~/.oh-my-zsh/custom/plugins/zsh-256color ] || $(cd ~/.oh-my-zsh/custom/plugins && git clone https://github.com/chrissicool/zsh-256color)"
   - ["[ '$(uname 2> /dev/null)' == 'Darwin' ] && cp fonts/* ~/Library/Fonts/ || cp fonts/* ~/.local/share/fonts/", Installing fonts]
   - 
