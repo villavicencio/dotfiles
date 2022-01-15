@@ -3,6 +3,8 @@
       relink: true
     shell:
       quiet: true
+      stdout: true
+      stderr: true
 
 - clean: ['~']
 
@@ -30,7 +32,7 @@
 - shell:
   - ["git submodule update --init --recursive", Installing submodules]
   - ["[ ! type 'brew' > /dev/null 2>&1 ] || /bin/bash -c \"$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)\" </dev/null", Installing brew]
-  - ["[ '$(uname 2> /dev/null)' == 'Darwin' ] && /usr/local/bin/brew bundle --file=brew/Brewfile || /home/linuxbrew/.linuxbrew/bin/brew bundle --file=brew/Brewfile", Installing from Brewfile]
+  - ["[ '$(uname 2> /dev/null)' = 'Darwin' ] && /usr/local/bin/brew bundle --file=brew/Brewfile || /home/linuxbrew/.linuxbrew/bin/brew bundle --file=brew/Brewfile", Installing from Brewfile]
   - ["[ -d ~/.config/tmux/plugins/tpm ] || git clone https://github.com/tmux-plugins/tpm ~/.config/tmux/plugins/tpm", Installing tmux Plugin Manager]
   - ["~/.config/tmux/plugins/tpm/bin/install_plugins", Installing tmux plugins]
   - ["[ -d ~/.config/nvim ] || git clone https://github.com/NvChad/NvChad ~/.config/nvim", Installing nvim config]
@@ -41,7 +43,7 @@
     description: Installing kymsu
     quiet: true
   - "[ -d ~/.oh-my-zsh/custom/plugins/zsh-256color ] || $(cd ~/.oh-my-zsh/custom/plugins && git clone https://github.com/chrissicool/zsh-256color)"
-  - ["[ '$(uname 2> /dev/null)' == 'Darwin' ] && cp fonts/* ~/Library/Fonts/ || cp fonts/* ~/.local/share/fonts/", Installing fonts]
+  - ["[ '$(uname 2> /dev/null)' = 'Darwin' ] && cp fonts/* ~/Library/Fonts/ || cp fonts/* ~/.local/share/fonts/", Installing fonts]
   - 
     command: "[ -d ~/.config/nvm ] || $(git clone https://github.com/nvm-sh/nvm.git ~/.config/nvm && cd ~/.config/nvm && git checkout `git describe --abbrev=0 --tags --match \"v[0-9]*\" $(git rev-list --tags --max-count=1)`) && sh ~/.config/nvm/nvm.sh"
     stdout: true
