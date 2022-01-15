@@ -32,7 +32,7 @@
   - ["[ -d ~/.config/tmux/plugins/tpm ] || git clone https://github.com/tmux-plugins/tpm ~/.config/tmux/plugins/tpm", Installing tmux Plugin Manager]
   - [~/.config/tmux/plugins/tpm/bin/install_plugins, Installing tmux plugins]
   - ["[ -d ~/.config/nvim ] || git clone https://github.com/NvChad/NvChad ~/.config/nvim", Installing nvim config]
-  - [nvim --headless -c 'autocmd User PackerComplete quitall' -c 'PackerSync', Installing nvim plugins]
+  - ["nvim --headless -c 'autocmd User PackerComplete quitall' -c 'PackerSync'", Installing nvim plugins]
   - 
     command: "[ -d ~/.config/kymsu ] || $(git clone https://github.com/welcoMattic/kymsu ~/.config/kymsu && cd ~/.config/kymsu && ./install.sh)"
     stdout: true
