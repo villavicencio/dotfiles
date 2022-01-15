@@ -3,7 +3,7 @@ MAINTAINER David Villavicencio
 
 # OS updates and install
 RUN apt-get -qq update
-RUN apt-get install git curl python3 sudo zsh -qq -y
+RUN apt-get install git curl clang python3 sudo zsh -qq -y
 
 # Create test user and add to sudoers
 RUN useradd -m -s /bin/zsh tester
