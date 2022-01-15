@@ -1,8 +1,5 @@
 #!/usr/bin/env zsh
 
-# Add basic PATH stuff
-#!/usr/bin/env bash
-
 export PATH="/usr/local/bin:/usr/local/sbin:/home/linuxbrew/.linuxbrew/bin:$PATH"
 
 # Add brew curl first to path
@@ -19,9 +16,6 @@ export PATH="$PATH:$HOME/.yarn/bin"
 
 # Add cargo-installed binaries to the path
 export PATH="$PATH:$CARGO_HOME/bin"
-
-# Add GNU coreutils to PATH
-#export PATH="$PATH:/usr/local/opt/coreutils/libexec/gnubin"
 
 # Add my experimental stuff to PATH
 export PATH="$PATH:$HOME/bin";
