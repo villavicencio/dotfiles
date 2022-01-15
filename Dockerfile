@@ -18,8 +18,7 @@ RUN chown -R tester:tester /home/tester
 USER tester
 ENV HOME /home/tester
 
-# Install Brew
-RUN /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)" 
+RUN touch /home/tester/.zshrc
 
 # Change working directory
 WORKDIR /home/tester/projects/dotfiles
