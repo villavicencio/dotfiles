@@ -3,7 +3,7 @@
 # Add basic PATH stuff
 #!/usr/bin/env bash
 
-export PATH="/usr/local/bin:/usr/local/sbin:$PATH"
+export PATH="/usr/local/bin:/usr/local/sbin:/home/linuxbrew/.linuxbrew/bin:$PATH"
 
 # Add brew curl first to path
 export PATH="/usr/local/opt/curl/bin:$PATH"
