@@ -40,6 +40,11 @@
   - ["[ -d ~/.oh-my-zsh ] || sh -c \"$(curl -fsSL https://raw.githubusercontent.com/robbyrussell/oh-my-zsh/master/tools/install.sh)\"", Installing oh-my-zsh]
   - "[ -d ~/.oh-my-zsh/custom/plugins/zsh-256color ] || $(cd ~/.oh-my-zsh/custom/plugins && git clone https://github.com/chrissicool/zsh-256color)"
   - cp fonts/* ~/Library/Fonts/
+  - 
+    command: "[ -d ~/.config/nvm ] || $(git clone https://github.com/nvm-sh/nvm.git ~/.config/nvm && cd ~/.config/nvm && git checkout `git describe --abbrev=0 --tags --match \"v[0-9]*\" $(git rev-list --tags --max-count=1)`) && \. ~/.config/nvm/nvm.sh"
+    stdout: true
+    description: Installing nvm
+    quiet: true
 
 - link:
     ~/.config/nvim/lua/custom: nvim/custom

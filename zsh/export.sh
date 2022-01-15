@@ -48,7 +48,7 @@ export LESS=' -R -X -F '
 export GREP_OPTIONS='--color=auto'
 
 # Node Version Manager path.
-export NVM_DIR=$HOME/.nvm
+export NVM_DIR=$XDG_CONFIG_HOME/nvm
 
 # Node path.
 export NODE_PATH="/usr/local/lib/node"
@@ -61,9 +61,6 @@ export ANT_OPTS=-Dbuild.sysclasspath=ignore
 
 # Homebrew
 export HOMEBREW_INSTALL_CLEANUP=1
-
-# Rainbarf config file
-export RAINBARF=~/.rainbarf.conf rainbarf
 
 # Pyenv virtualenv
 export PYENV_VIRTUALENV_DISABLE_PROMPT=1
