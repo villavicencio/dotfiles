@@ -19,7 +19,7 @@ export DOTFILES=$( cd -P "$( dirname "$( readlink $HOME/.zshrc )" )" \
 export UPDATE_ZSH_DAYS=7
 
 # Uncomment the following line to disable auto-setting terminal title.
- DISABLE_AUTO_TITLE="false"
+DISABLE_AUTO_TITLE="false"
 
 # Command auto-correction.
 ENABLE_CORRECTION="false"
@@ -95,3 +95,11 @@ fi
 
 # Add RVM to PATH for scripting. Make sure this is the last PATH variable change.
 export PATH="$PATH:$HOME/.rvm/bin"
+
+# Load zsh completions
+if type brew &>/dev/null; then
+  FPATH=$(brew --prefix)/share/zsh-completions:$FPATH
+  
+  autoload -Uz compinit
+  compinit
+fi

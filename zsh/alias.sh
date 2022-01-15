@@ -136,10 +136,6 @@ alias docker_clean_ps='docker rm $(docker ps --filter=status=exited --filter=sta
 # Open tmux with custom config location
 alias tmux='tmux -f "$XDG_CONFIG_HOME"/tmux/tmux.conf'
 
-if [ -f "$(brew --prefix)/etc/bash_completion.d/tma" ]; then
-  tma() { tmux attach -t "$1"; }
-fi
-
 # Shorter alias to HSTR (https://github.com/dvorka/hstr)
 alias hh=hstr
 

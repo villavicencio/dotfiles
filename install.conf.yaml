@@ -54,4 +54,5 @@
     ~/.config/nvim/lua/custom: nvim/custom
 
 - shell:
+  - compaudit | xargs chmod g-w
   - source ~/.zshrc && omz reload
