@@ -14,6 +14,7 @@
     - ~/.config/tmux
     - ~/.config/tmux/resurrect
     - ~/.config/tmux/plugins
+    - ~/.local/share/fonts 
 
 - link:
     ~/.config/btop/btop.conf: btop/btop.conf
@@ -39,7 +40,7 @@
     quiet: true
   - ["[ -d ~/.oh-my-zsh ] || sh -c \"$(curl -fsSL https://raw.githubusercontent.com/robbyrussell/oh-my-zsh/master/tools/install.sh)\"", Installing oh-my-zsh]
   - "[ -d ~/.oh-my-zsh/custom/plugins/zsh-256color ] || $(cd ~/.oh-my-zsh/custom/plugins && git clone https://github.com/chrissicool/zsh-256color)"
-  - cp fonts/* ~/Library/Fonts/
+  - ["[ '$(uname 2> /dev/null)' == 'Darwin' ] && cp fonts/* ~/Library/Fonts/ || cp fonts/* ~/.local/share/fonts/", Installing fonts]
   - 
     command: "[ -d ~/.config/nvm ] || $(git clone https://github.com/nvm-sh/nvm.git ~/.config/nvm && cd ~/.config/nvm && git checkout `git describe --abbrev=0 --tags --match \"v[0-9]*\" $(git rev-list --tags --max-count=1)`) && sh ~/.config/nvm/nvm.sh"
     stdout: true
