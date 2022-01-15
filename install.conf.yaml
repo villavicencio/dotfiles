@@ -30,9 +30,10 @@
       path: zsh/zshrc
 
 - shell:
+  - $(which zsh) ~/.zshrc
   - ["git submodule update --init --recursive", Installing submodules]
   - ["[ ! type 'brew' > /dev/null 2>&1 ] || /bin/bash -c \"$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)\" </dev/null", Installing brew]
-  - ["[ '$(uname 2> /dev/null)' = 'Darwin' ] && /usr/local/bin/brew bundle --file=brew/Brewfile || /home/linuxbrew/.linuxbrew/bin/brew bundle --file=brew/Brewfile", Installing from Brewfile]
+  - ["[ '$(uname 2> /dev/null)' = 'Darwin' ] && export PATH=/usr/local/bin:$PATH && brew bundle --file=brew/Brewfile || export PATH=/home/linuxbrew/.linuxbrew/bin:$PATH && brew bundle --file=brew/Brewfile", Installing from Brewfile]
   - ["[ -d ~/.config/tmux/plugins/tpm ] || git clone https://github.com/tmux-plugins/tpm ~/.config/tmux/plugins/tpm", Installing tmux Plugin Manager]
   - ["~/.config/tmux/plugins/tpm/bin/install_plugins", Installing tmux plugins]
   - ["[ -d ~/.config/nvim ] || git clone https://github.com/NvChad/NvChad ~/.config/nvim", Installing nvim config]
@@ -55,4 +56,5 @@
 
 - shell:
   - compaudit | xargs chmod g-w
-  - source ~/.zshrc && omz reload
+  - $(which zsh) ~/.zshrc
+  - omz reload
