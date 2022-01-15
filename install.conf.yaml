@@ -29,7 +29,7 @@
 
 - shell:
   - ["git submodule update --init --recursive", Installing submodules]
-  - ["[ ! type 'brew' > /dev/null 2>&1 ] || /bin/bash -c '$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)'", Installing brew]
+  - ["[ ! type 'brew' > /dev/null 2>&1 ] || /bin/bash -c \"$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)\" </dev/null", Installing brew]
   - ["[ '$(uname 2> /dev/null)' == 'Darwin' ] && /usr/local/bin/brew bundle --file=brew/Brewfile || /home/linuxbrew/.linuxbrew/bin/brew bundle --file=brew/Brewfile", Installing from Brewfile]
   - ["[ -d ~/.config/tmux/plugins/tpm ] || git clone https://github.com/tmux-plugins/tpm ~/.config/tmux/plugins/tpm", Installing tmux Plugin Manager]
   - ["~/.config/tmux/plugins/tpm/bin/install_plugins", Installing tmux plugins]
