@@ -9,7 +9,7 @@ M.setup_lsp = function(attach, capabilities)
   table.insert(runtime_path, "lua/?.lua")
   table.insert(runtime_path, "lua/?/init.lua")
 
-  local servers = { "sumneko_lua", "vimls" }
+  local servers = { "sumneko_lua", "vimls", "bashls" }
 
   for _, lsp in ipairs(servers) do
     lspconfig[lsp].setup {
@@ -70,6 +70,16 @@ M.setup_lsp = function(attach, capabilities)
     root_dir = function(fname)
       return util.find_git_ancestor(fname) or vim.fn.getcwd()
     end,
+  }
+
+  lspconfig.bashls.setup {
+    cmd = { "bash-language-server", "start" },
+    cmd_env = {
+      GLOB_PATTERN = "*@(.sh|.inc|.bash|.command)"
+    },
+    filetypes = { "sh" },
+    root_dir = util.find_git_ancestor,
+    single_file_support = true
   }
 end
 
