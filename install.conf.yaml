@@ -19,7 +19,7 @@
     - ~/.local/share/fonts 
 
 - shell:
-  - ["[ -d ~/.oh-my-zsh ] || sh -c \"$(curl -fsSL https://raw.githubusercontent.com/robbyrussell/oh-my-zsh/master/tools/install.sh)\"", Installing oh-my-zsh] 
+  - [ . helpers/install_omz.sh, "Installing omz + plugins" ]
 
 - link:
     ~/.config/btop/btop.conf: btop/btop.conf
@@ -30,31 +30,14 @@
       path: zsh/zshrc
 
 - shell:
-  - $(which zsh) ~/.zshrc
-  - ["git submodule update --init --recursive", Installing submodules]
-  - ["[ ! type 'brew' > /dev/null 2>&1 ] || /bin/bash -c \"$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)\" </dev/null", Installing brew]
-  - ["[ '$(uname 2> /dev/null)' = 'Darwin' ] && export PATH=/usr/local/bin:$PATH && brew bundle --file=brew/Brewfile || export PATH=/home/linuxbrew/.linuxbrew/bin:$PATH && brew bundle --file=brew/Brewfile", Installing from Brewfile]
-  - ["[ -d ~/.config/tmux/plugins/tpm ] || git clone https://github.com/tmux-plugins/tpm ~/.config/tmux/plugins/tpm", Installing tmux Plugin Manager]
-  - ["~/.config/tmux/plugins/tpm/bin/install_plugins", Installing tmux plugins]
-  - ["[ -d ~/.config/nvim ] || git clone https://github.com/NvChad/NvChad ~/.config/nvim", Installing nvim config]
-  - ["nvim --headless -c 'autocmd User PackerComplete quitall' -c 'PackerSync'", Installing nvim plugins]
-  - 
-    command: "[ -d ~/.config/kymsu ] || $(git clone https://github.com/welcoMattic/kymsu ~/.config/kymsu && cd ~/.config/kymsu && ./install.sh)"
-    stdout: true
-    description: Installing kymsu
-    quiet: true
-  - "[ -d ~/.oh-my-zsh/custom/plugins/zsh-256color ] || $(cd ~/.oh-my-zsh/custom/plugins && git clone https://github.com/chrissicool/zsh-256color)"
-  - ["[ '$(uname 2> /dev/null)' = 'Darwin' ] && cp fonts/* ~/Library/Fonts/ || cp fonts/* ~/.local/share/fonts/", Installing fonts]
-  - 
-    command: "[ -d ~/.config/nvm ] || $(git clone https://github.com/nvm-sh/nvm.git ~/.config/nvm && cd ~/.config/nvm && git checkout `git describe --abbrev=0 --tags --match \"v[0-9]*\" $(git rev-list --tags --max-count=1)`) && sh ~/.config/nvm/nvm.sh"
-    stdout: true
-    description: Installing nvm
-    quiet: true
+  - [ git submodule update --init --recursive, "Installing submodules" ]
+  - [ . helpers/install_brew.sh, "Installing brew" ]
+  - [ . helpers/install_from_brewfile.sh, "Installing from Brewfile" ]
+  - [ . helpers/install_tmux.sh, "Installing tmux + plugins" ]
+  - [ . helpers/install_nvim.sh, "Installing nvim + plugins" ]
+  - [ . helpers/install_kymsu.sh, "Installing kymsu" ]
+  - [ . helpers/install_fonts.sh, "Installing fonts" ]
+  - [ . helpers/install_nvm.sh, "Installing nvm" ]
 
 - link:
     ~/.config/nvim/lua/custom: nvim/custom
-
-- shell:
-  - compaudit | xargs chmod g-w
-  - $(which zsh) ~/.zshrc
-  - omz reload
