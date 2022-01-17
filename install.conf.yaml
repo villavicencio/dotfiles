@@ -38,6 +38,7 @@
   - [ . helpers/install_kymsu.sh, "Installing kymsu" ]
   - [ . helpers/install_fonts.sh, "Installing fonts" ]
   - [ . helpers/install_nvm.sh, "Installing nvm" ]
+  - [ . helpers/install_node.sh, "Installing node + modules" ]
 
 - link:
     ~/.config/nvim/lua/custom: nvim/custom
