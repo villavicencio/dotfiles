@@ -9,7 +9,10 @@ export XDG_CACHE_HOME=$HOME/.cache
 export DOTFILES=$( cd -P "$( dirname "$( readlink $HOME/.zshrc )" )" \
  >/dev/null 2>&1 && git rev-parse --show-toplevel )
 
-# Upate PATH
+# Set desired Node version
+export NODE_VERSION="v16.13.1"
+
+# Update PATH
 if test $(uname 2> /dev/null) = "Darwin"
 then
   export PATH="/usr/local/bin:$PATH"

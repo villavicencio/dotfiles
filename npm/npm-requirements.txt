@@ -1,0 +1,4 @@
+bash-language-server
+corepack
+npm
+vim-language-server
