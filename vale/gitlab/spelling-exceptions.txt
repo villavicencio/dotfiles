@@ -61,6 +61,7 @@ backtracing
 badging
 Bamboo
 Bazel
+Bev
 Bhyve
 Bitbucket
 Blanco
@@ -226,6 +227,7 @@ formatters
 Fugit
 fuzzer
 Gantt
+Gayathiri
 Gemfile
 Gemnasium
 Gemojione
@@ -280,6 +282,7 @@ idmapper
 Iglu
 Immer
 inclusivity
+Infosec
 Ingress
 initializer
 initializers
@@ -408,6 +411,7 @@ nullability
 nullable
 Nurtch
 nyc
+Nylas
 OAuth
 Octokit
 offboarded
