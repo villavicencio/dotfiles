@@ -63,7 +63,12 @@ customPlugins.add(function(use)
   }
 
   use {
-    "vim-pandoc/vim-pandoc-syntax"
+    "vim-pandoc/vim-pandoc-syntax",
+
+    setup = function ()
+      -- Conceal links
+      vim.g["pandoc#syntax#conceal#urls"] = 1
+    end,
   }
 
   use {
