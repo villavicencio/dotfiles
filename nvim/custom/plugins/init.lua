@@ -1,38 +1,36 @@
 return {
   {
     "Pocco81/TrueZen.nvim",
-    
+
     cmd = {
       "TZAtaraxis",
       "TZMinimalist",
       "TZFocus",
     },
-    
+
     config = function()
-      -- check https://github.com/Pocco81/TrueZen.nvim#setup-configuration (init.lua version)
+      require "nvim.custom.plugins.truezen"
     end,
   },
-  
+
   {
     "karb94/neoscroll.nvim",
-    
+
     opt = true,
-    
+
     config = function()
       require("neoscroll").setup()
     end,
-    
+
     -- lazy loading
     setup = function()
       require("core.utils").packer_lazy_load "neoscroll.nvim"
     end,
   },
 
-  { "nathom/filetype.nvim" },
-
   {
     "luukvbaal/stabilize.nvim",
-    
+
     config = function()
       require("stabilize").setup()
     end,
@@ -42,10 +40,7 @@ return {
     "SidOfc/mkdx",
 
     setup = function()
-      -- Disable tab mapping which was preventing tabbing buffers
-      vim.g["mkdx#settings"] = {
-        tab = { enable = 0 },
-      }
+      require "custom.plugins.mkdx"
     end,
   },
 
