@@ -69,7 +69,7 @@ return {
 
   {
     "folke/which-key.nvim",
-    
+
     config = function()
       require("which-key").setup {
         -- your configuration comes here
@@ -81,7 +81,7 @@ return {
 
   {
     "gbprod/cutlass.nvim",
-    
+
     config = function()
       require("cutlass").setup({
         cut_key = "x"
