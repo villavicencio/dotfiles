@@ -74,3 +74,9 @@ export XML_CATALOG_FILES="/usr/local/etc/xml/catalog"
 
 export MYVIMRC=$XDG_CONFIG_HOME/nvim/init.vim
 export TMUX_PLUGIN_MANAGER_PATH=$XDG_CONFIG_HOME/tmux/plugins/
+
+# Starship prompt config
+export STARSHIP_CONFIG=$DOTFILES/starship/starship.toml
+
+# Prioritize using GNU commands over BSD commands
+export PATH="/usr/local/opt/coreutils/libexec/gnubin:$PATH"
