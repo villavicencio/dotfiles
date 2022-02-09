@@ -80,3 +80,6 @@ export STARSHIP_CONFIG=$DOTFILES/starship/starship.toml
 
 # Prioritize using GNU commands over BSD commands
 export PATH="/usr/local/opt/coreutils/libexec/gnubin:$PATH"
+
+# Set the path used by require to search for a Lua loader 
+export LUA_PATH="$DOTFILES/?.lua;./?.lua"
