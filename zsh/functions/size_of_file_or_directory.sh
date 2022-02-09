@@ -1,4 +1,4 @@
-#!/usr/bin/env zsh
+#!/usr/bin/env sh
 
 # Determine size of a file or total size of a directory
 function size_of_file_or_directory() {

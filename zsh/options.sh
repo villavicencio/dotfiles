@@ -1,4 +1,4 @@
-#!/usr/bin/env zsh
+#!/usr/bin/env sh
 
 # Case-insensitive globbing (used in pathname expansion).
 setopt extendedglob;

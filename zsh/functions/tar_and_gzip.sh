@@ -1,4 +1,4 @@
-#!/usr/bin/env zsh
+#!/usr/bin/env sh
 
 # Create a .tar.gz archive, using `zopfli`, `pigz` or `gzip` for compression
 function tar_and_gzip() {

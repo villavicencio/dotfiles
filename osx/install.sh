@@ -1,4 +1,4 @@
-#!/usr/bin/env zsh
+#!/usr/bin/env sh
 
 # Manual installs
 # Caffeine: http://lightheadsw.com/caffeine/
