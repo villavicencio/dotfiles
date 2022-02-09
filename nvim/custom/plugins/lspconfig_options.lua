@@ -1,5 +1,3 @@
-local util = require 'lspconfig/util'
-
 local M = {}
 
 M.setup_lsp = function(attach, capabilities)
@@ -17,43 +15,11 @@ M.setup_lsp = function(attach, capabilities)
     }
   end
 
-  require'lspconfig'.sumneko_lua.setup(require("nvim.custom.config.lua-lsp"))
+  lspconfig.sumneko_lua.setup(require("nvim.custom.config.lua-lsp"))
 
-  lspconfig.vimls.setup {
-    cmd = { "vim-language-server", "--stdio" },
-    filetypes = { "vim" },
-    init_options = {
-      diagnostic = {
-        enable = true,
-      },
-      indexes = {
-        count = 3,
-        gap = 100,
-        projectRootPatterns = { "runtime", "nvim", ".git", "autoload", "plugin" },
-        runtimepath = true
-      },
-      iskeyword = "@,48-57,_,192-255,-#",
-      runtimepath = "",
-      suggest = {
-        fromRuntimepath = true,
-        fromVimruntime = true
-      },
-      vimruntime = ""
-    },
-    root_dir = function(fname)
-      return util.find_git_ancestor(fname) or vim.fn.getcwd()
-    end,
-  }
+  lspconfig.vimls.setup(require("nvim.custom.config.vim-lsp"))
 
-  lspconfig.bashls.setup {
-    cmd = { "bash-language-server", "start" },
-    cmd_env = {
-      GLOB_PATTERN = "*@(.sh|.inc|.bash|.command)"
-    },
-    filetypes = { "sh" },
-    root_dir = util.find_git_ancestor,
-    single_file_support = true
-  }
+  lspconfig.bashls.setup(require("nvim.custom.config.bash-lsp"))
 end
 
 return M
