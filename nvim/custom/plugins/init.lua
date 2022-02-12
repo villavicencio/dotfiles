@@ -88,4 +88,6 @@ return {
       })
     end,
   },
+
+  { "dhruvasagar/vim-table-mode" }
 }

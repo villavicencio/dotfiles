@@ -8,3 +8,6 @@ vim.cmd[[ au! BufNewFile,BufFilePre,BufRead *.md set filetype=markdown.pandoc ]]
 
 -- Set soft wrap when editing markdown
 vim.cmd[[ autocmd FileType markdown,md,markdown.pandoc call pencil#init({'wrap': 'soft'}) ]]
+
+-- Enable markdown table helper
+vim.cmd[[ autocmd FileType markdown,md,markdown.pandoc call tablemode#Enable() ]]
