@@ -1911,6 +1911,8 @@
 	<real>0.0</real>
 	<key>FlashTabBarInFullscreen</key>
 	<true/>
+	<key>ForceAntialiasingOnRetina</key>
+	<true/>
 	<key>GlobalKeyMap</key>
 	<dict>
 		<key>0x19-0x60000</key>
@@ -2101,26 +2103,26 @@
 				<key>Alpha Component</key>
 				<real>1</real>
 				<key>Blue Component</key>
-				<real>0.45882353186607361</real>
+				<real>0.53725490196078429</real>
 				<key>Color Space</key>
 				<string>sRGB</string>
 				<key>Green Component</key>
-				<real>0.42352941632270813</real>
+				<real>0.51372549019607838</real>
 				<key>Red Component</key>
-				<real>0.87843137979507446</real>
+				<real>0.78823529411764703</real>
 			</dict>
 			<key>Ansi 10 Color</key>
 			<dict>
 				<key>Alpha Component</key>
 				<real>1</real>
 				<key>Blue Component</key>
-				<real>0.47450980544090271</real>
+				<real>0.53333333333333333</real>
 				<key>Color Space</key>
 				<string>sRGB</string>
 				<key>Green Component</key>
-				<real>0.76470589637756348</real>
+				<real>0.70588235294117641</real>
 				<key>Red Component</key>
-				<real>0.59607845544815063</real>
+				<real>0.60392156862745094</real>
 			</dict>
 			<key>Ansi 11 Color</key>
 			<dict>
@@ -2140,26 +2142,26 @@
 				<key>Alpha Component</key>
 				<real>1</real>
 				<key>Blue Component</key>
-				<real>0.93725490570068359</real>
+				<real>0.82745098039215681</real>
 				<key>Color Space</key>
 				<string>sRGB</string>
 				<key>Green Component</key>
-				<real>0.68627452850341797</real>
+				<real>0.67450980392156867</real>
 				<key>Red Component</key>
-				<real>0.3803921639919281</real>
+				<real>0.49019607843137253</real>
 			</dict>
 			<key>Ansi 13 Color</key>
 			<dict>
 				<key>Alpha Component</key>
 				<real>1</real>
 				<key>Blue Component</key>
-				<real>0.86666667461395264</real>
+				<real>0.78823529411764703</real>
 				<key>Color Space</key>
 				<string>sRGB</string>
 				<key>Green Component</key>
-				<real>0.47058823704719543</real>
+				<real>0.5490196078431373</real>
 				<key>Red Component</key>
-				<real>0.7764706015586853</real>
+				<real>0.73333333333333328</real>
 			</dict>
 			<key>Ansi 14 Color</key>
 			<dict>
@@ -2192,52 +2194,52 @@
 				<key>Alpha Component</key>
 				<real>1</real>
 				<key>Blue Component</key>
-				<real>0.47450980544090271</real>
+				<real>0.53333333333333333</real>
 				<key>Color Space</key>
 				<string>sRGB</string>
 				<key>Green Component</key>
-				<real>0.76470589637756348</real>
+				<real>0.70588235294117641</real>
 				<key>Red Component</key>
-				<real>0.59607845544815063</real>
+				<real>0.60392156862745094</real>
 			</dict>
 			<key>Ansi 3 Color</key>
 			<dict>
 				<key>Alpha Component</key>
 				<real>1</real>
 				<key>Blue Component</key>
-				<real>0.48235294222831726</real>
+				<real>0.4823529411764706</real>
 				<key>Color Space</key>
 				<string>sRGB</string>
 				<key>Green Component</key>
-				<real>0.75294119119644165</real>
+				<real>0.75294117647058822</real>
 				<key>Red Component</key>
-				<real>0.89803922176361084</real>
+				<real>0.89803921568627454</real>
 			</dict>
 			<key>Ansi 4 Color</key>
 			<dict>
 				<key>Alpha Component</key>
 				<real>1</real>
 				<key>Blue Component</key>
-				<real>0.93725490570068359</real>
+				<real>0.82745098039215681</real>
 				<key>Color Space</key>
 				<string>sRGB</string>
 				<key>Green Component</key>
-				<real>0.68627452850341797</real>
+				<real>0.67450980392156867</real>
 				<key>Red Component</key>
-				<real>0.3803921639919281</real>
+				<real>0.49019607843137253</real>
 			</dict>
 			<key>Ansi 5 Color</key>
 			<dict>
 				<key>Alpha Component</key>
 				<real>1</real>
 				<key>Blue Component</key>
-				<real>0.86666667461395264</real>
+				<real>0.78823529411764703</real>
 				<key>Color Space</key>
 				<string>sRGB</string>
 				<key>Green Component</key>
-				<real>0.47058823704719543</real>
+				<real>0.5490196078431373</real>
 				<key>Red Component</key>
-				<real>0.7764706015586853</real>
+				<real>0.73333333333333328</real>
 			</dict>
 			<key>Ansi 6 Color</key>
 			<dict>
@@ -2283,13 +2285,13 @@
 				<key>Alpha Component</key>
 				<real>1</real>
 				<key>Blue Component</key>
-				<real>0.45882353186607361</real>
+				<real>0.5372549295425415</real>
 				<key>Color Space</key>
 				<string>sRGB</string>
 				<key>Green Component</key>
-				<real>0.42352941632270813</real>
+				<real>0.51372551918029785</real>
 				<key>Red Component</key>
-				<real>0.87843137979507446</real>
+				<real>0.78823530673980713</real>
 			</dict>
 			<key>BM Growl</key>
 			<true/>
@@ -2298,16 +2300,16 @@
 				<key>Alpha Component</key>
 				<real>1</real>
 				<key>Blue Component</key>
-				<real>0.12941177189350128</real>
+				<real>0.12941176470588234</real>
 				<key>Color Space</key>
 				<string>sRGB</string>
 				<key>Green Component</key>
-				<real>0.10588235408067703</real>
+				<real>0.10588235294117647</real>
 				<key>Red Component</key>
-				<real>0.011764706112444401</real>
+				<real>0.011764705882352941</real>
 			</dict>
-			<key>Background Image Location</key>
-			<string></string>
+			<key>Background Image Mode</key>
+			<integer>2</integer>
 			<key>Badge Color</key>
 			<dict>
 				<key>Alpha Component</key>
@@ -2321,8 +2323,10 @@
 				<key>Red Component</key>
 				<real>0.87843137979507446</real>
 			</dict>
+			<key>Blend</key>
+			<real>0.50242858002151269</real>
 			<key>Blink Allowed</key>
-			<false/>
+			<true/>
 			<key>Blinking Cursor</key>
 			<true/>
 			<key>Blur</key>
@@ -2414,13 +2418,13 @@
 				<key>Alpha Component</key>
 				<real>1</real>
 				<key>Blue Component</key>
-				<real>0.81000000000000005</real>
+				<real>0.79607843137254897</real>
 				<key>Color Space</key>
 				<string>sRGB</string>
 				<key>Green Component</key>
-				<real>0.7623529447264531</real>
+				<real>0.76470588235294112</real>
 				<key>Red Component</key>
-				<real>0.73852941708967967</real>
+				<real>0.75294117647058822</real>
 			</dict>
 			<key>Guid</key>
 			<string>21E8B66B-C398-4B36-90BE-CECFB432426D</string>
@@ -2750,9 +2754,9 @@
 			<key>Non-ASCII Ligatures</key>
 			<true/>
 			<key>Normal Font</key>
-			<string>FiraCodeNerdFontCompleteM-Retina 12</string>
+			<string>FiraCodeNerdFontCompleteM-Light 12</string>
 			<key>Only The Default BG Color Uses Transparency</key>
-			<true/>
+			<false/>
 			<key>Option Key Sends</key>
 			<integer>2</integer>
 			<key>Prompt Before Closing 2</key>
@@ -2948,7 +2952,7 @@
 		</dict>
 	</dict>
 	<key>PreferSpeedToFullLigatureSupport</key>
-	<true/>
+	<false/>
 	<key>PreserveWindowSizeWhenTabBarVisibilityChanges</key>
 	<false/>
 	<key>Print In Black And White</key>
@@ -3004,6 +3008,8 @@
 	<key>WindowNumber</key>
 	<false/>
 	<key>WorkAroundBigSurBug</key>
+	<false/>
+	<key>ZippyTextDrawing</key>
 	<false/>
 	<key>disableMetalWhenUnplugged</key>
 	<true/>
