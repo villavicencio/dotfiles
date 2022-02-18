@@ -47,9 +47,8 @@ return {
   {
     "vim-pandoc/vim-pandoc-syntax",
 
-    setup = function ()
-      -- Conceal links
-      vim.g["pandoc#syntax#conceal#urls"] = 1
+    config = function()
+      require "custom.plugins.vim-pandoc-syntax"
     end,
   },
 
@@ -89,5 +88,15 @@ return {
     end,
   },
 
-  { "dhruvasagar/vim-table-mode" }
+  { "dhruvasagar/vim-table-mode" },
+
+  {
+    "vimwiki/vimwiki",
+
+    setup = function()
+      require "custom.plugins.vim-wiki"
+    end,
+  },
+
+  { "jakelinnzy/autocmd-lua" }
 }
