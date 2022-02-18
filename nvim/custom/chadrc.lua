@@ -13,13 +13,16 @@ M.plugins = {
     },
   },
 
-
   default_plugin_config_replace = {
     lspconfig = "custom.plugins.lspconfig",
     dashboard = "custom.plugins.dashboard",
   },
 
   install = userPlugins,
+}
+
+M.ui = {
+  transparency = true,
 }
 
 return M
