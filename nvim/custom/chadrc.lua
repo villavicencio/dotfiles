@@ -22,7 +22,7 @@ M.plugins = {
 }
 
 M.ui = {
-  transparency = true,
+  transparency = false,
 }
 
 return M
