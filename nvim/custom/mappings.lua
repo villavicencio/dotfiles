@@ -1,9 +1,8 @@
 local map = require("core.utils").map
 
-map("n", "<leader>fg", ":Telescope live_grep <CR>", opt)
-map("n", "<leader>q", ":q <CR>", opt)
-map("n", "<leader>f", ":TZAtaraxis <CR>", opt)
+-- Exit from terminal mode with escape key.
+map("t", "<Esc>", "<C-\\><C-n>")
 
--- Give me my tab back! 
-vim.cmd'map <leader>j <Plug>VimwikiNextLink'
-vim.cmd'map <leader>k <Plug>VimwikiPrevLink'
+-- Give me my tab back!
+map("n", "<leader>j", "<Plug>VimwikiNextLink")
+map("n", "<leader>k", "<Plug>VimwikiPrevLink")
