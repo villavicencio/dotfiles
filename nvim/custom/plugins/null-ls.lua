@@ -25,19 +25,6 @@ local sources = {
   b.diagnostics.shellcheck.with {
     diagnostics_format = "#{m} [#{c}]"
   },
-
-  -- Vale
-  b.diagnostics.vale.with ({
-    filetypes = {
-      "markdown",
-      "tex",
-      "markdown.pandoc"
-    },
-    extra_args = {
-      "--config",
-      vim.fn.expand("$DOTFILES/vale/vale.ini")
-    }
-  })
 }
 
 local M = {}
