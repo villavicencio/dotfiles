@@ -4,7 +4,7 @@ local userPlugins = require "custom.plugins"
 
 M.plugins = {
   status = {
-    dashboard = true,
+    dashboard = false,
   },
 
   options = {
