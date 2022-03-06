@@ -3,7 +3,7 @@ local M = {}
 M.setup_lsp = function(attach, capabilities)
   local lspconfig = require "lspconfig"
 
-  local servers = { "sumneko_lua", "vimls", "bashls" }
+  local servers = { "sumneko_lua", "vimls", "bashls", "tsserver" }
 
   for _, lsp in ipairs(servers) do
     lspconfig[lsp].setup {
@@ -20,6 +20,8 @@ M.setup_lsp = function(attach, capabilities)
   lspconfig.vimls.setup(require("nvim.custom.config.vim-lsp"))
 
   lspconfig.bashls.setup(require("nvim.custom.config.bash-lsp"))
+
+  lspconfig.tsserver.setup(require("nvim.custom.config.tsserver-lsp"))
 end
 
 return M
