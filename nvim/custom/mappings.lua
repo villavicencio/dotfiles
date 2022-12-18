@@ -1,4 +1,4 @@
-local map = require("core.utils").map
+local map = nvchad.map
 
 -- Exit from terminal mode with escape key.
 map("t", "<Esc>", "<C-\\><C-n>")

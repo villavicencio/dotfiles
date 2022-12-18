@@ -1,6 +1,6 @@
 #!/usr/bin/env sh
 
-export PATH="/usr/local/bin:/usr/local/sbin:/home/linuxbrew/.linuxbrew/bin:$PATH"
+export PATH="/usr/local/bin:/usr/local/sbin:$PATH"
 
 # Add brew curl first to path
 export PATH="/usr/local/opt/curl/bin:$PATH"
@@ -24,3 +24,6 @@ export PATH="$PATH:$HOME/.local/bin";
 # Export openssl compiler flags
 export LDFLAGS="-L/usr/local/opt/openssl/lib"
 export CPPFLAGS="-I/usr/local/opt/openssl/include"
+
+# Add Flutter to PATH
+export PATH="$PATH:$HOME/Projects/flutter/bin"

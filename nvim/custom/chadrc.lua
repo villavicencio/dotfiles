@@ -4,7 +4,7 @@ local userPlugins = require "custom.plugins"
 
 M.plugins = {
   status = {
-    dashboard = false,
+    alpha = true,
   },
 
   options = {
@@ -15,7 +15,7 @@ M.plugins = {
 
   default_plugin_config_replace = {
     lspconfig = "custom.plugins.lspconfig",
-    dashboard = "custom.plugins.dashboard",
+    -- alpha = "custom.plugins.dashboard",
   },
 
   install = userPlugins,

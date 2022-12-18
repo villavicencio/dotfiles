@@ -43,6 +43,8 @@ ENABLE_CORRECTION="false"
 # Would you like to use another custom folder than $ZSH/custom?
 # ZSH_CUSTOM=/path/to/new-custom-folder
 
+eval "$(/opt/homebrew/bin/brew shellenv)"
+
 # Which plugins would you like to load?
 # Standard plugins can be found in ~/.oh-my-zsh/plugins/*
 # Custom plugins may be added to ~/.oh-my-zsh/custom/plugins/
@@ -100,7 +102,7 @@ export PATH="$PATH:$HOME/.rvm/bin"
 # Load zsh completions
 if type brew &>/dev/null; then
   FPATH=$(brew --prefix)/share/zsh-completions:$FPATH
-  
+
   autoload -Uz compinit
   for dump in ~/.zcompdump(N.mh+24); do
     compinit
