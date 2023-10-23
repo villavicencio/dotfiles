@@ -59,12 +59,13 @@ plugins=(git zsh-256color)
 source $ZSH/oh-my-zsh.sh
 
 # User configuration
-source "$DOTFILES/zsh/export.sh"        # Define environment variables
-source "$DOTFILES/zsh/options.sh"       # Shell options
-source "$DOTFILES/zsh/path.sh"          # Extend $PATH
-source "$DOTFILES/zsh/functions.sh"     # Shell functions
-source "$DOTFILES/zsh/iterm2.zsh"       # iTerm2 shell integration
-source "$DOTFILES/zsh/alias.sh"         # Define shortcuts
+source "$DOTFILES/zsh/export.sh"    # Define environment variables
+source "$DOTFILES/zsh/options.sh"   # Shell options
+source "$DOTFILES/zsh/path.sh"      # Extend $PATH
+source "$DOTFILES/zsh/functions.sh" # Shell functions
+source "$DOTFILES/zsh/iterm2.zsh"   # iTerm2 shell integration
+source "$DOTFILES/zsh/alias.sh"     # Define shortcuts
+source "$HOME/env.sh" 2> /dev/null  # Optional overrides (does not get checked in)
 
 source $NVM_DIR/nvm.sh
 
