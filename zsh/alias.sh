@@ -8,7 +8,7 @@ alias ...="cd ../.."
 alias ducks='du -cksh * | sort -rn | head -11'
 
 # Detect which `ls` flavor is in use
-if ls --color > /dev/null 2>&1; then # GNU `ls`
+if ls --color >/dev/null 2>&1; then # GNU `ls`
   colorflag="--color"
 else # OS X `ls`
   colorflag="-G"
@@ -29,6 +29,9 @@ alias ls="command ls ${colorflag}"
 
 # Enable aliases to be sudo’ed
 alias sudo='sudo '
+
+# Always enable colored `grep` output.
+alias grep='grep --color=auto'
 
 # Get week number
 alias week='date +%V'
@@ -56,13 +59,13 @@ alias sniff="sudo ngrep -d 'en1' -t '^(GET|POST) ' 'tcp and port 80'"
 alias httpdump="sudo tcpdump -i en1 -n -s 0 -w - | grep -a -o -E \"Host\: .*|GET \/.*\""
 
 # Canonical hex dump; some systems have this symlinked
-command -v hd > /dev/null || alias hd="hexdump -C"
+command -v hd >/dev/null || alias hd="hexdump -C"
 
 # OS X has no `md5sum`, so use `md5` as a fallback
-command -v md5sum > /dev/null || alias md5sum="md5"
+command -v md5sum >/dev/null || alias md5sum="md5"
 
 # OS X has no `sha1sum`, so use `shasum` as a fallback
-command -v sha1sum > /dev/null || alias sha1sum="shasum"
+command -v sha1sum >/dev/null || alias sha1sum="shasum"
 
 # Trim new lines and copy to clipboard
 alias c="tr -d '\n' | pbcopy"
@@ -140,7 +143,7 @@ alias tmux='tmux -f "$XDG_CONFIG_HOME"/tmux/tmux.conf'
 alias hh=hstr
 
 # Alias for NVIM
-if type nvim > /dev/null 2>&1; then
+if type nvim >/dev/null 2>&1; then
   alias vim='nvim'
   alias vi='vim'
 fi

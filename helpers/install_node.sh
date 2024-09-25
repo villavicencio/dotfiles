@@ -1,19 +1,13 @@
 #!/bin/bash
 
-. helpers/env.sh
+. ./zsh/zshenv
+. $NVM_DIR/nvm.sh
 
-current_version=`nvm current`
+current_version=$(nvm current)
 
-if test $current_version != "$NODE_VERSION"
-then
-  nvm install $NODE_VERSION
-  nvm alias default $NODE_VERSION
-
-  if test $current_version != "none"
-  then
-    nvm reinstall-packages $current_version 
-  fi
-fi
-
+nvm install $NODE_VERSION
+nvm alias default $NODE_VERSION
+nvm reinstall-packages $current_version
 nvm install-latest-npm
+
 sed 's/#.*//' npm/npm-requirements.txt | xargs npm install -g

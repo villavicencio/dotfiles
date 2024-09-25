@@ -6,39 +6,64 @@
       stdout: true
       stderr: true
 
-- clean: ['~']
+- clean: ["~"]
 
 - create:
     - ~/.hushlogin
     - ~/.config
+    - ~/.config/zsh
     - ~/.config/btop
     - ~/.config/lazygit
     - ~/.config/tmux
     - ~/.config/tmux/resurrect
     - ~/.config/tmux/plugins
-    - ~/.local/share/fonts 
+    - ~/.local/share/fonts
 
 - shell:
-  - [ . helpers/install_omz.sh, "Installing omz + plugins" ]
+    - command: 'echo "export ZDOTDIR=$HOME/.config/zsh" > ~/.zshenv'
+      description: Setting ZDOTDIR in .zshenv
+      quiet: true
+    - command: |
+        if [ "$(uname)" != "Darwin" ]; then
+          sudo apt-get install -y locales
+          sudo locale-gen en_US.UTF-8
+          sudo update-locale LANG=en_US.UTF-8 LANGUAGE=en_US:en LC_ALL=en_US.UTF-8
+        fi
+      description: "Generating en_US.UTF-8 locale (non-macOS systems only)"
+    - command: 'echo ". \"$HOME/.config/zsh\"/.zshenv" >> ~/.zshenv'
+      description: Adding dot command for more extensive zshenv in .zshenv
+      quiet: true
+    - command: bash helpers/install_omz.sh
+      description: "Installing omz + plugins"
+      quiet: true
+    - sudo chsh -s $(which zsh)
+    - [sudo chsh -s $(which zsh), Making zsh the default shell]
 
 - link:
+    ~/.config/zsh/.zshenv: zsh/zshenv
+    ~/.config/zsh/.zshrc: zsh/zshrc
     ~/.config/btop/btop.conf: btop/btop.conf
     ~/.config/lazygit/config.yml: lazygit/config.yml
     ~/.config/tmux/tmux.conf: tmux/tmux.conf
-    ~/.zshrc:
-      force: true
-      path: zsh/zshrc
 
 - shell:
-  - [ git submodule update --init --recursive, "Installing submodules" ]
-  - [ . helpers/install_brew.sh, "Installing brew" ]
-  - [ . helpers/install_from_brewfile.sh, "Installing from Brewfile" ]
-  - [ . helpers/install_tmux.sh, "Installing tmux + plugins" ]
-  - [ . helpers/install_nvim.sh, "Installing nvim + plugins" ]
-  - [ . helpers/install_kymsu.sh, "Installing kymsu" ]
-  - [ . helpers/install_fonts.sh, "Installing fonts" ]
-  - [ . helpers/install_nvm.sh, "Installing nvm" ]
-  - [ . helpers/install_node.sh, "Installing node + modules" ]
+    - . ~/.zshenv
+    - [git submodule update --init --recursive, "Installing submodules"]
+    - [bash helpers/install_brew.sh, "Installing brew"]
+    - [bash helpers/install_from_brewfile.sh, "Installing from Brewfile"]
+    - [bash helpers/install_tmux.sh, "Installing tmux + plugins"]
+    - [bash helpers/install_nvim.sh, "Installing nvim + plugins"]
+    - [bash helpers/install_kymsu.sh, "Installing kymsu"]
+    - [bash helpers/install_fonts.sh, "Installing fonts"]
+    - [bash helpers/install_nvm.sh, "Installing nvm"]
+    - [bash helpers/install_node.sh, "Installing node + modules"]
 
 - link:
     ~/.config/nvim/lua/custom: nvim/custom
+
+- shell:
+    - command: |
+        echo "Installation complete! To change your default shell to zsh, please run the following command:"
+        echo "chsh -s $(which zsh)"
+        echo "Then log out and log back in for the changes to take effect."
+      quiet: false

@@ -50,4 +50,4 @@ function tre() {
 	tree -aC -I '.git|node_modules|bower_components' --dirsfirst "$@" | less -FRNX;
 }
 
-for function in "$DOTFILES/zsh/functions"/*.sh; do source "${function}"; done
+for function in "$DOTFILES/zsh/functions"/*.sh; do . "${function}"; done
