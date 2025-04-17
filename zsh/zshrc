@@ -169,16 +169,10 @@ fi
 
 # Lazy load tmux
 if command -v tmux &>/dev/null; then
-  _tmux() {
-    unset -f _tmux
-    if command -v tmux &>/dev/null; then
-      command tmux "$@"
-    else
-      echo "Error: Tmux is not installed" >&2
-      return 1
-    fi
+  function tmux() {
+    unfunction tmux
+    command tmux "$@"
   }
-  alias tmux=_tmux
 fi
 
 # Lazy load pyenv
