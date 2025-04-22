@@ -23,11 +23,11 @@ export LANG=en_US.UTF-8
 export LANGUAGE=en_US:en
 export LC_ALL=en_US.UTF-8
 
-# Linker and compiler flags for zlib
-export LDFLAGS="-L/usr/local/opt/zlib/lib"
-export CPPFLAGS="-I/usr/local/opt/zlib/include"
+# Linker and compiler flags
+export LDFLAGS="-L/usr/local/opt/zlib/lib -L/usr/local/opt/openssl/lib"
+export CPPFLAGS="-I/usr/local/opt/zlib/include -I/usr/local/opt/openssl/include"
 
-# Don’t clear the screen after quitting a manual page.
+# Don't clear the screen after quitting a manual page.
 export MANPAGER='less -X'
 
 # Bypass checks for faster shell startup.
@@ -47,10 +47,7 @@ export DOTFILES=$(git -C "$(dirname "$(readlink "$ZDOTDIR/.zshrc")")" \
 #             PATH CONFIG
 # ======================================
 
-export PATH="/usr/local/bin:/usr/local/sbin:$PATH"
-
-# Add brew curl first to path
-export PATH="/usr/local/opt/curl/bin:$PATH"
+export PATH="/usr/local/opt/curl/bin:/usr/local/bin:/usr/local/sbin:$PATH"
 
 # Add MySQL to path
 export PATH="$PATH:/usr/local/mysql/bin"
@@ -63,10 +60,6 @@ export PATH="$PATH:$HOME/.yarn/bin"
 
 # Add cargo-installed binaries to the path
 export PATH="$PATH:$CARGO_HOME/bin"
-
-# Export openssl compiler flags
-export LDFLAGS="-L/usr/local/opt/openssl/lib"
-export CPPFLAGS="-I/usr/local/opt/openssl/include"
 
 # Add Flutter to PATH
 export PATH="$PATH:$HOME/Projects/flutter/bin"
@@ -152,7 +145,7 @@ export NVM_DIR=$XDG_CONFIG_HOME/nvm
 export NODE_VERSION="v20.10.0"
 
 # Node path.
-export NODE_PATH="$HOME/.config/nvm/versions/node/$NODE_VERSION/bin/node"
+export NODE_PATH="$NVM_DIR/versions/node/$NODE_VERSION/bin/node"
 
 # Node environment.
 export NODE_ENV=development
@@ -197,7 +190,7 @@ export STARSHIP_CONFIG=$DOTFILES/starship/starship.toml
 export MYVIMRC=$XDG_CONFIG_HOME/nvim/init.vim
 
 # ======================================
-#           LUA CONFIG
+#           TMUX CONFIG
 # ======================================
 
 # Set the path for the Tmux plugin manager to store installed plugins
