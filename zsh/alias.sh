@@ -1,9 +1,5 @@
 #!/usr/bin/env sh
 
-# Easier navigation
-alias ..="cd .."
-alias ...="cd ../.."
-
 # List the size of all the folders and files.
 alias ducks='du -cksh * | sort -rn | head -11'
 
@@ -24,7 +20,7 @@ alias ll="la"
 # List only directories
 alias lsd="ls -lF ${colorflag}"
 
-# Always use color output for `ls`
+# Always use color output for 'ls'
 alias ls="command ls ${colorflag}"
 
 # Enable aliases to be sudo’ed
@@ -118,23 +114,6 @@ alias afk="/System/Library/CoreServices/Menu\ Extras/User.menu/Contents/Resource
 
 # Reload the shell (i.e. invoke as a login shell)
 alias reload="exec $SHELL -l"
-
-# Docker shortcuts
-alias c='docker-compose'
-alias cb='docker-compose build'
-alias cup='docker-compose up'
-alias cupd='docker-compose up -d'
-alias cr='docker-compose run --service-ports --rm'
-alias crl='docker-compose run --service-ports --rm local'
-alias crd='docker-compose run --service-ports --rm develop'
-alias crt='docker-compose run --rm test'
-alias crp='docker-compose run --rm provision'
-alias crci='docker-compose run --rm ci'
-alias crwt='docker-compose run --rm watchtest'
-alias cps='docker-compose ps'
-alias clogs='docker-compose logs --tail=5 -f'
-alias docker_clean_images='docker rmi $(docker images -a --filter=dangling=true -q)'
-alias docker_clean_ps='docker rm $(docker ps --filter=status=exited --filter=status=created -q)'
 
 # Open tmux with custom config location
 alias tmux='tmux -f "$XDG_CONFIG_HOME"/tmux/tmux.conf'
