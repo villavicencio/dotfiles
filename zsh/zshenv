@@ -14,9 +14,12 @@ export TERM='xterm-256color'
 export PAGER=most
 
 # Colorful less.
-LESSPIPE=$(which src-hilite-lesspipe.sh)
-export LESSOPEN="| ${LESSPIPE} %s"
-export LESS=' -R -X -F '
+if command -v bat >/dev/null 2>&1; then
+    export LESSOPEN="| bat --color=always --style=plain %s"
+    export LESS=' -R -X -F '
+else
+    export LESS=' -R -X -F '
+fi
 
 # Set the system locale to US English with UTF-8 encoding.
 export LANG=en_US.UTF-8
