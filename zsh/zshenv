@@ -140,7 +140,7 @@ export NVM_DIR=$XDG_CONFIG_HOME/nvm
 # ======================================
 
 # Node version.
-export NODE_VERSION="v20.10.0"
+export NODE_VERSION="v22.15.0"
 
 # Node path.
 export NODE_PATH="$NVM_DIR/versions/node/$NODE_VERSION/bin/node"
