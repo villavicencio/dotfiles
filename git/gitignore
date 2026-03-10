@@ -11,3 +11,6 @@ desktop.ini
 .agignore
 Session.vim
 .undodir
+
+# Claude Code
+**/.claude/settings.local.json

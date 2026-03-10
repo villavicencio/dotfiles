@@ -13,6 +13,7 @@
     - ~/.config
     - ~/.config/zsh
     - ~/.config/btop
+    - ~/.config/git
     - ~/.config/lazygit
     - ~/.config/tmux
     - ~/.config/tmux/resurrect
@@ -42,6 +43,8 @@
 - link:
     ~/.config/zsh/.zshenv: zsh/zshenv
     ~/.config/zsh/.zshrc: zsh/zshrc
+    ~/.config/git/gitignore: git/gitignore
+    ~/.config/git/gitattributes: git/gitattributes
     ~/.config/btop/btop.conf: btop/btop.conf
     ~/.config/lazygit/config.yml: lazygit/config.yml
     ~/.config/tmux/tmux.conf: tmux/tmux.conf

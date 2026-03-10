@@ -15,8 +15,8 @@
 [core]
     editor = vim
     ignorecase = false
-    excludesfile = ~/Projects/Personal/dotfiles/git/gitignore
-    attributesfile = ~/Projects/Personal/dotfiles/git/gitattributes
+    excludesfile = ~/.config/git/gitignore
+    attributesfile = ~/.config/git/gitattributes
     pager = vim -
 [help]
     autocorrect = 1
@@ -76,5 +76,12 @@
 	helper = 
 	helper = !/opt/homebrew/bin/gh auth git-credential
 [credential "https://gist.github.com"]
-	helper = 
+	helper =
 	helper = !/opt/homebrew/bin/gh auth git-credential
+
+# Machine-specific overrides (git identity, work email, etc.)
+# On the work Mac, create ~/.gitconfig.local with:
+#   [user]
+#       email = david.villavicencio@fedex.com
+[include]
+    path = ~/.gitconfig.local
