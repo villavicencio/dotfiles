@@ -64,7 +64,7 @@ LOCAL_BIN="$HOME/bin"
 LOCAL_SHARE_BIN="$HOME/.local/bin"
 
 # Add paths in order of priority
-export PATH="$BREW_CURL:$BREW_BIN:$BREW_SBIN:$MYSQL_BIN:$RVM_BIN:$YARN_BIN:$CARGO_BIN:$FLUTTER_BIN:$LOCAL_BIN:$LOCAL_SHARE_BIN:$PATH"
+export PATH="$BREW_CURL:$BREW_BIN:$BREW_SBIN:$MYSQL_BIN:$RVM_BIN:$YARN_BIN:$CARGO_BIN:$FLUTTER_BIN:$LOCAL_BIN:$LOCAL_SHARE_BIN:$HOME/.rvm/bin:${HOME}/perl5/bin:${PATH:+:${PATH}}:$PATH"
 
 # ======================================
 #             OMZ CONFIG
@@ -139,12 +139,6 @@ export NVM_DIR=$XDG_CONFIG_HOME/nvm
 #            NODE CONFIG
 # ======================================
 
-# Node version.
-export NODE_VERSION="v22.15.0"
-
-# Node path.
-export NODE_PATH="$NVM_DIR/versions/node/$NODE_VERSION/bin/node"
-
 # Node environment.
 export NODE_ENV=development
 
@@ -200,3 +194,5 @@ export TMUX_PLUGIN_MANAGER_PATH=$XDG_CONFIG_HOME/tmux/plugins/
 
 # Set the path used by require to search for a Lua loader
 export LUA_PATH="$DOTFILES/?.lua;./?.lua"
+
+

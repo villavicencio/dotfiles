@@ -2,12 +2,32 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>AI High Effort Enabled</key>
+	<true/>
+	<key>AI Web Search Enabled</key>
+	<true/>
+	<key>AIFeatureFunctionCalling</key>
+	<true/>
+	<key>AIFeatureHostedCodeInterpeter</key>
+	<true/>
+	<key>AIFeatureHostedFileSearch</key>
+	<true/>
+	<key>AIFeatureHostedWebSearch</key>
+	<true/>
+	<key>AIFeatureStreamingResponses</key>
+	<true/>
+	<key>AITermAPI</key>
+	<integer>2</integer>
+	<key>AIVectorStore</key>
+	<integer>0</integer>
 	<key>AiMaxTokens</key>
-	<integer>128000</integer>
+	<integer>400000</integer>
 	<key>AiModel</key>
-	<string>gpt-4o-mini</string>
+	<string>gpt-5.2</string>
+	<key>AiResponseMaxTokens</key>
+	<integer>128000</integer>
 	<key>AitermURL</key>
-	<string>https://api.openai.com/v1/completions</string>
+	<string>https://api.openai.com/v1/responses</string>
 	<key>AllowClipboardAccess</key>
 	<true/>
 	<key>AllowTabbarInTitlebarAccessoryBigSur</key>
@@ -1893,6 +1913,8 @@
 	<true/>
 	<key>Default Bookmark Guid</key>
 	<string>21E8B66B-C398-4B36-90BE-CECFB432426D</string>
+	<key>Default Browser Profile Guid</key>
+	<string>FD73E619-CBEC-4CDA-A03A-B86E3CC81882</string>
 	<key>DefaultTabStopWidth</key>
 	<integer>8</integer>
 	<key>DimBackgroundWindows</key>
@@ -2647,6 +2669,31 @@
 			<key>Working Directory</key>
 			<string>/Users/david</string>
 		</dict>
+		<dict>
+			<key>Command</key>
+			<string>/bin/bash --login</string>
+			<key>Custom Command</key>
+			<string>Browser</string>
+			<key>Default Bookmark</key>
+			<string>No</string>
+			<key>Guid</key>
+			<string>C27C511B-1D8B-4F99-8550-B99F22DCEAB1</string>
+			<key>Instant Replay</key>
+			<true/>
+			<key>Jobs to Ignore</key>
+			<array>
+				<string>rlogin</string>
+				<string>ssh</string>
+				<string>slogin</string>
+				<string>telnet</string>
+			</array>
+			<key>Name</key>
+			<string>Web Browser</string>
+			<key>Prompt Before Closing 2</key>
+			<false/>
+			<key>Tags</key>
+			<array/>
+		</dict>
 	</array>
 	<key>OnlyWhenMoreTabs</key>
 	<false/>
@@ -2741,18 +2788,24 @@
 	</array>
 	<key>UseBorder</key>
 	<false/>
+	<key>UseRecommendedAIModel</key>
+	<true/>
 	<key>UseTmuxStatusBar</key>
 	<true/>
 	<key>UseUnevenTabs</key>
 	<false/>
 	<key>VisualIndicatorForEsc</key>
 	<false/>
+	<key>WebKitAdblockEnabled</key>
+	<true/>
 	<key>WindowNumber</key>
 	<false/>
 	<key>WorkAroundBigSurBug</key>
 	<false/>
 	<key>ZippyTextDrawing</key>
 	<false/>
+	<key>com.apple.WebPrivacy.ResourceMonitorURLsVersion</key>
+	<string>qrsAAAGXnXBrwGxMO6s=</string>
 	<key>disableMetalWhenUnplugged</key>
 	<true/>
 	<key>findMode_iTerm</key>
