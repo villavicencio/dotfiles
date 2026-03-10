@@ -274,10 +274,10 @@ tmux ls >/dev/null 2>&1 || (tmux start-server && tmux new -s dummy -d && sleep 1
 [[ "$TERM_PROGRAM" == "kiro" ]] && . "$(kiro --locate-shell-integration-path zsh)"
 
 # Added by Antigravity
-export PATH="/Users/dvillavicencio/.antigravity/antigravity/bin:$PATH"
+export PATH="$HOME/.antigravity/antigravity/bin:$PATH"
 
 # OpenClaw Completion
-source "/Users/dvillavicencio/.openclaw/completions/openclaw.zsh"
+source "$HOME/.openclaw/completions/openclaw.zsh"
 
 # bun completions
-[ -s "/Users/dvillavicencio/.bun/_bun" ] && source "/Users/dvillavicencio/.bun/_bun"
+[ -s "$HOME/.bun/_bun" ] && source "$HOME/.bun/_bun"
