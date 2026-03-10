@@ -145,6 +145,9 @@ export NVM_DIR=$XDG_CONFIG_HOME/nvm
 #            NODE CONFIG
 # ======================================
 
+# Node version — update when upgrading via nvm
+export NODE_VERSION=24.13.0
+
 # Node environment.
 export NODE_ENV=development
 

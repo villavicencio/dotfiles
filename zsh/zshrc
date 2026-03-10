@@ -12,7 +12,7 @@ zstyle ':completion:*:kill:*' command 'ps -u $USER -o pid,%cpu,tty,cputime,cmd'
 
 # Load completions system
 autoload -Uz compinit
-if [ $(date +'%j') != $(stat -f '%Sm' -t '%j' ~/.zcompdump 2>/dev/null) ]; then
+if [ "$(date +'%j')" != "$(stat -f '%Sm' -t '%j' ~/.zcompdump 2>/dev/null)" ]; then
   compinit
 else
   compinit -C
@@ -267,7 +267,6 @@ export PERL_MM_OPT="INSTALL_BASE=${HOME}/perl5"
 
 # Tmux session restoration
 tmux ls >/dev/null 2>&1 || (tmux start-server && tmux new -s dummy -d && sleep 1s && tmux kill-session -t dummy)
-[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion" # This loads nvm bash_completion
 
 . "$HOME/.local/share/../bin/env"
 
