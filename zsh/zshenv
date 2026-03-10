@@ -26,9 +26,16 @@ export LANG=en_US.UTF-8
 export LANGUAGE=en_US:en
 export LC_ALL=en_US.UTF-8
 
+# Detect Homebrew prefix based on CPU architecture
+if [[ "$(uname -m)" == "arm64" ]]; then
+  export BREW_PREFIX="/opt/homebrew"
+else
+  export BREW_PREFIX="/usr/local"
+fi
+
 # Linker and compiler flags
-export LDFLAGS="-L/usr/local/opt/zlib/lib -L/usr/local/opt/openssl/lib"
-export CPPFLAGS="-I/usr/local/opt/zlib/include -I/usr/local/opt/openssl/include"
+export LDFLAGS="-L$BREW_PREFIX/opt/zlib/lib -L$BREW_PREFIX/opt/openssl/lib"
+export CPPFLAGS="-I$BREW_PREFIX/opt/zlib/include -I$BREW_PREFIX/opt/openssl/include"
 
 # Don't clear the screen after quitting a manual page.
 export MANPAGER='less -X'
@@ -40,7 +47,7 @@ export ZSH_DISABLE_COMPFIX=true
 export EDITOR='nvim'
 
 # Prioritize using GNU commands over BSD commands
-export PATH="/usr/local/opt/coreutils/libexec/gnubin:$PATH"
+export PATH="$BREW_PREFIX/opt/coreutils/libexec/gnubin:$PATH"
 
 # Save reference to dotfiles directory.
 export DOTFILES=$(git -C "$(dirname "$(readlink "$ZDOTDIR/.zshrc")")" \
@@ -51,7 +58,6 @@ export DOTFILES=$(git -C "$(dirname "$(readlink "$ZDOTDIR/.zshrc")")" \
 # ======================================
 
 # Define common paths
-BREW_PREFIX="/usr/local"
 BREW_CURL="$BREW_PREFIX/opt/curl/bin"
 BREW_BIN="$BREW_PREFIX/bin"
 BREW_SBIN="$BREW_PREFIX/sbin"
