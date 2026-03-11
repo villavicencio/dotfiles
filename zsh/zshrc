@@ -64,8 +64,6 @@ setopt NO_FLOW_CONTROL      # Disable start/stop characters in shell editor
 setopt INTERACTIVE_COMMENTS # Allow comments in interactive shell
 
 # User configuration - keep source order for dependencies
-# source "$DOTFILES/zsh/export.sh"    # Define environment variables first
-# source "$DOTFILES/zsh/path.sh"      # Then extend $PATH
 source "$DOTFILES/zsh/functions.sh" # Load functions after PATH is set
 source "$DOTFILES/zsh/iterm2.zsh"   # iTerm2 integration after functions
 source "$DOTFILES/zsh/alias.sh"     # Aliases last as they might use functions
@@ -84,14 +82,6 @@ if [[ -f "$HOME/.fzf.zsh" ]]; then
   bindkey '^R' fzf-history-widget
   bindkey '^T' fzf-file-widget
   bindkey '\ec' fzf-cd-widget
-fi
-
-# Lazy load tmux
-if command -v tmux &>/dev/null; then
-  function tmux() {
-    unfunction tmux
-    command tmux "$@"
-  }
 fi
 
 # Lazy load pyenv
