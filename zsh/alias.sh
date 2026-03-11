@@ -35,8 +35,8 @@ alias week='date +%V'
 # Stopwatch
 alias timer='echo "Timer started. Stop with Ctrl-D." && date && time cat && date'
 
-# Get OS X Software Updates, and update installed Ruby gems, Homebrew, npm, and their installed packages
-alias update='sudo softwareupdate -i -a; brew update; brew upgrade; brew cleanup; npm install npm -g; npm update -g; sudo gem update --system; sudo gem update'
+# Update everything via topgrade
+alias update='topgrade'
 
 # IP addresses
 alias ip="echo 'IPv4: ' \$(dig -4 +short myip.opendns.com @resolver1.opendns.com); echo 'IPv6: ' \$(dig -6 +short myip.opendns.com @resolver1.opendns.com)"
