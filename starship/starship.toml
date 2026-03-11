@@ -49,6 +49,7 @@ symbol = " "
 
 [nodejs]
 symbol = " "
+command_timeout = 1000
 
 [package]
 symbol = " "
