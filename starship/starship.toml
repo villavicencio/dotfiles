@@ -1,3 +1,5 @@
+command_timeout = 1000
+
 [aws]
 symbol = "  "
 disabled = true
@@ -49,7 +51,6 @@ symbol = " "
 
 [nodejs]
 symbol = " "
-command_timeout = 1000
 
 [package]
 symbol = " "
