@@ -80,20 +80,6 @@ source "$DOTFILES/zsh/iterm2.zsh"   # iTerm2 integration after functions
 source "$DOTFILES/zsh/alias.sh"     # Aliases last as they might use functions
 source "$HOME/env.sh" 2>/dev/null   # Optional overrides at the very end
 
-# Lazy load brew
-if [[ -x "$BREW_PREFIX/bin/brew" ]]; then
-  brew() {
-    unset -f brew
-    if [[ -x "$BREW_PREFIX/bin/brew" ]]; then
-      eval "$("$BREW_PREFIX/bin/brew" shellenv)"
-      brew "$@"
-    else
-      echo "Error: Homebrew is not installed" >&2
-      return 1
-    fi
-  }
-fi
-
 # Lazy load fzf
 if [[ -f "$HOME/.fzf.zsh" ]]; then
   fzf() {
