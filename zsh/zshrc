@@ -73,48 +73,14 @@ source "$HOME/env.sh" 2>/dev/null   # Optional overrides at the very end
 
 # Lazy load fzf
 if [[ -f "$HOME/.fzf.zsh" ]]; then
-  fzf() {
-    unset -f fzf
-    if [[ -f "$HOME/.fzf.zsh" ]]; then
-      source "$HOME/.fzf.zsh"
-      fzf "$@"
-    else
-      echo "Error: FZF is not installed" >&2
-      return 1
-    fi
+  _load_fzf() {
+    unset -f _load_fzf fzf fzf-history-widget fzf-cd-widget fzf-file-widget
+    source "$HOME/.fzf.zsh"
   }
-  # Lazy load fzf-related commands
-  fzf-history-widget() {
-    unset -f fzf fzf-history-widget fzf-cd-widget fzf-file-widget
-    if [[ -f "$HOME/.fzf.zsh" ]]; then
-      source "$HOME/.fzf.zsh"
-      fzf-history-widget "$@"
-    else
-      echo "Error: FZF is not installed" >&2
-      return 1
-    fi
-  }
-  fzf-cd-widget() {
-    unset -f fzf fzf-history-widget fzf-cd-widget fzf-file-widget
-    if [[ -f "$HOME/.fzf.zsh" ]]; then
-      source "$HOME/.fzf.zsh"
-      fzf-cd-widget "$@"
-    else
-      echo "Error: FZF is not installed" >&2
-      return 1
-    fi
-  }
-  fzf-file-widget() {
-    unset -f fzf fzf-history-widget fzf-cd-widget fzf-file-widget
-    if [[ -f "$HOME/.fzf.zsh" ]]; then
-      source "$HOME/.fzf.zsh"
-      fzf-file-widget "$@"
-    else
-      echo "Error: FZF is not installed" >&2
-      return 1
-    fi
-  }
-  # Set up key bindings that will trigger lazy loading
+  fzf()                { _load_fzf; fzf "$@"; }
+  fzf-history-widget() { _load_fzf; fzf-history-widget "$@"; }
+  fzf-cd-widget()      { _load_fzf; fzf-cd-widget "$@"; }
+  fzf-file-widget()    { _load_fzf; fzf-file-widget "$@"; }
   bindkey '^R' fzf-history-widget
   bindkey '^T' fzf-file-widget
   bindkey '\ec' fzf-cd-widget
