@@ -64,7 +64,7 @@ BREW_SBIN="$BREW_PREFIX/sbin"
 MYSQL_BIN="/usr/local/mysql/bin"
 RVM_BIN="$HOME/.rvm/bin"
 YARN_BIN="$HOME/.yarn/bin"
-CARGO_BIN="$CARGO_HOME/bin"
+CARGO_BIN="$HOME/.cargo/bin"
 LOCAL_BIN="$HOME/bin"
 LOCAL_SHARE_BIN="$HOME/.local/bin"
 
