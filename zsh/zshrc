@@ -248,9 +248,6 @@ bundle() {
 # Initialize starship prompt
 eval "$(starship init zsh)"
 
-# You may need to manually set your language environment
-export LANG=en_US.UTF-8
-
 # Perl local lib configuration
 export PERL5LIB="${HOME}/perl5/lib/perl5${PERL5LIB:+:${PERL5LIB}}"
 export PERL_LOCAL_LIB_ROOT="${HOME}/perl5${PERL_LOCAL_LIB_ROOT:+:${PERL_LOCAL_LIB_ROOT}}"
