@@ -152,56 +152,17 @@ if [[ -s "$NVM_DIR/nvm.sh" ]]; then
 fi
 
 # Lazy load RVM
-rvm() {
-  unset -f rvm ruby gem rake bundle
-  if [[ -s "$HOME/.rvm/scripts/rvm" ]]; then
+if [[ -s "$HOME/.rvm/scripts/rvm" ]]; then
+  _load_rvm() {
+    unset -f _load_rvm rvm ruby gem rake bundle
     source "$HOME/.rvm/scripts/rvm"
-    rvm "$@"
-  else
-    echo "Error: RVM is not installed" >&2
-    return 1
-  fi
-}
-ruby() {
-  unset -f rvm ruby gem rake bundle
-  if [[ -s "$HOME/.rvm/scripts/rvm" ]]; then
-    source "$HOME/.rvm/scripts/rvm"
-    ruby "$@"
-  else
-    echo "Error: RVM is not installed" >&2
-    return 1
-  fi
-}
-gem() {
-  unset -f rvm ruby gem rake bundle
-  if [[ -s "$HOME/.rvm/scripts/rvm" ]]; then
-    source "$HOME/.rvm/scripts/rvm"
-    gem "$@"
-  else
-    echo "Error: RVM is not installed" >&2
-    return 1
-  fi
-}
-rake() {
-  unset -f rvm ruby gem rake bundle
-  if [[ -s "$HOME/.rvm/scripts/rvm" ]]; then
-    source "$HOME/.rvm/scripts/rvm"
-    rake "$@"
-  else
-    echo "Error: RVM is not installed" >&2
-    return 1
-  fi
-}
-bundle() {
-  unset -f rvm ruby gem rake bundle
-  if [[ -s "$HOME/.rvm/scripts/rvm" ]]; then
-    source "$HOME/.rvm/scripts/rvm"
-    bundle "$@"
-  else
-    echo "Error: RVM is not installed" >&2
-    return 1
-  fi
-}
+  }
+  rvm()    { _load_rvm; rvm "$@"; }
+  ruby()   { _load_rvm; ruby "$@"; }
+  gem()    { _load_rvm; gem "$@"; }
+  rake()   { _load_rvm; rake "$@"; }
+  bundle() { _load_rvm; bundle "$@"; }
+fi
 
 # Initialize starship prompt
 eval "$(starship init zsh)"
