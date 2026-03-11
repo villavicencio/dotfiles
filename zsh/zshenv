@@ -107,18 +107,9 @@ export HISTFILE="$ZDOTDIR/.zsh_history"
 # Change the time stamp shown in the history command output.
 export HIST_STAMPS="mm/dd/yyyy"
 
-# Increase Bash history size. Allow 32³ entries; the default is 500.
+# Allow 32³ entries; the default is 500.
 export HISTSIZE=1000000
-export HISTFILESIZE="${HISTSIZE}"
-
-# Add timestamps to Bash history entries.
-export HISTTIMEFORMAT="%d/%m/%y %T"
-
-# Omit duplicates and commands that begin with a space from history.
-export HISTCONTROL='ignoreboth:erasedups'
-
-# Ignore some useless commands in history
-export HISTIGNORE='&:ls:[bf]g:exit:pwd:clear:mount:umount:history'
+export SAVEHIST=$HISTSIZE
 
 # ======================================
 #             HOMEBREW CONFIG
