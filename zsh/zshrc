@@ -10,14 +10,6 @@ zstyle ':completion:*' cache-path $ZSH_CACHE_DIR
 zstyle ':completion:*:*:kill:*:processes' list-colors '=(#b) #([0-9]#)*=0=01;31'
 zstyle ':completion:*:kill:*' command 'ps -u $USER -o pid,%cpu,tty,cputime,cmd'
 
-# Load completions system
-autoload -Uz compinit
-if [ "$(date +'%j')" != "$(stat -f '%Sm' -t '%j' ~/.zcompdump 2>/dev/null)" ]; then
-  compinit
-else
-  compinit -C
-fi
-
 # Enable completion menu
 zmodload zsh/complist
 bindkey -M menuselect 'h' vi-backward-char
