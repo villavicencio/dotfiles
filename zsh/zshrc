@@ -73,7 +73,6 @@ setopt INTERACTIVE_COMMENTS # Allow comments in interactive shell
 
 # User configuration - keep source order for dependencies
 # source "$DOTFILES/zsh/export.sh"    # Define environment variables first
-source "$DOTFILES/zsh/options.sh" # Shell options next
 # source "$DOTFILES/zsh/path.sh"      # Then extend $PATH
 source "$DOTFILES/zsh/functions.sh" # Load functions after PATH is set
 source "$DOTFILES/zsh/iterm2.zsh"   # iTerm2 integration after functions
