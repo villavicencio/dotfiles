@@ -254,8 +254,10 @@ export PERL_LOCAL_LIB_ROOT="${HOME}/perl5${PERL_LOCAL_LIB_ROOT:+:${PERL_LOCAL_LI
 export PERL_MB_OPT="--install_base \"${HOME}/perl5\""
 export PERL_MM_OPT="INSTALL_BASE=${HOME}/perl5"
 
-# Tmux session restoration
-tmux ls >/dev/null 2>&1 || (tmux start-server && tmux new -s dummy -d && sleep 1s && tmux kill-session -t dummy)
+# Tmux session restoration (only outside tmux, only in iTerm2)
+if [[ -z "$TMUX" && "$TERM_PROGRAM" == "iTerm.app" ]]; then
+  tmux ls >/dev/null 2>&1 || (tmux start-server && tmux new -s dummy -d && sleep 1s && tmux kill-session -t dummy)
+fi
 
 # Rustup env (optional)
 [[ -f "$HOME/.local/bin/env" ]] && . "$HOME/.local/bin/env"
