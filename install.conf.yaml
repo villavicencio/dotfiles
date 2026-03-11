@@ -43,6 +43,7 @@
 - link:
     ~/.config/zsh/.zshenv: zsh/zshenv
     ~/.config/zsh/.zshrc: zsh/zshrc
+    ~/.gitconfig: git/gitconfig
     ~/.config/git/gitignore: git/gitignore
     ~/.config/git/gitattributes: git/gitattributes
     ~/.config/btop/btop.conf: btop/btop.conf
