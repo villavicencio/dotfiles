@@ -1,0 +1,25 @@
+[misc]
+# Assume "yes" to all prompts
+assume_yes = true
+# Don't ask to retry failed steps
+no_retry = true
+# Cleanup after updating
+cleanup = true
+
+[ignore]
+# Skip JetBrains IDEs (not installed)
+jetbrains_idea = true
+jetbrains_clion = true
+jetbrains_datagrip = true
+jetbrains_dataspell = true
+jetbrains_gateway = true
+jetbrains_goland = true
+jetbrains_phpstorm = true
+jetbrains_pycharm = true
+jetbrains_rider = true
+jetbrains_rubymine = true
+jetbrains_rustrover = true
+jetbrains_webstorm = true
+jetbrains_toolbox = true
+jetbrains_mps = true
+jetbrains_aqua = true

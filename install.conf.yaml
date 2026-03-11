@@ -49,6 +49,7 @@
     ~/.config/btop/btop.conf: btop/btop.conf
     ~/.config/lazygit/config.yml: lazygit/config.yml
     ~/.config/tmux/tmux.conf: tmux/tmux.conf
+    ~/.config/topgrade.toml: topgrade/topgrade.toml
 
 - shell:
     - . ~/.zshenv
