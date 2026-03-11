@@ -9,7 +9,8 @@
 BREWFILE_PATH=${BREWFILE_PATH:-"./brew/Brewfile"}
 
 # Run brew bundle and handle potential errors
-if ! brew bundle --file="$BREWFILE_PATH"; then
+# Use $HOMEBREW_BREW_FILE (set by shellenv) to ensure the correct arch brew is called
+if ! "$HOMEBREW_BREW_FILE" bundle --file="$BREWFILE_PATH"; then
     echo "Error: Failed to install packages from Brewfile"
     exit 1
 fi
