@@ -177,14 +177,23 @@ if command -v pyenv 1>/dev/null 2>&1; then
   }
 fi
 
-# NVM Configuration
+# Lazy load NVM
 export NVM_DIR="$HOME/.config/nvm"
 if [[ -s "$NVM_DIR/nvm.sh" ]]; then
-  source "$NVM_DIR/nvm.sh"  # This loads nvm
-  nvm alias default stable >/dev/null 2>&1
-  nvm use default >/dev/null 2>&1
-  # The following line is for nvm bash_completion
-  [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"
+  # Add default node to PATH without sourcing nvm.sh (~0ms vs ~200-400ms)
+  DEFAULT_NODE_PATH="$(ls -d "$NVM_DIR/versions/node"/v* 2>/dev/null | tail -1)/bin"
+  [[ -d "$DEFAULT_NODE_PATH" ]] && export PATH="$DEFAULT_NODE_PATH:$PATH"
+  unset DEFAULT_NODE_PATH
+
+  _load_nvm() {
+    unset -f _load_nvm nvm node npm npx
+    source "$NVM_DIR/nvm.sh"
+    [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"
+  }
+  nvm()  { _load_nvm; nvm "$@"; }
+  node() { _load_nvm; node "$@"; }
+  npm()  { _load_nvm; npm "$@"; }
+  npx()  { _load_nvm; npx "$@"; }
 fi
 
 # Lazy load RVM
