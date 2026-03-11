@@ -12,14 +12,25 @@ if [[ ! -d "$OMZ_DIR" ]]; then
   }
 fi
 
-# Install zsh-256color plugin if not already installed
-ZSH_256COLOR_DIR="$OMZ_DIR/custom/plugins/zsh-256color"
-if [[ ! -d "$ZSH_256COLOR_DIR" ]]; then
-  echo "Installing zsh-256color plugin..."
-  git clone "https://github.com/chrissicool/zsh-256color" "$ZSH_256COLOR_DIR" || {
-    echo "zsh-256color plugin installation failed"
-    exit 1
-  }
-fi
+# Install plugins
+declare -A PLUGINS=(
+  ["zsh-256color"]="https://github.com/chrissicool/zsh-256color"
+  ["zsh-autosuggestions"]="https://github.com/zsh-users/zsh-autosuggestions"
+  ["zsh-history-substring-search"]="https://github.com/zsh-users/zsh-history-substring-search"
+  ["zsh-syntax-highlighting"]="https://github.com/zsh-users/zsh-syntax-highlighting"
+)
+
+for plugin in "${!PLUGINS[@]}"; do
+  PLUGIN_DIR="$OMZ_DIR/custom/plugins/$plugin"
+  if [[ ! -d "$PLUGIN_DIR" ]]; then
+    echo "Installing $plugin..."
+    git clone "${PLUGINS[$plugin]}" "$PLUGIN_DIR" || {
+      echo "$plugin installation failed"
+      exit 1
+    }
+  else
+    echo "$plugin already installed, skipping."
+  fi
+done
 
 echo "All installations completed successfully."
