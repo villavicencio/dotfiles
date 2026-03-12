@@ -67,6 +67,8 @@
 
 - link:
     ~/.claude/commands/ticket.md: claude/commands/ticket.md
+    ~/.claude/commands/handoff.md: claude/commands/handoff.md
+    ~/.claude/commands/pickup.md: claude/commands/pickup.md
     ~/.config/nvim/lua/custom: nvim/custom
 
 - shell:
