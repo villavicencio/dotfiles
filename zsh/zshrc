@@ -86,40 +86,14 @@ fi
 
 # Lazy load pyenv
 if command -v pyenv 1>/dev/null 2>&1; then
-  pyenv() {
-    unset -f pyenv
-    if command -v pyenv 1>/dev/null 2>&1; then
-      eval "$(command pyenv init -)"
-      eval "$(command pyenv init --path)"
-      pyenv "$@"
-    else
-      echo "Error: Pyenv is not installed" >&2
-      return 1
-    fi
+  _load_pyenv() {
+    unset -f _load_pyenv pyenv python pip
+    eval "$(command pyenv init -)"
+    eval "$(command pyenv init --path)"
   }
-  # Create shims for python and pip
-  python() {
-    unset -f python pip
-    if command -v pyenv 1>/dev/null 2>&1; then
-      eval "$(command pyenv init -)"
-      eval "$(command pyenv init --path)"
-      python "$@"
-    else
-      echo "Error: Pyenv is not installed" >&2
-      return 1
-    fi
-  }
-  pip() {
-    unset -f python pip
-    if command -v pyenv 1>/dev/null 2>&1; then
-      eval "$(command pyenv init -)"
-      eval "$(command pyenv init --path)"
-      pip "$@"
-    else
-      echo "Error: Pyenv is not installed" >&2
-      return 1
-    fi
-  }
+  pyenv()  { _load_pyenv; pyenv "$@"; }
+  python() { _load_pyenv; python "$@"; }
+  pip()    { _load_pyenv; pip "$@"; }
 fi
 
 # Lazy load NVM
