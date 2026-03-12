@@ -54,6 +54,10 @@ ellipse(80% 56%) dome, reduced top padding pt-20→pt-6, moved brand label below
 If a CLAUDE.md rule was added or updated, note it here.
 If something was explicitly ruled out, say so and why — saves the next session from relitigating it.]
 
+## What Didn't Work
+[Approaches that failed, dead ends, or things explicitly ruled out — so the next session
+doesn't relitigate or retry them. Include why they failed when known.]
+
 ## What's Next
 [Prioritized list. Lead with the single most important thing.
 Be specific: name the file, PR, or component. Vague summaries don't help the next session.]
