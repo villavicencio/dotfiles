@@ -48,6 +48,9 @@ export DOTFILES=$(git -C "$(dirname "$(readlink "$ZDOTDIR/.zshrc")")" \
 #             PATH CONFIG
 # ======================================
 
+# Auto-deduplicate PATH entries
+typeset -U PATH
+
 # Define common paths
 BREW_CURL="$BREW_PREFIX/opt/curl/bin"
 BREW_BIN="$BREW_PREFIX/bin"
