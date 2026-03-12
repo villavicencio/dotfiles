@@ -41,6 +41,8 @@
     ff = only
 [credential]
 	helper = osxkeychain
+	helper = 
+	helper = /usr/local/share/gcm-core/git-credential-manager
 [pager]
     diff = diff-so-fancy | less --tabs=4 -RFX
     show = diff-so-fancy | less --tabs=4 -RFX
@@ -68,8 +70,6 @@
 	defaultBranch = main
 [credential "https://huggingface.co"]
 	provider = generic
-[credential "https://dev.azure.com"]
-	useHttpPath = true
 [credential "https://github.com"]
 	helper = 
 	helper = !/opt/homebrew/bin/gh auth git-credential
@@ -83,3 +83,5 @@
 #       email = david.villavicencio@fedex.com
 [include]
     path = ~/.gitconfig.local
+[credential "https://dev.azure.com"]
+	useHttpPath = true
