@@ -181,3 +181,7 @@ fi
 
 # bun completions
 [ -s "$HOME/.bun/_bun" ] && source "$HOME/.bun/_bun"
+
+# Google Cloud SDK (optional)
+[[ -f "$HOME/.google-cloud-sdk/path.zsh.inc" ]] && source "$HOME/.google-cloud-sdk/path.zsh.inc"
+[[ -f "$HOME/.google-cloud-sdk/completion.zsh.inc" ]] && source "$HOME/.google-cloud-sdk/completion.zsh.inc"
