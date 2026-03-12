@@ -65,6 +65,9 @@ LOCAL_SHARE_BIN="$HOME/.local/bin"
 # Add paths in order of priority
 export PATH="$BREW_CURL:$BREW_BIN:$BREW_SBIN:$MYSQL_BIN:$RVM_BIN:$YARN_BIN:$CARGO_BIN:$LOCAL_BIN:$LOCAL_SHARE_BIN:${HOME}/perl5/bin${PATH:+:${PATH}}"
 
+# Auto-deduplicate PATH entries
+typeset -U PATH
+
 # ======================================
 #             OMZ CONFIG
 # ======================================
