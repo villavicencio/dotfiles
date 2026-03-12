@@ -1,58 +1,60 @@
-# Handoff: Dotfiles Zsh Config Audit
+# Handoff: Dotfiles Configuration
 
 ## Goal
 
-Comprehensive cleanup and modernization of the zsh dotfiles config managing two Macs (personal macOS Tahoe M-series, work macOS Sequoia M-series) via Dotbot.
+Comprehensive cleanup, modernization, and cross-machine parity of the zsh dotfiles config managing two Macs (personal macOS Tahoe M-series, work macOS Sequoia M-series) via Dotbot.
 
 ## Current Progress
 
-### Completed (19/19 tickets closed)
+### Session 1: Zsh Config Audit (19/19 tickets closed)
 
-All issues from the zsh config audit have been resolved and merged to master:
+All issues resolved and merged to master. See `docs/solutions/code-quality/zsh-configuration-audit-19-issues.md` for full details.
 
-**Bugs:** Fixed doubled PATH, undefined CARGO_HOME, duplicate RVM PATH entry, removed bash-only history variables.
+- **Bugs:** Fixed doubled PATH, undefined CARGO_HOME, duplicate RVM PATH entry, removed bash-only history variables.
+- **Performance:** Removed unreachable brew lazy loader, lazy-loaded NVM (~200-400ms saved), guarded tmux restoration, removed double compinit.
+- **Duplicates:** Deleted options.sh, removed duplicate LANG and PYENV_ROOT exports.
+- **Cleanup:** Consolidated PAGER, FZF/RVM lazy loaders, removed hardcoded TERM, dead code.
+- **Tooling:** Replaced Kymsu with Topgrade. Created GitHub Project board and `/ticket` command.
 
-**Performance:** Removed unreachable brew lazy loader, lazy-loaded NVM (~200-400ms saved), guarded tmux restoration (`sleep 1s` skipped outside iTerm2), removed double compinit.
+### Session 2: Work Mac Sync & Cross-Machine Fixes
 
-**Duplicates:** Deleted options.sh (duplicate setopts), removed duplicate LANG and PYENV_ROOT exports.
+Work Mac synced and several issues resolved. See `docs/solutions/cross-machine/corporate-mac-ssl-and-tooling-setup.md` for full details.
 
-**Cleanup:** Consolidated PAGER on less, fixed tilde consistency, removed hardcoded TERM, consolidated FZF lazy loader (45->13 lines), consolidated RVM lazy loader (50->12 lines), removed no-op tmux lazy loader, removed dead commented-out source lines.
+- **gcloud SDK:** Corporate SSL interception broke install. Fixed by using system Python (`CLOUDSDK_PYTHON=/usr/bin/python3`).
+- **Brewfile install:** `$HOMEBREW_BREW_FILE` unreliable across Homebrew versions. Changed to use `brew` directly.
+- **Starship timeout:** `command_timeout` moved from per-module to global top-level setting.
+- **NVM lazy loader:** Added `claude` shim so Claude Code works without running `node` first.
+- **PATH dedup:** Added `typeset -U PATH` to zshenv.
+- **Pyenv lazy loader:** Consolidated to `_load_pyenv` helper pattern (done by work Mac Claude).
+- **gitconfig:** Committed lingering GCM credential helper changes.
+- **pkgconf:** x86_64 bottle on arm64 Mac — `brew reinstall pkgconf` on work Mac.
+- **_brew_services:** Missing completion file regenerated via `brew services`.
 
-**Tooling:** Replaced archived Kymsu with Topgrade for system-wide updates. Added `topgrade/topgrade.toml` config (skips JetBrains, system RubyGems). Removed stale `/usr/local/bin/idea` binary.
+### Workspace State
 
-**Infrastructure:** Created GitHub Project board (https://github.com/users/villavicencio/projects/2), project-local `/ticket` command in `.claude/commands/ticket.md`, dotfiles-specific labels on the repo.
-
-### Uncommitted
-
-- `docs/solutions/code-quality/zsh-configuration-audit-19-issues.md` — comprehensive solution doc (needs commit)
-- `git/gitconfig` — has unrelated GCM credential helper changes (leave uncommitted, not ours)
-
-### Pushed to origin
-
-All ticket work is pushed. The docs file above still needs committing and pushing.
+Clean. All changes committed and pushed to origin/master.
 
 ## What Worked
 
 - **Branch-per-ticket workflow**: Clean history, easy to review
 - **Test before commit**: User verified each change with `exec zsh` before committing
-- **Parallel agents for ticket creation**: Created 11 issues simultaneously (though agents couldn't run bash — had to fall back to direct execution)
-- **Worktree isolation for parallel fixes**: Tried for tickets 7/8/9 but agents lacked bash permissions. Ended up doing them sequentially in the main tree.
 - **Topgrade** as Kymsu replacement: auto-detects installed package managers, zero config needed
+- **System Python for corporate SSL**: `CLOUDSDK_PYTHON=/usr/bin/python3` bypasses corporate CA issues
+- **`~/env.sh` for machine-specific overrides**: Keeps corporate config out of the repo
 
 ## What Didn't Work
 
-- **Worktree agents for code changes**: Agents in isolated worktrees couldn't run `git commit` due to bash permission restrictions. Better to do these changes directly.
-- **Parallel agent ticket creation (first attempt)**: Agents couldn't run bash. Direct execution in the main conversation worked fine.
-- **Ticket #8 first pass**: The LANG duplicate removal merged but a second instance remained (line numbers shifted after earlier edits). Fixed in ticket #12.
+- **Worktree agents for code changes**: Agents in isolated worktrees couldn't run `git commit` due to bash permission restrictions.
+- **`$HOMEBREW_BREW_FILE`**: Not reliably set by `brew shellenv` — use `brew` directly.
+- **`REQUESTS_CA_BUNDLE` / `SSL_CERT_FILE` for gcloud**: gcloud SDK ignores these, uses bundled Python SSL.
+- **`pip3 install certifi`**: PEP 668 blocks system-wide pip installs on Homebrew Python.
 
 ## Next Steps
 
-1. **Commit the solution doc**: `docs/solutions/code-quality/zsh-configuration-audit-19-issues.md` is ready, needs `git add`, commit, push
-2. **Pyenv lazy loader consolidation**: The pyenv block (zshrc ~97-133) has 3 functions (pyenv, python, pip) that could use the same `_load_pyenv` helper pattern applied to FZF/RVM/NVM
-3. **Consider `typeset -U PATH`**: Add to zshenv to auto-deduplicate PATH entries going forward
-4. **Work Mac sync**: Run `git pull && ./install` on the work Mac, then `rm ~/.zcompdump && exec zsh` to clear stale compinit cache
-5. **Periodic audit**: Use the checklist in `docs/solutions/code-quality/zsh-configuration-audit-19-issues.md`
-6. **git/gitconfig changes**: The GCM credential helper diff is unrelated — decide whether to commit or `.gitignore` it
+1. **Periodic audit**: Use the checklist in `docs/solutions/code-quality/zsh-configuration-audit-19-issues.md`
+2. **Work Mac sync checklist**: Use the checklist in `docs/solutions/cross-machine/corporate-mac-ssl-and-tooling-setup.md`
+3. **NVM shim maintenance**: When adding new npm global CLIs, add them to the lazy loader shim list in zshrc
+4. **Corporate CA bundle**: Consider building a combined CA bundle (`~/.config/ssl/combined-ca-bundle.pem`) for broader tool coverage on work Mac
 
 ## SOPs (saved in memory)
 

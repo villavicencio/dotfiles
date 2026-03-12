@@ -1,0 +1,236 @@
+---
+title: "Fix gcloud SDK and Claude Code setup on corporate Mac with SSL interception"
+date: 2026-03-12
+category: cross-machine
+tags:
+  - ssl
+  - gcloud
+  - python
+  - corporate-proxy
+  - certificate-verification
+  - vertex-ai
+  - claude-code
+  - homebrew
+  - work-mac
+severity: High
+component:
+  - zsh/zshenv
+  - zsh/zshrc
+  - helpers/install_from_brewfile.sh
+  - starship/starship.toml
+symptoms:
+  - "SSL: CERTIFICATE_VERIFY_FAILED when installing gcloud SDK"
+  - "brew install google-cloud-sdk fails with certificate verify failed"
+  - "Homebrew Python 3.13 does not trust corporate CA certificates"
+  - "install_from_brewfile.sh fails because HOMEBREW_BREW_FILE is unset"
+  - "Starship command_timeout ignored when nested inside module block"
+  - "pkgconf architecture mismatch (x86_64 on arm64) blocking brew installs"
+  - "Missing _brew_services zsh completion file"
+  - "claude command not found until NVM is loaded"
+related_issues:
+  - "Brewfile install using wrong brew binary on dual-Homebrew Macs (commit e712af4)"
+  - "Zsh Configuration Audit: 19 Issues Resolved (docs/solutions/code-quality/)"
+status: Resolved
+scope:
+  - zsh/zshrc
+  - zsh/zshenv
+  - helpers/install_from_brewfile.sh
+  - starship/starship.toml
+  - topgrade/topgrade.toml
+---
+
+# Corporate Mac: gcloud SDK, Claude Code & Tooling Setup
+
+## Context
+
+On the FedEx-managed Mac (macOS Sequoia, M-series), installing the Google Cloud SDK and Claude Code fails with `SSL_CERT_VERIFICATION_ERROR`. This affects both direct download (`curl https://sdk.cloud.google.com | bash`) and Homebrew (`brew install google-cloud-sdk`). Standard Python SSL environment variables (`REQUESTS_CA_BUNDLE`, `SSL_CERT_FILE`) do not resolve the issue because the gcloud SDK uses its own bundled Python SSL context.
+
+Several other cross-machine issues surfaced during the same work Mac sync session.
+
+## Root Cause
+
+The corporate proxy/firewall intercepts HTTPS traffic using its own CA certificate. Homebrew's Python 3.13 does not trust this corporate CA because it uses its own certificate store, not the macOS Keychain. The gcloud SDK's bundled `urllib3`/`requests` relies on Homebrew Python's SSL context, which cannot verify the corporate CA chain.
+
+## Solution
+
+### gcloud SDK Installation
+
+**Step 1 -- Use macOS system Python**
+
+System Python (`/usr/bin/python3`) trusts corporate CA certificates via the macOS Keychain:
+
+```bash
+export CLOUDSDK_PYTHON=/usr/bin/python3
+```
+
+**Step 2 -- Install from the tarball (not Homebrew)**
+
+```bash
+cd ~/Downloads/<unzipped>/google-cloud-sdk
+./install.sh
+```
+
+The Python 3.9 deprecation warning from gcloud is safe to ignore.
+
+**Step 3 -- Configure the project**
+
+```bash
+gcloud config set project fxei-meta-project
+```
+
+**Step 4 -- Persist env vars in `~/env.sh`**
+
+This file is sourced at the end of `zshrc` and is not committed to the repo:
+
+```bash
+# ~/env.sh -- FedEx work Mac overrides
+export CLOUDSDK_PYTHON=/usr/bin/python3
+export GOOGLE_APPLICATION_CREDENTIALS=~/Downloads/fxei-meta-project-35631b0c2409.json
+export ANTHROPIC_VERTEX_PROJECT_ID=fxei-meta-project
+export CLAUDE_CODE_USE_VERTEX=1
+export CLOUD_ML_REGION=us-east5
+```
+
+**Step 5 -- Install and launch Claude Code**
+
+```bash
+npm install -g @anthropic-ai/claude-code
+claude
+# Inside Claude: /model -> pick opus 4.6
+```
+
+### What Did NOT Work
+
+| Approach | Why it failed |
+|----------|---------------|
+| `curl https://sdk.cloud.google.com \| bash` | Bundled Python 3.13 doesn't trust corporate CA |
+| `brew install google-cloud-sdk` | Same SSL issue -- Homebrew Python |
+| `export REQUESTS_CA_BUNDLE=...` | gcloud SDK ignores this, uses own SSL context |
+| `pip3 install certifi` | PEP 668 blocks system-wide pip installs |
+
+### Related Fixes (Same Session)
+
+#### `install_from_brewfile.sh` -- unreliable `$HOMEBREW_BREW_FILE`
+
+`$HOMEBREW_BREW_FILE` is not reliably set by `brew shellenv` across Homebrew versions. Changed to call `brew` directly since `init_homebrew.sh` already puts the correct brew on PATH.
+
+```bash
+# Before (fails when HOMEBREW_BREW_FILE is unset)
+if ! "$HOMEBREW_BREW_FILE" bundle --file="$BREWFILE_PATH"; then
+
+# After
+if ! brew bundle --file="$BREWFILE_PATH"; then
+```
+
+#### Starship `command_timeout` -- wrong scope
+
+`command_timeout` is a global top-level setting, not a per-module option. NVM lazy loading can cause `node --version` to exceed the default 500ms timeout.
+
+```toml
+# Wrong -- causes "[WARN] Unknown key" in Nodejs module
+[nodejs]
+command_timeout = 1000
+
+# Correct -- top-level setting
+command_timeout = 1000
+
+[nodejs]
+symbol = " "
+```
+
+#### `pkgconf` architecture mismatch
+
+`pkgconf` was installed as x86_64 on an arm64 Mac, blocking 4 packages (guile, libpthread-stubs, pyenv, pyenv-virtualenv):
+
+```bash
+brew reinstall pkgconf
+brew bundle --file=./brew/Brewfile
+```
+
+#### Missing `_brew_services` completion
+
+Compinit warned about missing `/opt/homebrew/share/zsh/site-functions/_brew_services`. Regenerated by running `brew services`.
+
+#### `claude` not on PATH until NVM loads
+
+Added `claude` as an NVM lazy loader shim so it works immediately:
+
+```bash
+_load_nvm() {
+  unset -f _load_nvm nvm node npm npx claude
+  source "$NVM_DIR/nvm.sh"
+  [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"
+}
+nvm()    { _load_nvm; nvm "$@"; }
+node()   { _load_nvm; node "$@"; }
+npm()    { _load_nvm; npm "$@"; }
+npx()    { _load_nvm; npx "$@"; }
+claude() { _load_nvm; claude "$@"; }
+```
+
+#### `typeset -U PATH`
+
+Added to `zshenv` to auto-deduplicate PATH entries across shell restarts.
+
+## Prevention Strategies
+
+### Corporate SSL
+
+- Export corporate CA once and reference via `~/env.sh` (never in the repo)
+- Use `CLOUDSDK_PYTHON=/usr/bin/python3` for any Google Cloud tooling
+- Consider building a combined CA bundle:
+
+```bash
+security find-certificate -a -p /System/Library/Keychains/SystemRootCertificates.keychain \
+  /Library/Keychains/System.keychain > ~/.config/ssl/combined-ca-bundle.pem
+```
+
+### Cross-Machine Layered Config
+
+```
+committed dotfiles (repo)          <- identical on both machines
+  +-- machine-local overrides      <- never committed
+       ~/env.sh                       shell env (SSL certs, proxy, tokens)
+       ~/.gitconfig.local             git identity
+```
+
+- Nothing corporate-specific goes in the repo
+- Detect by file presence (`[[ -f ~/env.sh ]]`), not hostname
+- Document required `~/env.sh` contents in CLAUDE.md
+
+### NVM Lazy Loader Shims
+
+When installing a new npm global CLI tool, add it to the shim list in `_load_nvm()`:
+
+1. `npm install -g <tool>`
+2. Add `<tool>` to the `unset -f` line in `_load_nvm()`
+3. Add `<tool>() { _load_nvm; <tool> "$@"; }` shim
+
+### Homebrew
+
+- Never depend on `$HOMEBREW_BREW_FILE` -- use `brew` directly (it's on PATH after `brew shellenv`)
+- If bottles show wrong architecture: `brew reinstall <formula>`
+- Derive all paths from `$BREW_PREFIX`, never hardcode `/opt/homebrew/` or `/usr/local/`
+
+## Work Mac Sync Checklist
+
+Run after every `git pull && ./install`:
+
+- [ ] New terminal opens without errors or warnings
+- [ ] `echo $BREW_PREFIX` prints `/opt/homebrew`
+- [ ] `git config user.email` shows the FedEx email
+- [ ] `node --version` works (triggers NVM lazy load)
+- [ ] `claude --version` works immediately
+- [ ] `echo $PATH | tr ':' '\n' | sort | uniq -d` -- no duplicates
+- [ ] `time zsh -i -c exit` -- startup under 300ms
+- [ ] `gcloud auth print-identity-token` succeeds (or auth error, not SSL)
+
+## Commits
+
+| SHA | Description |
+|-----|-------------|
+| `92569c7` | Fix Brewfile install using unreliable $HOMEBREW_BREW_FILE |
+| `7f3305a` | Increase Starship nodejs command timeout to 1000ms |
+| `cd18ede` | Fix Starship command_timeout as global setting |
+| `5d1a720` | Update gitconfig with GCM credential helper entries |
+| `7afc8e5` | Add claude to NVM lazy loader shims, auto-deduplicate PATH |
