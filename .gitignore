@@ -5,3 +5,4 @@ install_tmux.log
 
 # Machine-specific / contains secrets
 mcpconfig.json
+.claude/settings.json
