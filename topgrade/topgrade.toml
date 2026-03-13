@@ -5,25 +5,22 @@ assume_yes = true
 no_retry = true
 # Cleanup after updating
 cleanup = true
-
-[ignore]
-# Skip JetBrains IDEs (not installed)
-jetbrains_idea = true
-jetbrains_clion = true
-jetbrains_datagrip = true
-jetbrains_dataspell = true
-jetbrains_gateway = true
-jetbrains_goland = true
-jetbrains_phpstorm = true
-jetbrains_pycharm = true
-jetbrains_rider = true
-jetbrains_rubymine = true
-jetbrains_rustrover = true
-jetbrains_webstorm = true
-jetbrains_toolbox = true
-jetbrains_mps = true
-jetbrains_aqua = true
-
-# Skip system RubyGems (macOS ships Ruby 2.6 which is too old for current RubyGems)
-# Ruby is managed through RVM instead
-ruby_gems = true
+# Skip JetBrains IDEs (not installed) and system RubyGems (managed through RVM)
+disable = [
+  "jetbrains_aqua",
+  "jetbrains_clion",
+  "jetbrains_datagrip",
+  "jetbrains_dataspell",
+  "jetbrains_gateway",
+  "jetbrains_goland",
+  "jetbrains_idea",
+  "jetbrains_mps",
+  "jetbrains_phpstorm",
+  "jetbrains_pycharm",
+  "jetbrains_rider",
+  "jetbrains_rubymine",
+  "jetbrains_rustrover",
+  "jetbrains_toolbox",
+  "jetbrains_webstorm",
+  "gem",
+]
