@@ -1,22 +1,57 @@
 # Font
 font-family = JetBrainsMono Nerd Font
+font-family-bold = JetBrainsMono Nerd Font Bold
+font-family-italic = JetBrainsMono Nerd Font Italic
+font-family-bold-italic = JetBrainsMono Nerd Font Bold Italic
 font-size = 13
+font-thicken = true
+font-feature = calt
+font-feature = liga
+bold-is-bright = true
 
-# Cursor
-cursor-style = underline
+# Cursor (block with smart color, matches iTerm2)
+cursor-style = block
 cursor-style-blink = true
 cursor-color = #C678DE
+cursor-text = #ABB2BF
+cursor-invert-fg-bg = true
+cursor-click-to-move = true
 
 # Window
-window-padding-x = 4
+window-padding-x = 12
 window-padding-y = 4
+window-padding-balance = true
+window-padding-color = extend
 window-decoration = true
+window-height = 25
+window-width = 100
+window-theme = dark
+macos-titlebar-style = tabs
+confirm-close-surface = false
+window-inherit-font-size = true
+window-step-resize = true
+resize-overlay = after-first
+
+# Splits
+unfocused-split-opacity = 0.715
+focus-follows-mouse = true
+
+# Performance
+window-vsync = true
 
 # Scrollback
-scrollback-limit = 5000
+scrollback-limit = 10000
+
+# Mouse
+mouse-hide-while-typing = true
+mouse-scroll-multiplier = 3
 
 # Option key sends normal characters (not Esc+)
 macos-option-as-alt = false
+
+# Clipboard
+copy-on-select = clipboard
+clipboard-paste-protection = true
 
 # Shell integration
 shell-integration = zsh
@@ -27,6 +62,9 @@ keybind = shift+enter=text:\n
 # Option+Left/Right for word navigation
 keybind = alt+left=esc:b
 keybind = alt+right=esc:f
+# Cmd+Delete kills line, Option+Delete kills word
+keybind = super+backspace=text:\x15
+keybind = alt+backspace=text:\x17
 
 # ── One Dark color scheme (matched from iTerm2) ──────────────
 background = #031B21
@@ -35,7 +73,7 @@ selection-background = #323844
 selection-foreground = #ABB2BF
 
 # Normal colors
-palette = 0=#212529
+palette = 0=#21252B
 palette = 1=#C98389
 palette = 2=#9AB488
 palette = 3=#E5C07B
