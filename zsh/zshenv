@@ -48,9 +48,6 @@ export DOTFILES=$(git -C "$(dirname "$(readlink "$ZDOTDIR/.zshrc")")" \
 #             PATH CONFIG
 # ======================================
 
-# Auto-deduplicate PATH entries
-typeset -U PATH
-
 # Define common paths
 BREW_CURL="$BREW_PREFIX/opt/curl/bin"
 BREW_BIN="$BREW_PREFIX/bin"
@@ -190,5 +187,3 @@ export TMUX_PLUGIN_MANAGER_PATH=$XDG_CONFIG_HOME/tmux/plugins/
 
 # Set the path used by require to search for a Lua loader
 export LUA_PATH="$DOTFILES/?.lua;./?.lua"
-
-
