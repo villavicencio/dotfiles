@@ -23,4 +23,5 @@ disable = [
   "jetbrains_toolbox",
   "jetbrains_webstorm",
   "gem",
+  "ruby_gems",
 ]
