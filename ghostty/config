@@ -1,0 +1,55 @@
+# Font
+font-family = JetBrainsMono Nerd Font
+font-size = 13
+
+# Cursor
+cursor-style = underline
+cursor-style-blink = true
+cursor-color = #C678DE
+
+# Window
+window-padding-x = 4
+window-padding-y = 4
+window-decoration = true
+
+# Scrollback
+scrollback-limit = 5000
+
+# Option key sends normal characters (not Esc+)
+macos-option-as-alt = false
+
+# Shell integration
+shell-integration = zsh
+
+# Key bindings
+# Shift+Enter sends literal newline (matches iTerm2 mapping)
+keybind = shift+enter=text:\n
+# Option+Left/Right for word navigation
+keybind = alt+left=esc:b
+keybind = alt+right=esc:f
+
+# ── One Dark color scheme (matched from iTerm2) ──────────────
+background = #031B21
+foreground = #C0C3CB
+selection-background = #323844
+selection-foreground = #ABB2BF
+
+# Normal colors
+palette = 0=#212529
+palette = 1=#C98389
+palette = 2=#9AB488
+palette = 3=#E5C07B
+palette = 4=#7DACD3
+palette = 5=#BB8CC9
+palette = 6=#56B6C2
+palette = 7=#ABB2BF
+
+# Bright colors
+palette = 8=#767676
+palette = 9=#C98389
+palette = 10=#9AB488
+palette = 11=#E5C07B
+palette = 12=#7DACD3
+palette = 13=#BB8CC9
+palette = 14=#56B6C2
+palette = 15=#ABB2BF
