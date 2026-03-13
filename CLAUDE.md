@@ -16,10 +16,11 @@ Managed by [Dotbot](https://github.com/anishathalye/dotbot). Run `./install` to 
 ```
 brew/           Brewfile for all Homebrew packages and casks
 btop/           btop system monitor config
+docs/           Solution documentation (docs/solutions/<category>/)
 fonts/          Nerd fonts installed by helpers/install_fonts.sh
 git/            gitconfig, gitignore, gitattributes
 helpers/        Bash scripts called by the install pipeline
-iterm/          iTerm2 preferences (exported plist)
+iterm/          iTerm2 preferences (exported plist, includes Shift+Enter key mapping)
 lazygit/        lazygit config
 npm/            npm global package list (npm-requirements.txt)
 nvim/           Neovim config (custom/ is symlinked into ~/.config/nvim/)
@@ -68,10 +69,35 @@ The personal email (`villavicencio.david@gmail.com`) is the default. The work Ma
 - Never hardcode `/Users/<username>/` — always use `$HOME`.
 - Never hardcode `/opt/homebrew/` or `/usr/local/` — always use `$BREW_PREFIX`.
 - `excludesfile` and `attributesfile` in gitconfig point to `~/.config/git/` (XDG standard, symlinked by Dotbot). Do not change them back to repo-relative paths.
+- Google Cloud SDK is installed at `~/.google-cloud-sdk/` (not the default location).
+
+### Post-installer audit
+After running any third-party installer that modifies shell config (gcloud, rustup, etc.),
+always run `git diff` and fix hardcoded paths before committing. Common offenders:
+- Hardcoded `/Users/<username>/` instead of `$HOME`
+- Paths in unstable locations (`~/Downloads/`, `/tmp/`)
+- POSIX `. ` sourcing instead of zsh `source` or `[[ -f ... ]] &&` guard pattern
 
 ### Node version
 `NODE_VERSION` is defined in `zsh/zshenv` and used by `helpers/install_node.sh`.
 Update it there whenever upgrading Node.
+
+### Lazy loader pattern
+All lazy loaders (FZF, pyenv, NVM, RVM) follow the same `_load_X` helper pattern:
+
+```zsh
+if [[ <existence-check> ]]; then
+  _load_toolname() {
+    unset -f _load_toolname cmd1 cmd2
+    <initialization>
+  }
+  cmd1() { _load_toolname; cmd1 "$@"; }
+  cmd2() { _load_toolname; cmd2 "$@"; }
+fi
+```
+
+When adding a new lazy loader, copy an existing one as a template. Never duplicate init
+logic across multiple wrapper functions.
 
 ### NVM lazy loader shims
 NVM is lazy-loaded for startup speed. Any npm-globally-installed CLI (e.g., `claude`) must be
@@ -79,9 +105,16 @@ added as a shim in the NVM lazy loader block in `zshrc`, or it won't be on PATH 
 is first called. When adding a new global CLI: add its name to the `unset -f` line in `_load_nvm()`
 and add a `<tool>() { _load_nvm; <tool> "$@"; }` shim.
 
+Current shims: `nvm`, `node`, `npm`, `npx`, `claude`.
+
 ### OMZ plugin sync
 When adding an Oh My Zsh plugin to the `plugins=()` list in `zshrc`, also add the corresponding
 `git clone` to `helpers/install_omz.sh` so it gets installed on fresh machines.
+
+### Topgrade config
+`topgrade/topgrade.toml` uses the `disable` array under `[misc]` to skip steps.
+Variant names must be exact (e.g., `jetbrains_idea`, not `jetbrains`). Run
+`topgrade` with an invalid name to see the full list of valid variants.
 
 ### Project board
 GitHub Project board: https://github.com/users/villavicencio/projects/2
@@ -108,12 +141,13 @@ Helper scripts are in `helpers/`. Each is independently runnable.
 1. Clone this repo (recommended: `~/Projects/Personal/dotfiles`)
 2. Verify architecture: `uname -m` must print `arm64` (check iTerm2 is not set to "Open using Rosetta")
 3. Run `./install`
-4. Create `~/.gitconfig.local`:
+4. Clear stale completions: `rm ~/.zcompdump && exec zsh`
+5. Create `~/.gitconfig.local`:
    ```ini
    [user]
        email = david.villavicencio@fedex.com
    ```
-5. Create `~/env.sh` with required FedEx/Vertex AI overrides:
+6. Create `~/env.sh` with required FedEx/Vertex AI overrides:
    ```bash
    export CLOUDSDK_PYTHON=/usr/bin/python3
    export GOOGLE_APPLICATION_CREDENTIALS=~/Downloads/fxei-meta-project-35631b0c2409.json
@@ -123,6 +157,18 @@ Helper scripts are in `helpers/`. Each is independently runnable.
    ```
    Note: `CLOUDSDK_PYTHON` is required because the corporate proxy's SSL interception
    breaks Homebrew Python. System Python (`/usr/bin/python3`) trusts corporate CA certs via Keychain.
+7. Switch the git remote to use the `github-work` SSH alias:
+   ```bash
+   git remote set-url origin git@github-work:villavicencio/dotfiles.git
+   ```
+   This avoids Tailscale MagicDNS routing GitHub SSH through the home Mac.
+8. Add GitHub domains to `/etc/hosts` (Tailscale MagicDNS intercepts DNS):
+   ```
+   140.82.114.4    github.com
+   140.82.114.10   codeload.github.com
+   185.199.108.133 objects.githubusercontent.com
+   185.199.108.133 raw.githubusercontent.com
+   ```
 
 ---
 
@@ -130,5 +176,5 @@ Helper scripts are in `helpers/`. Each is independently runnable.
 
 - `MYSQL_BIN="/usr/local/mysql/bin"` — MySQL PKG installer uses this path on both architectures, it is not a Homebrew path.
 - `git/gitconfig` `core.pager = vim -` — intentional preference.
-- The tmux session restoration one-liner in `zshrc` — runs on every shell start by design.
+- The tmux session restoration block in `zshrc` — guarded to only run outside tmux and only in iTerm2.
 - GCM credential helper entries in `git/gitconfig` — auto-generated by Git Credential Manager, commit separately from other work.
