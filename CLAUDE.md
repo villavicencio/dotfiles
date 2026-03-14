@@ -36,7 +36,9 @@ zsh/
   functions.sh  Functions (also sources zsh/functions/*.sh)
   functions/    Individual function files (man_colorful, mkdir_and_cd, etc.)
 claude/
-  commands/     Claude Code slash commands (ticket, handoff, pickup, review-claudemd)
+  commands/     Claude Code slash commands (ticket, handoff, pickup, review-claudemd, reddit)
+  CLAUDE.md     Global Claude Code instructions (symlinked to ~/.claude/CLAUDE.md)
+  settings.json Claude Code settings — plugins, allowed tools (symlinked to ~/.claude/settings.json)
 ```
 
 ---
@@ -83,7 +85,9 @@ always run `git diff` and fix hardcoded paths before committing. Common offender
 Update it there whenever upgrading Node.
 
 ### Lazy loader pattern
-All lazy loaders (FZF, pyenv, NVM, RVM) follow the same `_load_X` helper pattern:
+All lazy loaders (FZF, pyenv, NVM, RVM) follow the same `_load_X` helper pattern.
+**Why:** Direct sourcing of NVM alone adds 200-400ms to shell startup. This pattern
+was benchmarked and is critical for keeping `zsh -i -c exit` under 300ms.
 
 ```zsh
 if [[ <existence-check> ]]; then
@@ -97,7 +101,8 @@ fi
 ```
 
 When adding a new lazy loader, copy an existing one as a template. Never duplicate init
-logic across multiple wrapper functions.
+logic across multiple wrapper functions. Use `command <tool>` (not bare `<tool>`) after
+`_load_*` to prevent infinite recursion when the shim name matches the binary name.
 
 ### NVM lazy loader shims
 NVM is lazy-loaded for startup speed. Any npm-globally-installed CLI (e.g., `claude`) must be
@@ -105,7 +110,10 @@ added as a shim in the NVM lazy loader block in `zshrc`, or it won't be on PATH 
 is first called. When adding a new global CLI: add its name to the `unset -f` line in `_load_nvm()`
 and add a `<tool>() { _load_nvm; <tool> "$@"; }` shim.
 
-Current shims: `nvm`, `node`, `npm`, `npx`, `claude`.
+Current shims: `nvm`, `node`, `npm`, `npx`.
+
+Note: `claude` is installed as a native Homebrew cask (`claude-code`), not via npm, so it
+does not need an NVM shim.
 
 ### OMZ plugin sync
 When adding an Oh My Zsh plugin to the `plugins=()` list in `zshrc`, also add the corresponding

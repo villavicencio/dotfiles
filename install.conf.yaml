@@ -66,10 +66,13 @@
     - ~/.claude/commands
 
 - link:
+    ~/.claude/CLAUDE.md: claude/CLAUDE.md
+    ~/.claude/settings.json: claude/settings.json
     ~/.claude/commands/ticket.md: claude/commands/ticket.md
     ~/.claude/commands/handoff.md: claude/commands/handoff.md
     ~/.claude/commands/pickup.md: claude/commands/pickup.md
     ~/.claude/commands/review-claudemd.md: claude/commands/review-claudemd.md
+    ~/.claude/commands/reddit.md: claude/commands/reddit.md
     ~/.config/nvim/lua/custom: nvim/custom
 
 - shell:
