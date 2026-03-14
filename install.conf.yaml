@@ -73,6 +73,7 @@
     ~/.claude/commands/pickup.md: claude/commands/pickup.md
     ~/.claude/commands/review-claudemd.md: claude/commands/review-claudemd.md
     ~/.claude/commands/reddit.md: claude/commands/reddit.md
+    ~/.claude/commands/critique.md: claude/commands/critique.md
     ~/.config/nvim/lua/custom: nvim/custom
 
 - shell:
