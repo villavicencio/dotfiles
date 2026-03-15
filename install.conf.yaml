@@ -37,8 +37,7 @@
     - command: bash helpers/install_omz.sh
       description: "Installing omz + plugins"
       quiet: true
-    - sudo chsh -s $(which zsh)
-    - [sudo chsh -s $(which zsh), Making zsh the default shell]
+    - [chsh -s $(which zsh), Making zsh the default shell]
 
 - link:
     ~/.config/zsh/.zshenv: zsh/zshenv
