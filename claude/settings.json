@@ -17,6 +17,7 @@
       }
     }
   },
+  "showThinkingSummaries": true,
   "allowedTools": [
     "Bash(git branch*)",
     "Bash(git log*)",
@@ -32,5 +33,11 @@
     "Bash(tmux -V*)",
     "Bash(curl -s*)"
   ],
-  "showThinkingSummaries": true
+  "mcpServers": {
+    "eagle": {
+      "type": "streamable-http",
+      "url": "http://127.0.0.1:41596/mcp"
+    }
+  },
+  "effortLevel": "medium"
 }
