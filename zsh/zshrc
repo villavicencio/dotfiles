@@ -20,7 +20,7 @@ bindkey -M menuselect 'j' vi-down-line-or-history
 # Oh My Zsh settings
 export USER="$USER" # Ensure USER is exported for completion system
 
-eval "$("$BREW_PREFIX/bin/brew" shellenv)"
+[[ -x "$BREW_PREFIX/bin/brew" ]] && eval "$("$BREW_PREFIX/bin/brew" shellenv)"
 
 # NVM configuration
 

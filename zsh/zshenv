@@ -26,9 +26,11 @@ else
   export BREW_PREFIX="/usr/local"
 fi
 
-# Linker and compiler flags
-export LDFLAGS="-L$BREW_PREFIX/opt/zlib/lib -L$BREW_PREFIX/opt/openssl/lib"
-export CPPFLAGS="-I$BREW_PREFIX/opt/zlib/include -I$BREW_PREFIX/opt/openssl/include"
+# Linker and compiler flags (macOS only — requires Homebrew)
+if [[ -n "$BREW_PREFIX" && -d "$BREW_PREFIX/opt" ]]; then
+  export LDFLAGS="-L$BREW_PREFIX/opt/zlib/lib -L$BREW_PREFIX/opt/openssl/lib"
+  export CPPFLAGS="-I$BREW_PREFIX/opt/zlib/include -I$BREW_PREFIX/opt/openssl/include"
+fi
 
 
 # Bypass checks for faster shell startup.
@@ -37,8 +39,8 @@ export ZSH_DISABLE_COMPFIX=true
 # Make vim the default editor.
 export EDITOR='nvim'
 
-# Prioritize using GNU commands over BSD commands
-export PATH="$BREW_PREFIX/opt/coreutils/libexec/gnubin:$PATH"
+# Prioritize using GNU commands over BSD commands (macOS only)
+[[ -d "$BREW_PREFIX/opt/coreutils/libexec/gnubin" ]] && export PATH="$BREW_PREFIX/opt/coreutils/libexec/gnubin:$PATH"
 
 # Save reference to dotfiles directory.
 export DOTFILES=$(git -C "$(dirname "$(readlink "$ZDOTDIR/.zshrc")")" \
