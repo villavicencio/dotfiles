@@ -1,7 +1,11 @@
 #!/usr/bin/env bash
 
 . ./zsh/zshenv
-. ./helpers/init_homebrew.sh
+
+# Source brew only on macOS
+if [ "$(uname)" = "Darwin" ] && [ -f ./helpers/init_homebrew.sh ]; then
+    . ./helpers/init_homebrew.sh
+fi
 
 # Set up logging
 LOG_FILE="install_tmux.log"
@@ -24,7 +28,7 @@ handle_error() {
 log_message "Starting TMux installation..."
 
 # Install TPM
-if [ ! -d ~/.config/tmux/plugins/tpm ]; then
+if [ ! -d "$TPM_INSTALL_DIR" ]; then
   log_message "Installing TPM..."
   git clone "$TPM_REPO_URL" "$TPM_INSTALL_DIR" || handle_error "Failed to clone TPM repository"
 else
@@ -33,6 +37,6 @@ fi
 
 # Install TMux plugins
 log_message "Installing TMux plugins..."
-~/.config/tmux/plugins/tpm/bin/install_plugins || handle_error "Failed to install TMux plugins"
+"$TPM_INSTALL_DIR/bin/install_plugins" || handle_error "Failed to install TMux plugins"
 
 log_message "TMux installation completed successfully."
