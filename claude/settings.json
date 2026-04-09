@@ -83,14 +83,6 @@
         ]
       }
     ],
-    "Notification": [
-      {
-        "matcher": "*",
-        "hooks": [
-          { "type": "command", "command": "~/.claude/hooks/tmux-attention.sh waiting", "timeout": 5 }
-        ]
-      }
-    ],
     "PermissionRequest": [
       {
         "matcher": "*",
