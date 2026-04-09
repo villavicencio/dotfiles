@@ -115,6 +115,17 @@ Current shims: `nvm`, `node`, `npm`, `npx`.
 Note: `claude` is installed as a native Homebrew cask (`claude-code`), not via npm, so it
 does not need an NVM shim.
 
+### Claude Code tmux tab indicator
+`claude/hooks/tmux-attention.sh` is invoked by Claude Code hooks (declared in
+`claude/settings.json`) to drive a per-window tmux user option `@claude_status`,
+which is read by a ternary in `tmux/tmux.display.conf`'s `window-status-format`.
+Three states: `waiting` (yellow warning glyph), spinner frame (orange star
+cycling at 150ms), or unset (no icon). The spinner runs as a disowned bash
+subshell tagged `claude-spinner-marker-<pane>` so `pkill` can find leaks.
+It self-terminates when (a) the sentinel file is removed, (b) Claude Code's
+PID is gone, or (c) the 5-minute safety cap is hit. If a leaked loop ever
+shows up, kill it via `pkill -f claude-spinner-marker`.
+
 ### OMZ plugin sync
 When adding an Oh My Zsh plugin to the `plugins=()` list in `zshrc`, also add the corresponding
 `git clone` to `helpers/install_omz.sh` so it gets installed on fresh machines.
