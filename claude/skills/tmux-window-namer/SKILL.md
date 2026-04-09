@@ -24,9 +24,26 @@ Figure out which of these three modes applies:
 
 User may specify:
 
-- Nothing → default to **current window** (`-t ''`)
-- An index: "window 2" → `-t 2`
+- Nothing → default to **current window** (no `-t` flag)
+- An index: "window 2" → `-t :2` (**note the leading colon** — see below)
 - A fuzzy name: "the Dataworks tab", "the Eagle one" → search `tmux list-windows -a`
+
+### ⚠️ tmux target-syntax gotcha
+
+**Never use `-t N` (bare number) with `set-option -w` or `rename-window`.**
+A bare number can be silently interpreted as "the current window" by tmux
+when the literal string "N" doesn't match a window name. You will end up
+modifying the wrong tab.
+
+Always use one of these explicit forms:
+
+- `-t :N` — window at index N in the current session (leading colon is required)
+- `-t <session>:N` — window at index N in a specific session
+- `-t @ID` — window by its stable ID (e.g., `@3`), which you can get from
+  `tmux list-windows -a -F '#{session_name}:#{window_id} #{window_name}'`
+
+When resolving a user-specified index in the skill, **always** prefix it
+with `:` before passing it to tmux.
 
 List windows to resolve fuzzy names or confirm target:
 
