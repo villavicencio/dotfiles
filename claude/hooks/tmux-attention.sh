@@ -24,7 +24,6 @@
 set -u
 
 action="${1:-}"
-log="${TMPDIR:-/tmp}/claude-tmux-attention.log"
 
 # No tmux, no work.
 if [ -z "${TMUX_PANE:-}" ]; then
@@ -43,12 +42,12 @@ stop_spinner() {
 }
 
 set_status() {
-  tmux set-option -w -t "$pane" @claude_status "$1" 2>>"$log"
+  tmux set-option -w -t "$pane" @claude_status "$1" 2>/dev/null
 }
 
 clear_status() {
-  tmux set-option -w -t "$pane" -u @claude_status 2>>"$log" \
-    || tmux set-option -w -t "$pane" @claude_status "" 2>>"$log"
+  tmux set-option -w -t "$pane" -u @claude_status 2>/dev/null \
+    || tmux set-option -w -t "$pane" @claude_status "" 2>/dev/null
 }
 
 case "$action" in
@@ -60,24 +59,36 @@ case "$action" in
   spinner)
     stop_spinner
     touch "$sentinel"
-    # Pass marker as $0 so pkill -f can find it.
-    (
-      exec -a "$marker" bash -c '
-        pane="$1"
-        sentinel="$2"
-        frames=("·" "✢" "✳" "∗" "✻" "✽")
-        i=0
-        max_iterations=4000  # ~10 minutes at 150ms/frame
-        while [ -f "$sentinel" ] && [ $i -lt $max_iterations ]; do
-          tmux set-option -w -t "$pane" @claude_status "${frames[$((i % 6))]}" 2>/dev/null || exit 0
-          i=$((i + 1))
-          sleep 0.15
-        done
-        # Loop exited (sentinel gone or timed out) — leave status as-is;
-        # the hook that removed the sentinel is responsible for setting
-        # the next state.
-      ' "$marker" "$pane" "$sentinel"
-    ) &
+    # Capture parent PID — Claude Code spawns hooks directly, so $PPID
+    # is the Claude Code process. The loop watches it and self-exits
+    # if Claude dies (no SessionEnd hook exists).
+    parent_pid=$PPID
+    # Background the loop. CRITICAL: redirect stdin/stdout/stderr to
+    # /dev/null so we don't hold open the hook's pipe — otherwise
+    # Claude Code blocks waiting for the pipe to close.
+    # Marker is passed as $0 of the inner bash via `bash -c CMD NAME`
+    # so pkill -f can find leaked loops.
+    nohup bash -c '
+      pane="$1"
+      sentinel="$2"
+      parent="$3"
+      frames=("·" "✢" "✳" "∗" "✻" "✽")
+      i=0
+      max_iterations=2000  # ~5 minutes at 150ms/frame (safety net)
+      while [ -f "$sentinel" ] \
+            && [ $i -lt $max_iterations ] \
+            && kill -0 "$parent" 2>/dev/null; do
+        tmux set-option -w -t "$pane" @claude_status "${frames[$((i % 6))]}" 2>/dev/null || exit 0
+        i=$((i + 1))
+        sleep 0.15
+      done
+      # If we exited because the parent died, clear the status so the
+      # tab does not stay frozen on the last frame.
+      if ! kill -0 "$parent" 2>/dev/null; then
+        tmux set-option -w -t "$pane" -u @claude_status 2>/dev/null \
+          || tmux set-option -w -t "$pane" @claude_status "" 2>/dev/null
+      fi
+    ' "$marker" "$pane" "$sentinel" "$parent_pid" </dev/null >/dev/null 2>&1 &
     disown 2>/dev/null || true
     ;;
 
@@ -87,7 +98,7 @@ case "$action" in
     ;;
 
   *)
-    echo "$(date '+%Y-%m-%dT%H:%M:%S') unknown action: $action" >>"$log"
+    : # unknown action — silently ignore
     ;;
 esac
 

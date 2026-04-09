@@ -51,6 +51,14 @@
     }
   },
   "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "*",
+        "hooks": [
+          { "type": "command", "command": "~/.claude/hooks/tmux-attention.sh clear", "timeout": 5 }
+        ]
+      }
+    ],
     "UserPromptSubmit": [
       {
         "matcher": "*",
@@ -60,6 +68,14 @@
       }
     ],
     "PreToolUse": [
+      {
+        "matcher": "*",
+        "hooks": [
+          { "type": "command", "command": "~/.claude/hooks/tmux-attention.sh spinner", "timeout": 5 }
+        ]
+      }
+    ],
+    "PostToolUse": [
       {
         "matcher": "*",
         "hooks": [
