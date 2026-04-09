@@ -18,6 +18,7 @@
     - ~/.config/tmux
     - ~/.config/tmux/resurrect
     - ~/.config/tmux/plugins
+    - ~/.config/tmux/scripts
     - ~/.local/share/fonts
 
 - shell:
@@ -63,6 +64,7 @@
 - create:
     - ~/.claude/commands
     - ~/.claude/hooks
+    - ~/.claude/skills
 
 - link:
     ~/.claude/CLAUDE.md: claude/CLAUDE.md
@@ -75,6 +77,9 @@
     ~/.claude/commands/reddit.md: claude/commands/reddit.md
     ~/.claude/commands/critique.md: claude/commands/critique.md
     ~/.claude/commands/twitter.md: claude/commands/twitter.md
+    ~/.claude/skills/tmux-window-namer: claude/skills/tmux-window-namer
+    ~/.config/tmux/scripts/save-window-meta.sh: tmux/scripts/save-window-meta.sh
+    ~/.config/tmux/scripts/restore-window-meta.sh: tmux/scripts/restore-window-meta.sh
     ~/.config/nvim/lua/custom: nvim/custom
 
 - shell:

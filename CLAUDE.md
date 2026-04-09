@@ -115,6 +115,18 @@ Current shims: `nvm`, `node`, `npm`, `npx`.
 Note: `claude` is installed as a native Homebrew cask (`claude-code`), not via npm, so it
 does not need an NVM shim.
 
+### tmux-window-namer skill
+`claude/skills/tmux-window-namer/SKILL.md` is a Claude Code skill that renames
+tmux windows with a glyph + curated palette color. It stores per-window state in
+three tmux user options (`@win_glyph`, `@win_glyph_color`, `@win_title_color`)
+read by the ternary in `tmux/tmux.display.conf`'s `window-status-format`.
+Persistence is a JSON sidecar at `~/.config/tmux/window-meta.json`, written by
+`tmux/scripts/save-window-meta.sh` and re-applied on every client attach via
+`tmux/scripts/restore-window-meta.sh` (wired up in `tmux/tmux.general.conf`
+with `set-hook -g client-attached`). Palettes live in
+`claude/skills/tmux-window-namer/references/palettes.md` — the skill may only
+use hex codes from that file.
+
 ### Claude Code tmux tab indicator
 `claude/hooks/tmux-attention.sh` is invoked by Claude Code hooks (declared in
 `claude/settings.json`) to drive a per-window tmux user option `@claude_status`,
