@@ -36,14 +36,36 @@ echo "=== Uncommitted changes ==="
 git status --short
 ```
 
+### Step 2b — Surface compound-engineering artifacts
+
+Check for recent CE artifacts (brainstorms, plans, solutions) modified in the last 7 days.
+These represent in-flight feature work and accumulated learnings that may be relevant.
+
+```bash
+echo "=== Recent brainstorms (last 7 days) ==="
+find docs/brainstorms -name "*.md" -mtime -7 -exec basename {} \; 2>/dev/null | sort -r || echo "(none)"
+
+echo "=== Recent plans (last 7 days) ==="
+find docs/plans -name "*.md" -mtime -7 -exec basename {} \; 2>/dev/null | sort -r || echo "(none)"
+
+echo "=== Recent solutions (last 7 days) ==="
+find docs/solutions -name "*.md" -mtime -7 -exec basename {} \; 2>/dev/null | sort -r || echo "(none)"
+```
+
+If any artifacts are found:
+- **Brainstorms** — mention them as open explorations that may need `/ce:plan` next
+- **Plans** — mention them as ready for `/ce:work` (or already in progress)
+- **Solutions** — briefly note what was learned (read the `problem_type` and `module` from YAML frontmatter if present)
+
 ### Step 3 — Orient and propose next action
 
 Synthesize everything into a brief, confident session kickoff:
 
 1. **2-3 sentence summary** of where things stand — what was completed, what's in flight
 2. **"Next up:"** — the single most important thing to tackle first, based on "What's Next" in the handoff
-3. **Any gotchas to keep in mind** — surface the watch-outs from the handoff so they're top of mind before touching code
-4. **A ready-to-go prompt** — end with something like: *"Ready when you are — just say go and I'll start on [specific task]."*
+3. **CE artifacts** — if any brainstorms, plans, or solutions were found, note them briefly (e.g., "There's an open brainstorm on X ready for planning" or "2 new solutions were compounded last session")
+4. **Any gotchas to keep in mind** — surface the watch-outs from the handoff so they're top of mind before touching code
+5. **A ready-to-go prompt** — end with something like: *"Ready when you are — just say go and I'll start on [specific task]."*
 
 Keep the tone direct and energized. This is a fresh start, not a status report.
 

@@ -35,8 +35,14 @@
     "Bash(which*)",
     "Bash(brew info*)",
     "Bash(brew list*)",
-    "Bash(tmux -V*)",
-    "Bash(curl -s*)"
+    "Bash(brew uninstall*)",
+    "Bash(npm list*)",
+    "Bash(npm view*)",
+    "Bash(npm uninstall*)",
+    "Bash(claude *)",
+    "Bash(curl -fsSL*)",
+    "Bash(curl -s*)",
+    "Bash(tmux -V*)"
   ],
   "mcpServers": {
     "eagle": {
