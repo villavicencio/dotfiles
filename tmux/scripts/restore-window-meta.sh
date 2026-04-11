@@ -20,12 +20,10 @@ while IFS='|' read -r session idx wname; do
 
   glyph=$(jq -r '.glyph // ""' <<<"$entry")
   gcolor=$(jq -r '.glyph_color // ""' <<<"$entry")
-  tcolor=$(jq -r '.title_color // ""' <<<"$entry")
   target="${session}:${idx}"
 
   [ -n "$glyph"  ] && tmux set-option -w -t "$target" @win_glyph "$glyph" 2>/dev/null || true
   [ -n "$gcolor" ] && tmux set-option -w -t "$target" @win_glyph_color "$gcolor" 2>/dev/null || true
-  [ -n "$tcolor" ] && tmux set-option -w -t "$target" @win_title_color "$tcolor" 2>/dev/null || true
 done
 
 exit 0

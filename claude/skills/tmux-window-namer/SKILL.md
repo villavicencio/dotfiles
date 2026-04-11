@@ -6,9 +6,11 @@ allowed-tools: Bash(tmux *), Bash(jq *), Bash(cat *), Bash(ls *), Bash(basename 
 
 # tmux-window-namer
 
-Style tmux windows with a glyph, a title, and colors drawn from a curated
-palette. Persists the result across tmux server restarts via a JSON sidecar
-read by a `client-attached` hook.
+Style tmux windows with a glyph, a title, and a glyph color drawn from a
+curated palette. Title text always uses default tmux colors (dim on inactive
+tabs, bright on active) — only the glyph carries palette color. Persists
+the result across tmux server restarts via a JSON sidecar read by a
+`client-attached` hook.
 
 ## When the user invokes you
 
@@ -28,7 +30,7 @@ User may specify:
 - An index: "window 2" → `-t :2` (**note the leading colon** — see below)
 - A fuzzy name: "the Dataworks tab", "the Eagle one" → search `tmux list-windows -a`
 
-### ⚠️ tmux target-syntax gotcha
+### tmux target-syntax gotcha
 
 **Never use `-t N` (bare number) with `set-option -w` or `rename-window`.**
 A bare number can be silently interpreted as "the current window" by tmux
@@ -138,12 +140,11 @@ Stand-in map for common glyphs:
    ```bash
    orig_glyph=$(tmux show-options -wv -t "$target" @win_glyph 2>/dev/null || true)
    orig_gc=$(tmux show-options -wv -t "$target" @win_glyph_color 2>/dev/null || true)
-   orig_tc=$(tmux show-options -wv -t "$target" @win_title_color 2>/dev/null || true)
    orig_name=$(tmux display-message -p -t "$target" '#{window_name}')
    ```
 
-2. **Generate 4 candidate variations** (glyph × palette × pairing) as an
-   internal list. These are not shown in chat — they are applied in sequence.
+2. **Generate 4 candidate variations** (glyph × palette) as an internal
+   list. These are not shown in chat — they are applied in sequence.
 
 3. For each candidate, loop:
    - Apply the candidate to the window (rename + set options).
@@ -156,15 +157,13 @@ Stand-in map for common glyphs:
      glyph:       nf-fa-cog (⚙️)
      palette:     ember 🟧
      glyph_color: #D97757
-     title_color: #D97757
-     pairing:     monochrome
      ```
    - Options:
      - "Keep this one"
      - "Try the next variation"
      - "Cancel and restore" (reverts to snapshot)
    - In the question text, name the candidate plainly:
-     `"Variation 2/4: {glyph_name} in {palette} ({pairing}). Check your tab."`
+     `"Variation 2/4: {glyph_name} in {palette}. Check your tab."`
    - **Header** (the chip at the top of the card) should be a short
      **neutral** label like `Tab style` or `Variation 2`. Do **not** use
      action-implying phrases like "Keep or next?" — the header is not
@@ -172,7 +171,7 @@ Stand-in map for common glyphs:
    - If "Keep" → go to Step 5 (persist).
    - If "Try next" → apply the next candidate, re-ask.
    - If "Show me the full list" → print a plain-text numbered list of all
-     remaining candidates (glyph name + palette + hex + pairing) so the user
+     remaining candidates (glyph name + palette + hex) so the user
      can jump to a specific one by number in chat. Wait for reply, jump there.
    - If user gives a custom tweak in "Other" → apply and re-ask.
 
@@ -183,31 +182,9 @@ Stand-in map for common glyphs:
 
 Pick **4 strong variations** that cover visual variety:
 
-- 2 different glyphs × 2 different palettes, alternating monochrome/subdued.
+- 2 different glyphs × 2 different palettes.
 - Bias toward Nerd Font glyphs from `references/glyphs.md`. One emoji is fine
   if a strong one fits the context.
-
-### Pairing recipe
-
-For a palette with primary hex **H**:
-- **Monochrome**: `glyph_color=H`, `title_color=H` — bold, confident
-- **Subdued**:    `glyph_color=H`, `title_color=#ABB2BF` — easier reading
-
-### Pairing recipe
-
-For a palette with primary hex **H**:
-- **Monochrome**: `glyph_color=H`, `title_color=H` — bold, confident
-- **Subdued**:    `glyph_color=H`, `title_color=#ABB2BF` — easier reading
-
-Alternate the 4 options across glyphs × palettes × pairings to give visible
-variety. Example for a dotfiles window with ember + sky picked:
-
-| # | Glyph | Palette | Pairing |
-|---|---|---|---|
-| 1 |  cog       | ember | monochrome |
-| 2 |  apple     | sky   | monochrome |
-| 3 |  terminal  | ember | subdued    |
-| 4 |  home      | sky   | subdued    |
 
 ### Glyph selection — prefer Nerd Fonts
 
@@ -227,11 +204,10 @@ arguments. To reliably set a Nerd Font glyph on a tmux option, invoke
 python3 -c "
 import subprocess
 glyph='\uFXXX'  # resolve codepoint from references/glyphs.md
-target='<target>'  # e.g. '' for current, '2' for window 2
+target='<target>'  # e.g. '' for current, ':2' for window 2
 subprocess.run(['tmux','rename-window','-t',target,'<title>'], check=True)
 subprocess.run(['tmux','set-option','-w','-t',target,'@win_glyph',glyph], check=True)
 subprocess.run(['tmux','set-option','-w','-t',target,'@win_glyph_color','<glyph_color>'], check=True)
-subprocess.run(['tmux','set-option','-w','-t',target,'@win_title_color','<title_color>'], check=True)
 "
 ```
 
@@ -246,10 +222,9 @@ session=$(tmux display-message -p -t "$target" '#{session_name}')
 title=$(tmux display-message -p -t "$target" '#{window_name}')
 glyph=$(tmux show-options -wv -t "$target" @win_glyph)
 glyph_color=$(tmux show-options -wv -t "$target" @win_glyph_color)
-title_color=$(tmux show-options -wv -t "$target" @win_title_color)
 
 bash "$HOME/.config/tmux/scripts/save-window-meta.sh" \
-  "$session" "$title" "$glyph" "$glyph_color" "$title_color"
+  "$session" "$title" "$glyph" "$glyph_color"
 ```
 
 Confirm visually: "Applied. Window <target> is now <glyph> <title> in <palette>."
@@ -260,8 +235,8 @@ If the user's request already specifies glyph + title + palette (or enough
 of them), skip Steps 2–4. Resolve the palette name to its hex (`references/palettes.md`),
 fill any blanks with sensible defaults, apply via Step 5.
 
-Example: "rename window 2 to   Backend in ocean monochrome" → glyph ``,
-title "Backend", palette ocean (`#56B6C2`), monochrome pairing.
+Example: "rename window 2 to   Backend in ocean" → glyph ``,
+title "Backend", palette ocean (`#56B6C2`).
 
 ## Tweak mode
 
@@ -270,12 +245,11 @@ Read current state before modifying:
 ```bash
 tmux show-options -wv -t "$target" @win_glyph 2>/dev/null
 tmux show-options -wv -t "$target" @win_glyph_color 2>/dev/null
-tmux show-options -wv -t "$target" @win_title_color 2>/dev/null
 tmux display-message -p -t "$target" '#{window_name}'
 ```
 
 Change only what the user asked for. Persist the full tuple (Step 5's save
-script rewrites the whole entry, so pass all four values).
+script rewrites the whole entry, so pass all values).
 
 ## Constraints
 
