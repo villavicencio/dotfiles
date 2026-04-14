@@ -82,6 +82,84 @@ After writing, reply with:
 - A 2-sentence plain-English summary of session state — what shipped and what's in flight
 - If there are immediate blockers: "⚠️ Before next session: [specific thing]"
 
+### Step 5 — Forge write-back (if opted in)
+
+Check if the project CLAUDE.md contains a `forge-project-key:` field. If not found, skip this step entirely.
+
+If opted in:
+
+1. **Analyze the session** for durable learnings worth pushing to Forge:
+   - Cross-project patterns (e.g., "always batch SSH calls for performance") → candidate for `_shared/patterns.md`
+   - Project-specific decisions or architecture notes → candidate for `{project-key}/context.md`
+   - Universal preferences or tool tips → candidate for `_shared/preferences.md`
+   - Keep each entry concise — under 200 tokens (nano-friendly)
+
+2. **Present candidates** to the user for approval:
+   ```
+   Push to Forge? [_shared/patterns.md]: "Batch multiple SSH reads into a single call — saves 2-4s per pickup"
+   ```
+   The user approves or rejects each item individually.
+
+3. **For approved items**, append via SSH using **safe stdin pipe** (NEVER use echo with interpolation):
+   ```bash
+   printf '%s\n' "- [YYYY-MM-DD] LEARNING_TEXT" | ssh root@openclaw-prod 'cat >> /home/node/.openclaw/workspace-forge/projects/{TARGET_FILE}'
+   ```
+
+4. **If SSH fails**, save approved items to `.forge-pending` in the project root as JSON-lines:
+   ```
+   {"target": "_shared/patterns.md", "content": "Batch SSH calls for performance", "date": "2026-04-12"}
+   ```
+   Next `/handoff` or `/pickup` will detect this file and retry.
+
+5. **Log the sync** to shared/comms for audit trail:
+   ```bash
+   printf '%s\n' "[Forge bridge] Synced N items from {project-key} session" | ssh root@openclaw-prod 'cat >> /home/node/.openclaw/shared/comms/YYYY-MM-DD.md'
+   ```
+
+If there are no durable learnings worth pushing, skip silently — not every session produces cross-project knowledge.
+
+### Step 6 — Brief Perry (if Forge-enabled)
+
+This step runs only for Forge-enabled projects (same `forge-project-key:` gate as Step 5). Skip if no key found.
+
+After the handoff is written and Forge write-back is done (or skipped), send Perry a concise briefing so he stays current on what shipped and what's planned. Uses the **omnichannel pattern** (see `docs/sops/omnichannel-agent-comms.md`): Discord for durable record, TUI for persistent memory.
+
+1. **Compose the briefing** from HANDOFF.md — include:
+   - What shipped this session (1-3 bullet points, specific)
+   - What's next (top 1-2 priorities)
+   - Any decisions that affect scope, timeline, or other agents
+   - Any new tickets created
+
+   Keep it under 250 words. Perry is a PM — he wants signal, not narration.
+   **Always lead with the project key** so Perry can track multiple projects (e.g., "Hey Perry — handoff briefing for **openclaw-forge**. Here's what shipped today..."). Include the repo name too if it differs from the project key.
+
+2. **Post to Discord first** (durable paper trail in `#perry-📋`):
+   ```bash
+   ssh root@openclaw-prod 'TOKEN=$(cat /var/lib/docker/volumes/d95veq7chb3d8gllyj6vhpqy_openclaw-state/_data/secrets.json | jq -r ".\"discord-forge\"") && curl -s -X POST "https://discord.com/api/v10/channels/1488992702266736640/messages" \
+     -H "Authorization: Bot $TOKEN" \
+     -H "Content-Type: application/json" \
+     -d "{\"content\": \"<@1473555204095082678> SESSION_BRIEFING_HERE\"}"'
+   ```
+   **Always open with `<@1473555204095082678>`** (Perry's bot user ID) so the mention resolves and Perry's listener recognizes it as directed. Uses Forge's bot token (not Perry's own — agents ignore self-talk). Confirm the post succeeded (check for `"id"` in response).
+
+3. **Then send via TUI** (persistent session memory + interactive response):
+   ```bash
+   ssh root@openclaw-prod "curl -s -X POST http://127.0.0.1:18789/v1/chat/completions \
+     -H 'Authorization: Bearer aa53f653e69f7a8f54720f65fb412630a209e5004c5ada12' \
+     -H 'Content-Type: application/json' \
+     -H 'x-openclaw-scopes: operator.write' \
+     -H 'x-openclaw-session-key: agent:perry:main' \
+     -d '{
+       \"model\": \"openclaw/perry\",
+       \"messages\": [{\"role\": \"user\", \"content\": \"SESSION_BRIEFING_HERE\"}],
+       \"max_tokens\": 500
+     }'"
+   ```
+
+4. **Show Perry's TUI response** — extract `.choices[0].message.content` and display it. Perry may flag concerns, ask follow-up questions, or acknowledge.
+
+5. **If either path fails**, note which one failed and continue. Don't block the handoff. The other channel still provides coverage.
+
 ## Notes
 - Overwrites existing HANDOFF.md — it's always current-session state, not a history log
 - Commits the file automatically if there are no other uncommitted changes:

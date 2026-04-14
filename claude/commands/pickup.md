@@ -57,6 +57,49 @@ If any artifacts are found:
 - **Plans** — mention them as ready for `/ce:work` (or already in progress)
 - **Solutions** — briefly note what was learned (read the `problem_type` and `module` from YAML frontmatter if present)
 
+### Step 2c — Forge bridge (if opted in)
+
+Check if the project CLAUDE.md contains a `forge-project-key:` field. If not found, skip this step entirely.
+
+If opted in, extract the project key value, then execute a **single SSH call** to read all Forge context:
+
+```bash
+# Replace {PROJECT_KEY} with the actual key from CLAUDE.md
+# Note: use host volume path (not container path) since we SSH as root, not docker exec
+VOLBASE="/var/lib/docker/volumes/d95veq7chb3d8gllyj6vhpqy_openclaw-state/_data"
+ssh root@openclaw-prod "echo '===FORGE_SHARED===' && \
+  cat $VOLBASE/workspace-forge/projects/_shared/*.md 2>/dev/null && \
+  echo '===FORGE_PROJECT===' && \
+  cat $VOLBASE/workspace-forge/projects/{PROJECT_KEY}/*.md 2>/dev/null && \
+  echo '===FORGE_INBOX===' && \
+  ls $VOLBASE/shared/inbox/forge/ 2>/dev/null | grep -v '^archive$' && \
+  echo '===FORGE_PENDING_TICKETS===' && \
+  ls $VOLBASE/workspace-forge/projects/{PROJECT_KEY}/pending/ 2>/dev/null | grep -v '^done$'"
+```
+
+**If inbox files exist:**
+1. Read each file's content (in the same or a follow-up SSH call)
+2. Display the messages to the user under a "Messages for Forge:" header
+3. Archive them: `mkdir -p $VOLBASE/shared/inbox/forge/archive && mv -n $VOLBASE/shared/inbox/forge/*.md $VOLBASE/shared/inbox/forge/archive/ 2>/dev/null`
+
+**If pending ticket files exist:**
+1. Read each ticket file's content
+2. Display under a "Forge ticket requests:" header, showing title and description
+3. Ask the user: "Create this ticket? (y/n)"
+4. If approved, run the `/ticket` skill (or `gh issue create`) with the title and body from the file
+5. After creation, move the file to `pending/done/`:
+   ```bash
+   ssh root@openclaw-prod "mkdir -p $VOLBASE/workspace-forge/projects/{PROJECT_KEY}/pending/done && \
+     mv -n $VOLBASE/workspace-forge/projects/{PROJECT_KEY}/pending/{FILENAME} \
+       $VOLBASE/workspace-forge/projects/{PROJECT_KEY}/pending/done/"
+   ```
+
+**If SSH fails:** Note "Forge bridge unavailable — using local context only" and continue. Do NOT block pickup.
+
+**Also check for `.forge-pending`:** If a `.forge-pending` file exists in the project root (from a failed /handoff write-back), note it: "There are pending Forge write-backs from a previous session that failed to push."
+
+Include the Forge context in your session synthesis (Step 3) — mention any cross-project patterns or messages from agents.
+
 ### Step 3 — Orient and propose next action
 
 Synthesize everything into a brief, confident session kickoff:
