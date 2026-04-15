@@ -1,0 +1,126 @@
+name: Sync VPS
+run-name: "Sync ${{ inputs.host }} (${{ inputs.dry_run && 'dry-run' || 'apply' }}) by @${{ github.actor }}"
+
+on:
+  workflow_dispatch:
+    inputs:
+      host:
+        description: 'Target host (tailnet short name)'
+        type: string
+        default: openclaw-prod
+        required: true
+      dry_run:
+        description: 'Preview only (skip apt install, git clones, TPM plugin install on VPS)'
+        type: boolean
+        default: true
+        required: true
+
+# Queue behind an in-flight run on the same host; allow parallel runs against
+# different hosts if/when a second Linux target joins.
+concurrency:
+  group: sync-vps-${{ inputs.host }}
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Join tailnet
+        uses: tailscale/github-action@v4
+        with:
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          tags: tag:gh-actions
+          version: latest
+          ping: ${{ inputs.host }}
+
+      - name: Record pre-install SHA
+        id: snapshot
+        timeout-minutes: 2
+        run: |
+          SHA=$(ssh -o StrictHostKeyChecking=accept-new "root@${{ inputs.host }}" \
+            'cd /root/.dotfiles && git rev-parse HEAD')
+          # Regex-guard: the value is interpolated into a remote shell in the
+          # rollback step. Must be exactly a 40-char hex SHA.
+          if ! [[ "$SHA" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error::invalid SHA from VPS: '$SHA'"
+            exit 1
+          fi
+          echo "prev_sha=$SHA" >> "$GITHUB_OUTPUT"
+          {
+            echo "### Pre-install SHA"
+            echo ""
+            echo "\`$SHA\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Fetch latest
+        timeout-minutes: 3
+        run: |
+          ssh "root@${{ inputs.host }}" \
+            'cd /root/.dotfiles && git fetch && git reset --hard origin/master'
+
+      - name: Install
+        id: install
+        timeout-minutes: 8
+        run: |
+          DRY=""
+          if [ "${{ inputs.dry_run }}" = "true" ]; then
+            DRY="--dry-run"
+          fi
+          ssh "root@${{ inputs.host }}" \
+            "cd /root/.dotfiles && ./install $DRY"
+
+      - name: Health check
+        id: healthcheck
+        if: ${{ !inputs.dry_run && success() }}
+        timeout-minutes: 5
+        run: |
+          ssh "root@${{ inputs.host }}" \
+            'bash /root/.dotfiles/scripts/post-deploy-smoke.sh'
+
+      - name: Publish status summary
+        if: ${{ always() }}
+        run: |
+          {
+            echo "### Sync run summary"
+            echo ""
+            echo "| Field | Value |"
+            echo "| --- | --- |"
+            echo "| Host | \`${{ inputs.host }}\` |"
+            echo "| Mode | ${{ inputs.dry_run && 'dry-run' || 'apply' }} |"
+            echo "| Pre-SHA | \`${{ steps.snapshot.outputs.prev_sha }}\` |"
+            echo "| Install outcome | ${{ steps.install.outcome }} |"
+            echo "| Health outcome | ${{ steps.healthcheck.outcome }} |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Rollback on failure
+        id: rollback
+        if: ${{ failure() && !inputs.dry_run && (steps.install.outcome == 'failure' || steps.healthcheck.outcome == 'failure') }}
+        timeout-minutes: 5
+        run: |
+          PREV="${{ steps.snapshot.outputs.prev_sha }}"
+          if [ -z "$PREV" ]; then
+            echo "::error::no prev SHA captured — manual intervention required"
+            exit 1
+          fi
+          ssh "root@${{ inputs.host }}" "
+            set -e
+            cd /root/.dotfiles
+            CUR=\$(git rev-parse HEAD)
+            if [ \"\$CUR\" = \"$PREV\" ]; then
+              echo '::error::rollback target equals current HEAD — nothing to roll back to'
+              exit 1
+            fi
+            git rev-parse '$PREV^{commit}' >/dev/null 2>&1 || {
+              echo '::error::prev SHA not found in local git log — manual intervention required'
+              exit 1
+            }
+            git reset --hard $PREV
+            ./install
+          "
+          {
+            echo "### Rollback"
+            echo ""
+            echo "Reset VPS to \`$PREV\` and re-ran install."
+          } >> "$GITHUB_STEP_SUMMARY"
