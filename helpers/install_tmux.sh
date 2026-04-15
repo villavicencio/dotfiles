@@ -12,23 +12,23 @@ if [ "$(uname)" = "Darwin" ] && [ -f ./helpers/init_homebrew.sh ]; then
     . ./helpers/init_homebrew.sh
 fi
 
-# Set up logging
-LOG_FILE="install_tmux.log"
-touch "$LOG_FILE" || handle_error "Unable to create log file"
-
 # Function to log messages
 log_message() {
   echo "$1" | tee -a "$LOG_FILE"
 }
-
-TPM_INSTALL_DIR="$HOME/.config/tmux/plugins/tpm"
-TPM_REPO_URL="https://github.com/tmux-plugins/tpm"
 
 # Error handling function
 handle_error() {
   log_message "Error: $1" >&2
   exit 1
 }
+
+# Set up logging
+LOG_FILE="install_tmux.log"
+touch "$LOG_FILE" || handle_error "Unable to create log file"
+
+TPM_INSTALL_DIR="$HOME/.config/tmux/plugins/tpm"
+TPM_REPO_URL="https://github.com/tmux-plugins/tpm"
 
 log_message "Starting TMux installation..."
 
