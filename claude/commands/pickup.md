@@ -66,16 +66,21 @@ If opted in, extract the project key value, then execute a **single SSH call** t
 ```bash
 # Replace {PROJECT_KEY} with the actual key from CLAUDE.md
 # Note: use host volume path (not container path) since we SSH as root, not docker exec
+# Use `find -maxdepth 1 -type f` (NOT `ls | grep -v`) to list drops — it skips
+# sibling directories like `archive/` and `done/` by type rather than by name,
+# and behaves predictably inside nested SSH quoting. Silent drops here = missed tickets.
 VOLBASE="/var/lib/docker/volumes/d95veq7chb3d8gllyj6vhpqy_openclaw-state/_data"
 ssh root@openclaw-prod "echo '===FORGE_SHARED===' && \
   cat $VOLBASE/workspace-forge/projects/_shared/*.md 2>/dev/null && \
   echo '===FORGE_PROJECT===' && \
   cat $VOLBASE/workspace-forge/projects/{PROJECT_KEY}/*.md 2>/dev/null && \
   echo '===FORGE_INBOX===' && \
-  ls $VOLBASE/shared/inbox/forge/ 2>/dev/null | grep -v '^archive$' && \
+  find $VOLBASE/shared/inbox/forge -maxdepth 1 -type f -name '*.md' -printf '%f\n' 2>/dev/null && \
   echo '===FORGE_PENDING_TICKETS===' && \
-  ls $VOLBASE/workspace-forge/projects/{PROJECT_KEY}/pending/ 2>/dev/null | grep -v '^done$'"
+  find $VOLBASE/workspace-forge/projects/{PROJECT_KEY}/pending -maxdepth 1 -type f -name 'ticket-*.md' -printf '%f\n' 2>/dev/null"
 ```
+
+**Verify the output.** The two list sections (`FORGE_INBOX`, `FORGE_PENDING_TICKETS`) must be treated as load-bearing. If either is empty, state that explicitly in your summary (*"No pending tickets"*). Never skip past an empty section silently — a bug that swallows ticket filenames will look identical to a genuinely empty queue, and silent drops are how missed tickets happen.
 
 **If inbox files exist:**
 1. Read each file's content (in the same or a follow-up SSH call)
@@ -100,15 +105,57 @@ ssh root@openclaw-prod "echo '===FORGE_SHARED===' && \
 
 Include the Forge context in your session synthesis (Step 3) — mention any cross-project patterns or messages from agents.
 
+### Step 2d — VPS health snapshot (only when `forge-project-key: openclaw-forge`)
+
+Skip this step unless the project CLAUDE.md declares `forge-project-key: openclaw-forge`. Other Forge projects run on different infrastructure.
+
+This step is defensive — it catches classes of failure that HANDOFF.md and Forge inbox don't (security audit findings that haven't been landed as tickets yet, silent OOM regressions, runaway restart loops). Without it, the session can go several turns before you notice that the VPS has been degraded the whole time — exactly what happened on 2026-04-14.
+
+Run this **single SSH call** and include the resulting headline in your Step 3 synthesis:
+
+```bash
+ssh root@openclaw-prod '
+  echo "===OPENCLAW_STATUS_DEEP==="
+  docker exec openclaw-d95veq7chb3d8gllyj6vhpqy sh -c "openclaw status --deep 2>&1" 2>/dev/null | head -60
+  echo "===HOST_MEMORY==="
+  free -h | head -3
+  echo "===CONTAINER_CGROUP==="
+  CID=$(docker inspect openclaw-d95veq7chb3d8gllyj6vhpqy --format "{{.Id}}" 2>/dev/null)
+  if [ -n "$CID" ]; then
+    cat /sys/fs/cgroup/system.slice/docker-$CID.scope/memory.current 2>/dev/null | awk "{ printf \"memory.current: %.2f MB\n\", \$1/1024/1024 }"
+    cat /sys/fs/cgroup/system.slice/docker-$CID.scope/memory.max 2>/dev/null | awk "{ printf \"memory.max:     %.2f MB\n\", \$1/1024/1024 }"
+    cat /sys/fs/cgroup/system.slice/docker-$CID.scope/memory.swap.current 2>/dev/null | awk "{ printf \"swap.current:   %.2f MB\n\", \$1/1024/1024 }"
+    docker inspect openclaw-d95veq7chb3d8gllyj6vhpqy --format "RestartCount: {{.RestartCount}} | OOMKilled: {{.State.OOMKilled}} | Status: {{.State.Status}} | StartedAt: {{.State.StartedAt}}" 2>/dev/null
+  fi
+  echo "===OOM_LAST_24H==="
+  journalctl -k --since "24 hours ago" --no-pager 2>/dev/null | grep -c "oom-kill:constraint" | awk "{ print \$1, \"OOM events in past 24h\" }"
+  echo "===PERM_DRIFT_ALERTS==="
+  find /var/lib/docker/volumes/d95veq7chb3d8gllyj6vhpqy_openclaw-state/_data/shared/inbox/forge -maxdepth 1 -type f -name "*perm-drift*.md" 2>/dev/null | head -3
+'
+```
+
+Treat each section independently — empty sections are load-bearing, same rule as 2c. Never skip past one silently.
+
+**Interpretation rules:**
+
+- **Status lines starting with `CRITICAL` or `ERROR` in the `openclaw status --deep` output** — surface these prominently in Step 3. These are the exact class of thing that becomes Forge tickets the next day. Catching them at session start saves a round-trip.
+- **`RestartCount > 0` or `OOMKilled: true`** — the container has crashed since the handoff was written. Flag it; the session is starting against a degraded baseline.
+- **`memory.current` > 70% of `memory.max`** — gateway is close to its cgroup ceiling right now, not hours from now. If your workload for this session is heavy (multiple `/ce:compound` rounds, agent spawns), consider a graceful restart before starting work.
+- **OOM events in past 24h > 0** — there's a regression in progress. Escalate to "what changed recently" as the first order of business.
+- **Perm-drift alerts present** — the daily perm-drift check cron caught something. Read the alert file and remediate before other work.
+
+If SSH fails: note "VPS health snapshot unavailable" and continue; do not block pickup. Rationale: a down VPS is important information, but a Mac-side `/pickup` shouldn't stall on network problems.
+
 ### Step 3 — Orient and propose next action
 
 Synthesize everything into a brief, confident session kickoff:
 
 1. **2-3 sentence summary** of where things stand — what was completed, what's in flight
-2. **"Next up:"** — the single most important thing to tackle first, based on "What's Next" in the handoff
-3. **CE artifacts** — if any brainstorms, plans, or solutions were found, note them briefly (e.g., "There's an open brainstorm on X ready for planning" or "2 new solutions were compounded last session")
-4. **Any gotchas to keep in mind** — surface the watch-outs from the handoff so they're top of mind before touching code
-5. **A ready-to-go prompt** — end with something like: *"Ready when you are — just say go and I'll start on [specific task]."*
+2. **VPS health headline** (if Step 2d ran) — one line: *"VPS clean"* if all checks passed, or the most urgent finding if not (critical audit finding, OOM regression, restart loop, perm drift)
+3. **"Next up:"** — the single most important thing to tackle first, based on "What's Next" in the handoff; bump it below a VPS escalation if 2d surfaced one
+4. **CE artifacts** — if any brainstorms, plans, or solutions were found, note them briefly (e.g., "There's an open brainstorm on X ready for planning" or "2 new solutions were compounded last session")
+5. **Any gotchas to keep in mind** — surface the watch-outs from the handoff so they're top of mind before touching code
+6. **A ready-to-go prompt** — end with something like: *"Ready when you are — just say go and I'll start on [specific task]."*
 
 Keep the tone direct and energized. This is a fresh start, not a status report.
 

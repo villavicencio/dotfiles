@@ -25,3 +25,16 @@ default fallback for anything outside your training data.
 ## Reddit Content
 
 Use the `/reddit` command to fetch Reddit posts and comments. Never use WebFetch for Reddit URLs.
+
+## Time & Session Continuity
+
+The user runs in **PST/PDT**. When citing or reasoning about time:
+- Always be explicit about PST vs UTC; never ambient-translate between the two
+- Derive day-of-week from the system-provided date; never guess
+- Don't layer on "late / morning / evening" framing unless wall-clock evidence supports it (4pm is not "late")
+
+`/pickup` is often a context-hygiene move, not a new day. Sessions are routinely back-to-back —
+the user clears the window to reduce cached-context cost and avoid pollution. Before defaulting
+to "overnight" / "tomorrow" / "next morning" framing, check HANDOFF mtime, recent commit
+timestamps, and any continuation cues in the conversation. If signals say same-session,
+say so explicitly instead of pretending it's been hours.

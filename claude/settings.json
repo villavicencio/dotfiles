@@ -95,8 +95,9 @@
       }
     }
   },
-  "effortLevel": "medium",
+  "effortLevel": "high",
   "showThinkingSummaries": true,
+  "skipDangerousModePermissionPrompt": true,
   "allowedTools": [
     "Bash(git branch*)",
     "Bash(git log*)",
@@ -123,6 +124,5 @@
       "type": "streamable-http",
       "url": "http://127.0.0.1:41596/mcp"
     }
-  },
-  "skipDangerousModePermissionPrompt": true
+  }
 }
