@@ -142,10 +142,15 @@ mirroring "Setting up the work Mac" — with the Ubuntu-specific setup notes
   `git reset --hard <prev-sha> && ./install-linux` and fails the workflow
   loudly. Relies on prior HEAD being healthy — safe assumption since health
   checks gate every successful sync.
-- **Dry-run fidelity** — **Fork shellcmds via `DOTFILES_DRY_RUN=1` env var.**
-  Helpers (`install_packages.sh`, etc.) read this var and switch to
-  echo-only mode. A `--dry-run` install shows the complete picture: symlinks
-  planned AND apt actions planned. No lying dry-runs.
+- **Dry-run fidelity** — **Native Dotbot `--dry-run` (v1.24.1) + `DOTFILES_DRY_RUN`
+  as defense-in-depth.** The wrapper passes `--dry-run` through to Dotbot; all
+  built-in plugins (link/create/clean/shell) preview without mutating the
+  filesystem. A `DOTFILES_DRY_RUN=1` env var is also exported for helpers
+  invoked directly outside Dotbot (e.g., `bash helpers/install_omz.sh`).
+  *Note: the original plan had the wrapper STRIP `--dry-run` and rely on
+  idempotent no-op for link/create/clean. A reviewer reproduced that this
+  mutated a fresh `HOME`, so Dotbot was bumped from v1.19.0+17 → v1.24.1
+  to gain native dry-run support (see PR `6a449ea`).*
 - **Tailscale OAuth hygiene** — **Documented rotation runbook** at
   `docs/solutions/cross-machine/tailscale-gh-actions-oauth-setup.md` covering
   creation, ACL setup, GH secrets config, and rotation procedure. Annual

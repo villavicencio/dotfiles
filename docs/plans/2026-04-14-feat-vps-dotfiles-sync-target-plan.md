@@ -64,10 +64,22 @@ Replace the literal `CONFIG="install.conf.yaml"` in the entry script with a
 `uname`-driven case. Mac path unchanged (same `install.conf.yaml`); Linux
 path routes to a new sibling `install-linux.conf.yaml`.
 
-Also: thread `--dry-run` through the wrapper into an env var
-(`DOTFILES_DRY_RUN=1`) that helpers read to suppress filesystem mutation.
-Dotbot's own `--dry-run` covers built-in directives (`link`, `create`,
-`clean`); the env var extends coverage to `shell:` steps.
+Also: pass `--dry-run` through to Dotbot (vendored at v1.24.1, which
+supports native dry-run — see commit `6a449ea` for the submodule bump)
+and export `DOTFILES_DRY_RUN=1` as defense-in-depth for any helper
+invoked directly outside Dotbot. Dotbot's native dry-run covers every
+built-in directive (`link`, `create`, `clean`, `shell`) and emits
+"Would create path / Would create symlink / Would run command" preview
+lines — no filesystem mutation, even on a fresh host.
+
+*Note: the original design relied on the wrapper stripping `--dry-run`
+and helpers honoring `DOTFILES_DRY_RUN`. During review a reviewer
+reproduced that on a fresh `HOME`, Dotbot's built-in link/create/clean
+still mutated the filesystem because the vendored v1.19.0+17 didn't
+support native dry-run. The design was corrected by bumping Dotbot.
+The env-var mechanism is retained for direct-invocation scenarios and
+for the inline `shell:` blocks that benefit from emitting a
+human-readable `[dry-run] would ...` message.*
 
 ### B. Author a Linux-only Dotbot config
 
@@ -146,7 +158,8 @@ reentrant runs. Job- and step-level `timeout-minutes` guard against hangs.
 
 | Path | Change | Notes |
 |---|---|---|
-| `install` | Modify | OS-detect case + `--dry-run` → `DOTFILES_DRY_RUN=1` (dropped redundant `=0` export) |
+| `install` | Modify | OS-detect case; pass `--dry-run` through to Dotbot (v1.24.1 supports it natively); also export `DOTFILES_DRY_RUN=1` as defense-in-depth for direct helper invocation |
+| `dotbot/` (submodule) | Bump | v1.19.0+17 → v1.24.1 for native `--dry-run` support |
 | `install-linux.conf.yaml` | **New** | Linux profile — trimmed, bracket-shorthand for shell steps |
 | `helpers/install_packages.sh` | Modify | Single `DOTFILES_DRY_RUN` guard at top of Linux branch; keep existing apt-get -y install block (already idempotent) |
 | `helpers/install_omz.sh` | Modify | `DOTFILES_DRY_RUN` fork (it does `git clone` today) |
@@ -206,11 +219,15 @@ case "$(uname)" in
   *)      echo "Unsupported OS: $(uname)" >&2; exit 1 ;;
 esac
 
-# Propagate --dry-run to helper scripts (Dotbot handles its own built-ins).
-# Helpers that shell out to `git clone` need to know to skip; apt is idempotent
-# and guarded once inside install_packages.sh.
+# --dry-run is a genuine preview with vendored Dotbot >= v1.23.0:
+# - link / create / clean / shell plugins all support dry-run natively
+#   (they print what they would do without mutating)
+# - pass the flag through so Dotbot handles preview for every directive
+# Also export DOTFILES_DRY_RUN=1 as defense-in-depth for any helper invoked
+# directly (outside Dotbot) and for inline shell blocks that want to emit a
+# human-readable "[dry-run] would ..." message.
 for arg in "$@"; do
-  if [ "$arg" = "--dry-run" ]; then
+  if [ "$arg" = "--dry-run" ] || [ "$arg" = "-n" ]; then
     export DOTFILES_DRY_RUN=1
     break
   fi
@@ -836,7 +853,9 @@ recommended path.
 
 ### Build-time dependencies
 
-- Dotbot submodule at `dotbot/` already vendored — no change.
+- Dotbot submodule at `dotbot/` bumped from `v1.19.0+17` (`ac5793c`) to
+  **`v1.24.1`** (`a7fe585`) in commit `6a449ea` — required for native
+  `--dry-run` support (landed upstream in v1.23.0 via `67aeaf7`).
 - No new runtime dependencies introduced on Macs.
 - New Ubuntu packages installed on VPS via guarded `apt-get install` — see
   package list in `install_packages.sh`.
