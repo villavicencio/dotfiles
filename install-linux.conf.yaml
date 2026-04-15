@@ -21,15 +21,29 @@
     - ~/.config/tmux/scripts
 
 - shell:
-    - command: 'echo "export ZDOTDIR=$HOME/.config/zsh" > ~/.zshenv'
+    - command: |
+        if [ "${DOTFILES_DRY_RUN:-0}" = "1" ]; then
+          echo "[dry-run] would clobber ~/.zshenv with ZDOTDIR export"
+        else
+          echo "export ZDOTDIR=$HOME/.config/zsh" > ~/.zshenv
+        fi
       description: Setting ZDOTDIR in .zshenv
       quiet: true
     - command: |
-        sudo apt-get install -y locales
-        sudo locale-gen en_US.UTF-8
-        sudo update-locale LANG=en_US.UTF-8 LANGUAGE=en_US:en LC_ALL=en_US.UTF-8
+        if [ "${DOTFILES_DRY_RUN:-0}" = "1" ]; then
+          echo "[dry-run] would apt-get install locales + locale-gen en_US.UTF-8 + update-locale"
+        else
+          sudo apt-get install -y locales
+          sudo locale-gen en_US.UTF-8
+          sudo update-locale LANG=en_US.UTF-8 LANGUAGE=en_US:en LC_ALL=en_US.UTF-8
+        fi
       description: "Generating en_US.UTF-8 locale"
-    - command: 'echo ". \"$HOME/.config/zsh\"/.zshenv" >> ~/.zshenv'
+    - command: |
+        if [ "${DOTFILES_DRY_RUN:-0}" = "1" ]; then
+          echo "[dry-run] would append '. \$HOME/.config/zsh/.zshenv' to ~/.zshenv"
+        else
+          echo ". \"$HOME/.config/zsh\"/.zshenv" >> ~/.zshenv
+        fi
       description: Adding dot command for more extensive zshenv in .zshenv
       quiet: true
     - command: bash helpers/install_omz.sh

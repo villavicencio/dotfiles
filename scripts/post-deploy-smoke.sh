@@ -36,13 +36,29 @@ fi
 
 attempt=1
 max_attempts=3
+fail_reason=""
 while : ; do
-  bad=$(docker exec "$CID" openclaw status --deep 2>&1 | grep -cE '^(CRITICAL|ERROR)' || true)
-  if [ "$bad" = "0" ]; then
-    break
+  # Capture exec exit status separately from grep output. Without this, a
+  # failed `docker exec` (stale CID, missing command, container restart)
+  # gets collapsed into `bad=0` by the pipe + `|| true`, producing a
+  # false-positive healthy result.
+  if status_output=$(docker exec "$CID" openclaw status --deep 2>&1); then
+    if [ -z "$status_output" ]; then
+      fail_reason="openclaw status --deep returned empty output"
+    else
+      bad=$(printf '%s\n' "$status_output" | grep -cE '^(CRITICAL|ERROR)' || true)
+      if [ "$bad" = "0" ]; then
+        break
+      fi
+      fail_reason="${bad} CRITICAL/ERROR line(s) in openclaw status --deep"
+    fi
+  else
+    # Truncate long error messages so fail_reason stays readable.
+    fail_reason="docker exec failed: $(printf '%s' "$status_output" | head -c 200)"
   fi
+
   if [ "$attempt" -ge "$max_attempts" ]; then
-    echo "FAIL: openclaw status dirty after ${max_attempts} attempts (${bad} bad lines in last check)"
+    echo "FAIL: ${fail_reason} (after ${max_attempts} attempts)"
     exit 1
   fi
   # sleep ~ 2^attempt + jitter[0,2], capped at 10s.

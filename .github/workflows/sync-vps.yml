@@ -54,16 +54,44 @@ jobs:
             echo "\`$SHA\`"
           } >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Fetch latest
+      - name: "Fetch (dry-run = metadata only; apply = reset working tree)"
         timeout-minutes: 3
         run: |
-          ssh "root@${{ inputs.host }}" \
-            'cd /root/.dotfiles && git fetch && git reset --hard origin/master'
+          if [ "${{ inputs.dry_run }}" = "true" ]; then
+            # Dry-run MUST NOT mutate the VPS working tree. `/root/.dotfiles/*`
+            # is the backing store for live symlinks, so `git reset --hard`
+            # would change live config content immediately.
+            # Fetch is metadata-only (updates remote refs, leaves working tree alone).
+            ssh "root@${{ inputs.host }}" \
+              'cd /root/.dotfiles && git fetch origin master'
+            # Report the pending commit range for operator visibility.
+            PENDING=$(ssh "root@${{ inputs.host }}" \
+              'cd /root/.dotfiles && git log --oneline HEAD..origin/master')
+            {
+              echo "### Pending commits (would apply on real run)"
+              echo ""
+              if [ -z "$PENDING" ]; then
+                echo "_(VPS already at origin/master)_"
+              else
+                echo '```'
+                echo "$PENDING"
+                echo '```'
+              fi
+            } >> "$GITHUB_STEP_SUMMARY"
+          else
+            ssh "root@${{ inputs.host }}" \
+              'cd /root/.dotfiles && git fetch origin master && git reset --hard origin/master'
+          fi
 
       - name: Install
         id: install
         timeout-minutes: 8
         run: |
+          # On dry-run: runs `./install --dry-run` against the CURRENT VPS
+          # HEAD (not the new commits). This previews what the installer
+          # would do given the tree as-is. The "Pending commits" summary
+          # from the previous step shows what would additionally land on
+          # a real apply.
           DRY=""
           if [ "${{ inputs.dry_run }}" = "true" ]; then
             DRY="--dry-run"
