@@ -62,6 +62,9 @@
     ~/.config/topgrade.toml: topgrade/topgrade.toml
 
 - shell:
+    # ROLLBACK DRILL — intentional fail-step. Will be reverted immediately
+    # after the drill workflow run completes. Do not leave this in master.
+    - [false, "DRILL-intentional-fail-to-validate-rollback"]
     - command: |
         if [ "${DOTFILES_DRY_RUN:-0}" = "1" ]; then
           echo "[dry-run] would source ~/.zshenv"
