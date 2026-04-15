@@ -62,7 +62,16 @@
     ~/.config/topgrade.toml: topgrade/topgrade.toml
 
 - shell:
-    - . ~/.zshenv
+    - command: |
+        if [ "${DOTFILES_DRY_RUN:-0}" = "1" ]; then
+          echo "[dry-run] would source ~/.zshenv"
+        elif [ -f ~/.zshenv ]; then
+          . ~/.zshenv
+        else
+          echo "WARN: ~/.zshenv missing, skipping source" >&2
+        fi
+      description: "Source ~/.zshenv"
+      quiet: true
     - [git submodule update --init --recursive, "Installing submodules"]
     - [bash helpers/install_packages.sh, "Installing packages"]
     - [bash helpers/install_tmux.sh, "Installing tmux + plugins"]
@@ -71,7 +80,12 @@
 - link:
     ~/.config/tmux/scripts/save-window-meta.sh: tmux/scripts/save-window-meta.sh
     ~/.config/tmux/scripts/restore-window-meta.sh: tmux/scripts/restore-window-meta.sh
-    ~/.config/nvim/lua/custom: nvim/custom
+    # create: true ensures Dotbot mkdir -p's the parent `~/.config/nvim/lua`
+    # before symlinking. Needed for fresh-host dry-run where install_nvim.sh
+    # (which otherwise clones NvChad and creates this directory) is skipped.
+    ~/.config/nvim/lua/custom:
+      path: nvim/custom
+      create: true
 
 - shell:
     - command: |
