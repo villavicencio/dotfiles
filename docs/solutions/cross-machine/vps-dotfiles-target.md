@@ -306,9 +306,10 @@ minimized):
 
 - Plan: [docs/plans/2026-04-14-feat-vps-dotfiles-sync-target-plan.md](../../plans/2026-04-14-feat-vps-dotfiles-sync-target-plan.md)
 - Brainstorm: [docs/brainstorms/2026-04-14-vps-dotfiles-target-brainstorm.md](../../brainstorms/2026-04-14-vps-dotfiles-target-brainstorm.md)
-- Upstream Dotbot `--dry-run` support: https://github.com/anishathalye/dotbot
-  (our vendored version predates native dry-run; our wrapper handles it
-  via `DOTFILES_DRY_RUN=1` env var for helpers)
+- Dotbot `--dry-run` support: https://github.com/anishathalye/dotbot
+  (vendored at v1.24.1 — native `--dry-run` covers `link`/`create`/`clean`/`shell`.
+  The wrapper also exports `DOTFILES_DRY_RUN=1` as defense-in-depth for helpers
+  invoked directly outside Dotbot.)
 - Tailscale GitHub Action v4: https://github.com/tailscale/github-action
 - Tailscale SSH: https://tailscale.com/kb/1193/tailscale-ssh
 - Configuration Audit Logs: https://login.tailscale.com/admin/logs

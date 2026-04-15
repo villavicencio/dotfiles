@@ -150,17 +150,27 @@ Variant names must be exact (e.g., `jetbrains_idea`, not `jetbrains`). Run
 `topgrade` with an invalid name to see the full list of valid variants.
 
 ### `--dry-run` and `DOTFILES_DRY_RUN`
-`./install --dry-run` is honored at two layers:
-- The wrapper intercepts the flag, exports `DOTFILES_DRY_RUN=1`, and strips it before invoking Dotbot (our vendored Dotbot predates upstream's native dry-run).
-- Helper scripts that mutate system state (`install_omz.sh`, `install_tmux.sh`, `install_nvim.sh`, the Linux apt branch of `install_packages.sh`) check `DOTFILES_DRY_RUN` at the top and exit 0 with a `[dry-run] would ...` message when set.
-- Link/create/clean directives always run. They're idempotent with `relink: true`, so re-applying them on a dry-run is a no-op in practice.
+`./install --dry-run` is a true preview: zero filesystem mutations on any host, including a fresh bootstrap.
 
-When adding a new state-mutating helper, add the same 4-line guard at the top:
+- **Dotbot ≥ v1.23.0 handles the flag natively.** The vendored submodule is pinned at v1.24.1 (see `dotbot/` submodule state). All built-in plugins (`link`, `create`, `clean`, `shell`) support dry-run and emit `Would create path / Would create symlink / Would run command` lines instead of executing.
+- **The `install` wrapper passes `--dry-run` through** to Dotbot. It also exports `DOTFILES_DRY_RUN=1` as defense-in-depth.
+- **Shell blocks are skipped entirely on dry-run** by Dotbot's native plugin behavior, so helper scripts (`install_omz.sh`, `install_tmux.sh`, `install_nvim.sh`, `install_packages.sh`) aren't even invoked.
+- The `DOTFILES_DRY_RUN` env-var guards in those helpers are redundant under the normal `./install --dry-run` path but matter when a helper is invoked directly (`bash helpers/install_omz.sh` for manual testing or ad-hoc debugging) — they provide a consistent preview message and prevent mutation in that direct-invocation case.
+
+When adding a new state-mutating helper, keep the env-var guard pattern for direct-invocation safety:
 ```bash
 if [ "${DOTFILES_DRY_RUN:-0}" = "1" ]; then
   echo "[dry-run] would ..."
   exit 0
 fi
+```
+
+When bumping the Dotbot submodule, re-verify fresh-host dry-run remains mutation-free:
+```bash
+FAKE=/tmp/dotbot-dryrun-$$; mkdir -p "$FAKE"
+DOTFILES_DRY_RUN=1 HOME="$FAKE" ./dotbot/bin/dotbot -d "$PWD" -c install-linux.conf.yaml --dry-run
+find "$FAKE" -mindepth 1 | wc -l   # must be 0
+rm -rf "$FAKE"
 ```
 
 ### Project board
