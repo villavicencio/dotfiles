@@ -2,14 +2,32 @@
 
 set -e
 
-CONFIG="install.conf.yaml"
 DOTBOT_DIR="dotbot"
-
 DOTBOT_BIN="bin/dotbot"
 BASEDIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+case "$(uname)" in
+  Darwin) CONFIG="install.conf.yaml" ;;
+  Linux)  CONFIG="install-linux.conf.yaml" ;;
+  *)      echo "Unsupported OS: $(uname)" >&2; exit 1 ;;
+esac
+
+# --dry-run is a genuine preview with vendored Dotbot >= v1.23.0:
+# - link / create / clean / shell plugins all support dry-run natively
+#   (they print what they would do without mutating)
+# - pass the flag through so Dotbot handles preview for every directive
+# Also export DOTFILES_DRY_RUN=1 as defense-in-depth for any helper invoked
+# directly (outside Dotbot) and for inline shell blocks that want to emit a
+# human-readable "[dry-run] would ..." message.
+for arg in "$@"; do
+  if [ "$arg" = "--dry-run" ] || [ "$arg" = "-n" ]; then
+    export DOTFILES_DRY_RUN=1
+    break
+  fi
+done
 
 cd "${BASEDIR}"
 git -C "${DOTBOT_DIR}" submodule sync --quiet --recursive
 git submodule update --init --recursive "${DOTBOT_DIR}"
 
-"${BASEDIR}/${DOTBOT_DIR}/${DOTBOT_BIN}" -d "${BASEDIR}" -c "${CONFIG}" "${@}"
+exec "${BASEDIR}/${DOTBOT_DIR}/${DOTBOT_BIN}" -d "${BASEDIR}" -c "${CONFIG}" "$@"
