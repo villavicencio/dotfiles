@@ -2,14 +2,34 @@
 
 set -e
 
-CONFIG="install.conf.yaml"
 DOTBOT_DIR="dotbot"
-
 DOTBOT_BIN="bin/dotbot"
 BASEDIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+case "$(uname)" in
+  Darwin) CONFIG="install.conf.yaml" ;;
+  Linux)  CONFIG="install-linux.conf.yaml" ;;
+  *)      echo "Unsupported OS: $(uname)" >&2; exit 1 ;;
+esac
+
+# Handle --dry-run locally: set DOTFILES_DRY_RUN=1 so helpers (shell: blocks)
+# skip mutations. Our vendored dotbot (v1.19.0+17) predates upstream's native
+# --dry-run; when the submodule is bumped, this strip can be removed and the
+# flag passed through directly.
+#
+# Link/create/clean directives always run — they're idempotent (relink: true),
+# so re-applying them on a dry-run is a no-op in practice.
+DOTBOT_ARGS=()
+for arg in "$@"; do
+  if [ "$arg" = "--dry-run" ]; then
+    export DOTFILES_DRY_RUN=1
+  else
+    DOTBOT_ARGS+=("$arg")
+  fi
+done
 
 cd "${BASEDIR}"
 git -C "${DOTBOT_DIR}" submodule sync --quiet --recursive
 git submodule update --init --recursive "${DOTBOT_DIR}"
 
-"${BASEDIR}/${DOTBOT_DIR}/${DOTBOT_BIN}" -d "${BASEDIR}" -c "${CONFIG}" "${@}"
+exec "${BASEDIR}/${DOTBOT_DIR}/${DOTBOT_BIN}" -d "${BASEDIR}" -c "${CONFIG}" "${DOTBOT_ARGS[@]}"

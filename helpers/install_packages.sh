@@ -11,6 +11,11 @@ if [ "$(uname)" = "Darwin" ]; then
 else
     echo "Linux detected — using apt"
 
+    if [ "${DOTFILES_DRY_RUN:-0}" = "1" ]; then
+      echo "[dry-run] would apt-get update + install curated package list + gh/starship/diff-so-fancy + fd/bat symlinks"
+      exit 0
+    fi
+
     sudo apt-get update -qq
 
     # Core CLI tools (apt equivalents of Brewfile)

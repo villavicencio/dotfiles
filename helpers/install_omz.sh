@@ -1,5 +1,10 @@
 #!/usr/bin/env bash
 
+if [ "${DOTFILES_DRY_RUN:-0}" = "1" ]; then
+  echo "[dry-run] would install Oh My Zsh + plugins"
+  exit 0
+fi
+
 # Define the Oh My Zsh installation directory
 OMZ_DIR="$HOME/.oh-my-zsh"
 

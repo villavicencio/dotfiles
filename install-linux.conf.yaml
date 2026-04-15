@@ -1,0 +1,65 @@
+- defaults:
+    link:
+      relink: true
+    shell:
+      quiet: true
+      stdout: true
+      stderr: true
+
+- clean: ["~"]
+
+- create:
+    - ~/.hushlogin
+    - ~/.config
+    - ~/.config/zsh
+    - ~/.config/btop
+    - ~/.config/git
+    - ~/.config/lazygit
+    - ~/.config/tmux
+    - ~/.config/tmux/resurrect
+    - ~/.config/tmux/plugins
+    - ~/.config/tmux/scripts
+
+- shell:
+    - command: 'echo "export ZDOTDIR=$HOME/.config/zsh" > ~/.zshenv'
+      description: Setting ZDOTDIR in .zshenv
+      quiet: true
+    - command: |
+        sudo apt-get install -y locales
+        sudo locale-gen en_US.UTF-8
+        sudo update-locale LANG=en_US.UTF-8 LANGUAGE=en_US:en LC_ALL=en_US.UTF-8
+      description: "Generating en_US.UTF-8 locale"
+    - command: 'echo ". \"$HOME/.config/zsh\"/.zshenv" >> ~/.zshenv'
+      description: Adding dot command for more extensive zshenv in .zshenv
+      quiet: true
+    - command: bash helpers/install_omz.sh
+      description: "Installing omz + plugins"
+      quiet: true
+
+- link:
+    ~/.config/zsh/.zshenv: zsh/zshenv
+    ~/.config/zsh/.zshrc: zsh/zshrc
+    ~/.gitconfig: git/gitconfig
+    ~/.config/git/gitignore: git/gitignore
+    ~/.config/git/gitattributes: git/gitattributes
+    ~/.config/btop/btop.conf: btop/btop.conf
+    ~/.config/lazygit/config.yml: lazygit/config.yml
+    ~/.config/tmux/tmux.conf: tmux/tmux.conf
+    ~/.config/topgrade.toml: topgrade/topgrade.toml
+
+- shell:
+    - . ~/.zshenv
+    - [git submodule update --init --recursive, "Installing submodules"]
+    - [bash helpers/install_packages.sh, "Installing packages"]
+    - [bash helpers/install_tmux.sh, "Installing tmux + plugins"]
+    - [bash helpers/install_nvim.sh, "Installing nvim + plugins"]
+
+- link:
+    ~/.config/tmux/scripts/save-window-meta.sh: tmux/scripts/save-window-meta.sh
+    ~/.config/tmux/scripts/restore-window-meta.sh: tmux/scripts/restore-window-meta.sh
+    ~/.config/nvim/lua/custom: nvim/custom
+
+- shell:
+    - command: |
+        echo "Installation complete!"
+      quiet: false

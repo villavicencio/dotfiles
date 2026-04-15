@@ -1,5 +1,10 @@
 #!/usr/bin/env bash
 
+if [ "${DOTFILES_DRY_RUN:-0}" = "1" ]; then
+  echo "[dry-run] would install NvChad + Packer"
+  exit 0
+fi
+
 if ! command -v git &>/dev/null; then
   echo "git is not installed. Please install git and try again." >&2
   exit 1

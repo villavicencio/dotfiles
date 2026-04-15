@@ -1,5 +1,10 @@
 #!/usr/bin/env bash
 
+if [ "${DOTFILES_DRY_RUN:-0}" = "1" ]; then
+  echo "[dry-run] would install TPM + tmux plugins"
+  exit 0
+fi
+
 . ./zsh/zshenv
 
 # Source brew only on macOS
