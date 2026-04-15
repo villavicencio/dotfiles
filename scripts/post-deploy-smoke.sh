@@ -19,8 +19,14 @@ fi
 
 # 2. Permanent check: interactive zsh inits cleanly.
 #    Catches zshrc regressions (bad PATH, syntax error in sourced file).
-if ! zsh -i -c exit >/dev/null 2>&1; then
-  echo "FAIL: zsh -i -c exit non-zero"
+#
+# NOTE: use `-c true`, NOT `-c exit`. The `exit` builtin without args returns
+# the last command's exit status. If zshrc ends with conditional tests like
+# `[[ -f /some/path ]]` that return false, `exit` inherits that non-zero
+# status even though initialization completed successfully. `true` always
+# returns 0, so a non-zero exit here means zshrc actually aborted.
+if ! zsh -i -c true >/dev/null 2>&1; then
+  echo "FAIL: zsh -i -c true non-zero (shell init aborted)"
   exit 1
 fi
 
