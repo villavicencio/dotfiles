@@ -1,37 +1,43 @@
-# HANDOFF — 2026-04-15, evening (session 2)
+# HANDOFF — 2026-04-16 (session 1)
 
 ## What We Built
 
 ### Shipped to master (1 commit this session)
 
-- **`5128f6a` — Remove repo-specific `/ticket` command, enable telemetry for 1h cache.** Two changes in one commit:
-  1. Deleted `claude/commands/ticket.md` — was hardcoded to `villavicencio/dataworks-website` with the wrong repo, wrong project ID (`PVT_kwHOAA0r6c4BRJW-` instead of `PVT_kwHOAA0r6c4BRdxZ`), and dataworks-specific labels/Figma refs. Too project-specific for a global slash command. Removed rather than fixed — use `gh issue create` directly when needed.
-  2. Added `env.CLAUDE_CODE_ENABLE_TELEMETRY: "1"` to `claude/settings.json` to upgrade OAuth prompt cache TTL from 5 minutes to 1 hour. Takes effect on next session (not the current one). Trade-off: sends anonymized usage telemetry (session metadata, tool use counts, token counts — not prompt content) to Anthropic.
-  3. Updated `CLAUDE.md` — removed "ticket" from the commands list (line 40) and the `/ticket` reference from the project board section (line 178).
+- **`8c17d6b` — Remove `CLAUDE_CODE_ENABLE_TELEMETRY=1` from `claude/settings.json`.** Supersedes `5128f6a` from the previous session, which had added the flag under the (now disproven) belief that it upgraded the OAuth prompt cache TTL from 5min to 1h.
+  - **Empirical disproof:** 41 pre-`5128f6a` sessions across 5 projects (openclaw, dataworks-website, dotfiles, Gooner, a top-level misc one) showed 0 writes to the 5m cache tier and 121M writes to the 1h tier — 100.0% 1h on every historical main-thread session. 1h is the Claude Code OAuth default in 2.1.111, not a reward for telemetry opt-in.
+  - **Post-removal verification:** fresh session after the flag was removed ran 61 turns at 100.0% 1h tier. Flag removal had zero effect on cache behavior.
+  - **What the flag actually is:** a gatekeeper for OpenTelemetry export. No-op without `OTEL_*` companion vars (`OTEL_METRICS_EXPORTER`, `OTEL_LOGS_EXPORTER`, `OTEL_EXPORTER_OTLP_ENDPOINT`), which this repo does not set. No Anthropic Console dashboard exists for Claude Code CLI.
+  - Full methodology + jq inspection recipes + prevention checklist in `docs/solutions/code-quality/claude-code-telemetry-flag-does-not-affect-cache-ttl.md`.
+  - Forge project memory note corrected on openclaw-prod (`workspace-forge/projects/dotfiles/context.md`).
+  - Local auto-memory updated: `memory/claude_code_cache_inspection.md` holds the jq recipes and empirical finding.
 
 ## Decisions Made
 
-- **`/ticket` removed entirely, not fixed.** The command was 112 lines of dataworks-website-specific workflow (labels, Figma references, project board mutation). Fixing it for dotfiles would still leave a command that's too project-specific for a global config. The right pattern is `gh issue create` directly, or a project-local command definition if a project needs one.
-- **Telemetry enabled via `settings.json` env block, not shell env.** `claude/settings.json` is symlinked to `~/.claude/settings.json` and version-controlled. This makes the setting portable across machines (except work Mac where `CLAUDE_CODE_USE_VERTEX=1` means OAuth caching doesn't apply anyway). Alternative was adding to `zsh/zshenv` — rejected because it's a Claude Code setting, not a shell setting.
+- **Remove the flag rather than repurpose it.** Keeping `CLAUDE_CODE_ENABLE_TELEMETRY=1` as a "future-proof gate in case we set up OTel later" was rejected — dead config is a trust hazard and the next reader will assume it's load-bearing. If/when a local OTel collector is stood up, the flag can return alongside the companion vars that make it meaningful.
+- **New HANDOFF instead of editing the old one.** Last session's handoff documented the flag being added "for 1h cache" as fact; rewriting history in place would be misleading. This handoff replaces it cleanly — the prior commit message and the solution doc preserve the full story.
+- **Compound doc emphasizes method, not just fix.** The more durable lesson isn't "remove telemetry" — it's "claims of the form *knob X causes runtime behavior Y* must be proven from runtime data before being documented as fact." That framing is the hedge against a repeat.
 
 ## What Didn't Work
 
-Nothing failed this session — both changes were straightforward.
+- **The original 5128f6a commit was based on an unverified claim.** A plausible-sounding trade-off narrative ("tell Anthropic more about your usage → they let your cache live longer") was accepted into a commit message, a handoff, a Forge note, and a pickup briefing — all before anyone ran a `jq` over `~/.claude/projects/*/**.jsonl` to check. Everything after the first misstep compounded the error.
+- **Two `claude-code-guide` subagents disagreed about whether 1h cache was on.** The disagreement alone should have been a signal. Doc-derived subagent answers are not a substitute for transcript inspection when the question is about observable runtime behavior.
 
 ## What's Next
 
-Priority-ordered (carried forward from previous session where still relevant):
+Carried forward from the previous session (still relevant):
 
-1. **Cross-machine sync test on the work Mac.** Run `./install` on the FedEx Mac to verify Dotbot v1.24.1 bump, the OS-detect wrapper, and all fixes from the previous session (SC2218 hoist, deprecated taps, osx/ removal) plus this session's settings.json change behave identically. Acceptance: no symlink changes, idempotent second run, Brewfile step completes without deprecated-tap errors.
-2. **VPS sync.** Master is now 4 commits ahead of the last VPS sync. When ready: `gh workflow run sync-vps.yml --repo villavicencio/dotfiles -f host=openclaw-prod -f dry_run=true` → review step summary → `-f dry_run=false`.
-3. **OAuth secret rotation reminder — 2027-04-14.** Runbook documents the procedure.
+1. **Cross-machine sync test on the work Mac.** Run `./install` on the FedEx Mac to verify the Dotbot v1.24.1 bump, the OS-detect wrapper, and all fixes from the last three sessions (SC2218 hoist, deprecated taps, osx/ removal, settings.json env-block removal) behave identically. Acceptance: no symlink changes, idempotent second run, Brewfile step completes without deprecated-tap errors.
+2. **VPS sync.** Master is now multiple commits ahead of the last VPS sync (including `5128f6a`, `689811d`, `8c17d6b`). When ready: `gh workflow run sync-vps.yml --repo villavicencio/dotfiles -f host=openclaw-prod -f dry_run=true` → review step summary → `-f dry_run=false`.
+3. **OAuth secret rotation reminder — 2027-04-14.** Runbook in `docs/solutions/cross-machine/vps-dotfiles-target.md` has the procedure.
 4. **Optional follow-ups** (no tickets yet):
    - Sidecar rename cleanup for orphaned entries in `~/.config/tmux/window-meta.json`.
-   - Investigate VPS OOM regression (7 OOM events in past 24h, RestartCount: 7, memory at 73% of cgroup ceiling). This belongs to the openclaw project, not dotfiles.
+   - Self-hosted OTel collector for Claude Code usage dashboards. Would resurrect a reason to set `CLAUDE_CODE_ENABLE_TELEMETRY=1` alongside the companion vars. Scope: a Prometheus+Grafana stack or similar, per-session token/cache-hit-rate views.
+   - VPS OOM regression (out of scope for dotfiles; belongs to openclaw).
 
 ## Gotchas & Watch-outs
 
-- **`claude/settings.json` accumulates per-session permission grants.** If you see a huge `permissions.allow` block in `git diff`, do NOT commit it. Restore with `git checkout -- claude/settings.json`. This will happen every time permissions are granted during a session.
-- **Telemetry setting takes effect next session.** The current session was initialized without it. Don't expect 1h cache until you start a new session.
-- **Work Mac telemetry caveat.** `CLAUDE_CODE_USE_VERTEX=1` on the work Mac routes through Vertex, not OAuth. The telemetry-for-cache trade-off is OAuth-specific. The env var in settings.json is harmless on the work Mac (telemetry still sends, but cache TTL is governed by Vertex's own rules).
-- **VPS health was degraded last session.** 7 OOM events in 24h, RestartCount: 7, memory.current at 73% of cgroup ceiling. Not addressed (out of scope for dotfiles). If next pickup is on openclaw, investigate first.
+- **`claude/settings.json` accumulates per-session permission grants.** If you see a bloated `permissions.allow` block in `git diff`, do NOT commit it. Restore with `git checkout -- claude/settings.json`.
+- **1h cache is on by default — don't re-enable telemetry "for the cache."** If the urge returns, re-read `docs/solutions/code-quality/claude-code-telemetry-flag-does-not-affect-cache-ttl.md` first. The flag is only worth setting if you've also stood up an OTel backend.
+- **Work Mac runs through Vertex (`CLAUDE_CODE_USE_VERTEX=1`).** Cache-tier behavior is governed by Vertex there, not OAuth. The analysis in this handoff is OAuth-specific.
+- **VPS health may still be degraded.** Last openclaw session recorded 7 OOM events in 24h, RestartCount: 7, memory.current at 73% of cgroup ceiling. Not addressed (out of scope for dotfiles). If next pickup is on openclaw, investigate first.
