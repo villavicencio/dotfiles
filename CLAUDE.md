@@ -37,7 +37,7 @@ zsh/
   functions.sh  Functions (also sources zsh/functions/*.sh)
   functions/    Individual function files (man_colorful, mkdir_and_cd, etc.)
 claude/
-  commands/     Claude Code slash commands (ticket, handoff, pickup, review-claudemd, reddit)
+  commands/     Claude Code slash commands (handoff, pickup, review-claudemd, reddit)
   CLAUDE.md     Global Claude Code instructions (symlinked to ~/.claude/CLAUDE.md)
   settings.json Claude Code settings — plugins, allowed tools (symlinked to ~/.claude/settings.json)
 ```
@@ -175,7 +175,6 @@ rm -rf "$FAKE"
 
 ### Project board
 GitHub Project board: https://github.com/users/villavicencio/projects/2
-Use the `/ticket` command to create issues linked to the board.
 
 ---
 
