@@ -1,0 +1,8 @@
+{
+  "main": {
+    "ops":      { "glyph": "⚙",  "glyph_color": "#56B6C2" },
+    "logs":     { "glyph": "≡",  "glyph_color": "#4B5263" },
+    "openclaw": { "glyph": "🦀", "glyph_color": "#D97757" },
+    "tui":      { "glyph": "▤",  "glyph_color": "#7DACD3" }
+  }
+}

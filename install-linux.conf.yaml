@@ -80,6 +80,12 @@
 - link:
     ~/.config/tmux/scripts/save-window-meta.sh: tmux/scripts/save-window-meta.sh
     ~/.config/tmux/scripts/restore-window-meta.sh: tmux/scripts/restore-window-meta.sh
+    # Seed glyph + palette metadata for the VPS's static window layout
+    # (main: ops/logs/openclaw/tui). The client-attached hook in
+    # tmux/tmux.general.conf applies this on next attach. Darwin
+    # install.conf.yaml intentionally does NOT symlink this path —
+    # Mac's sidecar is written live by the tmux-window-namer skill.
+    ~/.config/tmux/window-meta.json: tmux/window-meta.linux.json
     # create: true ensures Dotbot mkdir -p's the parent `~/.config/nvim/lua`
     # before symlinking. Needed for fresh-host dry-run where install_nvim.sh
     # (which otherwise clones NvChad and creates this directory) is skipped.
