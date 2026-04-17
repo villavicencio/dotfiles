@@ -1,7 +1,7 @@
 ---
 title: Add VPS tmux window glyph seed
 type: feat
-status: active
+status: completed
 date: 2026-04-17
 origin: docs/brainstorms/2026-04-17-vps-tmux-glyph-treatment-brainstorm.md
 ---
