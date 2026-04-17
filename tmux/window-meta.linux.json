@@ -3,6 +3,6 @@
     "ops":      { "glyph": "⚙",  "glyph_color": "#56B6C2" },
     "logs":     { "glyph": "≡",  "glyph_color": "#4B5263" },
     "openclaw": { "glyph": "🦀", "glyph_color": "#D97757" },
-    "OpenClaw": { "glyph": "", "glyph_color": "#FF4500" }
+    "OpenClaw": { "glyph": "\uee0d", "glyph_color": "#FF4500" }
   }
 }
