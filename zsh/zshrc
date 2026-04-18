@@ -20,7 +20,15 @@ bindkey -M menuselect 'j' vi-down-line-or-history
 # Oh My Zsh settings
 export USER="$USER" # Ensure USER is exported for completion system
 
-[[ -x "$BREW_PREFIX/bin/brew" ]] && eval "$("$BREW_PREFIX/bin/brew" shellenv)"
+# `brew shellenv` sets HOMEBREW_PREFIX/CELLAR/REPOSITORY + FPATH + MANPATH/
+# INFOPATH, all of which we want. BUT it also emits an `eval path_helper -s`
+# line that, via macOS's path_helper, rebuilds PATH with /opt/homebrew/bin
+# prepended — undoing the user-scope-first ordering established in zshenv.
+# Filter out the path_helper eval (the real PATH clobberer here) and keep
+# everything else.
+if [[ -x "$BREW_PREFIX/bin/brew" ]]; then
+  eval "$("$BREW_PREFIX/bin/brew" shellenv | grep -vE '^eval .*path_helper')"
+fi
 
 # NVM configuration
 
