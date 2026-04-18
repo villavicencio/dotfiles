@@ -61,8 +61,15 @@ CARGO_BIN="$HOME/.cargo/bin"
 LOCAL_BIN="$HOME/bin"
 LOCAL_SHARE_BIN="$HOME/.local/bin"
 
-# Add paths in order of priority
-export PATH="$BREW_CURL:$BREW_BIN:$BREW_SBIN:$MYSQL_BIN:$RVM_BIN:$YARN_BIN:$CARGO_BIN:$LOCAL_BIN:$LOCAL_SHARE_BIN:${HOME}/perl5/bin${PATH:+:${PATH}}"
+# Add paths in order of priority.
+# `$LOCAL_BIN` (~/bin) and `$LOCAL_SHARE_BIN` (~/.local/bin) come BEFORE
+# Homebrew so user-scope installers (e.g., Anthropic's `claude` native
+# installer which symlinks into ~/.local/bin) take precedence over the
+# same tool installed via Homebrew cask. Fixes the situation where the
+# Homebrew cask lags Anthropic's in-app auto-updater and leaves a stale
+# `/opt/homebrew/bin/claude` shadowing the newer user-scope one. Standard
+# Unix convention: user-scope beats system-scope.
+export PATH="$LOCAL_BIN:$LOCAL_SHARE_BIN:$BREW_CURL:$BREW_BIN:$BREW_SBIN:$MYSQL_BIN:$RVM_BIN:$YARN_BIN:$CARGO_BIN:${HOME}/perl5/bin${PATH:+:${PATH}}"
 
 # Auto-deduplicate PATH entries
 [[ -n "$ZSH_VERSION" ]] && typeset -U PATH
