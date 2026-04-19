@@ -1,16 +1,21 @@
 #!/usr/bin/env bash
 # Drives a per-window tmux marker so the tab in the status bar reflects
-# what Claude Code is doing inside it. Three states:
+# what Claude Code is doing inside it. Four states:
 #
-#   waiting  -> set @claude_status=waiting (yellow warning glyph)
+#   waiting  -> set @claude_status=waiting (yellow warning glyph) for
+#               generic permission requests
+#   asking   -> set @claude_status=asking (yellow question-mark glyph)
+#               for AskUserQuestion tool calls; disambiguated from
+#               waiting by reading tool_name from the hook's stdin JSON
 #   spinner  -> background loop cycling through frames, written to
 #               @claude_status (orange spinner)
 #   clear    -> kill any spinner, unset @claude_status (no icon)
 #
 # Wired up via claude/settings.json hooks:
-#   UserPromptSubmit, PreToolUse              -> spinner
-#   Notification, PermissionRequest           -> waiting
-#   Stop                                      -> clear
+#   UserPromptSubmit, PreToolUse, PostToolUse -> spinner
+#   PermissionRequest                         -> waiting (may switch to
+#                                                asking based on stdin)
+#   SessionStart, Stop                        -> clear
 #
 # For emoji-in-name windows (e.g., "🦞 OpenClaw"), the leading emoji is
 # temporarily stripped so the spinner/waiting glyph replaces its visual
@@ -96,9 +101,23 @@ restore_original_name() {
 
 case "$action" in
   waiting)
+    # Peek hook-event JSON to disambiguate AskUserQuestion (yellow ?)
+    # from generic permission requests (yellow warning). Time-bounded
+    # so manual invocations without stdin don't hang.
+    event_json=$(timeout 0.3 cat 2>/dev/null || true)
+    tool_name=$(printf '%s' "$event_json" | python3 -c "
+import json, sys
+try:
+    d = json.load(sys.stdin)
+    print(d.get('tool_name', ''), end='')
+except Exception:
+    pass
+" 2>/dev/null)
+    state="waiting"
+    [ "$tool_name" = "AskUserQuestion" ] && state="asking"
     stop_spinner
     strip_leading_emoji
-    set_status "waiting"
+    set_status "$state"
     ;;
 
   spinner)
@@ -128,7 +147,14 @@ case "$action" in
         i=$((i + 1))
         sleep 0.15
       done
-      # Cleanup: restore original name and clear status.
+      # If sentinel is gone, another action is already managing state —
+      # exit without touching anything or we race the caller that just
+      # set waiting/asking (blank-icon bug).
+      if [ ! -f "$sentinel" ]; then
+        exit 0
+      fi
+      # Parent died or max-iter cap hit — we own cleanup.
+      rm -f "$sentinel"
       orig=$(tmux show-options -wv -t "$pane" @win_original_name 2>/dev/null) || true
       if [ -n "$orig" ]; then
         tmux rename-window -t "$pane" "$orig" 2>/dev/null
