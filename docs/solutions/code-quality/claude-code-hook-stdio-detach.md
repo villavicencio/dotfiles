@@ -62,3 +62,16 @@ Every background process launched from a Claude Code hook must use the
 full `</dev/null >/dev/null 2>&1 &` detach pattern. This is not optional
 — even a process that produces no output still holds the pipe open by
 virtue of having the file descriptor inherited.
+
+## See Also
+
+If your backgrounded loop uses a sentinel file for shutdown control AND
+a main-thread caller can remove that sentinel while also writing state,
+the detach pattern above is necessary but not sufficient — an
+unconditional cleanup block at the end of the loop will race the
+caller's write and produce a blank / stale state. Gate the cleanup on
+exit reason (sentinel-still-exists = "unplanned exit, worker owns
+cleanup" vs sentinel-gone = "requested exit, caller owns state") to
+close the race. See
+[tmux-attention hook blank-tab race + AskUserQuestion routing](../runtime-errors/tmux-attention-hook-race-condition-and-askuserquestion-state-2026-04-19.md)
+for the full analysis and the fix pattern.

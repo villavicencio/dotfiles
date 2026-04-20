@@ -1,20 +1,23 @@
 #!/usr/bin/env bash
 # Drives a per-window tmux marker so the tab in the status bar reflects
-# what Claude Code is doing inside it. Four states:
+# what Claude Code is doing inside it. Three active states (plus one
+# reserved for future use):
 #
-#   waiting  -> set @claude_status=waiting (yellow warning glyph) for
-#               generic permission requests
 #   asking   -> set @claude_status=asking (yellow question-mark glyph)
-#               for AskUserQuestion tool calls; disambiguated from
-#               waiting by reading tool_name from the hook's stdin JSON
+#               for any user-decision prompt — all PermissionRequest
+#               events go here (Bash tool-use, AskUserQuestion, etc.)
 #   spinner  -> background loop cycling through frames, written to
 #               @claude_status (orange spinner)
 #   clear    -> kill any spinner, unset @claude_status (no icon)
+#   waiting  -> (reserved) amber warning glyph; the case handler below
+#               is named "waiting" to match settings.json's hook arg
+#               but currently always sets the asking state. If a future
+#               event needs the amber warning distinct from asking,
+#               route to @claude_status=waiting explicitly.
 #
 # Wired up via claude/settings.json hooks:
 #   UserPromptSubmit, PreToolUse, PostToolUse -> spinner
-#   PermissionRequest                         -> waiting (may switch to
-#                                                asking based on stdin)
+#   PermissionRequest                         -> waiting (→ asking)
 #   SessionStart, Stop                        -> clear
 #
 # For emoji-in-name windows (e.g., "🦞 OpenClaw"), the leading emoji is
@@ -26,7 +29,7 @@
 # Removing the sentinel kills the loop within one frame (~150ms). This
 # is more robust than pidfile tracking because:
 #   - it survives lost pidfiles / leaked processes
-#   - a max-runtime cap (default 600s) bounds the worst case
+#   - a max-runtime cap (~5 min: 2000 iterations × 150ms) bounds the worst case
 #   - pkill is used as a final cleanup hammer
 #
 # Always exits 0. Never blocks Claude Code.
@@ -101,23 +104,15 @@ restore_original_name() {
 
 case "$action" in
   waiting)
-    # Peek hook-event JSON to disambiguate AskUserQuestion (yellow ?)
-    # from generic permission requests (yellow warning). Time-bounded
-    # so manual invocations without stdin don't hang.
-    event_json=$(timeout 0.3 cat 2>/dev/null || true)
-    tool_name=$(printf '%s' "$event_json" | python3 -c "
-import json, sys
-try:
-    d = json.load(sys.stdin)
-    print(d.get('tool_name', ''), end='')
-except Exception:
-    pass
-" 2>/dev/null)
-    state="waiting"
-    [ "$tool_name" = "AskUserQuestion" ] && state="asking"
+    # All PermissionRequest events are user-decision prompts (Bash
+    # tool-use confirmations, AskUserQuestion, etc.) — render the
+    # yellow question-mark. The legacy "waiting" action name is
+    # kept to match settings.json's existing hook arg; the rendered
+    # state is always "asking". If a future event (e.g. Notification,
+    # if ever wired) needs the amber warning, set state=waiting here.
     stop_spinner
     strip_leading_emoji
-    set_status "$state"
+    set_status "asking"
     ;;
 
   spinner)

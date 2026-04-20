@@ -133,12 +133,18 @@ use hex codes from that file.
 `claude/hooks/tmux-attention.sh` is invoked by Claude Code hooks (declared in
 `claude/settings.json`) to drive a per-window tmux user option `@claude_status`,
 which is read by a ternary in `tmux/tmux.display.conf`'s `window-status-format`.
-Three states: `waiting` (yellow warning glyph), spinner frame (orange star
-cycling at 150ms), or unset (no icon). The spinner runs as a disowned bash
-subshell tagged `claude-spinner-marker-<pane>` so `pkill` can find leaks.
-It self-terminates when (a) the sentinel file is removed, (b) Claude Code's
-PID is gone, or (c) the 5-minute safety cap is hit. If a leaked loop ever
-shows up, kill it via `pkill -f claude-spinner-marker`.
+Active states: `asking` (bright yellow `\uf128` for any `PermissionRequest` —
+Bash tool-use confirmations, AskUserQuestion, all user-decision prompts render
+the same glyph), spinner frame (orange star cycling at 150ms), or unset (no
+icon). An amber `waiting` branch exists in the tmux ternary as reserved state
+for future non-permission attention events but is not currently written by
+the hook. The spinner runs as a disowned bash subshell tagged
+`claude-spinner-marker-<pane>` so `pkill` can find leaks. It self-terminates
+when (a) the sentinel file is removed, (b) Claude Code's PID is gone, or
+(c) the 5-minute safety cap is hit. Its cleanup block is gated on
+sentinel-still-exists so it does not race the main-thread state writer — see
+`docs/solutions/runtime-errors/tmux-attention-hook-race-condition-and-askuserquestion-state-2026-04-19.md`.
+If a leaked loop ever shows up, kill it via `pkill -f claude-spinner-marker`.
 
 ### OMZ plugin sync
 When adding an Oh My Zsh plugin to the `plugins=()` list in `zshrc`, also add the corresponding
