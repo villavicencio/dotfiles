@@ -29,7 +29,7 @@
 # Removing the sentinel kills the loop within one frame (~150ms). This
 # is more robust than pidfile tracking because:
 #   - it survives lost pidfiles / leaked processes
-#   - a max-runtime cap (default 600s) bounds the worst case
+#   - a max-runtime cap (~5 min: 2000 iterations × 150ms) bounds the worst case
 #   - pkill is used as a final cleanup hammer
 #
 # Always exits 0. Never blocks Claude Code.
