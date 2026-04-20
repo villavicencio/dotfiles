@@ -37,8 +37,11 @@ setting the indicator back.
 ## Fix
 
 Use `PermissionRequest` as the sole hook for "attention needed" signals.
-`PermissionRequest` fires only when Claude is blocked waiting for the
-user to approve a tool call — the exact scenario where attention is
+`PermissionRequest` fires whenever Claude is blocked waiting on a user
+decision — tool-call approvals (Bash, Write, etc.) and structured
+user-choice prompts (`AskUserQuestion`) both arrive through this hook,
+with the specific sub-case available as `tool_name` on the event's
+stdin JSON. In every case it maps to the scenario where attention is
 genuinely required.
 
 ```jsonc
@@ -57,6 +60,8 @@ but not for stateful indicators that need explicit clearing.
 
 ## Key Takeaway
 
-`PermissionRequest` = "Claude is blocked, user action needed."
+`PermissionRequest` = "Claude is blocked, user decision needed" — covers
+both tool-call approvals AND `AskUserQuestion` prompts (distinguishable
+by `tool_name` on the event stdin).
 `Notification` = "Claude wants to ping the terminal" (fires broadly).
 Only use `PermissionRequest` for attention-required indicators.
