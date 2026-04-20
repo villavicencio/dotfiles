@@ -1,78 +1,68 @@
-# HANDOFF — 2026-04-18 (afternoon/evening session)
+# HANDOFF — 2026-04-20 (late morning PST, multi-day session continuation)
 
 ## What We Built
 
-### Shipped to master (15 commits this session — big one)
+### Shipped to master (3 PRs, 3 merged, no carry-overs)
 
-**Tmux window-tab styling polish (earlier):**
-- **PR #31 `4fbe178`** — seed VPS tmux window glyphs via Linux-only Dotbot symlink.
-- **PR #32 `7f8fda2`** — transparent status bar background (`bg=default`).
-- **PR #33 `cc5b305`** — dim window glyph on inactive tabs (glyph matches title color when not focused, keeps palette color when active).
-- **PR #34 `8bd9ae8`** — rename VPS window 4 from `tui` → `OpenClaw` with `\uee0d` / `#FF4500`.
-- **`5043e3c`** — fix: PUA glyph stripped by Write tool (discovered bug in Claude Code tool layer).
-- **`ac79cc7`** — docs: extend PUA-stripping solution to cover the Write tool, not just Bash argv.
-- **`30ef6fe`** — shrink VPS seed to only OpenClaw (user killed windows 1-3 on VPS), add thin space after glyph.
-- **`50a252d`** — fix seed key `main` → `vps` to match renamed VPS session (Risk #2 from brainstorm fired).
-- **PR #35 `d9475e6`** — blue session-name pill `#2563EB` / white. Renamed sessions: local Mac `main → local`, VPS `main → vps`.
+**PR #38 `cae28d3` — Native Claude Code installer replaces Homebrew cask.**
+- Dropped `cask "claude-code"` from `brew/Brewfile`
+- Added `helpers/install_claude_code.sh`: idempotent native-installer wrapper (`curl -fsSL https://claude.ai/install.sh | bash`). Skips if `~/.local/bin/claude` already exists, Darwin-only guard, `DOTFILES_DRY_RUN=1` preview path.
+- Wired into `install.conf.yaml` shell block after `install_node.sh`.
+- Drive-by fix: removed orphan `~/.claude/commands/ticket.md` symlink from `install.conf.yaml:74` (source file was deleted in `5128f6a` on 2026-04-15 but the symlink line was left behind, making `./install --dry-run` exit non-zero with "Nonexistent target" for 3 days).
+- Rationale: Homebrew cask has been perpetually weeks behind upstream. This session caught it stuck on 2.1.98 while `~/.local/bin/claude` (native installer) was already on 2.1.114. PR #36/#37 from yesterday made PATH prefer `~/.local/bin`, so the cask was redundant baggage.
 
-**Local Mac window styling (Home/FedEx/Eagle/Wedding/Dotfiles tabs — sidecar-only, no commits):**
-- Home: `\ueea7` + rose `#C98389` + thin space
-- FedEx: `\U000F129B` + subdued violet `#9E7BC5` (brand-adjacent, iterated from `#4D148C` → `#7C2FB8` → `#9D4EDD` → `#9E7BC5`)
-- Eagle: `\U000F0640` + Eagle brand blue `#0072EF`
-- Wedding: `\ue23d` + old gold `#D4AF37` (Gatsby-themed, hosted at davidandbrittanie.com, 8/1 date)
-- Dotfiles: `\uf489` + moss `#7A9E5F` (subdued forest / CLI terminal green)
+**PR #39 `3a2e1bf` — tmux-attention hook: spinner-cleanup race + `asking` state.**
+- Race condition fix in `claude/hooks/tmux-attention.sh`: the spinner's disowned bg loop had an unconditional cleanup block that unset `@claude_status` on exit — which raced the main-thread `waiting` action's state write, producing blank tabs during permission-request holds. Bash prompts resolved <1s so the flash was invisible; AskUserQuestion holds for tens of seconds and exposed the bug fully. Fix: gate bg-loop cleanup on `[ ! -f "$sentinel" ]` — if sentinel was removed, another caller owns state; exit quietly.
+- Initial hypothesis "missing `Notification` hook wire" was refuted in 30 seconds by adding 6 lines of stdin-capture diagnostic to `/tmp/claude-hooks.log`. Ground-truth: `AskUserQuestion` fires `PermissionRequest` with `tool_name=AskUserQuestion` — existing wire WAS catching it; blank-tab was downstream.
+- Initial `asking` implementation used `timeout 0.3 cat | python3 json.load` to peek stdin and route `AskUserQuestion` to a distinct yellow-question-mark state while Bash permission stayed amber warning.
+- Tmux config `tmux/tmux.display.conf`: new `asking` ternary branch (bright yellow `#F5C300`, U+F128 question-circle glyph) ahead of `waiting`. PUA glyph injected via `python3` heredoc to bypass Claude Code's Edit/Write PUA-stripping bug.
 
-**Claude Code PATH saga (new finding):**
-- **PR #36 `944d0ce`** — reorder zshenv PATH: `$LOCAL_BIN:$LOCAL_SHARE_BIN` before `$BREW_BIN`. Standard Unix user-scope-first ordering. Motivated by Anthropic's native `claude` installer putting `~/.local/bin/claude → ~/.local/share/claude/versions/<latest>` (2.1.114) while Homebrew cask was stuck at 2.1.98.
-- **PR #37 `adfa624`** — fix: `brew shellenv` in zshrc runs nested `eval path_helper -s` that rebuilds PATH with Homebrew at front, undoing PR #36 in interactive shells. First filter attempt (`grep -v '^export PATH='`) missed it because the clobber is two evals deep. Correct filter: `grep -vE '^eval .*path_helper'`.
-- **`60ebbc0`** — compound doc capturing the two-layer fix + debugging recipe at `docs/solutions/code-quality/brew-shellenv-clobbers-path-via-path-helper.md`.
-
-**Work Mac install verification:**
-- `./install` on the FedEx Mac initially failed because the `dotbot/` submodule had stale 2022 modifications to `test/test`, `tools/git-submodule/install`, `tools/hg-subrepo/install`. Force-updated with `git submodule update --init --recursive --force`; install succeeded. Carry-forward from yesterday's handoff is now complete ✅.
+**PR #40 `8953ff4` — compound doc + unified `asking` routing + review-finding fixes.**
+- `/ce:compound` run in full mode with session-historian: produced `docs/solutions/runtime-errors/tmux-attention-hook-race-condition-and-askuserquestion-state-2026-04-19.md` (~170 lines after review fixes). Session historian recovered the 2026-04-09 hook-construction session's dead ends (`exec -a` on macOS bash 3.2, pidfile-pkill misses, Stop-only clear trigger) for the "prior sessions" section.
+- Simplified routing: dropped the stdin-peek machinery entirely; every `PermissionRequest` now renders `@claude_status=asking` (yellow `\uf128`). Triggered by Image #2 user feedback showing Bash-tool-use permission prompts where the tab glyph was wrong/missing — both AskUserQuestion and Bash tool permissions are semantically "user decision needed," so one visual is clearer than two. Net -15 lines in the hook.
+- Refresh of `docs/solutions/code-quality/claude-code-hook-stdio-detach.md`: added forward-pointer "See Also" section flagging that its bg-loop recipe is necessary but NOT sufficient — cleanup blocks need sentinel-gated exit.
+- `CLAUDE.md` tmux tab indicator section updated to reflect the unified model.
+- Review round 1 (2 findings): fixed stale `asking`-for-AskUserQuestion-only comment in `tmux/tmux.display.conf:65-66`; broadened "Fix" and "Key Takeaway" in `claude-code-notification-hook-false-positives.md` to note `AskUserQuestion` also arrives via `PermissionRequest` (distinguishable by `tool_name`).
+- Review round 2 (P3 finding): fixed stale `600s` max-runtime claim at `tmux-attention.sh:32` → now reads `~5 min: 2000 iterations × 150ms`, matching the actual `max_iterations=2000` constant and CLAUDE.md's 5-minute cap.
 
 ### Operational events (not commits)
 
-- **VPS went down mid-session** — OpenClaw-gateway cgroup OOM loop cascaded, `kswapd0` + `tailscaled` + `containerd` all blocked >122s, systemd watchdog firing. Hetzner Ctrl+Alt+Del didn't help; hard power-off → power-on recovered. VPS came back up healthy with 5.5Gi free / swap empty / all containers healthy within 18s.
-- **Post-reboot cleanup:** restore script re-applied via SSH; session rename + blue pill re-applied; seed file key `main → vps` fix committed so restore finds the right entries; verified `@win_glyph` = `U+EE0D + U+2009`, color `#FF4500` live on the VPS.
-- **Post-reboot Coolify "unhealthy":** turned out to be syncthing's healthcheck (probes port 8384 which is disabled by the "scale-only admin UI" hardening); not an openclaw problem at all. Flagged for an openclaw-session fix.
+- **Branch cleanup:** audited 4 stale local branches (2 squash-merged `fix/*` branches, 2 `worktree-agent-*` ancestors of master); deleted all 4 with explicit approval. Repo is clean single-branch state.
+- **Vercel plugin drift in `claude/settings.json`** observed mid-session: `enabledPlugins` gained `"vercel@claude-plugins-official": true` plus `extraKnownMarketplaces` gained a `claude-plugins-official` entry. Reverted for this PR per the established "don't commit settings-drift" rule. User has NOT decided whether to keep the Vercel plugin — the drift is still in the working directory's git status noise on next session.
 
 ## Decisions Made
 
-- **User-scope bins before Homebrew in PATH** is now the dotfiles convention. Means any tool installed to `~/bin` or `~/.local/bin` shadows its Homebrew counterpart. Documented in `zsh/zshenv:64-71` comment.
-- **`brew shellenv` filtered to drop path_helper line** rather than removed entirely. Keeps `HOMEBREW_PREFIX/CELLAR/REPOSITORY/FPATH/MANPATH/INFOPATH` — only PATH clobber suppressed. Documented in `zsh/zshrc:23-29`.
-- **Session renames (`local` / `vps`) are durable via tmux-continuum's auto-save**, not config. Continuum saves session names every 15 min and restores on next server start — confirmed working via VPS reboot survival.
-- **Blue status pill is always-on** (not focus-conditional). Explored the "only when active" ask; ruled out because tmux has no reliable cross-server focus primitive in nested scenarios. The PREFIX/COPY/SYNC modes keep their own colors and still override.
-- **Dotfiles Mac tabs use per-window palette colors drawn from brand/thematic context** rather than strict palette-md discipline. `moss` (Dotfiles), `#9E7BC5` (FedEx), `#0072EF` (Eagle), `#D4AF37` (Wedding/Gatsby) are all off-palette but deliberate. Palette file (`claude/skills/tmux-window-namer/references/palettes.md`) remains the source of truth for the skill itself; manual one-off windows can break the rule with documented reasoning.
-- **Rejected Vercel migration for OpenClaw.** Spent a moment exploring since user was frustrated with VPS capacity. Concluded: OpenClaw's architecture (persistent Discord gateway connections, cron scheduler, long-lived agent TUI state) is fundamentally incompatible with Vercel's serverless model. Hetzner is the right platform; the symptom is openclaw-gateway's memory leak, not infra sizing.
-- **Claude Code version divergence is upstream-side.** Between-session `/model` picker inconsistencies trace to Anthropic's auto-updater downloading versions to `~/.local/share/claude/versions/` while Homebrew cask lags. PR #36/#37 make the local side consistent; the actual version catalog freshness is upstream's responsibility.
+- **Native Claude Code installer is authoritative over Homebrew cask.** Cask retired from Brewfile; `~/.local/bin/claude` wins PATH resolution per PR #36/#37 ordering. Claude Code's own auto-updater handles upgrades after bootstrap; helper only runs on fresh machines.
+- **Linux install config untouched.** `install-linux.conf.yaml` doesn't install Claude Code — `~/.claude/*` is Darwin-only per dotfiles convention. No change needed for VPS or future Linux hosts.
+- **All `PermissionRequest` events render the same `asking` visual.** Earlier design split AskUserQuestion (yellow `?`) from tool-permission (amber warning) via stdin-peek. Collapsed to one state because Bash tool permissions and structured choice prompts have identical UX intent (user is blocked on a decision). Removed ~15 lines of machinery + eliminated the stdin-parse failure mode. The tmux ternary's `waiting` branch stays in place as *reserved* state for future non-permission attention events (e.g., `Notification`, if ever wired).
+- **Spinner bg-loop cleanup is now gated by exit reason.** If the sentinel was removed (requested exit), the caller owns state; bg loop exits quietly. If parent died or max-iter cap hit (unplanned exit), bg loop owns its own cleanup. This is the general pattern worth remembering: *requested exit → requester owns state; unplanned exit → worker owns cleanup.*
+- **Hook-event stdin is the authoritative source for Claude Code event metadata.** `tool_name`, `tool_input`, `session_id`, `permission_mode`, `permission_suggestions`, `transcript_path` are all on the JSON line written to the hook's stdin. When future hook work needs to disambiguate sub-cases, `timeout 0.3 cat | python3 -c 'json.load(sys.stdin)...'` is the cheap safe pattern.
+- **Squash-merge remains the convention.** All 3 PRs this session went through `gh pr merge --squash --delete-branch`. Net cost: multi-commit PRs (#38 had orphan-symlink-fix + feat; #40 had 3 commits) collapse to a single master commit. Separation is lost but repo history stays clean.
 
 ## What Didn't Work
 
-- **First PATH fix (PR #36) alone.** Reordering zshenv PATH was necessary but not sufficient — interactive shells reverted on every init because `brew shellenv` via `path_helper -s` reconstructs PATH two evals deep. Needed PR #37 as a follow-up. Lesson preserved in the compound doc.
-- **`grep -v '^export PATH='` as a filter for `brew shellenv` output** — looked like the obvious culprit regex but matched nothing, because the actual PATH export is in a nested eval that the outer grep never sees.
-- **Parking newer `~/.local/share/claude/versions/` binaries** to force fallback to 2.1.111 — unsucessful; Anthropic's auto-updater re-downloaded 2.1.114 within minutes, plus the launcher fell to Homebrew 2.1.98 instead of the remaining 2.1.111 (didn't prefer highest semver as I'd assumed). Reverted with `_parked/` → `versions/`.
-- **`--model claude-opus-4-7` as a version pin** — my suggestion was wrong; Claude Code 2.1.98 accepts any `claude-opus-4-*` as a family prefix without strict validation (user proved it with `claude-opus-4-70`). The CLI flag is a hint, not a pin.
-- **Ctrl+Alt+Del via Hetzner console to recover the OOM-wedged VPS** — didn't help given kernel tasks were blocked. Full power-off → power-on was required.
+- **"Missing `Notification` hook wire" hypothesis for the blank-tab symptom.** Refuted in 30 seconds by diagnostic stdin-capture — `PermissionRequest` WAS firing for AskUserQuestion with `tool_name=AskUserQuestion`. Real root cause was downstream in the bg-loop cleanup race. This is another instance of the pattern captured in the 2026-04-14 *reproduce-then-attribute* and 2026-04-16 *inspect runtime truth* learnings — diagnostic-first beats theory-first for hook/IPC bugs.
+- **Initial `tool_name`-specific routing (stdin peek + `python3 json.load` to split AskUserQuestion → asking, else → waiting).** Shipped in #39. User feedback on the Bash permission UI (Image #2) made it clear both scenarios have identical UX intent; splitting them was noise. Collapsed to unconditional `asking` in #40 and removed the stdin-peek entirely. Retrospective lesson: when two states have identical UX meaning, collapse them — don't invent distinctions the user can't perceive.
 
 ## What's Next
 
-Carried forward / new:
+Carry-forward + new:
 
-1. **OpenClaw-gateway memory leak** — not dotfiles work, but the reason the VPS went down today. Belongs in an openclaw session. The symptom-mitigation pattern would be a pre-OOM guard cron that restarts gateway on schedule before it hits 2GB.
-2. **Syncthing healthcheck misconfig on VPS** — probes port 8384 (admin UI, hardened off); always-failing. Fix: swap probe to `nc -z 127.0.0.1 22000` (sync protocol port) or remove the healthcheck entirely. Openclaw repo, not dotfiles.
-3. **Backfill VPS runbook (optional)** — one-liner in `docs/solutions/cross-machine/vps-dotfiles-target.md` near the sync-workflow section noting the `sync-vps.yml` dry-run semantic from yesterday's compound doc.
-4. **Consider removing `claude-code` from `brew/Brewfile`** — now that PATH prioritizes the native installer symlink, the Homebrew cask is redundant baggage and perpetually lags. Would need `helpers/install_claude_code.sh` running `curl -fsSL https://claude.ai/install.sh | bash` on fresh machines. Worth its own PR.
-5. **`sync-vps.yml` tailnet ping flakiness** — GH Actions' tailnet join step has failed the ping check 2+ times in a row now. Worth investigating: pin `version:` instead of `latest`, or add a retry, or swap to ICMP-less connectivity check.
-6. **OAuth secret rotation reminder — 2027-04-14** (runbook in `docs/solutions/cross-machine/vps-dotfiles-target.md`).
+1. **Vercel plugin drift in `claude/settings.json`** — uncommitted additions (`"vercel@claude-plugins-official": true` + `claude-plugins-official` marketplace). User decision needed: keep (commit separately as `chore: enable Vercel plugin`) or discard (`git restore claude/settings.json`). Will surface on next `/pickup` as git-status noise until resolved.
+2. **Backfill VPS runbook** — one-liner in `docs/solutions/cross-machine/vps-dotfiles-target.md` near the sync-workflow section noting the `sync-vps.yml` dry-run semantic. Still from the 2026-04-18 handoff. Low effort.
+3. **`sync-vps.yml` tailnet ping flakiness** — GH Actions' tailnet join step has failed the ping check 2+ times. Worth investigating: pin `version:` instead of `latest`, add retry, or swap to ICMP-less connectivity check.
+4. **OpenClaw-gateway memory leak** — not dotfiles work, belongs in an openclaw session. Symptom-mitigation would be a pre-OOM guard cron. Causal fix needs heap profiling.
+5. **Syncthing healthcheck misconfig on VPS** — probes port 8384 (admin UI hardened off); always-failing. Fix: swap to `nc -z 127.0.0.1 22000` or remove the check. Openclaw repo.
+6. **OAuth secret rotation reminder** — 2027-04-14 runbook in `docs/solutions/cross-machine/vps-dotfiles-target.md`.
 
 ## Gotchas & Watch-outs
 
-- **`brew shellenv`'s path_helper eval is two layers deep.** If you're ever debugging why zshenv's PATH ordering doesn't stick in interactive shells, expand `$(brew shellenv)` all the way down — the culprit is `eval "$(path_helper -s)"` inside. Full writeup at `docs/solutions/code-quality/brew-shellenv-clobbers-path-via-path-helper.md`.
-- **Claude Code Write tool strips PUA characters from file content**, same bug class as the long-known Bash-tool argv stripping. Always use JSON `\uXXXX` escapes in committed files, never literal PUA chars. Updated doc at `docs/solutions/code-quality/claude-code-bash-tool-strips-pua-glyphs.md`.
-- **`~/.local/bin/claude` is the authoritative CLI entry point now.** Homebrew's `/opt/homebrew/bin/claude` at 2.1.98 is stale and will stay that way until cask maintainers catch up. Don't be surprised that `brew info claude-code` reports "up-to-date" while the actual latest is 2.1.114.
-- **VPS tmux seed file is keyed by session name.** If you ever rename the session, update the top-level key of `tmux/window-meta.linux.json` to match, or restore-script lookups silently fall through and windows revert to no-glyph rendering. Risk #2 from the original brainstorm — now documented as a real-world occurrence.
-- **Off-palette glyph colors are OK for manual one-off windows** (moss, FedEx-purple, Eagle-blue, Gatsby-gold) but the `tmux-window-namer` skill still only uses palette.md. Don't modify the skill to allow freeform colors.
-- **VPS health is fragile post-reboot.** OOM loop can re-manifest within hours if gateway leak recurs. If a future session finds the VPS unreachable again, skip straight to Hetzner power cycle — don't burn time on Tailscale diagnostics if public IP responds to ICMP but SSH banner-exchange times out (classic cgroup-OOM signature).
-- **Claude Code session model availability is snapshot-at-launch.** Two sessions on the same machine/binary can see different `/model` picker contents depending on when they fetched the server-side catalog. Not a bug, not a fixable thing — wait for Anthropic's next Claude Code release if the picker is off.
-- **`claude/settings.json` still accumulates per-session permission grants.** If `git diff` shows a bloated `permissions.allow` block, don't commit it.
-- **Work Mac is Vertex (`CLAUDE_CODE_USE_VERTEX=1`).** Model availability there is region-tier-gated separately. Cache and `/model` behavior observations from OAuth sessions don't transfer.
+- **`~/.claude/hooks/tmux-attention.sh` is a live symlink** to the file in this repo. Any edit is immediately live for the running Claude Code session — useful for diagnostic logging (we exploited this to capture hook events in 30 seconds), but also means typos land instantly. Always `bash -n` the file after edits.
+- **Hook stdin-capture diagnostic pattern is reusable.** Add `{ printf '[%s] action=%s pane=%s\n' "$(date -Iseconds)" "$action" "${TMUX_PANE:-none}"; timeout 0.3 cat 2>/dev/null || true; printf '\n---\n'; } >> /tmp/claude-hooks.log 2>/dev/null || true` to the top of the hook (after `action="${1:-}"`). Reproduce the event, `tail -200 /tmp/claude-hooks.log` or awk-parse. **Always revert before committing.** `timeout 0.3` bounds the read so manual invocations without stdin don't hang.
+- **Claude Code Write/Edit strips PUA glyphs.** Use `python3` heredoc or `printf '\xef\x84\xa8'` (raw UTF-8 bytes) for Nerd Font / FA injection. Documented at `docs/solutions/code-quality/claude-code-bash-tool-strips-pua-glyphs.md`.
+- **`@claude_status=waiting` branch in the tmux ternary is reserved, unreachable from current code paths.** Kept as future-proofing, NOT because anything writes it. If you add a new attention hook (e.g., wire `Notification`), you could write `state="waiting"` to distinguish it visually from `asking`.
+- **Squash-merges hide multi-commit structure on master.** PR #40 had 3 commits (feat, docs, fixup); master has 1 squashed commit. If you need to archaeologically find "when was the stdin-peek dropped" vs "when was the compound doc written," check the PR timeline in GitHub, not `git log`. Commit message on master covers both but doesn't separate them.
+- **Session spans 3 calendar days (2026-04-18 evening → 2026-04-20 late morning PST).** Previous handoff was 2026-04-18 afternoon; we continued through to this morning's PR #40 merge. HANDOFF.md mtime may suggest "older than it is" to the next `/pickup` — the session has been live but with context-hygiene breaks.
+- **`claude/settings.json` accumulates** per-session plugin/permission grants. Vercel plugin noted above is today's instance. If `git diff claude/settings.json` ever shows a growing `permissions.allow` block or new plugin entries, don't commit without explicit user intent.
+- **`/ce:compound` full-mode is token-heavy.** This session ran it once with session-historian + full parallel research subagents. Worth it for durable race-pattern + empirical hook knowledge, but lightweight mode may be preferable for simpler fixes going forward.
+- **`docs/solutions/runtime-errors/` is a new category directory** created this session (first entry is the tmux-attention writeup). Future runtime bugs belong here.
