@@ -192,6 +192,26 @@ exactly the failure mode that caused issue #42 (2026-04-20).
 `StrictHostKeyChecking=accept-new` in the workflow IS functional for
 raw OpenSSH — the runner caches the VPS host key on first contact.
 
+### 6. What `dry_run=true` actually does
+
+The workflow's `dry_run=true` toggle surfaces two independent signals, and
+knowing which is which prevents a surprise on apply:
+
+- **"Pending commits"** in the run's step summary — authoritative list of
+  what would land on a real apply. Produced from `git log HEAD..origin/master`
+  after a metadata-only `git fetch` (the working tree is intentionally not
+  reset, because `/root/.dotfiles/*` is the backing store for live symlinks).
+- **`./install --dry-run`** output in the Install step log — runs against
+  the VPS's **current** HEAD, not `origin/master`. So a new `- link:` entry
+  in a pending commit will NOT appear as `Would create symlink ...` in the
+  dry-run; it only shows up on apply. Dotbot v1.24.1 handles the flag
+  natively across `link` / `create` / `clean` / `shell` — mutation-free.
+
+Treat dry-run as a connectivity + installer-sanity probe. For a per-symlink
+preview of a specific commit, run the local fresh-`$HOME` recipe
+(see [`CLAUDE.md`](../../../CLAUDE.md)). Full analysis:
+[sync-vps-dry-run-previews-current-head.md](sync-vps-dry-run-previews-current-head.md).
+
 ## Pre-Deploy Go/No-Go Checklist
 
 Run top-to-bottom before every `dry_run=false` workflow invocation,

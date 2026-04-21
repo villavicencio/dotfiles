@@ -100,9 +100,9 @@ If opted in:
    ```
    The user approves or rejects each item individually.
 
-3. **For approved items**, append via SSH using **safe stdin pipe** (NEVER use echo with interpolation):
+3. **For approved items**, append via SSH using **safe stdin pipe** (NEVER use echo with interpolation). All paths below use the host-volume root (`/var/lib/docker/volumes/<volume>/_data/…`), same convention as `/pickup` Step 2c — these commands run over plain SSH, not `docker exec`, so the container-internal `/home/node/...` path would silently create a shadow tree the bridge never reads (see shared Forge learning 2026-04-20):
    ```bash
-   printf '%s\n' "- [YYYY-MM-DD] LEARNING_TEXT" | ssh root@openclaw-prod 'cat >> /home/node/.openclaw/workspace-forge/projects/{TARGET_FILE}'
+   printf '%s\n' "- [YYYY-MM-DD] LEARNING_TEXT" | ssh root@openclaw-prod 'cat >> /var/lib/docker/volumes/d95veq7chb3d8gllyj6vhpqy_openclaw-state/_data/workspace-forge/projects/{TARGET_FILE}'
    ```
 
 4. **If SSH fails**, save approved items to `.forge-pending` in the project root as JSON-lines:
@@ -113,16 +113,16 @@ If opted in:
 
 5. **Log the sync** to shared/comms for audit trail:
    ```bash
-   printf '%s\n' "[Forge bridge] Synced N items from {project-key} session" | ssh root@openclaw-prod 'cat >> /home/node/.openclaw/shared/comms/YYYY-MM-DD.md'
+   printf '%s\n' "[Forge bridge] Synced N items from {project-key} session" | ssh root@openclaw-prod 'cat >> /var/lib/docker/volumes/d95veq7chb3d8gllyj6vhpqy_openclaw-state/_data/shared/comms/YYYY-MM-DD.md'
    ```
 
 If there are no durable learnings worth pushing, skip silently — not every session produces cross-project knowledge.
 
-### Step 6 — Brief Perry (if Forge-enabled)
+### Step 6 — Append cadence briefing to Forge's project folder (if Forge-enabled)
 
 This step runs only for Forge-enabled projects (same `forge-project-key:` gate as Step 5). Skip if no key found.
 
-After the handoff is written and Forge write-back is done (or skipped), send Perry a concise briefing so he stays current on what shipped and what's planned. Uses the **omnichannel pattern** (see `docs/sops/omnichannel-agent-comms.md`): Discord for durable record, TUI for persistent memory.
+After the handoff is written and Forge write-back is done (or skipped), append a concise session briefing to Forge's per-project memory so the cadence-tracking role persists across sessions. This replaces the old Perry-briefing flow — Perry was retired 2026-04-20 and Forge absorbed the cadence role.
 
 1. **Compose the briefing** from HANDOFF.md — include:
    - What shipped this session (1-3 bullet points, specific)
@@ -130,35 +130,26 @@ After the handoff is written and Forge write-back is done (or skipped), send Per
    - Any decisions that affect scope, timeline, or other agents
    - Any new tickets created
 
-   Keep it under 250 words. Perry is a PM — he wants signal, not narration.
-   **Always lead with the project key** so Perry can track multiple projects (e.g., "Hey Perry — handoff briefing for **openclaw-forge**. Here's what shipped today..."). Include the repo name too if it differs from the project key.
+   Keep it under 250 words. This is a signal-only log, not narration.
+   **Always lead with a timestamp and the project key** so the cadence log stays scannable (e.g., "## 2026-04-20 — openclaw-forge session briefing").
 
-2. **Post to Discord first** (durable paper trail in `#perry-📋`):
+2. **Append to the Forge project cadence log:**
    ```bash
-   ssh root@openclaw-prod 'TOKEN=$(cat /var/lib/docker/volumes/d95veq7chb3d8gllyj6vhpqy_openclaw-state/_data/secrets.json | jq -r ".\"discord-forge\"") && curl -s -X POST "https://discord.com/api/v10/channels/1488992702266736640/messages" \
-     -H "Authorization: Bot $TOKEN" \
-     -H "Content-Type: application/json" \
-     -d "{\"content\": \"<@1473555204095082678> SESSION_BRIEFING_HERE\"}"'
+   # Host-volume path — same root /pickup reads from (Step 2c). Do NOT use
+   # /home/node/.openclaw/... here: that is the container-internal path
+   # and this command runs over plain SSH on the host, not docker exec.
+   # Using the container path silently creates a shadow tree that /pickup
+   # never reads. See shared Forge learning 2026-04-20 "SOP commands that
+   # reference /home/node/... are container-internal paths".
+   VOLBASE=/var/lib/docker/volumes/d95veq7chb3d8gllyj6vhpqy_openclaw-state/_data
+   ssh root@openclaw-prod "DEST=$VOLBASE/workspace-forge/projects/{PROJECT_KEY}/cadence-log.md; mkdir -p \"\$(dirname \"\$DEST\")\"; { echo ''; cat; } >> \"\$DEST\"" <<'EOF'
+   ## YYYY-MM-DD — {PROJECT_KEY} session briefing
+   SESSION_BRIEFING_HERE
+   EOF
    ```
-   **Always open with `<@1473555204095082678>`** (Perry's bot user ID) so the mention resolves and Perry's listener recognizes it as directed. Uses Forge's bot token (not Perry's own — agents ignore self-talk). Confirm the post succeeded (check for `"id"` in response).
+   Replace `{PROJECT_KEY}` with the actual forge-project-key from CLAUDE.md. This gives Forge a chronological record of what shipped on each project across sessions, which he can surface when asked for a cadence read ("what moved recently?", "where are we on X?").
 
-3. **Then send via TUI** (persistent session memory + interactive response):
-   ```bash
-   ssh root@openclaw-prod "curl -s -X POST http://127.0.0.1:18789/v1/chat/completions \
-     -H 'Authorization: Bearer aa53f653e69f7a8f54720f65fb412630a209e5004c5ada12' \
-     -H 'Content-Type: application/json' \
-     -H 'x-openclaw-scopes: operator.write' \
-     -H 'x-openclaw-session-key: agent:perry:main' \
-     -d '{
-       \"model\": \"openclaw/perry\",
-       \"messages\": [{\"role\": \"user\", \"content\": \"SESSION_BRIEFING_HERE\"}],
-       \"max_tokens\": 500
-     }'"
-   ```
-
-4. **Show Perry's TUI response** — extract `.choices[0].message.content` and display it. Perry may flag concerns, ask follow-up questions, or acknowledge.
-
-5. **If either path fails**, note which one failed and continue. Don't block the handoff. The other channel still provides coverage.
+3. **If the append fails** (disk full, permissions, SSH error), note the failure and continue. Don't block the handoff. The HANDOFF.md itself still captures the same content; the cadence log is an accumulation artifact.
 
 ## Notes
 - Overwrites existing HANDOFF.md — it's always current-session state, not a history log
