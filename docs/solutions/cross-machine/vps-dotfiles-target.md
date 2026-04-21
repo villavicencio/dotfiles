@@ -1,6 +1,7 @@
 ---
 title: "Sync dotfiles to a Linux VPS via GitHub Actions over Tailscale"
 date: 2026-04-14
+last_updated: 2026-04-20
 category: cross-machine
 tags:
   - vps
@@ -114,6 +115,16 @@ In https://login.tailscale.com/admin/acls/file, add or merge:
     "tag:gh-actions": ["autogroup:admin"],
     "tag:prod":       ["autogroup:admin"]
   },
+  "grants": [
+    // GH Actions runner needs raw OpenSSH (tcp:22) to the VPS. The ssh{}
+    // block below only governs Tailscale SSH (separate auth path); this
+    // grant is what gives tag:gh-actions peer-list visibility AND tcp:22
+    // connectivity to tag:prod. Omitting it makes the runner unable to
+    // see openclaw-prod in its tailnet peer list, which surfaces as DNS
+    // lookup failures — see
+    // tailscale-grants-vs-ssh-block-raw-ssh-2026-04-20.md.
+    {"src": ["tag:gh-actions"], "dst": ["tag:prod"], "ip": ["tcp:22"]}
+  ],
   "ssh": [
     {
       "action": "accept",
@@ -121,6 +132,12 @@ In https://login.tailscale.com/admin/acls/file, add or merge:
       "dst":    ["tag:prod"],
       "users":  ["root"]
     }
+  ],
+  "tests": [
+    // Save-time regression guard. Tailscale refuses to save an ACL where
+    // a test fails, so if a future edit drops the grant above, the save
+    // will surface the regression instead of silently shipping it.
+    {"src": "tag:gh-actions", "accept": ["tag:prod:22"]}
   ]
 }
 ```
@@ -128,6 +145,14 @@ In https://login.tailscale.com/admin/acls/file, add or merge:
 Any node tagged `tag:prod` from now on will be SSH-root-accessible from
 the GitHub Actions runner. **Do not apply `tag:prod` to a new node without
 reviewing this ACL first.**
+
+**Why both `grants` and `ssh`?** They govern two different auth paths.
+`grants` controls raw IP connectivity (OpenSSH on port 22, which the
+workflow uses via `ssh root@openclaw-prod`). `ssh` controls Tailscale
+SSH (invoked via `tailscale ssh <host>`, a separate auth layer). The
+runbook keeps the `ssh` block for operator convenience (`tailscale ssh`
+from your laptop), but the workflow-critical path is the `grants`
+entry.
 
 ### 3. Create the OAuth client
 
@@ -148,26 +173,38 @@ Repo → Settings → Secrets and variables → Actions → **New repository sec
 
 ### 5. Smoke test before any workflow run
 
-From a tailnet-connected client (personal Mac):
+From a tailnet-connected client (personal Mac), test the **exact path
+the workflow uses** — raw OpenSSH over tailnet, not Tailscale SSH:
 
 ```bash
-tailscale ssh root@openclaw-prod 'echo ok'
+ssh root@openclaw-prod 'echo ok'
 ```
 
-Should print `ok`. If it fails, diagnose the ACL or tag before running
-the workflow. Tailscale SSH auth uses tailnet identity — no SSH keys,
-no `known_hosts` management. `StrictHostKeyChecking=accept-new` in the
-workflow is cosmetic; Tailscale SSH does not use OpenSSH host keys.
+Should print `ok`. If it fails, diagnose the ACL grant (not the `ssh`
+block) or tag before running the workflow.
+
+**Important:** deliberately use plain `ssh`, not `tailscale ssh`. The
+workflow invokes `ssh root@openclaw-prod` against sshd on port 22 —
+that's raw OpenSSH-over-tailnet, which needs the `grants` entry above.
+`tailscale ssh` takes a different auth path (the `ssh` block), so a
+passing `tailscale ssh` smoke test can mask a missing `grants` entry —
+exactly the failure mode that caused issue #42 (2026-04-20).
+`StrictHostKeyChecking=accept-new` in the workflow IS functional for
+raw OpenSSH — the runner caches the VPS host key on first contact.
 
 ## Pre-Deploy Go/No-Go Checklist
 
 Run top-to-bottom before every `dry_run=false` workflow invocation,
 especially the first. Any FAIL = STOP.
 
-1. **ACL still works** (tailnet health):
+1. **ACL still works** for the workflow path (raw OpenSSH, not Tailscale SSH):
    ```bash
-   tailscale ssh root@openclaw-prod 'echo ok'
+   ssh root@openclaw-prod 'echo ok'
    ```
+   Use plain `ssh` here to match what the workflow does. `tailscale ssh`
+   exercises a different ACL path (`ssh` block) and can pass while the
+   workflow-critical `grants` entry is missing — see the note in the
+   [smoke test section](#5-smoke-test-before-any-workflow-run).
 
 2. **GitHub secrets still present**:
    ```bash
@@ -306,10 +343,18 @@ minimized):
 
 - Plan: [docs/plans/2026-04-14-feat-vps-dotfiles-sync-target-plan.md](../../plans/2026-04-14-feat-vps-dotfiles-sync-target-plan.md)
 - Brainstorm: [docs/brainstorms/2026-04-14-vps-dotfiles-target-brainstorm.md](../../brainstorms/2026-04-14-vps-dotfiles-target-brainstorm.md)
+- [tailscale-grants-vs-ssh-block-raw-ssh-2026-04-20.md](tailscale-grants-vs-ssh-block-raw-ssh-2026-04-20.md)
+  — why the ACL needs both a `grants` entry and an `ssh` block, and why
+  a missing grant looks like a DNS failure.
+- [tailscale-tag-acl-ssh-failure-modes.md](tailscale-tag-acl-ssh-failure-modes.md)
+  — other Tailscale ACL failure modes encountered during VPS bring-up
+  (key expiry, `autogroup:self` on tagged nodes, self-advertised-tag
+  approval limbo).
 - Dotbot `--dry-run` support: https://github.com/anishathalye/dotbot
   (vendored at v1.24.1 — native `--dry-run` covers `link`/`create`/`clean`/`shell`.
   The wrapper also exports `DOTFILES_DRY_RUN=1` as defense-in-depth for helpers
   invoked directly outside Dotbot.)
 - Tailscale GitHub Action v4: https://github.com/tailscale/github-action
 - Tailscale SSH: https://tailscale.com/kb/1193/tailscale-ssh
+- Tailscale Grants: https://tailscale.com/kb/1324/acl-grants
 - Configuration Audit Logs: https://login.tailscale.com/admin/logs
