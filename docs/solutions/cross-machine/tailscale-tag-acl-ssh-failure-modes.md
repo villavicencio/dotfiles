@@ -1,6 +1,7 @@
 ---
 title: "Tailscale tag + ACL + expiry interactions that broke SSH to a tagged node"
 date: 2026-04-15
+last_updated: 2026-04-20
 category: cross-machine
 tags:
   - tailscale
@@ -157,6 +158,40 @@ tailscale status --json | jq '.Peer | to_entries[]
 If it's `null` despite the UI showing the tag, you're in the
 pending-approval limbo. Admin-assign the tag directly to move past it.
 
+### Failure 4: `grants` block missing for raw OpenSSH over tailnet
+
+Discovered later (2026-04-20) and documented in its own page because it
+sits in a different ACL block and fails with a different symptom surface.
+Summarized here for parallel discoverability:
+
+**What happened:** after the three fixes above, `tailscale ssh root@host`
+from the user's laptop worked perfectly. But a GitHub Actions workflow
+joining the tailnet as `tag:gh-actions` could not reach the VPS — the
+target didn't even appear in the runner's tailnet peer list. Symptom
+surface was DNS failure (`lookup openclaw-prod on 127.0.0.53:53: server
+misbehaving`), which looked nothing like an ACL problem.
+
+**Root cause:** the `ssh` block governs only **Tailscale SSH** (a
+separate auth layer invoked as `tailscale ssh <host>`). Raw OpenSSH over
+tailnet — what the workflow actually uses (`ssh root@openclaw-prod` on
+port 22) — requires a `grants` block entry. Missing a grant is strictly
+stronger than "access denied" — the destination node is entirely
+invisible in the source's peer list, so MagicDNS has no record to return.
+
+**Fix:** add a `grants` entry AND a regression test:
+
+```json
+"grants": [
+  {"src": ["tag:gh-actions"], "dst": ["tag:prod"], "ip": ["tcp:22"]}
+],
+"tests": [
+  {"src": "tag:gh-actions", "accept": ["tag:prod:22"]}
+]
+```
+
+**Full writeup:**
+[tailscale-grants-vs-ssh-block-raw-ssh-2026-04-20.md](tailscale-grants-vs-ssh-block-raw-ssh-2026-04-20.md).
+
 ## Why these failure modes stack
 
 Setting up a tagged host for the first time exercises the full chain:
@@ -268,9 +303,13 @@ ssh -v root@HOSTNAME 'echo ok' 2>&1 | tail -40
 
 ## Related
 
+- [tailscale-grants-vs-ssh-block-raw-ssh-2026-04-20.md](tailscale-grants-vs-ssh-block-raw-ssh-2026-04-20.md)
+  — Failure 4 in full detail: `grants` vs `ssh` block distinction for raw
+  OpenSSH over tailnet.
 - [VPS dotfiles sync target](vps-dotfiles-target.md) — operational runbook
   that references this ACL/tag setup.
-- Tailscale docs: [Tailscale SSH](https://tailscale.com/kb/1193/tailscale-ssh),
+- Tailscale docs: [Grants](https://tailscale.com/kb/1324/acl-grants),
+  [Tailscale SSH](https://tailscale.com/kb/1193/tailscale-ssh),
   [ACL tags](https://tailscale.com/kb/1068/acl-tags).
 
 ## Sources
