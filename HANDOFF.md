@@ -1,48 +1,67 @@
-# HANDOFF — 2026-04-22 (continuation of 2026-04-21 session, crossed midnight PST)
+# HANDOFF — 2026-04-23 (same-session continuation of 2026-04-22 work)
 
 ## What We Built
 
-### Shipped to master (3 direct-push commits, no PRs)
+### Shipped to master (2 direct-push commits, pushed to origin)
 
-**`d5cd1b3` — uppercase LOCAL/VPS in status-left session pill.** Format-level ternary enumeration in `tmux/tmux.display.conf:49`: `#{?#{==:#S,local},LOCAL,#{?#{==:#S,vps},VPS,#S}}`. Zero subprocess cost, falls through to raw `#S` for any session name other than the two knowns. First attempt tried `#{upper:#W}` but that modifier doesn't exist in tmux next-3.7 — rendered literal `upper:<value>` and made window names "disappear" (user saw the literal string `upper:dotfiles` etc.). Reverted immediately and switched to ternary.
+**`00cd6bf` — drop needless backslash in statusline tildify.** `claude/statusline-command.sh:9` was rendering `\~/Projects/...` with a literal backslash because PR #45's tildify used `\~` as the replacement (only the delimiter needs escaping in parameter expansion, tilde doesn't). Caught visually in a screenshot during earlier architecture discussion. One-char change, immediately visible improvement on every Claude Code statusline render.
 
-**`ba18518` — sage-green VPS session pill for visual host distinction.** Mac stays on vivid blue `#2563EB` with white fg; VPS gets One Dark green `#98C379` with dark fg `#031B21`. Selected by session-name ternary on both `bg=` and `fg=` attributes. Intent: an ssh'd-in tmux session is instantly recognizable at a glance before typing anything destructive. Inline config comment documents the `##`-escape rule for future editors. VPS pill renders on next `tmux source-file` / reattach over there.
+**`07c974e` — enable fullscreen TUI mode.** `claude/settings.json` — your pre-existing `"tui": "fullscreen"` line, uncommitted since at least session start. Settled the dangling diff.
 
-**`2c38a68` — solution doc for the tmux format-string escape gotcha.** Path: `docs/solutions/code-quality/tmux-format-hex-mangled-by-single-char-escape-2026-04-21.md`. Written via `/ce:compound` full-mode workflow (4 parallel subagents including session historian). Covers diagnosis via `tmux display-message -p`, before/after code, prevention checklist, and cross-links to the PUA-glyphs doc (same meta-pattern) and the bare-index-target gotcha (sibling tmux doc).
+### Attempted and reverted — issue #46 ccusage statusline work
 
-### Operational events (not commits)
+Built a working prototype on `feat/ccusage-statusline` (branch now deleted). Rewrite sourced block/proj/remaining from `ccusage blocks --json --active --token-limit max --offline` via an async-refreshed on-disk cache (30s TTL, lockfile to prevent overlapping refreshes). Render pattern: `cwd |  branch | Opus 4.7 | blk 17%→64% · 3h27m | ctx 42%` with color on `max(current, projected)`.
 
-- **VPS sync action triggered twice** — both `apply` mode, successful. Run IDs `24752335727` (d5cd1b3, 24s) and `24752942455` (ba18518, 45s). Both pushed via `gh workflow run sync-vps.yml -f host=openclaw-prod -f dry_run=false`. Confirmed VPS landed on `2c38a68` via `ssh root@openclaw-prod 'cd ~/.dotfiles && git log --oneline -1'`.
-- **Forge inbox processed at /pickup.** One message — OpenClaw MCP-reaper killed 40 stale subprocesses in one run (threshold 25). Archived; carry-forward to OpenClaw-side investigation. Not dotfiles-scoped.
-- **Direct-to-master push pattern** — user opted against PR for these three changes ("fairly straightforward change"). That's why the sync action didn't auto-trigger initially — it's `workflow_dispatch`-only, not branch/push-triggered, so PR vs direct-push has no effect on sync.
+Reverted after concluding the complexity wasn't justified — documented in detail in the #46 closing comment. Summary:
+- ccusage cold-scan is 8–15s, not the ~300ms I assumed. Async refresh works but means the first render after each stale window has no block segment.
+- `--token-limit max` is ccusage's "historical personal peak," not the Anthropic MAX plan ceiling — no flag exists for plan-ceiling %.
+- Existing Claude sessions went blank after the rewrite (even after `claude --continue`). Script worked correctly when invoked directly; root cause not identified. Silently breaking existing sessions for a nicety is a bad trade.
+
+Branch deleted, `ccusage` uninstalled from Homebrew, `/tmp/ccusage-block-*` cleaned up, issue #46 closed with permanent rationale.
+
+### Ideation session (no artifact written)
+
+Ran `/ce:ideate` open-ended. 4 parallel agents, 40 raw candidates → 6 survivors after adversarial filtering:
+1. Claude Code hook SDK (`claude/hooks/lib/sentinel.sh`)
+2. Compound the solutions corpus (critical patterns index + runtime-assertion companion pipeline)
+3. Declarative machine identity (`machine.toml` → generators for env.sh/gitconfig.local/etc.)
+4. tmux config linter (`helpers/lint_tmux.sh`)
+5. Single-source config registry (OMZ + NVM shims)
+6. `./install doctor` subcommand
+
+You dropped the set before writing the artifact. Nothing preserved on disk. Surfaces are documented in this handoff for posterity; if revisited, `/ce:ideate` from scratch will re-ground against whatever the repo looks like.
 
 ## Decisions Made
 
-- **Solution doc lives under `code-quality/`, not `ui-bugs/`.** Context Analyzer subagent flagged that the schema maps `ui_bug` problem_type → `ui-bugs/`, but every neighboring tmux gotcha (PUA glyphs, bare-index target) is already in `code-quality/` as legacy placement. Chose legacy-consistency over schema-strictness so the new doc is discoverable alongside its siblings. Trade-off acknowledged inline.
-- **Sage green `#98C379` from the One Dark palette, not an arbitrary "soothing green."** Matches the existing theme colors (PREFIX pill `#7DACD3`, COPY `#E5C07B`, SYNC `#C98389` are all One Dark semantic colors). Dark fg `#031B21` mirrors the other light-bg pills so contrast is consistent.
-- **VPS-only green; Mac stays vivid blue.** Interpreted "soothing green" as a VPS-pill-only change, not a full restyle. Two-tone encoding (vivid-blue for local, muted-sage for VPS) preserves the attention gradient — blue stays "default, eye-catching" and green says "elsewhere, calm-signal."
-- **Ternary enumeration for case conversion.** After discovering `#{upper:...}` doesn't exist in tmux, chose explicit `#{?#{==:#S,local},LOCAL,...}` over any subprocess approach (`#(...)` with `tr`, etc.). Pure format-string, no fork per status-redraw (every 1s). Handles exactly the two known sessions and falls through cleanly.
-- **Straight-to-master for trivial config tweaks.** User explicitly opted out of PR workflow for these three commits. The existing rule ("always branch for ticket work") still holds — this was ad-hoc, not ticket-sourced.
-- **`/ce:compound` in Full mode with session history.** Dispatched 4 parallel subagents (Context Analyzer, Solution Extractor, Related Docs Finder, Session Historian). Historian confirmed first-encounter for this bug — no prior failed attempts across 14 Claude Code + 3 Codex sessions dating back to 2026-04-09.
+- **Reverted ccusage integration entirely rather than iterate.** The combination of "8-15s cold scan doesn't fit sub-second hooks," "`--token-limit max` ≠ plan ceiling," and "existing sessions went blank with no root cause" crossed the bar for "this is adding more complexity than value." Issue #46 closed with the investigation captured so the ground isn't re-trod.
+- **Labeling arrow `blk X%→Y%` beats slash `blk X%/Y%`.** The slash read ambiguously as a fraction; the arrow reads "heading from X to Y." Never shipped because of revert, but the conclusion holds for any future block-style segment.
+- **Branch truncation at 20 chars with `…`** is the right balance — no-op for short branches, keeps long feature-branch statuslines under 100 chars. Never shipped.
+- **Never sync `~/.claude/*` to VPS.** Came up during ideation; rejected as "partially covered by existing install-linux.conf.yaml exclusion design — agent workloads on VPS aren't near-term pressure." Captured here so it doesn't get re-proposed.
+- **Stripping `(1M context)` from model display** never shipped but was correct — the ctx% segment already communicates window usage; the `(1M)` is duplicative noise.
+- **6 ideation survivors not preserved** per your call. No `docs/ideation/` artifact created. If you want any of the six without re-running ideation, names above are the reminder.
 
 ## What Didn't Work
 
-- **`#{upper:#W}` for uppercase window names.** First interpretation of "tmux labels uppercase" — wrapped `#W` in `#{upper:...}` in both window-status-format and window-status-current-format. Tmux rendered the literal string `upper:<window-name>`, which is why the user said "the window names disappeared" (they were shown as `upper:nvim` etc., clipped by tab width). Reverted both lines before investigating the right target. **Reason it failed:** `#{upper:...}` / `#{lower:...}` aren't actual tmux format modifiers (verified on both tmux next-3.7 locally and tmux 3.4 on VPS). The parser treats `upper:` as an unknown modifier and renders it as literal text + the resolved value.
-- **Bare hex colors inside ternary branches.** First version of the green pill used `#[bg=#{?#{==:#S,vps},#98C379,#2563EB}#,fg=#{?#{==:#S,vps},#031B21,#FFFFFF}#,bold]`. Pill rendered colorless. Diagnosis with `tmux display-message -p` showed `fg=*FFFFF` — the `#F` in `#FFFFFF` got consumed as the window-flags format escape. Reverted, ##-escaped all four hex literals inside the ternaries, re-applied. Clean.
-- **Nearly shipped a broken pill state.** User caught the colorless render before commit because of the "test before committing" rule. Without that guardrail, the broken state would have landed. The solution doc now documents the diagnostic so future encounters catch it faster, but the organizational rule (test first) is still the load-bearing safeguard.
+- **`ccusage statusline` subcommand for percentages.** Silently accepts `--token-limit max` but still renders dollars only. No way to get block-% out of the statusline subcommand.
+- **`jq fromdateiso8601` on ccusage endTime.** Rejected the `.NNNZ` millisecond suffix with "does not match format." Workaround: `.endTime | sub("\\.[0-9]+Z$"; "Z") | fromdateiso8601`. Small reusable nugget for any modern-API ISO-8601 parsing.
+- **`--since today` to shrink ccusage scan window.** Broke `tokenLimitStatus` (returned null or wrong values) because it needs full history to compute the historical-max denominator. No date-range shortcut available.
+- **Synchronous cache-miss path for ccusage.** First idea was "cache for 2s, block on miss." 8-15s per miss blocks Claude's render loop. Had to pivot to async background refresh with stale-cache serving.
+- **`npx -y ccusage@latest` per invocation.** Adds 300-800ms cold-start on every statusline render. Homebrew install was the right answer (native binary at `$BREW_PREFIX/bin/ccusage`).
+- **`--config` subcommand on ccusage 18.0.11.** Doesn't exist despite `--config <file>` flag appearing in help. No per-user TOML config path.
 
 ## What's Next
 
 Prioritized:
 
-1. **Next VPS reattach picks up the green pill.** No urgent action — the config file on the VPS is already synced (`2c38a68`), just needs `tmux source-file ~/.config/tmux/tmux.conf` or a client reattach to re-render. Cheap visual confirmation when you next ssh in.
-2. **First live editor of the tmux format ternaries will encounter the `##`-escape rule.** The inline comment above `status-left` in `tmux/tmux.display.conf` documents it. If someone adds another conditional color without `##`, pill color breaks silently. Low-probability but captured in the solution doc.
-3. **Still open from yesterday's handoff** (no change): OpenClaw gateway MCP-reaper leak (not dotfiles — 2026-04-21 inbox noted 40 kills vs. 25 threshold, archived), Syncthing healthcheck misconfig (not dotfiles), OAuth rotation reminder (2027-04-14 calendar). No new dotfiles-scoped items on the board.
+1. **Nothing ticket-scoped is in flight.** Board is clean, no open PRs, no pending Forge tickets in `dotfiles/pending/`. You're in a zero-inbox state for this project.
+2. **Six ideation candidates exist in this conversation only** (see "What We Built" above). If any look interesting tomorrow, re-run `/ce:ideate` to ground against current state rather than rely on recall.
+3. **OpenClaw MCP-reaper leak + Syncthing healthcheck** — carry-forward from 2026-04-21, not dotfiles-scoped. Routes to openclaw-forge sessions.
 
 ## Gotchas & Watch-outs
 
-- **`#{upper:...}` and `#{lower:...}` do NOT work in tmux next-3.7 OR tmux 3.4.** Both tested in this session. If you want case-conversion in a format string, use a ternary or rename the source (session name, window name, etc.). Subprocess (`#(...)` with `tr`) works but costs a fork per status-redraw.
-- **Any hex color inside a `#{?...}` ternary MUST be `##RRGGBB`.** Single-char format escapes (`#F` = window flags, `#D` = pane id, `#S` = session, `#H` = host, `#T` = title, `#I` = index, `#P` = pane index, `#W` = window name) are evaluated during ternary-branch expansion, so they consume the leading char of a bare hex and silently mangle the color. Failure is silent — no error on `tmux source-file`, just a colorless pill. Inline comment now lives above the `status-left` block; the solution doc captures the full pattern.
-- **`tmux display-message -p '<format-string>'` is the canonical diagnostic for format-string issues.** Returns post-expansion text before the style engine parses attributes. If a hex looks mangled in that output (`*FFFFF` instead of `#FFFFFF`), you have an escape-order problem.
-- **Straight-to-master pushes DO NOT auto-trigger `sync-vps.yml`.** The workflow is `workflow_dispatch`-only; no push/branch/PR trigger exists. User initially thought the sync didn't run because of direct-push — actually it never auto-runs regardless. Trigger explicitly with `gh workflow run sync-vps.yml -f host=openclaw-prod -f dry_run=false` (or `dry_run=true` for preview).
-- **Carry-forward from yesterday:** `/handoff` skill may render stale paths after a mid-session edit to the skill file. Not hit this session but the rule stands — `/clear` before invoking if the skill file changed during the session.
+- **Claude Code statusline edits can blank existing sessions.** Observed on 2026-04-23 after rewriting `claude/statusline-command.sh`: pre-existing sessions rendered blank statusline even after `claude --continue`. Script worked correctly when invoked directly with matching stdin (verified via manual echo-pipe). Root cause not identified. **Before shipping any future statusline change, test from a brand-new `claude` invocation in a fresh terminal — don't trust `--continue`.** Also worth replacing the script with a known-good one-liner (`printf "HELLO"`) to isolate Claude vs script if the behavior recurs.
+- **`ccusage` is not suitable for sub-second hooks.** Cold scan is 8-15s because it reads all JSONL transcripts on every invocation. Built-in `ccusage statusline` has its own 1s cache (0.3s cached calls) but only renders dollars, not percentages. Any future ccusage-in-hot-path attempt needs async refresh architecture from the start.
+- **`ccusage --token-limit max` means "historical personal peak," not "Anthropic plan ceiling."** The docs don't clearly label this. Plan-ceiling % is not available via any ccusage flag at 18.0.11. Weekly all-models % is not available via any stable official interface.
+- **`jq fromdateiso8601` rejects millisecond-suffixed ISO-8601.** Any timestamp from a modern API that looks like `2026-04-23T21:00:00.000Z` needs `sub("\\.[0-9]+Z$"; "Z")` stripping before parsing. Small nugget, reusable across the repo for any jq ISO-8601 parse.
+- **Carry-forward from prior sessions** (still valid): `##`-escape rule for hex colors in `#{?...}` ternaries; `tmux display-message -p '<format>'` as the canonical diagnostic; straight-to-master pushes do NOT auto-trigger `sync-vps.yml` (use `gh workflow run sync-vps.yml -f host=openclaw-prod -f dry_run=false`); `/handoff` skill stale-render risk if skill file edited mid-session.
+- **`"tui": "fullscreen"` is now committed.** If future settings.json changes introduce a different tui value, review the diff carefully — this line is the default now and silent overrides will be easy to miss.
