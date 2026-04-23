@@ -6,7 +6,7 @@ used=$(echo "$input" | jq -r '.context_window.used_percentage // empty')
 
 # Shorten home directory to ~
 home="$HOME"
-short_cwd="${cwd/#$home/\~}"
+short_cwd="${cwd/#$home/~}"
 
 # Build status line with ANSI colors
 # Cyan for directory, dim white for model, color-coded context usage
