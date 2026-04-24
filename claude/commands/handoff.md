@@ -102,7 +102,10 @@ If opted in:
 
 3. **For approved items**, append via SSH using **safe stdin pipe** (NEVER use echo with interpolation). All paths below use the host-volume root (`/var/lib/docker/volumes/<volume>/_data/…`), same convention as `/pickup` Step 2c — these commands run over plain SSH, not `docker exec`, so the container-internal `/home/node/...` path would silently create a shadow tree the bridge never reads (see shared Forge learning 2026-04-20):
    ```bash
-   printf '%s\n' "- [YYYY-MM-DD] LEARNING_TEXT" | ssh root@openclaw-prod 'cat >> /var/lib/docker/volumes/d95veq7chb3d8gllyj6vhpqy_openclaw-state/_data/workspace-forge/projects/{TARGET_FILE}'
+   # Trailing chown keeps the file writable by the container node user (uid 1000).
+   # ssh-as-root + `>>` creates absent files as root on first write, locking Forge
+   # out of subsequent in-container updates. See dotfiles#47.
+   printf '%s\n' "- [YYYY-MM-DD] LEARNING_TEXT" | ssh root@openclaw-prod 'DEST=/var/lib/docker/volumes/d95veq7chb3d8gllyj6vhpqy_openclaw-state/_data/workspace-forge/projects/{TARGET_FILE}; cat >> "$DEST"; chown 1000:1000 "$DEST"'
    ```
 
 4. **If SSH fails**, save approved items to `.forge-pending` in the project root as JSON-lines:
@@ -142,7 +145,10 @@ After the handoff is written and Forge write-back is done (or skipped), append a
    # never reads. See shared Forge learning 2026-04-20 "SOP commands that
    # reference /home/node/... are container-internal paths".
    VOLBASE=/var/lib/docker/volumes/d95veq7chb3d8gllyj6vhpqy_openclaw-state/_data
-   ssh root@openclaw-prod "DEST=$VOLBASE/workspace-forge/projects/{PROJECT_KEY}/cadence-log.md; mkdir -p \"\$(dirname \"\$DEST\")\"; { echo ''; cat; } >> \"\$DEST\"" <<'EOF'
+   # Trailing chown keeps cadence-log.md writable by the container node user (uid 1000).
+   # ssh-as-root + `>>` creates absent files as root on first write, locking Forge
+   # out of subsequent in-container updates. See dotfiles#47.
+   ssh root@openclaw-prod "DEST=$VOLBASE/workspace-forge/projects/{PROJECT_KEY}/cadence-log.md; mkdir -p \"\$(dirname \"\$DEST\")\"; { echo ''; cat; } >> \"\$DEST\"; chown 1000:1000 \"\$DEST\"" <<'EOF'
    ## YYYY-MM-DD — {PROJECT_KEY} session briefing
    SESSION_BRIEFING_HERE
    EOF

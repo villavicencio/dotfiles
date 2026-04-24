@@ -1,4 +1,7 @@
 {
+  "permissions": {
+    "defaultMode": "auto"
+  },
   "hooks": {
     "SessionStart": [
       {
@@ -103,8 +106,10 @@
     }
   },
   "effortLevel": "high",
+  "tui": "fullscreen",
   "showThinkingSummaries": true,
   "skipDangerousModePermissionPrompt": true,
+  "skipAutoPermissionPrompt": true,
   "allowedTools": [
     "Bash(git branch*)",
     "Bash(git log*)",
@@ -132,5 +137,7 @@
       "url": "http://127.0.0.1:41596/mcp"
     }
   },
-  "tui": "fullscreen"
+  "preferredNotifChannel": "iterm2",
+  "remoteControlAtStartup": true,
+  "agentPushNotifEnabled": true
 }
