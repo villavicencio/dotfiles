@@ -1,14 +1,22 @@
 #!/bin/bash
+# fail-fast so a broken `nvm install` / `npm install -g` cannot fall through
+# to the symlink refresh below — stale links into a non-existent node tree
+# would otherwise look like a successful install to Dotbot.
+set -eo pipefail
 
 . ./zsh/zshenv
-. $NVM_DIR/nvm.sh
 
-current_version=$(nvm current)
-
+# Dry-run guard sits after zshenv (so $NODE_VERSION interpolates) but before
+# NVM sourcing, so `./install --dry-run` on a fresh machine without NVM yet
+# doesn't error on a missing nvm.sh before printing the preview.
 if [ "${DOTFILES_DRY_RUN:-0}" = "1" ]; then
   echo "[dry-run] would nvm install $NODE_VERSION + refresh ~/.local/bin symlinks"
   exit 0
 fi
+
+. $NVM_DIR/nvm.sh
+
+current_version=$(nvm current)
 
 nvm install $NODE_VERSION
 nvm alias default $NODE_VERSION
