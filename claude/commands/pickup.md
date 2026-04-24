@@ -87,8 +87,13 @@ ssh root@openclaw-prod "echo '===FORGE_SHARED===' && \
 2. Display the messages to the user under a "Messages for Forge:" header
 3. Archive them (trailing `chown` keeps the archive subtree writable by the container node user — see dotfiles#47/#50):
    ```bash
+   # Uses `find ... -exec mv -t DEST {} +` (plus form, not `\;`): empty inbox
+   # is a natural no-op (exit 0), a real mv failure propagates to find's exit,
+   # and the outer && chain only runs chown if everything above succeeded.
+   # The `\;` form silently discards mv's exit code — use `+` here.
    ssh root@openclaw-prod "mkdir -p $VOLBASE/shared/inbox/forge/archive && \
-     mv -n $VOLBASE/shared/inbox/forge/*.md $VOLBASE/shared/inbox/forge/archive/ 2>/dev/null; \
+     find $VOLBASE/shared/inbox/forge -maxdepth 1 -type f -name '*.md' \
+       -exec mv -n -t $VOLBASE/shared/inbox/forge/archive/ {} + && \
      chown -R 1000:1000 $VOLBASE/shared/inbox/forge/archive"
    ```
 
