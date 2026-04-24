@@ -85,7 +85,12 @@ ssh root@openclaw-prod "echo '===FORGE_SHARED===' && \
 **If inbox files exist:**
 1. Read each file's content (in the same or a follow-up SSH call)
 2. Display the messages to the user under a "Messages for Forge:" header
-3. Archive them: `mkdir -p $VOLBASE/shared/inbox/forge/archive && mv -n $VOLBASE/shared/inbox/forge/*.md $VOLBASE/shared/inbox/forge/archive/ 2>/dev/null`
+3. Archive them (trailing `chown` keeps the archive subtree writable by the container node user — see dotfiles#47/#50):
+   ```bash
+   ssh root@openclaw-prod "mkdir -p $VOLBASE/shared/inbox/forge/archive && \
+     mv -n $VOLBASE/shared/inbox/forge/*.md $VOLBASE/shared/inbox/forge/archive/ 2>/dev/null; \
+     chown -R 1000:1000 $VOLBASE/shared/inbox/forge/archive"
+   ```
 
 **If pending ticket files exist:**
 1. Read each ticket file's content
@@ -94,9 +99,13 @@ ssh root@openclaw-prod "echo '===FORGE_SHARED===' && \
 4. If approved, run the `/ticket` skill (or `gh issue create`) with the title and body from the file
 5. After creation, move the file to `pending/done/`:
    ```bash
+   # Trailing chown keeps pending/done/ writable by the container node user
+   # (uid 1000). ssh-as-root mkdir + mv otherwise creates a root-owned `done/`
+   # that Forge cannot manage from inside the container. See dotfiles#47/#50.
    ssh root@openclaw-prod "mkdir -p $VOLBASE/workspace-forge/projects/{PROJECT_KEY}/pending/done && \
      mv -n $VOLBASE/workspace-forge/projects/{PROJECT_KEY}/pending/{FILENAME} \
-       $VOLBASE/workspace-forge/projects/{PROJECT_KEY}/pending/done/"
+       $VOLBASE/workspace-forge/projects/{PROJECT_KEY}/pending/done/ && \
+     chown -R 1000:1000 $VOLBASE/workspace-forge/projects/{PROJECT_KEY}/pending/done"
    ```
 
 **If SSH fails:** Note "Forge bridge unavailable — using local context only" and continue. Do NOT block pickup.
