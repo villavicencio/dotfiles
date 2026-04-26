@@ -105,7 +105,10 @@ If opted in:
    # Trailing chown keeps the file writable by the container node user (uid 1000).
    # ssh-as-root + `>>` creates absent files as root on first write, locking Forge
    # out of subsequent in-container updates. See dotfiles#47.
-   printf '%s\n' "- [YYYY-MM-DD] LEARNING_TEXT" | ssh root@openclaw-prod 'DEST=/var/lib/docker/volumes/d95veq7chb3d8gllyj6vhpqy_openclaw-state/_data/workspace-forge/projects/{TARGET_FILE}; cat >> "$DEST"; chown 1000:1000 "$DEST"'
+   # `cat >> ... && chown` so an append failure (disk full, I/O error) propagates
+   # through ssh's exit code; otherwise ssh returns chown's status and the
+   # `.forge-pending` fallback in step 4 below never fires. See dotfiles#52.
+   printf '%s\n' "- [YYYY-MM-DD] LEARNING_TEXT" | ssh root@openclaw-prod 'DEST=/var/lib/docker/volumes/d95veq7chb3d8gllyj6vhpqy_openclaw-state/_data/workspace-forge/projects/{TARGET_FILE}; cat >> "$DEST" && chown 1000:1000 "$DEST"'
    ```
 
 4. **If SSH fails**, save approved items to `.forge-pending` in the project root as JSON-lines:
@@ -119,8 +122,10 @@ If opted in:
    # Trailing chown keeps the comms log writable by the container node user
    # (uid 1000). Same first-write ownership trap as Step 5/6 — see dotfiles#47/#50.
    # `cat >> ... && chown` so an append failure (disk full, I/O error) propagates
-   # through the pipeline; otherwise ssh would return chown's exit and the
-   # `.forge-pending` fallback below would never fire.
+   # the real exit through ssh — otherwise ssh returns chown's status and the
+   # operator (or any caller) sees a successful sync that didn't actually write
+   # the audit log. No automated fallback for this audit-log path; this step's
+   # only safety net is the propagated exit code being visible.
    printf '%s\n' "[Forge bridge] Synced N items from {project-key} session" | ssh root@openclaw-prod 'DEST=/var/lib/docker/volumes/d95veq7chb3d8gllyj6vhpqy_openclaw-state/_data/shared/comms/YYYY-MM-DD.md; cat >> "$DEST" && chown 1000:1000 "$DEST"'
    ```
 
@@ -153,7 +158,10 @@ After the handoff is written and Forge write-back is done (or skipped), append a
    # Trailing chown keeps cadence-log.md writable by the container node user (uid 1000).
    # ssh-as-root + `>>` creates absent files as root on first write, locking Forge
    # out of subsequent in-container updates. See dotfiles#47.
-   ssh root@openclaw-prod "DEST=$VOLBASE/workspace-forge/projects/{PROJECT_KEY}/cadence-log.md; mkdir -p \"\$(dirname \"\$DEST\")\"; { echo ''; cat; } >> \"\$DEST\"; chown 1000:1000 \"\$DEST\"" <<'EOF'
+   # `>> "$DEST" && chown` so an append failure propagates through ssh's exit;
+   # otherwise the failure path below ("note the failure and continue") would
+   # never trigger because ssh would return chown's success status. See dotfiles#52.
+   ssh root@openclaw-prod "DEST=$VOLBASE/workspace-forge/projects/{PROJECT_KEY}/cadence-log.md; mkdir -p \"\$(dirname \"\$DEST\")\"; { echo ''; cat; } >> \"\$DEST\" && chown 1000:1000 \"\$DEST\"" <<'EOF'
    ## YYYY-MM-DD — {PROJECT_KEY} session briefing
    SESSION_BRIEFING_HERE
    EOF
