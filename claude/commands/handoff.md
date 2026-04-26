@@ -116,7 +116,12 @@ If opted in:
 
 5. **Log the sync** to shared/comms for audit trail:
    ```bash
-   printf '%s\n' "[Forge bridge] Synced N items from {project-key} session" | ssh root@openclaw-prod 'cat >> /var/lib/docker/volumes/d95veq7chb3d8gllyj6vhpqy_openclaw-state/_data/shared/comms/YYYY-MM-DD.md'
+   # Trailing chown keeps the comms log writable by the container node user
+   # (uid 1000). Same first-write ownership trap as Step 5/6 — see dotfiles#47/#50.
+   # `cat >> ... && chown` so an append failure (disk full, I/O error) propagates
+   # through the pipeline; otherwise ssh would return chown's exit and the
+   # `.forge-pending` fallback below would never fire.
+   printf '%s\n' "[Forge bridge] Synced N items from {project-key} session" | ssh root@openclaw-prod 'DEST=/var/lib/docker/volumes/d95veq7chb3d8gllyj6vhpqy_openclaw-state/_data/shared/comms/YYYY-MM-DD.md; cat >> "$DEST" && chown 1000:1000 "$DEST"'
    ```
 
 If there are no durable learnings worth pushing, skip silently — not every session produces cross-project knowledge.
