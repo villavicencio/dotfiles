@@ -107,7 +107,7 @@ If opted in:
    # out of subsequent in-container updates. See dotfiles#47.
    # `cat >> ... && chown` so an append failure (disk full, I/O error) propagates
    # through ssh's exit code; otherwise ssh returns chown's status and the
-   # `.forge-pending` fallback in step 4 above never fires. See dotfiles#52.
+   # `.forge-pending` fallback in step 4 below never fires. See dotfiles#52.
    printf '%s\n' "- [YYYY-MM-DD] LEARNING_TEXT" | ssh root@openclaw-prod 'DEST=/var/lib/docker/volumes/d95veq7chb3d8gllyj6vhpqy_openclaw-state/_data/workspace-forge/projects/{TARGET_FILE}; cat >> "$DEST" && chown 1000:1000 "$DEST"'
    ```
 
