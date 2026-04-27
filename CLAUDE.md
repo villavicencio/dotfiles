@@ -146,6 +146,20 @@ sentinel-still-exists so it does not race the main-thread state writer — see
 `docs/solutions/runtime-errors/tmux-attention-hook-race-condition-and-askuserquestion-state-2026-04-19.md`.
 If a leaked loop ever shows up, kill it via `pkill -f claude-spinner-marker`.
 
+### Session-start briefing hook
+`claude/hooks/session-briefing.sh` is invoked by a SessionStart hook in
+`claude/settings.json` with `matcher: "startup"` (fires only on fresh `claude`
+invocations, not on `--continue` or post-compaction). Its stdout is concatenated
+into the model's first-turn `additionalContext`, giving the same opening
+orientation the user used to load by typing `/pickup` — but only the cheap-local
+slice: HANDOFF.md head + What's Next, current git context, counts of recently-
+modified `docs/{brainstorms,plans,solutions}/` files. Targets: <500ms wall
+clock, <2KB output (under Claude Code's 10k char cap). Forge-bridge SSH and
+VPS health snapshot stay behind explicit `/pickup` because both are too slow
+and too verbose for SessionStart. Repo-agnostic: every section guards on its
+prerequisites and the script always exits 0. Full design rationale in
+`docs/solutions/best-practices/claude-code-hooks-and-session-start-2026-04-27.md`.
+
 ### OMZ plugin sync
 When adding an Oh My Zsh plugin to the `plugins=()` list in `zshrc`, also add the corresponding
 `git clone` to `helpers/install_omz.sh` so it gets installed on fresh machines.
