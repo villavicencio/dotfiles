@@ -130,11 +130,34 @@ Key takeaways from that prior implementation:
 - Guard on every prerequisite. `tmux-attention.sh` early-returns when `$TMUX_PANE` is unset (script running outside tmux); `session-briefing.sh` guards on every section's prerequisite (HANDOFF, git, docs/) so the worst case is an empty briefing, never an error.
 - For long-running side effects (the tmux-attention spinner runs as a disowned subshell), use a sentinel file as the "keep running" signal — see `docs/solutions/runtime-errors/tmux-attention-hook-race-condition-and-askuserquestion-state-2026-04-19.md` for the race condition lessons that shaped that design.
 
-### Example 3: An anti-pattern — the slow SSH hook
+### Example 3: SSH in a SessionStart hook — cost is in slicing, not in the SSH itself
 
-A naive first attempt at the auto-/pickup feature was to run the entire `/pickup` script (including the Forge bridge SSH call to the VPS) as a SessionStart hook. The empirical result, observed in this same session: the Forge bridge SSH alone produced ~48,000 characters of output (well over the 10k cap, so it would have been silently truncated) and took 2-5 seconds wall clock (perceptibly stalling the first prompt). The fix was to scope the hook to the cheap-local steps only and leave the slow ones behind explicit `/pickup` invocation.
+The naive first attempt at this hook ran the entire `/pickup` script — including the Forge bridge SSH that dumps `_shared/patterns.md`, the project context, all inbox messages, and all pending tickets. The empirical result, observed during initial design: ~48,000 characters of output (5× over the harness's 10k `additionalContext` cap, silently truncated downstream) and 2-5 seconds wall clock.
 
-Rule of thumb: if a step requires an `ssh`, `gh api`, `curl`, or any other network call, it does NOT belong in a SessionStart hook. Move it to a slash command, a background job, or a manual invocation.
+The first instinct — "SSH doesn't belong in a SessionStart hook" — turned out to be wrong, or at least too coarse. The user immediately pushed back on the resulting design: deferring the Forge bridge to manual `/pickup` meant agent-filed tickets and inbox messages would sit invisible until the next manual invocation, defeating the automation goal. **Skipping the SSH is itself a failure mode** when async signals depend on it.
+
+The right answer turned out to be **intelligent slicing** rather than skipping:
+
+- Don't `cat` `_shared/patterns.md` (40KB+ accumulated learnings); `tail -n 8` (~1KB) gets the recent ones.
+- Don't `cat` the project cadence-log; `tail -n 20` gets the most recent session briefings.
+- For inbox/pending: read full content (typically 10-30 lines per file, ~500-1500 chars each) but cap at 2 files with a "...N more — run /pickup for full list" hint when busier.
+- Single SSH call (matching `/pickup` Step 2c's pattern); `ConnectTimeout=3` for offline failure mode; harness `timeout: 10` as the hard ceiling.
+- Self-truncation footer at ~9.5KB just in case any single day pushes past the budget.
+- Gate the whole section on `forge-project-key:` in the cwd's CLAUDE.md so non-Forge repos pay zero SSH cost.
+
+Empirical result with this design: ~6.3KB output, ~1.8s wall clock, full inbox + pending content visible to the model on every fresh session.
+
+**The actual rule of thumb**: if a step requires a network call, you have to either (a) slice it intelligently to fit the output and latency budgets, with a graceful timeout fallback, or (b) defer it to a slash command. The third option ("just skip it") trades silence for missed signals — that's a worse failure mode than a 2-second stall.
+
+Concrete invariants for SSH in SessionStart hooks:
+
+1. Single SSH call per hook (no per-file or per-section connections).
+2. `ConnectTimeout=3` on the ssh command + `timeout: 10` in settings.json. Belt and suspenders.
+3. Slice content on the *remote* side via `tail`, `head`, `find ... | head -N`. Truncate before transmission, not after — saves bandwidth and stays under the harness's char cap.
+4. Cap any per-file contribution (head 20 is plenty for inbox/ticket content).
+5. Cap the total file count per section (max 2-3 files, with "...N more" hint).
+6. Self-truncate at the script level as a last-resort safety net.
+7. Always handle SSH-unreachable as a one-line "(unreachable)" note, never an error.
 
 ### Example 4: Verification recipe (use this before declaring a hook done)
 
