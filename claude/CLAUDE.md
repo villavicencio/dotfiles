@@ -38,3 +38,16 @@ the user clears the window to reduce cached-context cost and avoid pollution. Be
 to "overnight" / "tomorrow" / "next morning" framing, check HANDOFF mtime, recent commit
 timestamps, and any continuation cues in the conversation. If signals say same-session,
 say so explicitly instead of pretending it's been hours.
+
+## Proof Document Editor
+
+**Proof default mode: `collaborative_docs`** (set 2026-04-28).
+
+When creating new markdown docs, route to Proof by default if the doc is collaborative —
+plans, specs, bug writeups, reports, memos, proposals, drafts, or similar iterative docs.
+Code-adjacent local documentation (READMEs, docs/solutions/, repo-tracked CLAUDE.md, repo-tracked
+HANDOFF.md, etc.) stays local. Existing repo-tracked markdown stays local unless the user
+explicitly asks to move or share it via Proof.
+
+The `proof` skill (`~/.claude/skills/proof/SKILL.md`) has the API details. The `compound-engineering:ce-proof`
+skill is a separate wrapper used by ce-brainstorm / ce-plan / ce-ideate handoffs.
