@@ -1,11 +1,33 @@
 ---
 title: "feat: SessionStart hook for auto-loaded /pickup briefing"
 type: feat
-status: active
+status: not-implemented
 date: 2026-04-27
+outcome: "Implemented and field-tested across two iterations (cheap-local only, then with Forge bridge); reverted before merge after concluding the slash command is the right abstraction. See Outcome section below."
 ---
 
 # feat: SessionStart hook for auto-loaded /pickup briefing
+
+## Outcome (added 2026-04-28)
+
+**Decided not to ship.** This plan was implemented in full (hook script, settings.json registration, install.conf.yaml symlink, CLAUDE.md docs), then field-tested across two iterations:
+
+1. **Phase 1 as planned** — cheap-local briefing only (HANDOFF + git + CE artifact counts). Verified working end-to-end on a fresh `claude` session.
+2. **Scope expansion mid-PR** — added Forge bridge after recognizing that deferring it to manual `/pickup` would let agent-filed inbox messages and pending tickets sit invisible until the next manual run. Also verified working.
+
+What surfaced in the design exercise was that **`/pickup` is more load-bearing than the hook can replace**:
+
+- **Synthesis is the value, not data-gathering.** `/pickup` Step 3 produces a 2-3 sentence summary, "next up:", gotchas, and a ready-to-go closer. The hook can dump *data* into context but cannot *synthesize* it; the model receives the data and waits for an instruction. Without the synthesis step, the user still mentally runs `/pickup`-style orientation themselves.
+- **Actions stay in the slash command.** Inbox archival (`mv ... && chown 1000:1000`) and pending-ticket promotion to GitHub issues require explicit invocation regardless of whether content was pre-loaded.
+- **Cost on every session, value only on some.** Hook adds ~2s SSH + ~6KB context tokens to every fresh session, even when the user opens Claude to ask a one-shot question with no project-state dependency. `/pickup` is opt-in on the sessions that need it.
+
+The hook saves 7 keystrokes per session in exchange for: latency on every session, context bloat on every session, drift risk between hook and slash command, two SessionStart hooks sharing one 10k char budget, and the fragility list documented in the postscript of `docs/solutions/best-practices/claude-code-hooks-and-session-start-2026-04-27.md`.
+
+The companion solutions doc captures the durable learnings — Claude Code hook contract, SessionStart-specific details, the duplicate-vs-hint tradeoff, and the corrected rule of thumb for SSH in SessionStart hooks. **That doc is the real artifact of this plan**; the implementation work served the learning.
+
+The plan body below is preserved as the design record (what we built, why, and what the budget arithmetic looked like). The decision not to ship is reflected only in `status: not-implemented` and this Outcome section.
+
+---
 
 ## Overview
 

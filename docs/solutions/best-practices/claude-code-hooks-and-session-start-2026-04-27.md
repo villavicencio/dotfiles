@@ -30,7 +30,7 @@ related_solutions:
 
 Claude Code hooks are shell commands the harness runs in response to lifecycle events: a session starting, the user submitting a prompt, a tool being used, a permission request firing, the model stopping. Each hook event is keyed in `claude/settings.json` (symlinked to `~/.claude/settings.json` by Dotbot) under `hooks.<EventName>`. A hook can: read environment, run subprocesses, emit stdout, exit with a status. It cannot block the session, modify model behavior beyond emitting context, mutate harness state, or invoke a slash command.
 
-This doc captures the fundamentals — the contract that holds across all hook events — plus the SessionStart-specific details surfaced while wiring up `claude/hooks/session-briefing.sh` (the auto-`/pickup` briefing). It also captures the central design tradeoff that comes up the moment you try to do anything ambitious with a hook: the **duplicate-vs-hint problem**, which has no clean solution, only a choice with explicit tradeoffs.
+This doc captures the fundamentals — the contract that holds across all hook events — plus the SessionStart-specific details surfaced while designing and field-testing a `claude/hooks/session-briefing.sh` hook intended to auto-load `/pickup`'s data. The implementation was reverted before merge after concluding the slash command was the right abstraction (see Postscript below); the lessons captured here are durable regardless. The doc also covers the central design tradeoff that comes up the moment you try to do anything ambitious with a hook: the **duplicate-vs-hint problem**, which has no clean solution, only a choice with explicit tradeoffs.
 
 ---
 
@@ -63,7 +63,7 @@ The matcher is a settings.json field, not something the script sees at runtime. 
 
 **Hooks cannot invoke slash commands.** This is the most important constraint for ambitious hook designs. Slash commands (markdown skills) are interpreted by the model, not the harness; a hook is a shell command, not a model-facing instruction. If you want a hook to "run /foo at session start," your real options are the duplicate-vs-hint tradeoff below.
 
-**Always exit 0.** A non-zero exit doesn't fail the session start, but it pollutes harness logs and there's no observable user benefit to "the hook errored." Defensive guards on every section + `exit 0` at the end is the established pattern (see `claude/hooks/tmux-attention.sh` and `claude/hooks/session-briefing.sh`).
+**Always exit 0.** A non-zero exit doesn't fail the session start, but it pollutes harness logs and there's no observable user benefit to "the hook errored." Defensive guards on every section + `exit 0` at the end is the established pattern (see `claude/hooks/tmux-attention.sh`).
 
 **Output budget.** SessionStart's 10k-char cap is a hard limit; aim for far less so other hooks (and future expansions) have headroom. Empirically: ~1.3KB is plenty for a useful briefing if you slice intelligently (HANDOFF.md title + intro + What's Next, not first-N-lines blindly).
 
@@ -88,7 +88,7 @@ The broader point: **a hook is a pure function from event to stdout.** Treat it 
 ## When to Apply
 
 - **Use a hook when the answer is "every time event X happens."** Session start, every tool call, every prompt. Hooks are the right tool for "this should fire automatically without the user (or model) deciding to."
-- **Use a slash command when the answer is "the user (or model) chooses to invoke this."** Slash commands carry reasoning logic, can be invoked partway through a session, and don't have to fit in `additionalContext`. The /pickup skill is the canonical example: rich, slow, optional. The session-briefing hook is the cheap, fast, automatic complement.
+- **Use a slash command when the answer is "the user (or model) chooses to invoke this."** Slash commands carry reasoning logic, can be invoked partway through a session, and don't have to fit in `additionalContext`. The `/pickup` skill is the canonical example in this repo: rich, slow, opt-in. We considered automating it via a SessionStart hook (see Postscript) and decided the slash command was the right shape for synthesis-and-actions work.
 - **Don't put a hook on the critical path of a heavy workload.** SSH calls, large `find` walks, network requests — any of these in a SessionStart hook visibly stall the user's first prompt. Defer to slash commands or background jobs.
 - **Don't try to share state between hook script and slash command.** They run in separate processes with separate filesystems-of-record. If you find yourself wanting to "let the hook tell the slash command something," you've probably misshaped the design — collapse the responsibility into one or the other.
 - **Be skeptical of "the hint pattern."** Emitting "please run /foo now" from a hook and hoping the model complies is non-deterministic. The model may not run it, may run it with the wrong arguments, may interpret the hint as informational. Use the duplicate pattern (do the work in the hook, accept the drift risk) when determinism matters.
@@ -97,13 +97,13 @@ The broader point: **a hook is a pure function from event to stdout.** Treat it 
 
 ## Examples
 
-### Example 1: The session-briefing hook (duplicate pattern)
+### Example 1: The session-briefing hook (duplicate pattern, considered, not shipped)
 
-`claude/hooks/session-briefing.sh` duplicates the cheap-local data-gathering steps of `/pickup` (HANDOFF head, git status, CE artifact counts) and emits them as session-start context. The slow steps (Forge bridge SSH, VPS health snapshot) stay in `/pickup` because they don't fit in a SessionStart hook's latency or output budget.
+We considered a `claude/hooks/session-briefing.sh` that would duplicate `/pickup`'s data-gathering steps and emit them as session-start context. The first iteration was cheap-local only (HANDOFF head, git status, CE artifact counts); the second added the Forge bridge with intelligent slicing (`tail -n 8` on `_shared/patterns.md`, `head -20` on inbox/pending files, capped at 2 files per section). Both iterations worked end-to-end. We then reverted before merge — see Postscript.
 
-The duplicate pattern's drift risk is real: if `/pickup`'s data-gathering changes, the hook script needs to follow. The mitigation is keeping the hook's scope narrow — only the data-gathering bits unlikely to need restructuring (HANDOFF read, git, find counts) — and cross-referencing both files in their respective comments and docs so a future editor remembers the relationship.
+The duplicate pattern's drift risk is real: if `/pickup`'s data-gathering changes, a sibling hook script needs to follow. The mitigation is keeping the hook's scope narrow and cross-referencing both files in their respective comments — but the deeper question is whether the keystroke-saving justifies any drift surface at all. For `/pickup` we concluded no.
 
-settings.json wiring (mirror this shape for any new SessionStart hook):
+settings.json shape that would have wired this up (mirror it for any genuinely-fast-path SessionStart hook):
 
 ```json
 {
@@ -112,7 +112,7 @@ settings.json wiring (mirror this shape for any new SessionStart hook):
       {
         "matcher": "startup",
         "hooks": [
-          { "type": "command", "command": "~/.claude/hooks/session-briefing.sh", "timeout": 5 }
+          { "type": "command", "command": "~/.claude/hooks/your-hook.sh", "timeout": 5 }
         ]
       }
     ]
@@ -127,7 +127,7 @@ settings.json wiring (mirror this shape for any new SessionStart hook):
 Key takeaways from that prior implementation:
 - Set `set -u`; never `set -e` in a hook (a single subprocess failure shouldn't tank the whole hook).
 - Always `exit 0` at the end. The harness logs non-zero exits but doesn't surface them to the user — they're silent noise.
-- Guard on every prerequisite. `tmux-attention.sh` early-returns when `$TMUX_PANE` is unset (script running outside tmux); `session-briefing.sh` guards on every section's prerequisite (HANDOFF, git, docs/) so the worst case is an empty briefing, never an error.
+- Guard on every prerequisite. `tmux-attention.sh` early-returns when `$TMUX_PANE` is unset (script running outside tmux); the considered session-briefing hook guarded on every section's prerequisite (HANDOFF, git, docs/, `forge-project-key:`) so the worst case was an empty briefing, never an error.
 - For long-running side effects (the tmux-attention spinner runs as a disowned subshell), use a sentinel file as the "keep running" signal — see `docs/solutions/runtime-errors/tmux-attention-hook-race-condition-and-askuserquestion-state-2026-04-19.md` for the race condition lessons that shaped that design.
 
 ### Example 3: SSH in a SessionStart hook — cost is in slicing, not in the SSH itself
@@ -162,38 +162,56 @@ Concrete invariants for SSH in SessionStart hooks:
 ### Example 4: Verification recipe (use this before declaring a hook done)
 
 ```bash
+HOOK=claude/hooks/your-hook.sh
+
 # 1. The script runs cleanly outside the harness.
-bash claude/hooks/session-briefing.sh
+bash "$HOOK"
 echo "exit=$?"
 
 # 2. Output is under budget.
-output=$(bash claude/hooks/session-briefing.sh)
+output=$(bash "$HOOK")
 echo "$output" | wc -c       # well under 10000
 echo "$output" | head -5     # sanity-check the shape
 
 # 3. Latency is under budget.
-time bash claude/hooks/session-briefing.sh > /dev/null
+time bash "$HOOK" > /dev/null
 
 # 4. Edge cases don't error.
-cd /tmp && bash ~/.claude/hooks/session-briefing.sh; echo "exit=$?"
+cd /tmp && bash ~/.claude/hooks/your-hook.sh; echo "exit=$?"
 
 # 5. Live integration test (the only thing that proves the harness wires it correctly).
 # Open a fresh terminal, run `claude` in the target repo, then ask the model:
-#   "Quote your first-turn context verbatim — specifically anything labeled 'Session briefing'."
-# If the model can quote the briefing, the hook is wired end-to-end.
-# Then verify the negative case: `claude --continue` should NOT show the briefing
-# (matcher "startup" excludes resumes).
+#   "Quote your first-turn context verbatim — specifically the block from your hook."
+# If the model can quote the output, the hook is wired end-to-end.
+# Then verify the negative case based on your matcher choice (e.g., for matcher "startup",
+# `claude --continue` should NOT show the hook's output).
 ```
 
 The fifth step — the live integration test — is the only one that proves the harness honors the matcher and injects stdout into context as advertised. Steps 1-4 prove the script behaves; only step 5 proves the hook does.
 
 ---
 
+## Postscript: why we didn't ship this for `/pickup`
+
+The originating exercise for this doc was wiring a SessionStart hook to auto-load `/pickup`'s data so the user wouldn't have to type the slash command on every session. We implemented two iterations (cheap-local only; then with the Forge bridge), verified both end-to-end, and decided not to merge.
+
+The lesson was that **`/pickup` is more load-bearing than the hook can replace**:
+
+1. **Synthesis is the value, not data-gathering.** `/pickup` Step 3 produces a 2-3 sentence summary, "next up:", gotchas, and a ready-to-go closer. A hook can dump *data* into context but cannot *synthesize* it; the model receives the data and waits for an instruction. Without synthesis, the user mentally runs `/pickup`-style orientation themselves regardless of what's in context.
+2. **Actions stay in the slash command.** Inbox archival (`mv ... && chown 1000:1000`) and pending-ticket promotion to GitHub issues require explicit invocation regardless of whether content was pre-loaded by a hook.
+3. **Cost on every session, value only on some.** The hook adds ~2s SSH + ~6KB context tokens to every fresh session, even when the user opens Claude to ask a one-shot question with no project-state dependency. `/pickup` is opt-in on the sessions that need it.
+4. **Drift surface is real.** The hook duplicated `/pickup`'s SSH structure (VOLBASE path, find expressions, file naming). If `/pickup` evolves, the hook silently drifts. The fix would be factoring shared shell helpers — but at that point the slash command was doing fine on its own.
+
+The narrower rule that survived: **don't reach for a SessionStart hook to replace a slash command that does synthesis + actions.** Reach for one when the answer is genuinely "every session needs this fast, idempotent, in-process context" (the `tmux-attention.sh clear` pattern). The synthesis-and-actions case belongs in the slash command, period.
+
+The narrower rule about *what we considered* — the budget arithmetic, the Forge-bridge slicing strategy, the duplicate-vs-hint tradeoff — survives in this doc as durable knowledge for the next time someone wants to wire a SessionStart hook for a real fast-path use case. The implementation files are reverted, but the design exercise lives on as `docs/plans/2026-04-27-001-feat-session-start-pickup-briefing-plan.md` (status: not-implemented) and the lessons here.
+
+---
+
 ## Related
 
-- `claude/hooks/tmux-attention.sh` — prior hook in this repo, lifecycle-pattern example
-- `claude/hooks/session-briefing.sh` — duplicate-pattern example shipped alongside this doc
-- `claude/commands/pickup.md` — the slash command this hook complements
-- `docs/plans/2026-04-27-001-feat-session-start-pickup-briefing-plan.md` — full design doc with the duplicate-vs-hint tradeoff analysis
+- `claude/hooks/tmux-attention.sh` — prior hook in this repo, lifecycle-pattern example, the right-shaped use of SessionStart (fast, idempotent, in-process)
+- `claude/commands/pickup.md` — the slash command we considered automating; the considered judgment was that this surface is correct as-is
+- `docs/plans/2026-04-27-001-feat-session-start-pickup-briefing-plan.md` — design doc for the not-implemented hook; full duplicate-vs-hint tradeoff analysis and budget arithmetic
 - [Claude Code Hooks reference (official)](https://code.claude.com/docs/en/hooks)
 - [LaunchDarkly SessionStart hook example](https://github.com/launchdarkly-labs/claude-code-session-start-hook) — only public dotfiles-style example surfaced in research
