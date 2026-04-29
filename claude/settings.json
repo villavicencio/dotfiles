@@ -13,16 +13,6 @@
             "timeout": 5
           }
         ]
-      },
-      {
-        "matcher": "startup",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "~/.claude/hooks/session-briefing.sh",
-            "timeout": 10
-          }
-        ]
       }
     ],
     "UserPromptSubmit": [

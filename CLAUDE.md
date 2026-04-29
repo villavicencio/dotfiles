@@ -146,26 +146,6 @@ sentinel-still-exists so it does not race the main-thread state writer — see
 `docs/solutions/runtime-errors/tmux-attention-hook-race-condition-and-askuserquestion-state-2026-04-19.md`.
 If a leaked loop ever shows up, kill it via `pkill -f claude-spinner-marker`.
 
-### Session-start briefing hook
-`claude/hooks/session-briefing.sh` is invoked by a SessionStart hook in
-`claude/settings.json` with `matcher: "startup"`. Its stdout is concatenated
-into the model's first-turn `additionalContext`, giving the same opening
-orientation the user used to load by typing `/pickup`. Sections: HANDOFF.md
-title + intro + What's Next, current git context, counts of recently-modified
-`docs/{brainstorms,plans,solutions}/` files, **and the Forge bridge** (when
-cwd's `CLAUDE.md` declares `forge-project-key:`) — `_shared/patterns.md` tail,
-project cadence-log tail, full inbox-message content (capped at 2 files +
-"...N more" hint), full pending-ticket content (same cap). The Forge bridge
-mirrors `claude/commands/pickup.md` Step 2c (single SSH call, delimited
-blocks); what stays behind explicit `/pickup` is the *destructive* / interactive
-work: inbox archival, ticket promotion to GH issues, VPS health snapshot.
-Budget: ~9.5KB output ceiling (under Claude Code's 10k char cap), ~3s typical
-wall clock dominated by the SSH connection. Self-truncation footer activates
-if any single session pushes the output over budget. Repo-agnostic, never
-errors, always exits 0; SSH unreachable degrades to a one-line note. Full
-design rationale and budget reasoning in
-`docs/solutions/best-practices/claude-code-hooks-and-session-start-2026-04-27.md`.
-
 ### OMZ plugin sync
 When adding an Oh My Zsh plugin to the `plugins=()` list in `zshrc`, also add the corresponding
 `git clone` to `helpers/install_omz.sh` so it gets installed on fresh machines.
