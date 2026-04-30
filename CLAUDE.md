@@ -68,6 +68,8 @@ The personal email (`villavicencio.david@gmail.com`) is the default. The work Ma
     email = david.villavicencio@fedex.com
 ```
 
+**SSH hosts:** `~/.ssh/config` is not tracked. Per-machine host aliases (e.g. `Host openclaw-prod` for the VPS, `Host work` for the work Mac) are added directly there. Aliases are required for IDEs that read `~/.ssh/config` to populate Remote-SSH host pickers (Antigravity, VS Code, Cursor) — `ssh root@openclaw-prod` working from the shell is not sufficient on its own.
+
 ### Paths
 - Never hardcode `/Users/<username>/` — always use `$HOME`.
 - Never hardcode `/opt/homebrew/` or `/usr/local/` — always use `$BREW_PREFIX`.
