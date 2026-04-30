@@ -1,7 +1,7 @@
 ---
 title: "Claude Code Bash, Write, and Edit tools strip Nerd Font PUA glyphs"
 date: 2026-04-08
-updated: 2026-04-27
+updated: 2026-04-29
 category: code-quality
 tags:
   - claude-code
@@ -128,6 +128,46 @@ print(f'len={len(g)}  codepoints={[hex(ord(c)) for c in g]}')
 "
 # expect: len=1 (or 2 if intentional trailing space), codepoints=[0xee0d, ...]
 ```
+
+## Gotcha: `\uXXXX` escapes in Python heredoc bodies (added 2026-04-29)
+
+The "Fix" section above recommends `\uXXXX` Python string escapes as
+the workaround for argv-bound targets. **That advice is incomplete for
+heredoc bodies.** When the Python source for a `python3 <<'PY' ... PY`
+heredoc originates from a Claude Code agent message, the harness can
+render `\uXXXX` escape sequences in the message text into literal PUA
+characters *before* the source reaches the Bash tool. The Bash tool's
+PUA filter then strips those characters, leaving the variable as `""`.
+There is no error — Python parses the empty string fine and the script
+proceeds with garbage values.
+
+**Confirmed reproduction (2026-04-29):** A Python heredoc that did
+`old_glyph = ""` on the agent-source side reached Python with
+`old_glyph = ""`. The `assert src.count(old_glyph) == 1` failed with
+`found 6136` — the empty string matches every position in the file.
+Same script with `old_glyph = chr(0xF120)` worked correctly: the
+source stays pure ASCII through the harness and the tool, and Python
+evaluates the integer at runtime.
+
+**Rule:** inside a Python heredoc body, prefer `chr(0xXXXX)` over
+`"\uXXXX"`. The escape syntax is safe in `python3 -c "..."` only
+because Bash's double-quote handling preserves `\u` literally; it is
+**not** safe in heredoc bodies that pass through the agent's message
+pipeline. `chr()` keeps the source ASCII end-to-end.
+
+```python
+# RISKY — \uXXXX may be rendered to PUA by the harness, then stripped
+glyph = ""
+
+# SAFE — pure ASCII source, decoded at Python runtime
+glyph = chr(0xF120)
+```
+
+This applies to all Python heredoc replacements that need PUA
+characters, not just glyph-swap workflows. Use `chr()` for all
+single-codepoint references and rely on Python concatenation for
+multi-character constructs (`chr(0xF109) + chr(0x2009)` for a glyph
+plus thin space, etc.).
 
 ## Related issue this same day
 
