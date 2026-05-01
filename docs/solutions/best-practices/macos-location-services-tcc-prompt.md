@@ -69,6 +69,30 @@ The dotfiles' tmux location-pill feature explicitly accepts silent fall-through 
 - Debugging an empty location segment in the tmux status bar — start by checking if Location Services is granted to iTerm2 in System Settings.
 - Reinstalling `corelocationcli` after a Homebrew cleanup or major macOS upgrade (Gatekeeper sometimes re-blocks after OS updates).
 
+## Debugging from the CLI
+
+When the pill is empty and the cause isn't obvious, these probes distinguish the failure modes:
+
+```sh
+# Is the binary on PATH?
+command -v CoreLocationCLI
+
+# Does it actually work? (Will pop the TCC prompt on first run.)
+CoreLocationCLI --format '%locality, %administrativeArea'
+
+# Is anything in the cache?
+cat "${XDG_CACHE_HOME:-$HOME/.cache}/tmux-location/value"
+
+# Are workers running or stuck?
+pgrep -a -f tmux-location-refresh-marker
+
+# Force a refresh (synchronous, see what the worker actually returns):
+~/.config/tmux/scripts/location.sh --refresh && \
+  cat "${XDG_CACHE_HOME:-$HOME/.cache}/tmux-location/value"
+```
+
+Empty `command -v` → cask not installed (`brew bundle install`). Empty CoreLocationCLI output → Gatekeeper or TCC gate not cleared (run from a fresh iTerm2 window outside tmux to surface the prompt). Populated cache but empty pill → tmux config not sourced; `tmux source ~/.config/tmux/tmux.conf`.
+
 ## Related
 
 - The location-pill plan: `docs/plans/2026-05-01-001-feat-tmux-location-pill-plan.md`
