@@ -145,6 +145,14 @@ ssh root@openclaw-prod '
   journalctl -k --since "24 hours ago" --no-pager 2>/dev/null | grep -c "oom-kill:constraint" | awk "{ print \$1, \"OOM events in past 24h\" }"
   echo "===PERM_DRIFT_ALERTS==="
   find /var/lib/docker/volumes/d95veq7chb3d8gllyj6vhpqy_openclaw-state/_data/shared/inbox/forge -maxdepth 1 -type f -name "*perm-drift*.md" 2>/dev/null | head -3
+  echo "===HANDOFF_STALENESS==="
+  find /var/lib/docker/volumes/d95veq7chb3d8gllyj6vhpqy_openclaw-state/_data -mindepth 2 -maxdepth 2 -name "HANDOFF.md" -mtime +7 -printf "%TY-%Tm-%Td %p\n" 2>/dev/null
+  echo "===HOST_LOAD==="
+  uptime
+  echo "===SSH_BRUTEFORCE_PRESSURE==="
+  journalctl -u ssh --since "1 hour ago" --no-pager 2>/dev/null | grep -cE "Failed password|Invalid user" | awk "{ print \$1, \"failed-auth events in past 1h\" }"
+  echo "===FAIL2BAN_JAIL_STATUS==="
+  command -v fail2ban-client >/dev/null 2>&1 && fail2ban-client status sshd 2>/dev/null | grep -E "Currently failed|Currently banned|Total banned" || echo "(fail2ban not installed)"
 '
 ```
 
@@ -157,6 +165,7 @@ Treat each section independently — empty sections are load-bearing, same rule 
 - **`memory.current` > 70% of `memory.max`** — gateway is close to its cgroup ceiling right now, not hours from now. If your workload for this session is heavy (multiple `/ce:compound` rounds, agent spawns), consider a graceful restart before starting work.
 - **OOM events in past 24h > 0** — there's a regression in progress. Escalate to "what changed recently" as the first order of business.
 - **Perm-drift alerts present** — the daily perm-drift check cron caught something. Read the alert file and remediate before other work.
+- **HANDOFF_STALENESS lists ANY workspace HANDOFF.md older than 7 days** — the agent-side `/handoff` skill (deployed 2026-04-30) hasn't fired for that agent in over a week. Surface in Step 3 as a per-agent staleness flag. If multiple agents show >7 days stale consistently, the V1 hybrid trigger model is insufficient and we should escalate to V2 (daily `/handoff` cron per agent). This is the observability hook that drives the V2 trigger-model decision.
 
 If SSH fails: note "VPS health snapshot unavailable" and continue; do not block pickup. Rationale: a down VPS is important information, but a Mac-side `/pickup` shouldn't stall on network problems.
 
