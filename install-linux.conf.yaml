@@ -80,6 +80,7 @@
 - link:
     ~/.config/tmux/scripts/save-window-meta.sh: tmux/scripts/save-window-meta.sh
     ~/.config/tmux/scripts/restore-window-meta.sh: tmux/scripts/restore-window-meta.sh
+    ~/.config/tmux/scripts/location.sh: tmux/scripts/location.sh
     # Seed glyph + palette metadata for the VPS's static window layout
     # (main: ops/logs/openclaw/tui). The client-attached hook in
     # tmux/tmux.general.conf applies this on next attach. Darwin
