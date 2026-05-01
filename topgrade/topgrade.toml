@@ -5,7 +5,11 @@ assume_yes = true
 no_retry = true
 # Cleanup after updating
 cleanup = true
-# Skip JetBrains IDEs (not installed) and system RubyGems (managed through RVM)
+# Skip JetBrains IDEs (not installed) and system RubyGems (managed through RVM).
+# Skip pnpm: ~/package.json pins `packageManager: yarn@...`, so pnpm correctly
+# refuses to run there — yarn step handles the actual updates.
+# Skip containers: Docker Desktop is installed via Brewfile but the daemon is
+# only run on demand; topgrade's image-update step requires it to be running.
 disable = [
   "jetbrains_aqua",
   "jetbrains_clion",
@@ -24,4 +28,6 @@ disable = [
   "jetbrains_webstorm",
   "gem",
   "ruby_gems",
+  "pnpm",
+  "containers",
 ]
