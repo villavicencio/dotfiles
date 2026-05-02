@@ -10,6 +10,8 @@ cleanup = true
 # refuses to run there — yarn step handles the actual updates.
 # Skip containers: Docker Desktop is installed via Brewfile but the daemon is
 # only run on demand; topgrade's image-update step requires it to be running.
+# Skip microsoft_office: not used; msupdate fires `XPC Connection invalidated`
+# every run when no Office app is foregrounded — pure noise.
 disable = [
   "jetbrains_aqua",
   "jetbrains_clion",
@@ -30,4 +32,5 @@ disable = [
   "ruby_gems",
   "pnpm",
   "containers",
+  "microsoft_office",
 ]
