@@ -3,45 +3,56 @@ name: Publish CI image
 run-name: "Publish ci/Dockerfile to ghcr.io (${{ github.event_name }})"
 
 # Builds ci/Dockerfile and publishes it to
-# ghcr.io/${{ github.repository_owner }}/dotfiles-ci-ubuntu:24.04
-# so .github/workflows/install-matrix.yml (PR #1b) can pull a pinned
-# Ubuntu 24.04 image that mirrors the VPS production target.
+# ghcr.io/<owner>/dotfiles-ci-ubuntu:24.04 so install-matrix.yml (the
+# consuming CI workflow) can pull a pinned Ubuntu 24.04 image that
+# mirrors the VPS production target.
 #
-# After the first run, the package is created as private by default.
-# One-time operational step: flip visibility to public via
-#   Settings → Packages → dotfiles-ci-ubuntu → Change visibility
-# or via:
-#   gh api -X PATCH \
-#     /user/packages/container/dotfiles-ci-ubuntu/visibility \
-#     -f visibility=public
-# Subsequent publishes inherit the setting.
+# Visibility: the workflow flips the package to public on every run via
+# `gh api -X PATCH .../visibility -f visibility=public` (idempotent).
+# First publish creates the package as private; the visibility step
+# makes it public before consumers need to pull anonymously.
 #
-# install-matrix.yml pins the image to its SHA256 digest, not the :24.04
-# tag, to close the mutable-tag supply-chain risk. The digest is emitted
-# in this workflow's run summary (last step) so PR #1b's author can
-# capture and pin it.
+# Supply-chain: the consuming workflow pins this image to its SHA256
+# digest, not the :24.04 tag. The digest is emitted as a job output AND
+# in the run summary so consumers can capture it programmatically (via
+# `gh run view --json outputs -q '.outputs.digest'`) or via copy-paste.
 
 on:
   push:
     branches: [master]
-    paths: ['ci/Dockerfile']
+    paths:
+      - 'ci/Dockerfile'
+      - '.github/workflows/publish-ci-image.yml'
   workflow_dispatch:
 
 permissions:
   contents: read
   packages: write
 
+# Latest-wins semantics for an image publisher: a newer commit
+# supersedes any in-flight build. Layer pushes that don't get a
+# manifest write become orphan blobs that GHCR garbage-collects.
 concurrency:
   group: publish-ci-image
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   publish:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
+    outputs:
+      digest: ${{ steps.build.outputs.digest }}
+      image: ghcr.io/${{ steps.owner.outputs.lc }}/dotfiles-ci-ubuntu
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Lowercase repository owner
+        id: owner
+        run: |
+          # ghcr.io rejects uppercase refs. Lowercase the owner so
+          # uppercase-login forks (and future owner-renames) push cleanly.
+          echo "lc=${GITHUB_REPOSITORY_OWNER,,}" >> "$GITHUB_OUTPUT"
 
       - name: Log in to ghcr.io
         uses: docker/login-action@v3
@@ -59,13 +70,47 @@ jobs:
         with:
           context: ./ci
           push: true
-          tags: ghcr.io/${{ github.repository_owner }}/dotfiles-ci-ubuntu:24.04
+          tags: ghcr.io/${{ steps.owner.outputs.lc }}/dotfiles-ci-ubuntu:24.04
+          # provenance: false — SLSA attestation produces a manifest list
+          # that complicates digest pinning. Revisit if the digest-pin
+          # contract is ever replaced by attestation verification.
           provenance: false
+
+      - name: Validate digest before emitting
+        run: |
+          DIGEST="${{ steps.build.outputs.digest }}"
+          if [ -z "$DIGEST" ]; then
+            echo "::error::build-push-action did not emit a digest. Image push likely failed."
+            exit 1
+          fi
+          if [[ ! "$DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]]; then
+            echo "::error::digest does not look like sha256:<64-hex>: $DIGEST"
+            exit 1
+          fi
+
+      - name: Ensure package is public
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Idempotent visibility flip — set public so consumers can pull
+          # anonymously. Best-effort: if the token lacks admin:packages or
+          # the package endpoint hasn't propagated yet, emit a warning.
+          # The next run retries.
+          #
+          # Path is /user/... for user-owned packages.
+          # For org-owned (post-transfer): /orgs/<owner>/packages/...
+          if gh api -X PATCH \
+            "/user/packages/container/dotfiles-ci-ubuntu/visibility" \
+            -f visibility=public 2>/dev/null; then
+            echo "Package visibility: public (user-owned path)"
+          else
+            echo "::warning::visibility flip via /user/ failed. If this repo is org-owned, the path is /orgs/${{ steps.owner.outputs.lc }}/packages/container/dotfiles-ci-ubuntu/visibility — flip manually via the Packages UI on first run."
+          fi
 
       - name: Publish digest in run summary
         run: |
           DIGEST="${{ steps.build.outputs.digest }}"
-          OWNER="${{ github.repository_owner }}"
+          OWNER="${{ steps.owner.outputs.lc }}"
           IMAGE="ghcr.io/${OWNER}/dotfiles-ci-ubuntu"
           {
             echo "## Published CI image"
@@ -75,20 +120,15 @@ jobs:
             echo "| Tag | \`${IMAGE}:24.04\` |"
             echo "| Digest | \`${DIGEST}\` |"
             echo ""
-            echo "### Pin in install-matrix.yml (PR #1b)"
-            echo ""
-            echo "Replace the linux job's container image with the digest pin:"
+            echo "### Pin in the consuming workflow"
             echo ""
             echo '```yaml'
             echo "container:"
             echo "  image: ${IMAGE}@${DIGEST}"
             echo '```'
             echo ""
-            echo "### First-publish operational note"
-            echo ""
-            echo "If this is the first publish, the package is currently private."
-            echo "Flip visibility to public so install-matrix.yml can pull anonymously:"
-            echo ""
-            echo "1. Visit Settings → Packages → \`dotfiles-ci-ubuntu\` → Change visibility, OR"
-            echo "2. Run: \`gh api -X PATCH /user/packages/container/dotfiles-ci-ubuntu/visibility -f visibility=public\`"
+            echo "Programmatic capture:"
+            echo '```'
+            echo "gh run view ${{ github.run_id }} --json jobs -q '.jobs[].outputs.digest'"
+            echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
