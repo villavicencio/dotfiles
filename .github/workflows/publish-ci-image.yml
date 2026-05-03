@@ -1,0 +1,94 @@
+name: Publish CI image
+
+run-name: "Publish ci/Dockerfile to ghcr.io (${{ github.event_name }})"
+
+# Builds ci/Dockerfile and publishes it to
+# ghcr.io/${{ github.repository_owner }}/dotfiles-ci-ubuntu:24.04
+# so .github/workflows/install-matrix.yml (PR #1b) can pull a pinned
+# Ubuntu 24.04 image that mirrors the VPS production target.
+#
+# After the first run, the package is created as private by default.
+# One-time operational step: flip visibility to public via
+#   Settings → Packages → dotfiles-ci-ubuntu → Change visibility
+# or via:
+#   gh api -X PATCH \
+#     /user/packages/container/dotfiles-ci-ubuntu/visibility \
+#     -f visibility=public
+# Subsequent publishes inherit the setting.
+#
+# install-matrix.yml pins the image to its SHA256 digest, not the :24.04
+# tag, to close the mutable-tag supply-chain risk. The digest is emitted
+# in this workflow's run summary (last step) so PR #1b's author can
+# capture and pin it.
+
+on:
+  push:
+    branches: [master]
+    paths: ['ci/Dockerfile']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: publish-ci-image
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Log in to ghcr.io
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: ./ci
+          push: true
+          tags: ghcr.io/${{ github.repository_owner }}/dotfiles-ci-ubuntu:24.04
+          provenance: false
+
+      - name: Publish digest in run summary
+        run: |
+          DIGEST="${{ steps.build.outputs.digest }}"
+          OWNER="${{ github.repository_owner }}"
+          IMAGE="ghcr.io/${OWNER}/dotfiles-ci-ubuntu"
+          {
+            echo "## Published CI image"
+            echo ""
+            echo "| Field | Value |"
+            echo "| --- | --- |"
+            echo "| Tag | \`${IMAGE}:24.04\` |"
+            echo "| Digest | \`${DIGEST}\` |"
+            echo ""
+            echo "### Pin in install-matrix.yml (PR #1b)"
+            echo ""
+            echo "Replace the linux job's container image with the digest pin:"
+            echo ""
+            echo '```yaml'
+            echo "container:"
+            echo "  image: ${IMAGE}@${DIGEST}"
+            echo '```'
+            echo ""
+            echo "### First-publish operational note"
+            echo ""
+            echo "If this is the first publish, the package is currently private."
+            echo "Flip visibility to public so install-matrix.yml can pull anonymously:"
+            echo ""
+            echo "1. Visit Settings → Packages → \`dotfiles-ci-ubuntu\` → Change visibility, OR"
+            echo "2. Run: \`gh api -X PATCH /user/packages/container/dotfiles-ci-ubuntu/visibility -f visibility=public\`"
+          } >> "$GITHUB_STEP_SUMMARY"
