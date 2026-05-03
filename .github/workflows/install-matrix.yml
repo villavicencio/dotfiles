@@ -71,6 +71,16 @@ defaults:
     # legs share the same shell so step bodies stay portable.
     shell: bash
 
+# PYTHONDONTWRITEBYTECODE: dotbot is a Python tool that imports pyyaml at
+# startup. Without this flag, `./install --dry-run` writes `__pycache__/`
+# directories under `dotbot/lib/pyyaml/` and `dotbot/src/dotbot/`. On
+# macOS where `$GITHUB_WORKSPACE` is *inside* `$HOME=/Users/runner`, those
+# writes show up in the R2 delta-diff and falsely fail the assertion.
+# Setting it at workflow level keeps both legs identical and is safe for
+# the apply step too — Python works fine without bytecode caches.
+env:
+  PYTHONDONTWRITEBYTECODE: '1'
+
 jobs:
   linux:
     runs-on: ubuntu-24.04
@@ -84,6 +94,21 @@ jobs:
       # for this repo, which ghcr.io requires.
       image: ghcr.io/${{ github.repository_owner }}/dotfiles-ci-ubuntu@sha256:8b0b7108e32229d7842c7cb876bc7f322f114e079d171d9725d1e71279dd3865
     steps:
+      - name: Install python3 (Dotbot runtime)
+        # Dotbot itself is a Python script (dotbot/bin/dotbot exec's
+        # python3 "$0"). The `ubuntu:24.04` base image used by ci/Dockerfile
+        # is the *minimal* Docker image that intentionally omits Python
+        # to keep size down. Production VPS Ubuntu Server images ship
+        # python3 as part of the base OS, which is why the VPS bootstrap
+        # works without an explicit install. Adding it here keeps the
+        # ci/Dockerfile minimal at the cost of ~5s per CI run.
+        # TODO: bake `python3-minimal` into ci/Dockerfile in a follow-up
+        # PR (chicken-and-egg with publish-ci-image — image rebuilds
+        # only fire on master push).
+        run: |
+          apt-get update -qq
+          apt-get install -y --no-install-recommends python3-minimal
+
       - name: Checkout
         # SHA-pinned to close the supply-chain vector where a force-pushed
         # mutable tag could compromise this workflow at run time.
