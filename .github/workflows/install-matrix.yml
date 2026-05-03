@@ -122,11 +122,15 @@ jobs:
           submodules: recursive
 
       - name: Mark workspace safe for git inside container
-        # actions/checkout already configures safe.directory, but Dotbot
+        # actions/checkout already configures safe.directory in its own
+        # temp HOME, but that's torn down post-checkout. Dotbot then
         # invokes `git submodule update --init --recursive` from inside
-        # the install pipeline against the same workspace — make the
-        # workspace globally safe for all subsequent git invocations.
-        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+        # the install pipeline against the same workspace and trips
+        # "fatal: detected dubious ownership."
+        # Use --system (writes /etc/gitconfig) instead of --global
+        # (writes $HOME/.gitconfig) because the next step rm's
+        # $HOME/.gitconfig — system-level config survives that.
+        run: git config --system --add safe.directory "$GITHUB_WORKSPACE"
 
       - name: R2 + R3 (mutation-free dry-run + symlink-resolution)
         run: |
