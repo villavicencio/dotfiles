@@ -94,23 +94,25 @@ jobs:
       # for this repo, which ghcr.io requires.
       image: ghcr.io/${{ github.repository_owner }}/dotfiles-ci-ubuntu@sha256:8b0b7108e32229d7842c7cb876bc7f322f114e079d171d9725d1e71279dd3865
     steps:
-      - name: Install python3 (Dotbot runtime)
-        # Dotbot itself is a Python script (dotbot/bin/dotbot exec's
-        # python3 "$0"). The `ubuntu:24.04` base image used by ci/Dockerfile
-        # is the *minimal* Docker image that intentionally omits Python
-        # to keep size down. Production VPS Ubuntu Server images ship
-        # python3 as part of the base OS, which is why the VPS bootstrap
-        # works without an explicit install. Adding it here keeps the
-        # ci/Dockerfile minimal at the cost of ~5s per CI run.
-        # NOTE: `python3-minimal` strips the stdlib (no `json`, etc.); we
-        # need the full `python3` so dotbot's `import json` works. This
-        # pulls libpython3-stdlib + minor deps, ~50MB.
-        # TODO: bake `python3` into ci/Dockerfile in a follow-up PR
-        # (chicken-and-egg with publish-ci-image — image rebuilds only
-        # fire on master push).
+      - name: Install bootstrap deps (python3, sudo)
+        # The `ubuntu:24.04` base image used by ci/Dockerfile is the
+        # *minimal* Docker image that omits both python3 and sudo.
+        # Production VPS Ubuntu Server images ship both as part of the
+        # base OS, which is why the VPS bootstrap works without these.
+        # Why both:
+        # - python3 (full, not -minimal — strips stdlib): Dotbot is a
+        #   Python script (dotbot/bin/dotbot exec's python3 "$0").
+        # - sudo: helpers/install_packages.sh on Linux uses `sudo
+        #   apt-get install ...` for the apt path. Container runs as
+        #   root, so sudo is a no-op trampoline, but it still has to
+        #   exist on PATH or the helper aborts and install_tmux.sh
+        #   later fails with "tmux: command not found" (cascading).
+        # TODO: bake `python3 sudo` into ci/Dockerfile in a follow-up
+        # PR (chicken-and-egg with publish-ci-image — image rebuilds
+        # only fire on master push).
         run: |
           apt-get update -qq
-          apt-get install -y --no-install-recommends python3
+          apt-get install -y --no-install-recommends python3 sudo
 
       - name: Checkout
         # SHA-pinned to close the supply-chain vector where a force-pushed
@@ -192,6 +194,16 @@ jobs:
             echo "::error::$missing symlink target(s) missing from repo"
             exit 1
           fi
+
+      - name: Clean actions/checkout side effects in $HOME
+        # actions/checkout configures git in $HOME during its own setup
+        # phase, leaving a regular `$HOME/.gitconfig` behind. Dotbot's
+        # `~/.gitconfig: git/gitconfig` link entry then fails the real
+        # install with "already exists but is a regular file or
+        # directory" — even with `relink: true`, Dotbot refuses to
+        # delete a regular file (only existing symlinks). Remove it
+        # explicitly so Dotbot can symlink cleanly.
+        run: rm -f "$HOME/.gitconfig"
 
       - name: Apply (./install)
         run: ./install
@@ -290,6 +302,16 @@ jobs:
             echo "::error::$missing symlink target(s) missing from repo"
             exit 1
           fi
+
+      - name: Clean actions/checkout side effects in $HOME
+        # actions/checkout configures git in $HOME during its own setup
+        # phase, leaving a regular `$HOME/.gitconfig` behind. Dotbot's
+        # `~/.gitconfig: git/gitconfig` link entry then fails the real
+        # install with "already exists but is a regular file or
+        # directory" — even with `relink: true`, Dotbot refuses to
+        # delete a regular file (only existing symlinks). Remove it
+        # explicitly so Dotbot can symlink cleanly.
+        run: rm -f "$HOME/.gitconfig"
 
       - name: Apply (./install)
         run: ./install
