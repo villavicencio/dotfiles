@@ -17,7 +17,12 @@ Managed by [Dotbot](https://github.com/anishathalye/dotbot). Run `./install` to 
 ```
 brew/           Brewfile for all Homebrew packages and casks
 btop/           btop system monitor config
-docs/           Solution documentation (docs/solutions/<category>/)
+docs/           Compound-engineering pipeline artifacts:
+                - docs/brainstorms/  Requirements docs from /ce-brainstorm
+                - docs/ideation/     Idea-survival outputs from /ce-ideate
+                - docs/plans/        Implementation plans from /ce-plan
+                - docs/solutions/    Postmortems by category
+ci/             CI assets (Dockerfile for install-matrix workflow)
 fonts/          Nerd fonts installed by helpers/install_fonts.sh
 git/            gitconfig, gitignore, gitattributes
 helpers/        Bash scripts called by the install pipeline
