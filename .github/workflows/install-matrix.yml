@@ -1,0 +1,249 @@
+# =============================================================================
+# Install matrix — validates the install pipeline on every PR against master.
+# =============================================================================
+#
+# Two top-level jobs (linux + macos), not a strategy matrix — container-based
+# Linux + bare macOS-15 mix poorly inside one matrix and the cleaner artifact
+# is two clearly-named jobs in the PR check list.
+#
+# Linux leg pulls a digest-pinned image published by publish-ci-image.yml
+# from ghcr.io/<owner>/dotfiles-ci-ubuntu. Updating the image (touching
+# ci/Dockerfile on master) republishes and changes the digest; the pin
+# below must be updated by hand in a follow-up PR.
+#
+# Architectural caveats — what this matrix does NOT validate
+# ----------------------------------------------------------
+# 1. Machine-local config: ~/env.sh, ~/.gitconfig.local, ~/.ssh/config are
+#    untracked and per-machine. CI does not exercise their integration.
+# 2. Tailscale: hosted runners aren't on the tailnet. The sync-vps workflow
+#    covers that path on its own.
+# 3. chsh: PAM auth fails on hosted macOS. install.conf.yaml's chsh
+#    directive is CI-gated via `[[ "${CI:-false}" != "true" ]]`. If chsh
+#    breaks on a real machine we won't catch it here.
+# 4. docker-desktop runtime: the cask installs but the daemon never
+#    starts in CI. If a future helper invokes `docker ps`, gate it on
+#    the same CI env-var pattern as chsh.
+# 5. Corporate-SSL paths (work-Mac via FedEx proxy) — would require a
+#    self-hosted runner or cert-redaction strategy. Not in scope.
+# 6. Credential-pattern detection: R3's grep covers `/Users/<user>/`
+#    paths only — not API keys, OAuth tokens, JWT blobs, or service
+#    account JSON. Considered and accepted: install-pipeline files have
+#    never housed credentials, gitleaks adds tooling surface for thin
+#    marginal value. Revisit if a near-miss surfaces.
+# 7. Fork-PR trust boundary: a fork PR modifying brew/Brewfile or any
+#    helper executes that code on a hosted runner with the same trust
+#    as a same-repo PR. Personal-author repo with single-author write
+#    makes practical risk low; pull_request_target was considered and
+#    rejected (its own footgun set is worse). Document in the PR
+#    review process.
+#
+# What the matrix DOES validate (cross-platform on every PR)
+# ----------------------------------------------------------
+# R2. `./install --dry-run` produces zero $HOME mutations (delta diff).
+# R3. `./install` exits zero, no hardcoded `/Users/<user>/` paths in
+#     tracked install-pipeline files, all Dotbot-declared symlinks
+#     resolve to files inside the repo.
+# R4. `zsh -i -c true` exits cleanly post-install.
+
+name: Install matrix
+
+run-name: "Install matrix on ${{ github.event.pull_request.head.ref || github.ref_name }} by @${{ github.actor }}"
+
+on:
+  pull_request:
+    branches: [master]
+    paths-ignore:
+      - 'docs/**'
+      - '**.md'
+      - 'claude/**/*.md'
+  workflow_dispatch:
+
+# Cancel superseded PR runs on the same ref. Latest commit wins for PR
+# validation — orphan in-flight runs would just pin a stale tree.
+concurrency:
+  group: install-matrix-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    # Container jobs default to `sh` unless overridden — bash is needed
+    # for `<(...)` process substitution in the assertion steps. Both
+    # legs share the same shell so step bodies stay portable.
+    shell: bash
+
+jobs:
+  linux:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    container:
+      # Pinned to the digest published by publish-ci-image.yml on the
+      # PR #1a merge commit (image rev: ci/Dockerfile + Ubuntu 24.04
+      # base manifest-list). Update this hash by hand whenever the
+      # image is republished — github.repository_owner is used so
+      # owner-rename / repo-transfer doesn't break CI; it's lowercase
+      # for this repo, which ghcr.io requires.
+      image: ghcr.io/${{ github.repository_owner }}/dotfiles-ci-ubuntu@sha256:8b0b7108e32229d7842c7cb876bc7f322f114e079d171d9725d1e71279dd3865
+    steps:
+      - name: Checkout
+        # SHA-pinned to close the supply-chain vector where a force-pushed
+        # mutable tag could compromise this workflow at run time.
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4.3.1
+        with:
+          submodules: recursive
+
+      - name: Mark workspace safe for git inside container
+        # actions/checkout already configures safe.directory, but Dotbot
+        # invokes `git submodule update --init --recursive` from inside
+        # the install pipeline against the same workspace — make the
+        # workspace globally safe for all subsequent git invocations.
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
+      - name: R2 + R3 (mutation-free dry-run + symlink-resolution)
+        run: |
+          set -eo pipefail
+          DRY_LOG=$(mktemp)
+
+          # Pre-snapshot of $HOME for delta semantics. Works on a non-empty
+          # $HOME (the macOS leg's runner $HOME has setup state); the diff
+          # is what matters, not the absolute count.
+          pre=$(find "$HOME" -mindepth 1 -print 2>/dev/null | sort)
+          ./install --dry-run | tee "$DRY_LOG"
+          post=$(find "$HOME" -mindepth 1 -print 2>/dev/null | sort)
+
+          # R2: zero-mutation delta assertion.
+          if ! diff <(echo "$pre") <(echo "$post"); then
+            echo "::error::dry-run mutated \$HOME"
+            exit 1
+          fi
+
+          # R3 assertion 2: every "Would create symlink/hardlink X -> Y"
+          # target Y must exist in the repo. Strict prefix match against
+          # Dotbot's link-plugin emitter (see
+          # dotbot/src/dotbot/plugins/link.py:350 — format is
+          # "Would create {symlink|hardlink} {link_name} -> {target_path}").
+          # Color is auto-disabled when stdout is piped (use_color falls
+          # back to sys.stdout.isatty()), so no ANSI stripping needed.
+          #
+          # Fresh-runner sanity check: on a CI runner with empty $HOME,
+          # every link directive must produce a "Would create" line. Zero
+          # lines means either Dotbot's output format changed or $HOME is
+          # pre-populated — both should fail loudly, not silently pass.
+          created=$(grep -cE '^Would create (sym|hard)link ' "$DRY_LOG" || true)
+          if [ "${created:-0}" -eq 0 ]; then
+            echo "::error::expected ≥1 'Would create symlink' line in dry-run output (fresh CI runner). Output format change or pre-populated \$HOME?"
+            exit 1
+          fi
+
+          missing=0
+          while IFS= read -r line; do
+            target="${line##*-> }"
+            if [ -z "$target" ]; then continue; fi
+            if [ ! -e "$target" ]; then
+              echo "::error::Dotbot symlink target missing: $target  (from: $line)"
+              missing=$((missing + 1))
+            fi
+          done < <(grep -E '^Would create (sym|hard)link ' "$DRY_LOG" || true)
+          if [ "$missing" -gt 0 ]; then
+            echo "::error::$missing symlink target(s) missing from repo"
+            exit 1
+          fi
+
+      - name: Apply (./install)
+        run: ./install
+
+      - name: R3 assertion 1 (no hardcoded user paths)
+        run: |
+          set -eo pipefail
+          # Fail-closed: a scoping bug that returns an empty file list
+          # would otherwise let an empty xargs pipeline pass silently.
+          files=$(git ls-files -- 'zsh/**' 'helpers/**' 'brew/**' 'git/**')
+          if [ -z "$files" ]; then
+            echo "::error::scoping returned no files — file-list bug"
+            exit 1
+          fi
+          if echo "$files" | xargs grep -lE '/Users/[^/]+/'; then
+            echo "::error::found hardcoded user path(s) in install-pipeline files"
+            exit 1
+          fi
+
+      - name: R4 assertion (zsh -i -c true exits cleanly)
+        # Per docs/solutions/code-quality/zsh-dash-i-c-exit-false-positive-health-check.md:
+        # use `true` not `exit` — `exit` exits the shell before any plugin
+        # init that might fail can run, masking regressions.
+        run: zsh -i -c true
+
+  macos:
+    runs-on: macos-15
+    timeout-minutes: 45
+    env:
+      # Cuts metadata churn on a Brew-heavy install. CI=true is set by
+      # GitHub Actions but pinned for clarity — install.conf.yaml's chsh
+      # directive consults it.
+      HOMEBREW_NO_AUTO_UPDATE: '1'
+      HOMEBREW_NO_INSTALL_CLEANUP: '1'
+      CI: 'true'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4.3.1
+        with:
+          submodules: recursive
+
+      - name: Cache Homebrew downloads + API
+        # Restore-keys deliberately omits a Brewfile-hash subset — that
+        # would let a stale cache survive a Brewfile change. Helper
+        # changes also bust the cache via hashFiles('helpers/**').
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830  # v4.3.0
+        with:
+          path: |
+            ~/Library/Caches/Homebrew/downloads
+            ~/Library/Caches/Homebrew/api
+          key: ${{ runner.os }}-${{ runner.arch }}-brew-${{ hashFiles('brew/Brewfile', 'helpers/**') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ runner.arch }}-brew-
+
+      - name: R2 + R3 (mutation-free dry-run + symlink-resolution)
+        run: |
+          set -eo pipefail
+          DRY_LOG=$(mktemp)
+
+          pre=$(find "$HOME" -mindepth 1 -print 2>/dev/null | sort)
+          ./install --dry-run | tee "$DRY_LOG"
+          post=$(find "$HOME" -mindepth 1 -print 2>/dev/null | sort)
+
+          if ! diff <(echo "$pre") <(echo "$post"); then
+            echo "::error::dry-run mutated \$HOME"
+            exit 1
+          fi
+
+          missing=0
+          while IFS= read -r line; do
+            target="${line##*-> }"
+            if [ -z "$target" ]; then continue; fi
+            if [ ! -e "$target" ]; then
+              echo "::error::Dotbot symlink target missing: $target  (from: $line)"
+              missing=$((missing + 1))
+            fi
+          done < <(grep -E '^Would create (sym|hard)link ' "$DRY_LOG" || true)
+          if [ "$missing" -gt 0 ]; then
+            echo "::error::$missing symlink target(s) missing from repo"
+            exit 1
+          fi
+
+      - name: Apply (./install)
+        run: ./install
+
+      - name: R3 assertion 1 (no hardcoded user paths)
+        run: |
+          set -eo pipefail
+          files=$(git ls-files -- 'zsh/**' 'helpers/**' 'brew/**' 'git/**')
+          if [ -z "$files" ]; then
+            echo "::error::scoping returned no files — file-list bug"
+            exit 1
+          fi
+          if echo "$files" | xargs grep -lE '/Users/[^/]+/'; then
+            echo "::error::found hardcoded user path(s) in install-pipeline files"
+            exit 1
+          fi
+
+      - name: R4 assertion (zsh -i -c true exits cleanly)
+        run: zsh -i -c true

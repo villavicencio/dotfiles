@@ -38,7 +38,19 @@
     - command: bash helpers/install_omz.sh
       description: "Installing omz + plugins"
       quiet: true
-    - [chsh -s $(which zsh), Making zsh the default shell]
+    # chsh is CI-gated: PAM auth fails on hosted GitHub Actions macOS
+    # runners and would break .github/workflows/install-matrix.yml's
+    # exit-zero assertion. Skipping in CI is safe — the chsh path is
+    # exercised on real machines via the install runbook. Block style
+    # is intentional: the inline `[cmd, desc]` flow form trips YAML's
+    # `&` anchor parser on the `&&` here.
+    - command: |
+        if [ "${CI:-false}" != "true" ]; then
+          chsh -s $(which zsh)
+        else
+          echo "skipping chsh in CI"
+        fi
+      description: Making zsh the default shell (skipped in CI)
 
 - link:
     ~/.config/zsh/.zshenv: zsh/zshenv
