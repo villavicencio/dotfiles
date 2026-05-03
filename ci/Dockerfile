@@ -19,13 +19,11 @@
 # image intentionally does NOT bake the dotfiles repo in, so image
 # rebuilds aren't required when repo content changes.
 #
-# TODO: pin base to digest (`FROM ubuntu:24.04@sha256:<digest>`) for
-# upstream supply-chain integrity. Resolve the current digest with:
-#   docker buildx imagetools inspect ubuntu:24.04
-# and update this FROM line. Tracked as a follow-up to keep this PR
-# focused on the workflow + image-publishing surface.
-
-FROM ubuntu:24.04
+# Base image is SHA-pinned (manifest-list digest, multi-arch) to close
+# the upstream supply-chain gap symmetrically with the consumer-side
+# digest pin. Update via `docker buildx imagetools inspect ubuntu:24.04`
+# when Canonical ships base-image patches.
+FROM ubuntu:24.04@sha256:c4a8d5503dfb2a3eb8ab5f807da5bc69a85730fb49b5cfca2330194ebcc41c7b
 
 ENV DEBIAN_FRONTEND=noninteractive
 
