@@ -1,6 +1,4 @@
 #!/bin/bash
-# SEEDED-FAILURE-2026-05-03: deliberate hardcoded /Users/dvillavicencio/Downloads/foo
-# path to verify R3 assertion 1 trips on both legs. REVERT BEFORE MERGE.
 # fail-fast so a broken `nvm install` / `npm install -g` cannot fall through
 # to the symlink refresh below — stale links into a non-existent node tree
 # would otherwise look like a successful install to Dotbot.
