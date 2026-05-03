@@ -102,12 +102,15 @@ jobs:
         # python3 as part of the base OS, which is why the VPS bootstrap
         # works without an explicit install. Adding it here keeps the
         # ci/Dockerfile minimal at the cost of ~5s per CI run.
-        # TODO: bake `python3-minimal` into ci/Dockerfile in a follow-up
-        # PR (chicken-and-egg with publish-ci-image — image rebuilds
-        # only fire on master push).
+        # NOTE: `python3-minimal` strips the stdlib (no `json`, etc.); we
+        # need the full `python3` so dotbot's `import json` works. This
+        # pulls libpython3-stdlib + minor deps, ~50MB.
+        # TODO: bake `python3` into ci/Dockerfile in a follow-up PR
+        # (chicken-and-egg with publish-ci-image — image rebuilds only
+        # fire on master push).
         run: |
           apt-get update -qq
-          apt-get install -y --no-install-recommends python3-minimal
+          apt-get install -y --no-install-recommends python3
 
       - name: Checkout
         # SHA-pinned to close the supply-chain vector where a force-pushed
@@ -131,9 +134,26 @@ jobs:
           # Pre-snapshot of $HOME for delta semantics. Works on a non-empty
           # $HOME (the macOS leg's runner $HOME has setup state); the diff
           # is what matters, not the absolute count.
-          pre=$(find "$HOME" -mindepth 1 -print 2>/dev/null | sort)
+          # Prune runner-noise subtrees from the snapshot:
+          # - $HOME/actions-runner: the GH Actions agent rotates its
+          #   own _diag log files during the step, generating false-
+          #   positive deltas.
+          # - $HOME/work: GitHub workspace (on macOS, $GITHUB_WORKSPACE
+          #   is inside $HOME); checkout/runtime state isn't an
+          #   "install mutation."
+          # - $HOME/Library: macOS background services rotate caches/
+          #   logs continuously.
+          # On Linux containers ($HOME=/github/home or /root), none of
+          # these paths exist as $HOME children — the prune is a no-op.
+          snapshot_home() {
+            find "$HOME" -mindepth 1 \
+              \( -path "$HOME/actions-runner" -o -path "$HOME/work" -o -path "$HOME/Library" \) -prune \
+              -o -print 2>/dev/null \
+              | sort
+          }
+          pre=$(snapshot_home)
           ./install --dry-run | tee "$DRY_LOG"
-          post=$(find "$HOME" -mindepth 1 -print 2>/dev/null | sort)
+          post=$(snapshot_home)
 
           # R2: zero-mutation delta assertion.
           if ! diff <(echo "$pre") <(echo "$post"); then
@@ -231,9 +251,26 @@ jobs:
           set -eo pipefail
           DRY_LOG=$(mktemp)
 
-          pre=$(find "$HOME" -mindepth 1 -print 2>/dev/null | sort)
+          # Prune runner-noise subtrees from the snapshot:
+          # - $HOME/actions-runner: the GH Actions agent rotates its
+          #   own _diag log files during the step, generating false-
+          #   positive deltas.
+          # - $HOME/work: GitHub workspace (on macOS, $GITHUB_WORKSPACE
+          #   is inside $HOME); checkout/runtime state isn't an
+          #   "install mutation."
+          # - $HOME/Library: macOS background services rotate caches/
+          #   logs continuously.
+          # On Linux containers ($HOME=/github/home or /root), none of
+          # these paths exist as $HOME children — the prune is a no-op.
+          snapshot_home() {
+            find "$HOME" -mindepth 1 \
+              \( -path "$HOME/actions-runner" -o -path "$HOME/work" -o -path "$HOME/Library" \) -prune \
+              -o -print 2>/dev/null \
+              | sort
+          }
+          pre=$(snapshot_home)
           ./install --dry-run | tee "$DRY_LOG"
-          post=$(find "$HOME" -mindepth 1 -print 2>/dev/null | sort)
+          post=$(snapshot_home)
 
           if ! diff <(echo "$pre") <(echo "$post"); then
             echo "::error::dry-run mutated \$HOME"
