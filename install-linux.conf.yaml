@@ -31,8 +31,17 @@
       quiet: true
     - command: |
         if [ "${DOTFILES_DRY_RUN:-0}" = "1" ]; then
-          echo "[dry-run] would apt-get update + install locales + locale-gen en_US.UTF-8 + update-locale"
+          echo "[dry-run] would force-IPv4 apt + apt-get update + install locales + locale-gen en_US.UTF-8 + update-locale"
         else
+          # Force-IPv4 for apt across the whole install pipeline.
+          # Some GH Actions runner network configs route container
+          # IPv6 to a black hole; apt then hangs ~60s per connection
+          # waiting for the IPv6 timeout before falling back to IPv4.
+          # Multiple apt invocations downstream (this block, plus
+          # helpers/install_packages.sh) compound the penalty into the
+          # 20-min job timeout. On the VPS Ubuntu Server has working
+          # dual-stack so this is a no-op there.
+          echo 'Acquire::ForceIPv4 "true";' | sudo tee /etc/apt/apt.conf.d/99force-ipv4 >/dev/null
           # apt-get update is required: this command runs BEFORE
           # install_packages.sh (which does its own update), and the
           # ci/Dockerfile minimal base strips /var/lib/apt/lists/*.
