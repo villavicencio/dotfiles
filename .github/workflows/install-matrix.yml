@@ -362,14 +362,26 @@ jobs:
       - name: R3 assertion 1 (no hardcoded user paths)
         run: |
           set -eo pipefail
-          files=$(git ls-files -- 'zsh/**' 'helpers/**' 'brew/**' 'git/**')
+          # Fail-closed scope check: a refactor that drops a pathspec
+          # would otherwise let the assertion silently no-op. claude/**
+          # is included because Dotbot symlinks claude/settings.json,
+          # claude/commands/*.md, and claude/hooks/*.sh into ~/.claude/
+          # — they're install-pipeline content for cross-platform
+          # purposes even though they live outside the helpers/zsh tree.
+          files=$(git ls-files -- 'zsh/**' 'helpers/**' 'brew/**' 'git/**' 'claude/**')
           if [ -z "$files" ]; then
             echo "::error::scoping returned no files — file-list bug"
             exit 1
           fi
-          # Match macOS (/Users/<user>/) and Linux (/home/<user>/) home
-          # prefixes. Either is a cross-platform divergence bug.
-          if echo "$files" | xargs grep -lE '(/Users/|/home/)[^/]+/'; then
+          # Match macOS-style hardcoded /Users/<user>/ paths. We do NOT
+          # include /home/<user>/ — that prefix matches legitimate
+          # upstream paths (Linuxbrew at /home/linuxbrew/.linuxbrew, the
+          # OpenClaw container's /home/node user) where the path is the
+          # actual install location, not a hardcoded user path.
+          # `git grep` (vs `xargs grep`) handles filenames with embedded
+          # whitespace and avoids the xargs no-input edge case.
+          if git grep -l --extended-regexp '/Users/[^/]+/' -- \
+              'zsh/**' 'helpers/**' 'brew/**' 'git/**' 'claude/**'; then
             echo "::error::found hardcoded user path(s) in install-pipeline files"
             exit 1
           fi
