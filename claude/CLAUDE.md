@@ -22,6 +22,24 @@ When you hit a wall — unfamiliar tool, unknown API, missing docs — always pe
 before giving up or saying "I don't know." The WebSearch tool is available and should be your
 default fallback for anything outside your training data.
 
+## Realtime Facts
+
+For **realtime-fact queries** — prices, stock state, "as of today" claims, current-event facts,
+current external-system configuration, current package versions, or any claim phrased as
+"today" / "right now" / "current" / "as of this writing" — invoke the `/verify-cite` skill before
+quoting. The skill enforces a fetch-fresh + substring-assert + freshness-tag-or-decline contract
+that prevents the failure mode where stale training data is silently quoted as current.
+
+**Never quote a realtime fact from training data without a freshness tag.** WebSearch is fine for
+*finding* candidate URLs but its SERP snippets are stale-by-design and don't satisfy the freshness
+contract — when the user asks for a *specific current fact*, route through `/verify-cite`, not
+WebSearch alone.
+
+`/verify-cite` is exempt for non-realtime queries (general reasoning, code review, design
+discussion, summarization of static reference material) — the skill itself classifies and
+shouldn't get in the way. When in doubt about whether a query is realtime, default to firing
+`/verify-cite` (false-positive declines are recoverable; silent confabulations are not).
+
 ## Reddit Content
 
 Use the `/reddit` command to fetch Reddit posts and comments. Never use WebFetch for Reddit URLs.
