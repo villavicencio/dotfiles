@@ -18,7 +18,7 @@ git status --short
 
 ### Step 2 — Load supporting context
 ```bash
-export PATH="/Users/dvillavicencio/.config/nvm/versions/node/v24.13.0/bin:$PATH"
+export PATH="$HOME/.config/nvm/versions/node/v24.13.0/bin:$PATH"
 
 REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner 2>/dev/null || echo "")
 

@@ -10,7 +10,7 @@ Optionally scope it: `/handoff hero section` or `/handoff PR 28 work`.
 
 ### Step 1 — Gather context
 ```bash
-export PATH="/Users/dvillavicencio/.config/nvm/versions/node/v24.13.0/bin:$PATH"
+export PATH="$HOME/.config/nvm/versions/node/v24.13.0/bin:$PATH"
 
 REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner 2>/dev/null || echo "")
 

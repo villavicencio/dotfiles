@@ -1,0 +1,390 @@
+# =============================================================================
+# Install matrix — validates the install pipeline on every PR against master.
+# =============================================================================
+#
+# Two top-level jobs (linux + macos), not a strategy matrix — container-based
+# Linux + bare macOS-15 mix poorly inside one matrix and the cleaner artifact
+# is two clearly-named jobs in the PR check list.
+#
+# Linux leg pulls a digest-pinned image published by publish-ci-image.yml
+# from ghcr.io/<owner>/dotfiles-ci-ubuntu. Updating the image (touching
+# ci/Dockerfile on master) republishes and changes the digest; the pin
+# below must be updated by hand in a follow-up PR.
+#
+# Architectural caveats — what this matrix does NOT validate
+# ----------------------------------------------------------
+# 1. Machine-local config: ~/env.sh, ~/.gitconfig.local, ~/.ssh/config are
+#    untracked and per-machine. CI does not exercise their integration.
+# 2. Tailscale: hosted runners aren't on the tailnet. The sync-vps workflow
+#    covers that path on its own.
+# 3. chsh: PAM auth fails on hosted macOS. install.conf.yaml's chsh
+#    directive is CI-gated via `[[ "${CI:-false}" != "true" ]]`. If chsh
+#    breaks on a real machine we won't catch it here.
+# 4. docker-desktop runtime: the cask installs but the daemon never
+#    starts in CI. If a future helper invokes `docker ps`, gate it on
+#    the same CI env-var pattern as chsh.
+# 5. Corporate-SSL paths (work-Mac via FedEx proxy) — would require a
+#    self-hosted runner or cert-redaction strategy. Not in scope.
+# 6. Credential-pattern detection: R3's grep covers `/Users/<user>/`
+#    paths only — not API keys, OAuth tokens, JWT blobs, or service
+#    account JSON. Considered and accepted: install-pipeline files have
+#    never housed credentials, gitleaks adds tooling surface for thin
+#    marginal value. Revisit if a near-miss surfaces.
+# 7. Fork-PR trust boundary: a fork PR modifying brew/Brewfile or any
+#    helper executes that code on a hosted runner with the same trust
+#    as a same-repo PR. Personal-author repo with single-author write
+#    makes practical risk low; pull_request_target was considered and
+#    rejected (its own footgun set is worse). Document in the PR
+#    review process.
+# 8. macos-15 / ubuntu-24.04 runner-image rotation: GitHub re-bakes
+#    these labels periodically (security patches, toolchain bumps).
+#    A surprise green-to-red on an unchanged commit usually means a
+#    runner-image refresh — consult the actions/runner-images repo's
+#    release notes before debugging the install pipeline.
+#
+# What the matrix DOES validate (cross-platform on every PR)
+# ----------------------------------------------------------
+# R2. `./install --dry-run` produces zero $HOME mutations (delta diff).
+# R3. `./install` exits zero, no hardcoded `/Users/<user>/` paths in
+#     tracked install-pipeline files, all Dotbot-declared symlinks
+#     resolve to files inside the repo.
+# R4. `zsh -i -c true` exits cleanly post-install.
+
+name: Install matrix
+
+run-name: "Install matrix on ${{ github.event.pull_request.head.ref || github.ref_name }} by @${{ github.actor }}"
+
+on:
+  pull_request:
+    branches: [master]
+    paths-ignore:
+      - 'docs/**'
+      - '**.md'
+      - 'claude/**/*.md'
+  workflow_dispatch:
+
+# Least-privilege: the workflow only needs to read the repo. No issue
+# writes, no package writes, no token-scoped externalization. Sibling
+# publish-ci-image.yml asks for `packages: write` because it has to;
+# this one explicitly asks for nothing more than `contents: read`.
+permissions:
+  contents: read
+
+# Cancel superseded PR runs on the same ref. Latest commit wins for PR
+# validation — orphan in-flight runs would just pin a stale tree.
+concurrency:
+  group: install-matrix-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    # Container jobs default to `sh` unless overridden — bash is needed
+    # for `<(...)` process substitution in the assertion steps. Both
+    # legs share the same shell so step bodies stay portable.
+    shell: bash
+
+# PYTHONDONTWRITEBYTECODE: dotbot is a Python tool that imports pyyaml at
+# startup. Without this flag, `./install --dry-run` writes `__pycache__/`
+# directories under `dotbot/lib/pyyaml/` and `dotbot/src/dotbot/`. On
+# macOS where `$GITHUB_WORKSPACE` is *inside* `$HOME=/Users/runner`, those
+# writes show up in the R2 delta-diff and falsely fail the assertion.
+# Setting it at workflow level keeps both legs identical and is safe for
+# the apply step too — Python works fine without bytecode caches.
+env:
+  PYTHONDONTWRITEBYTECODE: '1'
+
+jobs:
+  linux:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    container:
+      # Pinned to the digest published by publish-ci-image.yml on the
+      # PR #1a merge commit (image rev: ci/Dockerfile + Ubuntu 24.04
+      # base manifest-list). Update this hash by hand whenever the
+      # image is republished — github.repository_owner is used so
+      # owner-rename / repo-transfer doesn't break CI; it's lowercase
+      # for this repo, which ghcr.io requires.
+      image: ghcr.io/${{ github.repository_owner }}/dotfiles-ci-ubuntu@sha256:8b0b7108e32229d7842c7cb876bc7f322f114e079d171d9725d1e71279dd3865
+    steps:
+      - name: Install bootstrap deps (python3, sudo)
+        # The `ubuntu:24.04` base image used by ci/Dockerfile is the
+        # *minimal* Docker image that omits both python3 and sudo.
+        # Production VPS Ubuntu Server images ship both as part of the
+        # base OS, which is why the VPS bootstrap works without these.
+        # Why both:
+        # - python3 (full, not -minimal — strips stdlib): Dotbot is a
+        #   Python script (dotbot/bin/dotbot exec's python3 "$0").
+        # - sudo: helpers/install_packages.sh on Linux uses `sudo
+        #   apt-get install ...` for the apt path. Container runs as
+        #   root, so sudo is a no-op trampoline, but it still has to
+        #   exist on PATH or the helper aborts and install_tmux.sh
+        #   later fails with "tmux: command not found" (cascading).
+        # TODO(#58): bake `python3 sudo` into ci/Dockerfile in a
+        # follow-up PR (chicken-and-egg with publish-ci-image — image
+        # rebuilds only fire on master push).
+        run: |
+          apt-get update -qq
+          apt-get install -y --no-install-recommends python3 sudo
+
+      - name: Checkout
+        # SHA-pinned to close the supply-chain vector where a force-pushed
+        # mutable tag could compromise this workflow at run time.
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4.3.1
+        with:
+          submodules: recursive
+
+      - name: Mark workspace safe for git inside container
+        # actions/checkout already configures safe.directory in its own
+        # temp HOME, but that's torn down post-checkout. Dotbot then
+        # invokes `git submodule update --init --recursive` from inside
+        # the install pipeline against the same workspace and trips
+        # "fatal: detected dubious ownership."
+        # Use --system (writes /etc/gitconfig) instead of --global
+        # (writes $HOME/.gitconfig) because the next step rm's
+        # $HOME/.gitconfig — system-level config survives that.
+        run: git config --system --add safe.directory "$GITHUB_WORKSPACE"
+
+      - name: R2 + R3 (mutation-free dry-run + symlink-resolution)
+        run: |
+          set -eo pipefail
+          DRY_LOG=$(mktemp)
+
+          # Pre-snapshot of $HOME for delta semantics. Works on a non-empty
+          # $HOME (the macOS leg's runner $HOME has setup state); the diff
+          # is what matters, not the absolute count.
+          # Prune runner-noise subtrees from the snapshot:
+          # - $HOME/actions-runner: the GH Actions agent rotates its
+          #   own _diag log files during the step, generating false-
+          #   positive deltas.
+          # - $HOME/work: GitHub workspace (on macOS, $GITHUB_WORKSPACE
+          #   is inside $HOME); checkout/runtime state isn't an
+          #   "install mutation."
+          # - $HOME/Library: macOS background services rotate caches/
+          #   logs continuously.
+          # On Linux containers ($HOME=/github/home or /root), none of
+          # these paths exist as $HOME children — the prune is a no-op.
+          snapshot_home() {
+            find "$HOME" -mindepth 1 \
+              \( -path "$HOME/actions-runner" -o -path "$HOME/work" -o -path "$HOME/Library" \) -prune \
+              -o -print 2>/dev/null \
+              | sort
+          }
+          pre=$(snapshot_home)
+          ./install --dry-run | tee "$DRY_LOG"
+          post=$(snapshot_home)
+
+          # R2: zero-mutation delta assertion.
+          if ! diff <(echo "$pre") <(echo "$post"); then
+            echo "::error::dry-run mutated \$HOME"
+            exit 1
+          fi
+
+          # R3 assertion 2: every "Would create symlink/hardlink X -> Y"
+          # target Y must exist in the repo. Strict prefix match against
+          # Dotbot's link-plugin emitter (see
+          # dotbot/src/dotbot/plugins/link.py:350 — format is
+          # "Would create {symlink|hardlink} {link_name} -> {target_path}").
+          # Color is auto-disabled when stdout is piped (use_color falls
+          # back to sys.stdout.isatty()), so no ANSI stripping needed.
+          #
+          # Fresh-runner sanity check: on a CI runner with empty $HOME,
+          # every link directive must produce a "Would create" line. Zero
+          # lines means either Dotbot's output format changed or $HOME is
+          # pre-populated — both should fail loudly, not silently pass.
+          created=$(grep -cE '^Would create (sym|hard)link ' "$DRY_LOG" || true)
+          if [ "${created:-0}" -eq 0 ]; then
+            echo "::error::expected ≥1 'Would create symlink' line in dry-run output (fresh CI runner). Output format change or pre-populated \$HOME?"
+            exit 1
+          fi
+
+          missing=0
+          while IFS= read -r line; do
+            target="${line##*-> }"
+            if [ -z "$target" ]; then continue; fi
+            if [ ! -e "$target" ]; then
+              echo "::error::Dotbot symlink target missing: $target  (from: $line)"
+              missing=$((missing + 1))
+            fi
+          done < <(grep -E '^Would create (sym|hard)link ' "$DRY_LOG" || true)
+          if [ "$missing" -gt 0 ]; then
+            echo "::error::$missing symlink target(s) missing from repo"
+            exit 1
+          fi
+
+      - name: Clean actions/checkout side effects in $HOME
+        # actions/checkout configures git in $HOME during its own setup
+        # phase, leaving a regular `$HOME/.gitconfig` behind. Dotbot's
+        # `~/.gitconfig: git/gitconfig` link entry then fails the real
+        # install with "already exists but is a regular file or
+        # directory" — even with `relink: true`, Dotbot refuses to
+        # delete a regular file (only existing symlinks). Remove it
+        # explicitly so Dotbot can symlink cleanly.
+        run: rm -f "$HOME/.gitconfig"
+
+      - name: Apply (./install)
+        run: ./install
+
+      - name: R3 assertion 1 (no hardcoded user paths)
+        run: |
+          set -eo pipefail
+          # Fail-closed scope check: a refactor that drops a pathspec
+          # would otherwise let the assertion silently no-op. claude/**
+          # is included because Dotbot symlinks claude/settings.json,
+          # claude/commands/*.md, and claude/hooks/*.sh into ~/.claude/
+          # — they're install-pipeline content for cross-platform
+          # purposes even though they live outside the helpers/zsh tree.
+          files=$(git ls-files -- 'zsh/**' 'helpers/**' 'brew/**' 'git/**' 'claude/**')
+          if [ -z "$files" ]; then
+            echo "::error::scoping returned no files — file-list bug"
+            exit 1
+          fi
+          # Match macOS-style hardcoded /Users/<user>/ paths. We do NOT
+          # include /home/<user>/ — that prefix matches legitimate
+          # upstream paths (Linuxbrew at /home/linuxbrew/.linuxbrew, the
+          # OpenClaw container's /home/node user) where the path is the
+          # actual install location, not a hardcoded user path.
+          # `git grep` (vs `xargs grep`) handles filenames with embedded
+          # whitespace and avoids the xargs no-input edge case.
+          if git grep -l --extended-regexp '/Users/[^/]+/' -- \
+              'zsh/**' 'helpers/**' 'brew/**' 'git/**' 'claude/**'; then
+            echo "::error::found hardcoded user path(s) in install-pipeline files"
+            exit 1
+          fi
+
+      - name: R4 assertion (zsh -i -c true exits cleanly)
+        # Per docs/solutions/code-quality/zsh-dash-i-c-exit-false-positive-health-check.md:
+        # use `true` not `exit` — `zsh -i -c exit` returns the exit
+        # status of the last statement in .zshrc (because `exit` with no
+        # arg inherits $?), so a trailing `[[ -f /missing ]]` silently
+        # propagates 1 from a clean shell. `-c true` always exits 0
+        # unless init itself errored, making this a real "did init
+        # complete cleanly?" probe.
+        run: zsh -i -c true
+
+  macos:
+    runs-on: macos-15
+    timeout-minutes: 45
+    env:
+      # Cuts metadata churn on a Brew-heavy install. CI=true is set by
+      # GitHub Actions but pinned for clarity — install.conf.yaml's chsh
+      # directive consults it.
+      HOMEBREW_NO_AUTO_UPDATE: '1'
+      HOMEBREW_NO_INSTALL_CLEANUP: '1'
+      CI: 'true'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4.3.1
+        with:
+          submodules: recursive
+
+      - name: Cache Homebrew downloads + API
+        # Restore-keys deliberately omits a Brewfile-hash subset — that
+        # would let a stale cache survive a Brewfile change. Helper
+        # changes also bust the cache via hashFiles('helpers/**').
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830  # v4.3.0
+        with:
+          path: |
+            ~/Library/Caches/Homebrew/downloads
+            ~/Library/Caches/Homebrew/api
+          key: ${{ runner.os }}-${{ runner.arch }}-brew-${{ hashFiles('brew/Brewfile', 'helpers/**') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ runner.arch }}-brew-
+
+      - name: R2 + R3 (mutation-free dry-run + symlink-resolution)
+        run: |
+          set -eo pipefail
+          DRY_LOG=$(mktemp)
+
+          # Prune runner-noise subtrees from the snapshot:
+          # - $HOME/actions-runner: the GH Actions agent rotates its
+          #   own _diag log files during the step, generating false-
+          #   positive deltas.
+          # - $HOME/work: GitHub workspace (on macOS, $GITHUB_WORKSPACE
+          #   is inside $HOME); checkout/runtime state isn't an
+          #   "install mutation."
+          # - $HOME/Library: macOS background services rotate caches/
+          #   logs continuously.
+          # On Linux containers ($HOME=/github/home or /root), none of
+          # these paths exist as $HOME children — the prune is a no-op.
+          snapshot_home() {
+            find "$HOME" -mindepth 1 \
+              \( -path "$HOME/actions-runner" -o -path "$HOME/work" -o -path "$HOME/Library" \) -prune \
+              -o -print 2>/dev/null \
+              | sort
+          }
+          pre=$(snapshot_home)
+          ./install --dry-run | tee "$DRY_LOG"
+          post=$(snapshot_home)
+
+          if ! diff <(echo "$pre") <(echo "$post"); then
+            echo "::error::dry-run mutated \$HOME"
+            exit 1
+          fi
+
+          # Fresh-runner sanity check (mirrors the Linux leg): on a CI
+          # runner with empty $HOME, every link directive must produce a
+          # "Would create" line. Zero lines means either Dotbot's output
+          # format changed or $HOME is pre-populated — both should fail
+          # loudly, not silently pass.
+          created=$(grep -cE '^Would create (sym|hard)link ' "$DRY_LOG" || true)
+          if [ "${created:-0}" -eq 0 ]; then
+            echo "::error::expected ≥1 'Would create symlink' line in dry-run output (fresh CI runner). Output format change or pre-populated \$HOME?"
+            exit 1
+          fi
+
+          missing=0
+          while IFS= read -r line; do
+            target="${line##*-> }"
+            if [ -z "$target" ]; then continue; fi
+            if [ ! -e "$target" ]; then
+              echo "::error::Dotbot symlink target missing: $target  (from: $line)"
+              missing=$((missing + 1))
+            fi
+          done < <(grep -E '^Would create (sym|hard)link ' "$DRY_LOG" || true)
+          if [ "$missing" -gt 0 ]; then
+            echo "::error::$missing symlink target(s) missing from repo"
+            exit 1
+          fi
+
+      - name: Clean actions/checkout side effects in $HOME
+        # actions/checkout configures git in $HOME during its own setup
+        # phase, leaving a regular `$HOME/.gitconfig` behind. Dotbot's
+        # `~/.gitconfig: git/gitconfig` link entry then fails the real
+        # install with "already exists but is a regular file or
+        # directory" — even with `relink: true`, Dotbot refuses to
+        # delete a regular file (only existing symlinks). Remove it
+        # explicitly so Dotbot can symlink cleanly.
+        run: rm -f "$HOME/.gitconfig"
+
+      - name: Apply (./install)
+        run: ./install
+
+      - name: R3 assertion 1 (no hardcoded user paths)
+        run: |
+          set -eo pipefail
+          # Fail-closed scope check: a refactor that drops a pathspec
+          # would otherwise let the assertion silently no-op. claude/**
+          # is included because Dotbot symlinks claude/settings.json,
+          # claude/commands/*.md, and claude/hooks/*.sh into ~/.claude/
+          # — they're install-pipeline content for cross-platform
+          # purposes even though they live outside the helpers/zsh tree.
+          files=$(git ls-files -- 'zsh/**' 'helpers/**' 'brew/**' 'git/**' 'claude/**')
+          if [ -z "$files" ]; then
+            echo "::error::scoping returned no files — file-list bug"
+            exit 1
+          fi
+          # Match macOS-style hardcoded /Users/<user>/ paths. We do NOT
+          # include /home/<user>/ — that prefix matches legitimate
+          # upstream paths (Linuxbrew at /home/linuxbrew/.linuxbrew, the
+          # OpenClaw container's /home/node user) where the path is the
+          # actual install location, not a hardcoded user path.
+          # `git grep` (vs `xargs grep`) handles filenames with embedded
+          # whitespace and avoids the xargs no-input edge case.
+          if git grep -l --extended-regexp '/Users/[^/]+/' -- \
+              'zsh/**' 'helpers/**' 'brew/**' 'git/**' 'claude/**'; then
+            echo "::error::found hardcoded user path(s) in install-pipeline files"
+            exit 1
+          fi
+
+      - name: R4 assertion (zsh -i -c true exits cleanly)
+        run: zsh -i -c true
