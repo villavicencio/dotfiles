@@ -34,7 +34,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 # helpers (install_tmux.sh etc.) cascade-fail with "tmux: command not
 # found". An earlier image revision left sudo out and install-matrix.yml
 # had to apt-install it at runtime as a workflow bootstrap step (see
-# closed issue #58); baking it in here removes that round-trip.
+# issue #58); baking it in here removes that round-trip.
 #
 # python3 (not python3-minimal): Dotbot is a Python script
 # (dotbot/bin/dotbot exec's python3 "$0") and does `import json` /
