@@ -99,33 +99,15 @@ jobs:
     timeout-minutes: 20
     container:
       # Pinned to the digest published by publish-ci-image.yml on the
-      # PR #1a merge commit (image rev: ci/Dockerfile + Ubuntu 24.04
-      # base manifest-list). Update this hash by hand whenever the
-      # image is republished — github.repository_owner is used so
-      # owner-rename / repo-transfer doesn't break CI; it's lowercase
-      # for this repo, which ghcr.io requires.
-      image: ghcr.io/${{ github.repository_owner }}/dotfiles-ci-ubuntu@sha256:8b0b7108e32229d7842c7cb876bc7f322f114e079d171d9725d1e71279dd3865
+      # most recent ci/Dockerfile master push. Update this hash by hand
+      # after each republish — fetch from `docker buildx imagetools
+      # inspect ghcr.io/<owner>/dotfiles-ci-ubuntu:24.04`. The image
+      # bakes in python3 + sudo (per #58) so no runtime apt-bootstrap
+      # is needed. github.repository_owner is used so owner-rename /
+      # repo-transfer doesn't break CI; it's lowercase for this repo,
+      # which ghcr.io requires.
+      image: ghcr.io/${{ github.repository_owner }}/dotfiles-ci-ubuntu@sha256:758af964844df9c58c87669d31812cbda6655e78e8c94f66387bd0338651a6d6
     steps:
-      - name: Install bootstrap deps (python3, sudo)
-        # The `ubuntu:24.04` base image used by ci/Dockerfile is the
-        # *minimal* Docker image that omits both python3 and sudo.
-        # Production VPS Ubuntu Server images ship both as part of the
-        # base OS, which is why the VPS bootstrap works without these.
-        # Why both:
-        # - python3 (full, not -minimal — strips stdlib): Dotbot is a
-        #   Python script (dotbot/bin/dotbot exec's python3 "$0").
-        # - sudo: helpers/install_packages.sh on Linux uses `sudo
-        #   apt-get install ...` for the apt path. Container runs as
-        #   root, so sudo is a no-op trampoline, but it still has to
-        #   exist on PATH or the helper aborts and install_tmux.sh
-        #   later fails with "tmux: command not found" (cascading).
-        # TODO(#58): bake `python3 sudo` into ci/Dockerfile in a
-        # follow-up PR (chicken-and-egg with publish-ci-image — image
-        # rebuilds only fire on master push).
-        run: |
-          apt-get update -qq
-          apt-get install -y --no-install-recommends python3 sudo
-
       - name: Checkout
         # SHA-pinned to close the supply-chain vector where a force-pushed
         # mutable tag could compromise this workflow at run time.
