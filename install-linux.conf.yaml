@@ -40,7 +40,15 @@
           # cache is empty and `apt-get install locales` would fail
           # with "Unable to locate package locales".
           sudo apt-get update -qq
-          sudo apt-get install -y locales
+          # DEBIAN_FRONTEND=noninteractive must be passed THROUGH sudo
+          # via the leading env-prefix syntax — sudo's default env_reset
+          # strips the env var set by ci/Dockerfile. The `locales`
+          # package's postinst is famously interactive (offers a
+          # locale-selection debconf menu); without noninteractive it
+          # hangs on a non-tty CI runner waiting for stdin that never
+          # comes. The VPS doesn't hit this because Ubuntu Server ships
+          # the package preinstalled.
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y locales
           sudo locale-gen en_US.UTF-8
           sudo update-locale LANG=en_US.UTF-8 LANGUAGE=en_US:en LC_ALL=en_US.UTF-8
         fi
