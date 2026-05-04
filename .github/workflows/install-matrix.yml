@@ -108,6 +108,24 @@ jobs:
       # which ghcr.io requires.
       image: ghcr.io/${{ github.repository_owner }}/dotfiles-ci-ubuntu@sha256:758af964844df9c58c87669d31812cbda6655e78e8c94f66387bd0338651a6d6
     steps:
+      - name: Warm up apt cache
+        # Even though python3 + sudo are now baked into the image
+        # (per #58 / PR #62 / commit 6a8cd43), we still need an early
+        # apt-get update to populate /var/lib/apt/lists/* (which the
+        # ci/Dockerfile RUN block strips after image build) before
+        # downstream apt invocations run.
+        #
+        # Empirically this also serves as a network warm-up: without
+        # it, individual apt-get invocations later in the pipeline
+        # (locale install, helpers/install_packages.sh) hang ~60s per
+        # parallel connection on IPv6 timeout fallback, compounding
+        # past the 20-min job timeout. See run 25347298749 for the
+        # failure mode evidence. Once we have a clean fix for the apt
+        # warmth issue at the image level, this step can be removed.
+        # The empty `apt-get install` is intentional — populates apt
+        # state without installing anything (python3 + sudo are
+        # already present from the image bake).
+        run: apt-get update -qq
       - name: Checkout
         # SHA-pinned to close the supply-chain vector where a force-pushed
         # mutable tag could compromise this workflow at run time.

@@ -33,27 +33,13 @@
         if [ "${DOTFILES_DRY_RUN:-0}" = "1" ]; then
           echo "[dry-run] would force-IPv4 apt + apt-get update + install locales + locale-gen en_US.UTF-8 + update-locale"
         else
-          # Force-IPv4 for apt across the whole install pipeline.
-          # Some GH Actions runner network configs route container
-          # IPv6 to a black hole; apt then hangs ~60s per connection
-          # waiting for the IPv6 timeout before falling back to IPv4.
-          # Multiple apt invocations downstream (this block, plus
-          # helpers/install_packages.sh) compound the penalty into the
-          # 20-min job timeout. On the VPS Ubuntu Server has working
-          # dual-stack so this is a no-op there.
-          # Visible echo so CI logs confirm the file was written.
-          echo 'Acquire::ForceIPv4 "true";' | sudo tee /etc/apt/apt.conf.d/99force-ipv4
-          # Belt + suspenders: pass `-o Acquire::ForceIPv4=true` on each
-          # apt invocation directly so the directive applies even if
-          # apt's conf-d read order shifts in a future Ubuntu release.
-          APT_OPTS="-o Acquire::ForceIPv4=true -o Acquire::http::Timeout=20"
           # apt-get update is required: this command runs BEFORE
           # install_packages.sh (which does its own update), and the
           # ci/Dockerfile minimal base strips /var/lib/apt/lists/*.
           # On the VPS Ubuntu Server has lists populated; in CI the
           # cache is empty and `apt-get install locales` would fail
           # with "Unable to locate package locales".
-          sudo apt-get $APT_OPTS update -qq
+          sudo apt-get update -qq
           # DEBIAN_FRONTEND=noninteractive must be passed THROUGH sudo
           # via the leading env-prefix syntax — sudo's default env_reset
           # strips the env var set by ci/Dockerfile. The `locales`
@@ -62,7 +48,7 @@
           # hangs on a non-tty CI runner waiting for stdin that never
           # comes. The VPS doesn't hit this because Ubuntu Server ships
           # the package preinstalled.
-          sudo DEBIAN_FRONTEND=noninteractive apt-get $APT_OPTS install -y locales
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y locales
           sudo locale-gen en_US.UTF-8
           sudo update-locale LANG=en_US.UTF-8 LANGUAGE=en_US:en LC_ALL=en_US.UTF-8
         fi

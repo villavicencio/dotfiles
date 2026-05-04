@@ -16,18 +16,10 @@ else
       exit 0
     fi
 
-    # Force IPv4 + short connect timeout for apt. GH Actions container
-    # IPv6 reachability to Ubuntu mirrors is unreliable; apt's default
-    # connect timeout is 120s per stuck connection, which compounds to
-    # the 20-min job timeout when many parallel slots all retry.
-    # No-op on the VPS where dual-stack works. See install-linux.conf.yaml
-    # locale block for the matching directive in /etc/apt/apt.conf.d/.
-    APT_OPTS="-o Acquire::ForceIPv4=true -o Acquire::http::Timeout=20"
-
-    sudo apt-get $APT_OPTS update -qq
+    sudo apt-get update -qq
 
     # Core CLI tools (apt equivalents of Brewfile)
-    sudo apt-get $APT_OPTS install -y \
+    sudo apt-get install -y \
         bat btop curl fd-find fzf gawk git jq \
         ncdu neovim ripgrep shellcheck tig tmux \
         tree watch wget zsh build-essential cmake \
@@ -40,7 +32,7 @@ else
             | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg 2>/dev/null
         echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" \
             | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
-        sudo apt-get $APT_OPTS update -qq && sudo apt-get $APT_OPTS install -y gh
+        sudo apt-get update -qq && sudo apt-get install -y gh
     fi
 
     # Starship prompt
