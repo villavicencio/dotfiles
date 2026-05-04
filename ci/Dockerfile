@@ -27,13 +27,28 @@ FROM ubuntu:24.04@sha256:c4a8d5503dfb2a3eb8ab5f807da5bc69a85730fb49b5cfca2330194
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Container runs as root (no USER directive). sudo is intentionally not
-# installed — it would be dead code at root and adds CVE surface.
+# Container runs as root (no USER directive). sudo is still required even
+# at root because helpers/install_packages.sh on Linux invokes
+# `sudo apt-get install ...` — at root sudo acts as a no-op trampoline
+# but the binary must resolve on PATH or the helper aborts and downstream
+# helpers (install_tmux.sh etc.) cascade-fail with "tmux: command not
+# found". An earlier image revision left sudo out and install-matrix.yml
+# had to apt-install it at runtime as a workflow bootstrap step (see
+# closed issue #58); baking it in here removes that round-trip.
+#
+# python3 (not python3-minimal): Dotbot is a Python script
+# (dotbot/bin/dotbot exec's python3 "$0") and does `import json` /
+# `import yaml` at startup. python3-minimal strips the stdlib, so
+# `import json` raises ModuleNotFoundError. The full python3
+# metapackage pulls libpython3-stdlib (~45MB) and matches what
+# Ubuntu Server (the VPS production target) ships out of the box.
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         ca-certificates \
         curl \
         git \
+        python3 \
+        sudo \
         zsh \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
