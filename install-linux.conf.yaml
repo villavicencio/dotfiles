@@ -31,8 +31,15 @@
       quiet: true
     - command: |
         if [ "${DOTFILES_DRY_RUN:-0}" = "1" ]; then
-          echo "[dry-run] would apt-get install locales + locale-gen en_US.UTF-8 + update-locale"
+          echo "[dry-run] would apt-get update + install locales + locale-gen en_US.UTF-8 + update-locale"
         else
+          # apt-get update is required: this command runs BEFORE
+          # install_packages.sh (which does its own update), and the
+          # ci/Dockerfile minimal base strips /var/lib/apt/lists/*.
+          # On the VPS Ubuntu Server has lists populated; in CI the
+          # cache is empty and `apt-get install locales` would fail
+          # with "Unable to locate package locales".
+          sudo apt-get update -qq
           sudo apt-get install -y locales
           sudo locale-gen en_US.UTF-8
           sudo update-locale LANG=en_US.UTF-8 LANGUAGE=en_US:en LC_ALL=en_US.UTF-8
