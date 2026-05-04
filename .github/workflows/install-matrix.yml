@@ -36,6 +36,11 @@
 #    makes practical risk low; pull_request_target was considered and
 #    rejected (its own footgun set is worse). Document in the PR
 #    review process.
+# 8. macos-15 / ubuntu-24.04 runner-image rotation: GitHub re-bakes
+#    these labels periodically (security patches, toolchain bumps).
+#    A surprise green-to-red on an unchanged commit usually means a
+#    runner-image refresh — consult the actions/runner-images repo's
+#    release notes before debugging the install pipeline.
 #
 # What the matrix DOES validate (cross-platform on every PR)
 # ----------------------------------------------------------
@@ -57,6 +62,13 @@ on:
       - '**.md'
       - 'claude/**/*.md'
   workflow_dispatch:
+
+# Least-privilege: the workflow only needs to read the repo. No issue
+# writes, no package writes, no token-scoped externalization. Sibling
+# publish-ci-image.yml asks for `packages: write` because it has to;
+# this one explicitly asks for nothing more than `contents: read`.
+permissions:
+  contents: read
 
 # Cancel superseded PR runs on the same ref. Latest commit wins for PR
 # validation — orphan in-flight runs would just pin a stale tree.
@@ -107,9 +119,9 @@ jobs:
         #   root, so sudo is a no-op trampoline, but it still has to
         #   exist on PATH or the helper aborts and install_tmux.sh
         #   later fails with "tmux: command not found" (cascading).
-        # TODO: bake `python3 sudo` into ci/Dockerfile in a follow-up
-        # PR (chicken-and-egg with publish-ci-image — image rebuilds
-        # only fire on master push).
+        # TODO(#58): bake `python3 sudo` into ci/Dockerfile in a
+        # follow-up PR (chicken-and-egg with publish-ci-image — image
+        # rebuilds only fire on master push).
         run: |
           apt-get update -qq
           apt-get install -y --no-install-recommends python3 sudo
@@ -215,22 +227,38 @@ jobs:
       - name: R3 assertion 1 (no hardcoded user paths)
         run: |
           set -eo pipefail
-          # Fail-closed: a scoping bug that returns an empty file list
-          # would otherwise let an empty xargs pipeline pass silently.
-          files=$(git ls-files -- 'zsh/**' 'helpers/**' 'brew/**' 'git/**')
+          # Fail-closed scope check: a refactor that drops a pathspec
+          # would otherwise let the assertion silently no-op. claude/**
+          # is included because Dotbot symlinks claude/settings.json,
+          # claude/commands/*.md, and claude/hooks/*.sh into ~/.claude/
+          # — they're install-pipeline content for cross-platform
+          # purposes even though they live outside the helpers/zsh tree.
+          files=$(git ls-files -- 'zsh/**' 'helpers/**' 'brew/**' 'git/**' 'claude/**')
           if [ -z "$files" ]; then
             echo "::error::scoping returned no files — file-list bug"
             exit 1
           fi
-          if echo "$files" | xargs grep -lE '/Users/[^/]+/'; then
+          # Match macOS-style hardcoded /Users/<user>/ paths. We do NOT
+          # include /home/<user>/ — that prefix matches legitimate
+          # upstream paths (Linuxbrew at /home/linuxbrew/.linuxbrew, the
+          # OpenClaw container's /home/node user) where the path is the
+          # actual install location, not a hardcoded user path.
+          # `git grep` (vs `xargs grep`) handles filenames with embedded
+          # whitespace and avoids the xargs no-input edge case.
+          if git grep -l --extended-regexp '/Users/[^/]+/' -- \
+              'zsh/**' 'helpers/**' 'brew/**' 'git/**' 'claude/**'; then
             echo "::error::found hardcoded user path(s) in install-pipeline files"
             exit 1
           fi
 
       - name: R4 assertion (zsh -i -c true exits cleanly)
         # Per docs/solutions/code-quality/zsh-dash-i-c-exit-false-positive-health-check.md:
-        # use `true` not `exit` — `exit` exits the shell before any plugin
-        # init that might fail can run, masking regressions.
+        # use `true` not `exit` — `zsh -i -c exit` returns the exit
+        # status of the last statement in .zshrc (because `exit` with no
+        # arg inherits $?), so a trailing `[[ -f /missing ]]` silently
+        # propagates 1 from a clean shell. `-c true` always exits 0
+        # unless init itself errored, making this a real "did init
+        # complete cleanly?" probe.
         run: zsh -i -c true
 
   macos:
@@ -293,6 +321,17 @@ jobs:
             exit 1
           fi
 
+          # Fresh-runner sanity check (mirrors the Linux leg): on a CI
+          # runner with empty $HOME, every link directive must produce a
+          # "Would create" line. Zero lines means either Dotbot's output
+          # format changed or $HOME is pre-populated — both should fail
+          # loudly, not silently pass.
+          created=$(grep -cE '^Would create (sym|hard)link ' "$DRY_LOG" || true)
+          if [ "${created:-0}" -eq 0 ]; then
+            echo "::error::expected ≥1 'Would create symlink' line in dry-run output (fresh CI runner). Output format change or pre-populated \$HOME?"
+            exit 1
+          fi
+
           missing=0
           while IFS= read -r line; do
             target="${line##*-> }"
@@ -328,7 +367,9 @@ jobs:
             echo "::error::scoping returned no files — file-list bug"
             exit 1
           fi
-          if echo "$files" | xargs grep -lE '/Users/[^/]+/'; then
+          # Match macOS (/Users/<user>/) and Linux (/home/<user>/) home
+          # prefixes. Either is a cross-platform divergence bug.
+          if echo "$files" | xargs grep -lE '(/Users/|/home/)[^/]+/'; then
             echo "::error::found hardcoded user path(s) in install-pipeline files"
             exit 1
           fi

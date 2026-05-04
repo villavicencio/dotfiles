@@ -74,7 +74,7 @@ cd "<pane_current_path>" 2>/dev/null && git branch --show-current 2>/dev/null
 From these, synthesize a **one-line prediction** of what the window is
 about. Examples:
 
-- `pane_current_command=claude path=/Users/.../dotfiles` → "Claude Code session in the dotfiles repo"
+- `pane_current_command=claude path=.../dotfiles` → "Claude Code session in the dotfiles repo"
 - `pane_current_command=nvim path=.../every-site` + `Gemfile` + `app/` → "Rails backend for the Every site"
 - `pane_current_command=psql` → "postgres client"
 - `pane_current_command=btop` → "system monitor"
