@@ -107,13 +107,15 @@ The warm-up step was never structurally load-bearing. It happened to be the firs
 Bake the IPv4 force into the image so apt skips the IPv6 attempt preemptively:
 
 ```dockerfile
-RUN apt-get update \
+RUN printf 'Acquire::ForceIPv4 "true";\n' > /etc/apt/apt.conf.d/99-force-ipv4 \
+    && apt-get update \
     && apt-get install -y --no-install-recommends \
         ca-certificates curl git python3 sudo zsh \
     && apt-get clean \
-    && rm -rf /var/lib/apt/lists/* \
-    && printf 'Acquire::ForceIPv4 "true";\n' > /etc/apt/apt.conf.d/99-force-ipv4
+    && rm -rf /var/lib/apt/lists/*
 ```
+
+The `printf` MUST be the first link in the chain. If it's at the end (the "logical" cleanup-block placement), the image build's own `apt-get update` and `apt-get install` are unprotected — `publish-ci-image.yml` itself can hit the same IPv6 fallback this fix is meant to prevent. Only the resulting image's runtime consumers benefit. Caught in PR #66 review.
 
 Why image-level (not workflow runtime, not install-pipeline runtime):
 
