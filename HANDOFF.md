@@ -1,82 +1,77 @@
-# HANDOFF — 2026-05-04 (PDT)
+# HANDOFF — 2026-05-05 (PDT)
 
-Continuation of the same calendar day's morning session that shipped PR #57. Started with `/pickup`, captured two pending learnings as durable docs, then drove **#58 end-to-end via PR #62 + PR #64**: image bake → republish → digest capture → pin bump. PR #64 hit a 4-attempt CI fight against a recurring apt slowness inside the GH Actions Linux container; resolved by restoring (and renaming) the apt-bootstrap step rather than removing it. Net: **2 PRs merged, 2 new follow-up issues filed (#63, #65), 2 institutional learnings landed, 1 global-instruction policy section added.** Issue #58 stays open, deferred to #65.
+Same-calendar-day continuation of the earlier session that landed yesterday's HANDOFF (no overnight gap). Started with `/pickup` against the apt-warmth investigation queued in #65; closed it end-to-end. **Net: 2 PRs merged (#66 + #67), 2 issues closed (#58 + #65), 2 direct-to-master postmortem commits, 1 misattribution corrected.**
+
+The 12-minute Linux CI slowness from 2026-05-04 was finally diagnosed as IPv6 SYN-timeout fallback (`archive.ubuntu.com` → Cloudflare IPv6). Yesterday's "warm-up step is load-bearing" framing was a misattribution; today both warm-path and cold-path runs completed in ~52s, confirming nothing was structurally dependent on the warm-up. Fix landed at the image level (bake `Acquire::ForceIPv4 "true";` into `ci/Dockerfile`), warm-up step removed in step 2/2.
 
 ## What We Built
 
-### docs(solutions) — 2 cross-machine learnings (commit `b230606`, master)
+### docs(solutions) — IPv6 fallback misattribution postmortem (commits `f6fb1c2` + `babdfa6`, master)
 
-Captured at session start from PR #57's "Capture two new institutional learnings" todo:
+`docs/solutions/cross-machine/install-matrix-ipv6-fallback-misattribution-2026-05-05.md` (~155 lines). Documents:
+- The misattribution: yesterday's "warm-up is load-bearing" was wrong; the warm-up coincidentally absorbed the IPv6-fallback timeout budget once
+- The signature: 60-69s gaps between apt `Get:`/`Ign:` lines == IPv6 SYN timeout (default `tcp_syn_retries`)
+- The root cause: `archive.ubuntu.com` resolves to Cloudflare CDN IPv6 (`2606:4700:10::6814:1cf6` and `2606:4700:10::ac42:98b0`); the Azure-eastus runner network can't reliably reach those endpoints
+- The diagnostic methodology: paired `pull_request` (warm-path, default `skip_warmup=false`) + `workflow_dispatch -f skip_warmup=true` (cold-path) runs against the same branch, with `time getent hosts`, `time apt-get update` (without `-qq`), and full `set -x` visibility
+- The four hypothesis verdicts (only #1 confirmed)
+- Why image-level beats workflow-runtime injection (PR #64 tried that and it didn't catch earlier apt invocations)
 
-- `docs/solutions/cross-machine/actions-checkout-leaves-regular-gitconfig-2026-05-04.md` (135 lines) — `actions/checkout` writes a regular `$HOME/.gitconfig` during its setup phase. Dotbot's `relink: true` only replaces existing symlinks (intentional safety), not regular files. Fix: explicit `rm -f "$HOME/.gitconfig"` between checkout and `./install`. Also documents the companion trap: `safe.directory` must use `--system` not `--global` since `--global` writes the very file the cleanup deletes.
-- `docs/solutions/cross-machine/python-bytecode-cache-falsely-fails-r2-on-macos-runners-2026-05-04.md` (113 lines) — `PYTHONDONTWRITEBYTECODE=1` at workflow `env:` level prevents Dotbot's pyyaml import from writing `__pycache__/*.pyc` next to source. On macos-15, `$GITHUB_WORKSPACE` is *inside* `$HOME=/Users/runner`, so those writes show up in R2's `snapshot_home()` delta-diff and falsely fail the assertion. Linux containers have `$HOME=/github/home` (or `/root`) outside the workspace, so the leak is invisible there. Documents why the env flag and the prune list coexist as intentional defense-in-depth.
+Initial commit `f6fb1c2` had the fix snippet showing the printf at the END of the RUN chain. PR #66 review (P2 finding) caught that this would leave `publish-ci-image.yml`'s own image build exposed to the same IPv6 fallback. Commit `babdfa6` fixed the snippet + added a callout against re-reordering. Both committed direct to master per docs carve-out.
 
-Both committed direct to master per the docs carve-out. No PR needed.
+### PR #66 — bake Acquire::ForceIPv4 into ci/Dockerfile (squash-merged 2026-05-05T18:38:05Z as `6d988c3`)
 
-### docs(claude) — Realtime Facts policy section (commit `c86ba98`, master)
+#65 step 1/2. 1 file changed (`ci/Dockerfile`), 20 insertions / 1 deletion.
 
-Added 18-line "Realtime Facts" section to `claude/CLAUDE.md` between Research and Reddit Content. Routes any query phrased as "today" / "right now" / "current" / "as of this writing" or asking for prices, stock state, current external-system config, or current package versions through the `/verify-cite` skill. The skill enforces fetch-fresh + substring-assert + freshness-tag-or-decline. Phrased "is exempt for non-realtime queries" not "is silently no-op for" (per ce-code-review agent-native finding — agent is the classifier, not an automated gate).
+- Writes `Acquire::ForceIPv4 "true";` to `/etc/apt/apt.conf.d/99-force-ipv4` as the **first** link in the existing RUN chain. Order matters: at the end of the chain the conf only protects runtime consumers, leaving `publish-ci-image.yml`'s own build exposed.
+- 13-line comment block above the RUN explaining the IPv6→Cloudflare cause, why image-level (not runtime), and a separate 4-line callout about why the printf must be first in the chain.
+- Branch was history-cleaned via `--force-with-lease`: the original diagnostic instrumentation commit (`aa6e1d3`) and a follow-up reorder commit (`befdd8c`) were collapsed into a single clean commit (`4344e55`). Diagnostic methodology preserved in the postmortem instead.
+- 6 always-on persona ce-code-review wasn't run today — the diff was small and the user reviewed manually. P2 finding (printf placement) caught and fixed before merge.
 
-Originally sitting unstaged in PR #62's working tree; ce-code-review flagged the scope coupling, so it was lifted out and committed standalone to master per the docs carve-out.
+### PR #67 — remove warm-up step + bump digest (squash-merged 2026-05-05T18:52:41Z as `987ff6d`, closes #58 #65)
 
-### PR #62 — bake python3 + sudo into ci/Dockerfile (squash-merged 2026-05-04T20:50:08Z as `6a8cd43`)
+#65 step 2/2. 1 file changed (`.github/workflows/install-matrix.yml`), 6 insertions / 23 deletions.
 
-#58 step 1/2. 1 file changed (`ci/Dockerfile`), 17 insertions / 2 deletions.
+- Bumped pin from `sha256:758af964…a6d6` → `sha256:8f6ad527bb8ee8d729f94c2e3c6f18f872a54b7a0f698d670ac4a8adc6a3f20e`. Captured from `publish-ci-image.yml` run [25395181070](https://github.com/villavicencio/dotfiles/actions/runs/25395181070)'s `containerimage.digest` output (Docker daemon not running locally; the canonical `docker buildx imagetools inspect ghcr.io/villavicencio/dotfiles-ci-ubuntu:24.04` later returned the same digest, confirming the workflow-log capture was correct).
+- Deleted the entire "Warm up apt cache" step + its 17-line comment block.
+- Updated the `image:` block comment to mention #65's ForceIPv4 bake alongside #58's python3+sudo bake.
+- CI on PR #67: Linux **63s**, macOS **9m40s**. Both green. Linux was ~10s slower than the prior 52s baseline because the locale block now does cold `apt-get update` of 19 sources (~37.9 MB in 2s @ 22 MB/s) without the warm-up's pre-population.
 
-- Added `python3` and `sudo` to the apt install list. Image grew ~45MB (libpython3-stdlib via the python3 metapackage).
-- **Comment correction.** The prior comment claimed "sudo is intentionally not installed — it would be dead code at root and adds CVE surface." That was wrong: `helpers/install_packages.sh` invokes `sudo apt-get install` on Linux, so the binary must resolve on PATH even when the container runs as root (no-op trampoline). Without sudo, `install_packages.sh` aborts and downstream helpers cascade-fail. New 14-line comment block explicitly documents the corrected reasoning so a future reader doesn't strip sudo again as "cleanup."
-- Used full `python3` not `python3-minimal` — Dotbot does `import json` / `import yaml` at startup; minimal strips libpython3-stdlib, so `import json` raises `ModuleNotFoundError`.
-- ce-code-review pass (6 always-on personas: correctness/testing/maintainability/project-standards/agent-native/learnings) surfaced 1 safe_auto fix applied in-PR (commit `dea1442`: dropped premature "closed" qualifier on the #58 reference since #58 is still open). 2 P1 findings deferred to action outside the PR (CLAUDE.md scope-out; smoke-test gap).
-- Image republished by `publish-ci-image.yml` on master push. New digest captured directly from GHCR via `docker buildx imagetools inspect ghcr.io/villavicencio/dotfiles-ci-ubuntu:24.04`: **`sha256:758af964844df9c58c87669d31812cbda6655e78e8c94f66387bd0338651a6d6`**.
+### Issues #58 + #65 closed with retrospective comments
 
-### PR #64 — digest pin bump + locale-block correctness fixes (squash-merged 2026-05-05T01:02:04Z as `db86950`)
-
-#58 step 2/2, **scaled back** — original goal also included deleting the runtime apt-bootstrap step, but empirically that step turned out to be load-bearing for apt warmth. Bootstrap-step removal deferred to **#65**.
-
-What landed:
-- `.github/workflows/install-matrix.yml:107` — bumped pin from `sha256:8b0b7108…3865` → `sha256:758af964…a6d6`. Refreshed surrounding comment to drop stale "PR #1a" reference and point at `docker buildx imagetools inspect` for digest capture.
-- `.github/workflows/install-matrix.yml:108-126` — renamed "Install bootstrap deps (python3, sudo)" → "Warm up apt cache" and reduced body from `apt-get update -qq && apt-get install -y --no-install-recommends python3 sudo` to just `apt-get update -qq` (python3+sudo are in the image now). Comment documents the empirical reason it was kept and points at #65.
-- `install-linux.conf.yaml:32-46` — locale block correctness:
-  - Added `sudo apt-get update -qq` before `sudo apt-get install -y locales` (was always-needed; surfaces as "Unable to locate package locales" on a fresh apt cache).
-  - Pass `DEBIAN_FRONTEND=noninteractive` *through* sudo on the locales install (sudo's `env_reset` strips the env var set by ci/Dockerfile, and the locales postinst is famously interactive — was hanging the job on a debconf menu).
-
-### chore(claude) — ssh allowlist addition (commit `33d50c3`, master)
-
-Added `Bash(ssh root@openclaw-prod*)` to `claude/settings.json` permissions allowlist. /pickup Step 2c, /handoff Step 5/6, perm-drift checks, container health probes all run that command once or twice per session. Eliminates the per-invocation prompt.
+- **#58** was actually auto-closed by PR #62's body yesterday (the 2026-05-04 HANDOFF was incorrect that #58 stayed open). Comment added today recording the genuine close (warm-up step finally removed in PR #67).
+- **#65** auto-closed by PR #67's `closes #65` body. Comment added pointing at the postmortem and naming both PRs.
 
 ## Decisions Made
 
-- **Two-PR sequence for #58 was correct as planned.** The chicken-and-egg between `publish-ci-image.yml` (master-push trigger only) and `install-matrix.yml` (consumes the image digest) means the bake (PR #62) and the consume (PR #64) cannot be a single atomic commit if you want CI to pass on the PR itself. The issue body had pre-named this; PR #62's description reproduced the sequencing.
-- **Don't re-strip sudo as "cleanup."** The corrected Dockerfile comment block (~14 lines) is intentionally verbose because the prior comment was confidently wrong and got merged once already. Comment names the failure mode (`install_tmux.sh: tmux: command not found` cascade) and references closed issue #58 so a future reader has the why.
-- **Pivoted PR #64 scope** after 3 failed attempts at the network-config angle (conf-d IPv4 force, inline `-o` opts, http timeout cap). Restored the bootstrap step (renamed to make warm-up purpose explicit) instead of fighting apt's behavior. Better to ship the digest bump + correctness fixes and defer the warm-up-removal half cleanly than to keep iterating on a network problem that may not be solvable from the install pipeline.
-- **`claude/CLAUDE.md` Realtime Facts section committed direct to master,** not bundled into PR #62. ce-code-review's maintainability + project-standards reviewers both flagged the scope coupling. Memory rule says additive docs go direct.
-- **Issue #58 stays open** until #65 lands and the warm-up step can be genuinely removed. PR #64 only partially fulfills #58's acceptance ("Install bootstrap deps step removed"). Comment on #58 explains the deferral.
-- **Skipped the Stage 5b validation pass on ce-code-review.** Interactive mode default routing skips validators (per the skill — only File-tickets option C runs them). This was correct routing for the small diff.
-- **`docker buildx imagetools inspect ghcr.io/<owner>/dotfiles-ci-ubuntu:24.04`** is the canonical way to capture the published digest, not `gh run view --json jobs -q '.jobs[].outputs.digest'`. The CLI doesn't expose job-level `outputs:` in its `--json jobs` schema. GHCR is the source of truth.
+- **Option 1 chosen for the fix.** Image-level ForceIPv4 + remove warm-up. Considered and rejected: (option 2) belt-and-braces with both ForceIPv4 + warm-up, (option 3) just bake ForceIPv4 and leave warm-up. Option 1 truly closes #58, removes ~7s overhead per run, and ForceIPv4 alone is bulletproof against the IPv6-fallback class of failure.
+- **ForceIPv4 lives at the image level, not workflow runtime, not install-pipeline runtime.** PR #64 tried both runtime approaches and they failed (conf-d write at start of locale block was too late; inline `-o` flags interacted with `-qq` to produce silent hangs). Image-level state is universal across every apt invocation from second one onward and doesn't penalize the VPS (which doesn't pull this image).
+- **Two-PR sequence required by chicken-and-egg.** Same as PR #62 + #64 yesterday: ci/Dockerfile changes need to merge to master before publish-ci-image.yml republishes and the new digest is available; install-matrix.yml needs the new digest. Single PR can't satisfy both.
+- **`printf` MUST be first in the RUN chain.** P2 review finding caught this — at the end of the chain the conf only takes effect for runtime consumers, leaving the image build itself exposed. Comment in Dockerfile explicitly warns against re-reordering.
+- **Force-push to drop the diagnostic commit on PR #66.** The branch was mine, the PR was draft, the diagnostic instrumentation served its purpose (gathered the warm/cold timing data) but had no value to preserve in history once the methodology was captured in the postmortem. `--force-with-lease` used for safety.
+- **Postmortem committed direct to master per docs carve-out.** Matches yesterday's pattern (`actions-checkout-leaves-regular-gitconfig-2026-05-04.md` and `python-bytecode-cache-falsely-fails-r2-on-macos-runners-2026-05-04.md`). Per `feedback_commit_approval.md`: "commit directly for new docs and pure additive content."
+- **Diagnostic methodology preserved as a reusable pattern.** `workflow_dispatch` boolean input gating a suspect step + paired warm/cold runs against the same branch (different concurrency groups via different `github.ref`) is documented in the postmortem's "Why this is a learning worth keeping" section.
 
 ## What Didn't Work
 
-- **`Acquire::ForceIPv4 "true";` written to `/etc/apt/apt.conf.d/99force-ipv4`** at the start of the locale shell block (run 25346313051). apt-get update completed in ~2 min (was 18 min on the prior attempt without the fix), but apt-get install in `helpers/install_packages.sh` still hit ~60s/connection delays through ~10 parallel slots before the 20-min cap.
-- **Inline `-o Acquire::ForceIPv4=true -o Acquire::http::Timeout=20`** on every apt invocation (run 25347298749). Made it worse — apt-get update -qq hung silently for the entire 20-min window with zero output. Hypothesis: the timeout=20 caused something to spiral into infinite retry, but the silent hang made it impossible to confirm without stripping `-qq`.
-- **`python3-minimal`** in the bootstrap step (carry-forward from PR #57) — strips the stdlib, dotbot's `import json` raises `ModuleNotFoundError`. Already documented; PR #62 uses full `python3`. Worth reiterating because it's a tempting "size optimization" any future maintainer could revisit.
-- **Trying to delete the bootstrap step entirely** in PR #64 (4 CI attempts: runs `25343189848`, `25344420787`, `25346313051`, `25347298749` — first three failed at apply with locale issues, fourth at 20m timeout). Each attempt taught us something but didn't unblock the deletion. Final pivot was to keep the step (renamed) and file #65.
+- **Yesterday's "warm-up is load-bearing" framing.** Empirical observation was right (removing the warm-up timed out the Linux leg), but the causal model was wrong. The warm-up just absorbed the IPv6-fallback budget once; nothing was structurally dependent on it.
+- **`printf` at the end of the RUN chain** (initial commit on PR #66). Reviewer caught it before merge — would have left the image-build's own apt operations exposed to the same IPv6 fallback.
+- **`docker buildx imagetools inspect` for digest capture.** Docker daemon wasn't running locally. Pulled the digest from the publish workflow's logs instead (the `containerimage.digest` line written by `actions/build-push-action`). Confirmed correct after the fact when the docker command finally returned (it had been hanging in the background).
+- **Initial concurrency-group conflict on the dispatch runs.** Two back-to-back `workflow_dispatch` calls on the same ref shared the `install-matrix-${{ github.ref }}` concurrency group; the second cancelled the first. Solved by triggering one as `pull_request` (PR ref) and the other as `workflow_dispatch` (branch ref), giving them separate groups.
 
 ## What's Next
 
-1. **Issue #65 — investigate apt warmth.** Highest leverage. Resolves the 12-min Linux CI back to <2 min and lets us truly close #58. Issue body has the full empirical record (3 failed network-config approaches with run IDs + timestamps) and 4 hypotheses to test. Suggested first probe: drop `-qq` on apt-get update so the slow-path is observable. Then time `getent hosts archive.ubuntu.com` repeatedly with and without the warm-up.
-2. **PR #1c — third leg of CE trifecta.** `docs/solutions/_index.md` + `critical-patterns.md` regen on `/handoff`. Plan exists at `docs/plans/2026-05-03-001-feat-ci-install-matrix-plan.md` (Deferred to Follow-Up Work section). New feature work, better as fresh session.
-3. **Issues #59 / #60 / #61 / #63** — composite-action extraction, R3 assertion 2 seeded validation, Dotbot output-format pin, publish-ci-image smoke test. Each is a small follow-up; can be picked up independently. #63 is particularly worth doing soon since #65's investigation may reveal that an image-level fix is needed, and a smoke-test guards against image regressions.
-4. **`actions/checkout` Node 20 deprecation warning** is now showing on every CI run. Action can be bumped to a Node 24 version when one is available; currently informational only (the deadline is June 2nd, 2026 per GH's own message).
+1. **#63 — publish-ci-image.yml smoke test.** Most adjacent to the work just shipped. Would catch image-content regressions before they reach `install-matrix.yml`. A future "someone strips ForceIPv4 from the Dockerfile as cleanup" or "apt configuration bug" would be invisible until install-matrix runs against the new digest. A smoke test (e.g., spawn the image and run `apt-config dump | grep ForceIPv4`) catches it at the right layer.
+2. **#59 / #60 / #61** — composite-action extraction, R3 assertion 2 seeded validation, Dotbot output-format pin. Each is a small follow-up; pick up independently.
+3. **PR #1c — third leg of CE trifecta.** `docs/solutions/_index.md` + `critical-patterns.md` regen on `/handoff`. Plan exists at `docs/plans/2026-05-03-001-feat-ci-install-matrix-plan.md` (Deferred to Follow-Up Work section). New feature work, better as fresh session.
+4. **`actions/checkout` Node 20 deprecation warning** still showing on every CI run. Action can bump to a Node 24 version when one is available; currently informational only (deadline June 2nd, 2026 per GH's own message).
 
 ## Gotchas & Watch-outs
 
-- **Linux CI is now ~12 min** (was ~54s on PR #62 era). Network slowness is real and consistent across runs today. Every future PR pays this. #65 is the cure.
-- **The "Warm up apt cache" step is misleadingly named** if you read just the body (`apt-get update -qq`). It's named for *why* it exists (network warm-up), not what the command does. The name is intentional — it's documenting the load-bearing role for future maintainers. Don't rename it back to something descriptive of the body alone.
-- **`docker buildx imagetools inspect` requires the registry to expose the manifest publicly.** publish-ci-image.yml flips visibility to public on every run via `gh api -X PATCH .../visibility`. If that ever fails, the digest capture step in step 2/2 of any future bake-republish-bump cycle will need an authenticated path.
-- **Image digest in `install-matrix.yml:107` is hand-maintained.** Same caveat as PR #57's HANDOFF; reaffirmed today. Every `ci/Dockerfile` change requires (a) merge to master to trigger republish, (b) capture new digest, (c) follow-up PR to bump the pin. No automation today.
-- **`claude/CLAUDE.md`, `claude/commands/*.md`, `claude/settings.json` are symlinked into `~/.claude/`** — edits via the live Claude UI write back through to the repo. Today we modified `claude/CLAUDE.md` (Realtime Facts section) and `claude/settings.json` (ssh allowlist), both committed to master direct. Per `feedback_claude_symlink_writeback.md`, treat any `M` on those as real edits.
-- **`.claude/scheduled_tasks.lock`** is /loop's ScheduleWakeup runtime state — untracked, harness-internal. Don't commit; ignore in pickup checks.
-- **`.forge-pending`** drained at session start (4 items pushed: 2 patterns, 1 comm, 1 cadence). File is gone. Future sessions will only see this file if `/handoff` Step 5's SSH push fails.
-- **`Acquire::ForceIPv4 "true";`** is not currently in `/etc/apt/apt.conf.d/` on the image. The conf-file write was reverted as part of the PR #64 pivot. If you bring it back as part of #65 work, also bring back the visible `tee` (drop `>/dev/null`) so CI logs confirm the write.
-- **The 3-min "Warm up apt cache" step** is also paying the network slowness. Don't be misled by the green CI — the warm-up step is itself slow. The downstream Apply step is what was previously hitting 20m without it; with it, Apply is ~9 min. Cumulative ~12 min total.
-- **Issue #58 still references the closed PRs (#62, #64) but is open.** Comment explains the deferral. When #65 lands and the warm-up step is removed, close #58 in the same PR that removes it.
+- **Linux CI is 63s today** (was 52s baseline pre-#67). The 10s increase is from the locale block doing a cold `apt-get update` of 19 sources without the warm-up's pre-population. Not a regression worth blocking on. If it grows, future option: don't strip `/var/lib/apt/lists/*` in `ci/Dockerfile` so the lists ship populated.
+- **The 60-69s gap signature in apt logs == IPv6 SYN-timeout fallback.** If it ever resurfaces, jump straight to "is `/etc/apt/apt.conf.d/99-force-ipv4` present in the image?" — don't relitigate the 4-attempt CI fight from 2026-05-04. The postmortem documents this explicitly.
+- **`Acquire::ForceIPv4` MUST stay first in the `RUN` chain in `ci/Dockerfile`.** The comment block warns against moving it to "logical" cleanup-block placement at the end. If it gets moved, `publish-ci-image.yml`'s own image build loses the protection (only runtime consumers benefit).
+- **Yesterday's HANDOFF claimed #58 stayed open** until #65 landed. That was incorrect — #58 was auto-closed by PR #62's body on 2026-05-04T20:50:09Z. We didn't notice yesterday because the workflow / acceptance criterion still expected the warm-up step to be removed, which only happened today via PR #67. Just a minor documentation mismatch; both issues are now genuinely closed.
+- **`claude/CLAUDE.md`, `claude/commands/*.md`, `claude/settings.json`** are symlinked into `~/.claude/` — edits via the live Claude UI write back through to the repo. No `claude/*` edits this session, but the rule still applies; treat any `M` on those files as real intentional content (per `feedback_claude_symlink_writeback.md`).
+- **Force-push on draft PRs is OK** when the branch is yours, the PR has no review history yet, and the dropped commits have no preserved value (the diagnostic methodology is in the postmortem, not the dropped commit). Used `--force-with-lease` for safety.
+- **Digest capture from publish workflow logs** is a good fallback when Docker daemon isn't running locally. Look for `containerimage.digest` in the `actions/build-push-action` job output. The canonical method is `docker buildx imagetools inspect ghcr.io/<owner>/dotfiles-ci-ubuntu:24.04` but it requires the daemon.
+- **Inbox-archive cycle on `/pickup`** worked cleanly today: 4 openclaw infra signals (Browserbase down, Discord react missing for Atlas, 2 MCP-reaper high-kill alerts) were surfaced and archived to `shared/inbox/forge/archive/`. None affected dotfiles work.
