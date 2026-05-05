@@ -55,7 +55,13 @@ ENV DEBIAN_FRONTEND=noninteractive
 # IPv4 forcing is wasted opinion. See
 # docs/solutions/cross-machine/install-matrix-ipv6-fallback-misattribution-2026-05-05.md
 # for the full investigation.
-RUN apt-get update \
+#
+# The printf MUST be the first link in the chain so the image build's
+# own apt-get update / apt-get install also benefit. Writing it after
+# the apt calls would protect runtime consumers but leave publish-ci-image.yml
+# itself exposed to the same IPv6 fallback this is meant to prevent.
+RUN printf 'Acquire::ForceIPv4 "true";\n' > /etc/apt/apt.conf.d/99-force-ipv4 \
+    && apt-get update \
     && apt-get install -y --no-install-recommends \
         ca-certificates \
         curl \
@@ -64,8 +70,7 @@ RUN apt-get update \
         sudo \
         zsh \
     && apt-get clean \
-    && rm -rf /var/lib/apt/lists/* \
-    && printf 'Acquire::ForceIPv4 "true";\n' > /etc/apt/apt.conf.d/99-force-ipv4
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /root
 
