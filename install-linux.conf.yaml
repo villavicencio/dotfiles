@@ -31,9 +31,24 @@
       quiet: true
     - command: |
         if [ "${DOTFILES_DRY_RUN:-0}" = "1" ]; then
-          echo "[dry-run] would apt-get install locales + locale-gen en_US.UTF-8 + update-locale"
+          echo "[dry-run] would force-IPv4 apt + apt-get update + install locales + locale-gen en_US.UTF-8 + update-locale"
         else
-          sudo apt-get install -y locales
+          # apt-get update is required: this command runs BEFORE
+          # install_packages.sh (which does its own update), and the
+          # ci/Dockerfile minimal base strips /var/lib/apt/lists/*.
+          # On the VPS Ubuntu Server has lists populated; in CI the
+          # cache is empty and `apt-get install locales` would fail
+          # with "Unable to locate package locales".
+          sudo apt-get update -qq
+          # DEBIAN_FRONTEND=noninteractive must be passed THROUGH sudo
+          # via the leading env-prefix syntax — sudo's default env_reset
+          # strips the env var set by ci/Dockerfile. The `locales`
+          # package's postinst is famously interactive (offers a
+          # locale-selection debconf menu); without noninteractive it
+          # hangs on a non-tty CI runner waiting for stdin that never
+          # comes. The VPS doesn't hit this because Ubuntu Server ships
+          # the package preinstalled.
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y locales
           sudo locale-gen en_US.UTF-8
           sudo update-locale LANG=en_US.UTF-8 LANGUAGE=en_US:en LC_ALL=en_US.UTF-8
         fi
