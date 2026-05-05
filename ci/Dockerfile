@@ -42,7 +42,26 @@ ENV DEBIAN_FRONTEND=noninteractive
 # `import json` raises ModuleNotFoundError. The full python3
 # metapackage pulls libpython3-stdlib (~45MB) and matches what
 # Ubuntu Server (the VPS production target) ships out of the box.
-RUN apt-get update \
+#
+# Acquire::ForceIPv4: archive.ubuntu.com resolves to Cloudflare CDN
+# IPv6 (2606:4700:10::*). When the GH Actions Azure-eastus runner
+# network can't reach those endpoints, every fresh apt connection
+# waits ~60s for the IPv6 SYN to time out before falling back to IPv4
+# — that's the classic 60-69s gap signature observed on 2026-05-04
+# (#65). Forcing IPv4 at the image level skips the IPv6 attempt
+# entirely. Image-level (not workflow runtime, not install-pipeline
+# runtime) because (a) earlier apt invocations would miss runtime
+# injection, (b) the install pipeline also runs on the VPS where
+# IPv4 forcing is wasted opinion. See
+# docs/solutions/cross-machine/install-matrix-ipv6-fallback-misattribution-2026-05-05.md
+# for the full investigation.
+#
+# The printf MUST be the first link in the chain so the image build's
+# own apt-get update / apt-get install also benefit. Writing it after
+# the apt calls would protect runtime consumers but leave publish-ci-image.yml
+# itself exposed to the same IPv6 fallback this is meant to prevent.
+RUN printf 'Acquire::ForceIPv4 "true";\n' > /etc/apt/apt.conf.d/99-force-ipv4 \
+    && apt-get update \
     && apt-get install -y --no-install-recommends \
         ca-certificates \
         curl \
