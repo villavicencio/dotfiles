@@ -25,6 +25,15 @@ fi
 # matches the hook config. Bump both together.
 GITLEAKS_VERSION="8.30.1"
 
+# Dotbot invokes this helper in a fresh non-interactive bash, so zshenv's PATH
+# additions never make it in. pipx installs pre-commit into ~/.local/bin, and
+# the Linux block below installs gitleaks into the same dir; without this
+# export the post-install `command -v` checks and `pre-commit install` below
+# fail (CI evidence: PR #70 first Linux leg, ERROR: pre-commit not on PATH).
+# Harmless on macOS — Brewfile puts binaries in /opt/homebrew/bin, which the
+# parent shell already exposes; ~/.local/bin just gets prepended unused.
+export PATH="$HOME/.local/bin:$PATH"
+
 if [ "$(uname)" = "Linux" ]; then
   if ! command -v pre-commit >/dev/null 2>&1; then
     echo "Installing pre-commit via pipx..."
