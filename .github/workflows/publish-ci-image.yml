@@ -121,7 +121,18 @@ jobs:
           # Linux CI goes from ~63s back toward ~12 minutes. Catching the
           # strip at publish time stops the broken image from getting pinned
           # downstream.
-          docker run --rm "$IMAGE" sh -c 'grep -q "Acquire::ForceIPv4" /etc/apt/apt.conf.d/99-force-ipv4'
+          #
+          # Assert the EFFECTIVE value via `apt-config dump` (which parses the
+          # full conf.d tree and emits one canonical line), not raw substring
+          # presence — a future change to "false", a commented-out directive,
+          # or a same-line comment would all pass a naive grep on the conf
+          # file but defeat the invariant.
+          actual="$(docker run --rm "$IMAGE" apt-config dump Acquire::ForceIPv4)"
+          expected='Acquire::ForceIPv4 "true";'
+          if [ "$actual" != "$expected" ]; then
+            echo "::error::ForceIPv4 invariant broken. apt-config dump returned: ${actual:-<empty>}"
+            exit 1
+          fi
 
       - name: Ensure package is public
         env:
