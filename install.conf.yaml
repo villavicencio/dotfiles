@@ -73,6 +73,7 @@
     - [bash helpers/install_nvm.sh, "Installing nvm"]
     - [bash helpers/install_node.sh, "Installing node + modules"]
     - [bash helpers/install_claude_code.sh, "Installing Claude Code (native installer)"]
+    - [bash helpers/install_pre_commit.sh, "Installing pre-commit + gitleaks hook"]
 
 - create:
     - ~/.claude/commands

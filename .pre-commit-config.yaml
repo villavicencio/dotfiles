@@ -1,0 +1,26 @@
+# Secret-scan hook installed by helpers/install_pre_commit.sh.
+# Runs on every `git commit` to block staged content matching gitleaks's
+# default detector ruleset before it lands in history.
+#
+# Background: docs/solutions/security/2018-leaked-github-pats-and-trufflehog-verified-false-trap-2026-05-06.md
+#
+# Hook ID `gitleaks-system` calls the system-installed gitleaks binary
+# (Brewfile on macOS, helpers/install_pre_commit.sh on Linux). Avoids the
+# Go-toolchain dependency of the default `gitleaks` hook and the Docker
+# dependency of `gitleaks-docker`.
+#
+# Bypass (audited): `git commit --no-verify`. Document the reason in the
+# commit message body — the reflog records the bypass but not the why.
+repos:
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.30.1
+    hooks:
+      - id: gitleaks-system
+        # Upstream's `.pre-commit-hooks.yaml` for `gitleaks-system` is missing
+        # `pass_filenames: false` (the `gitleaks` and `gitleaks-docker`
+        # variants set it correctly). Without this override, pre-commit
+        # appends each staged filename as a positional arg; gitleaks then
+        # silently fails with "cannot change to '<file>': Not a directory"
+        # and the hook reports "no leaks found" — every commit slips
+        # through. Verified against gitleaks v8.30.1.
+        pass_filenames: false
