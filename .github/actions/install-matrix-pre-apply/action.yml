@@ -49,18 +49,32 @@ runs:
         fi
 
         # R3 assertion 2: every "Would create symlink/hardlink X -> Y"
-        # target Y must exist in the repo. Strict prefix match against
+        # target Y must exist in the repo. Strict full-line match against
         # Dotbot's link-plugin emitter (see
         # dotbot/src/dotbot/plugins/link.py:350 — format is
         # "Would create {symlink|hardlink} {link_name} -> {target_path}").
         # Color is auto-disabled when stdout is piped (use_color falls
         # back to sys.stdout.isatty()), so no ANSI stripping needed.
         #
+        # Defined once and reused so the count check and the extraction
+        # loop can't drift apart. The regex pins all four structural
+        # pieces — keyword prefix, sym|hard variant, the literal " -> "
+        # separator, and end-of-line — so a Dotbot submodule bump that
+        # changes ANY of them (e.g., emits "Would create link" without
+        # the variant, or replaces "->" with "=>") will fail to match
+        # and trip the fresh-runner sanity check below. A wider regex
+        # could let a partial-match regression through silently.
+        # [^[:space:]]+ on each side because Dotbot's emitter never
+        # produces whitespace-bearing link-names or targets — repo paths
+        # in install.conf.yaml don't allow them.
+        LINK_RE='^Would create (sym|hard)link [^[:space:]]+ -> [^[:space:]]+$'
+
         # Fresh-runner sanity check: on a CI runner with empty $HOME,
         # every link directive must produce a "Would create" line. Zero
-        # lines means either Dotbot's output format changed or $HOME is
-        # pre-populated — both should fail loudly, not silently pass.
-        created=$(grep -cE '^Would create (sym|hard)link ' "$DRY_LOG" || true)
+        # lines means either Dotbot's output format changed (the strict
+        # regex above stopped matching) or $HOME is pre-populated —
+        # both should fail loudly, not silently pass.
+        created=$(grep -cE "$LINK_RE" "$DRY_LOG" || true)
         if [ "${created:-0}" -eq 0 ]; then
           echo "::error::expected ≥1 'Would create symlink' line in dry-run output (fresh CI runner). Output format change or pre-populated \$HOME?"
           exit 1
@@ -74,7 +88,7 @@ runs:
             echo "::error::Dotbot symlink target missing: $target  (from: $line)"
             missing=$((missing + 1))
           fi
-        done < <(grep -E '^Would create (sym|hard)link ' "$DRY_LOG" || true)
+        done < <(grep -E "$LINK_RE" "$DRY_LOG" || true)
         if [ "$missing" -gt 0 ]; then
           echo "::error::$missing symlink target(s) missing from repo"
           exit 1
