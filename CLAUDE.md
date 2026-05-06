@@ -21,7 +21,7 @@ docs/           Compound-engineering pipeline artifacts:
                 - docs/brainstorms/  Requirements docs from /ce-brainstorm
                 - docs/ideation/     Idea-survival outputs from /ce-ideate
                 - docs/plans/        Implementation plans from /ce-plan
-                - docs/solutions/    Postmortems by category
+                - docs/solutions/    documented solutions to past problems (bugs, best practices, workflow patterns), organized by category with YAML frontmatter (module, tags, problem_type)
 ci/             CI assets (Dockerfile for install-matrix workflow)
 fonts/          Nerd fonts installed by helpers/install_fonts.sh
 git/            gitconfig, gitignore, gitattributes

@@ -20,7 +20,8 @@ symptoms:
   - "Manual `git log -p | rg` cross-check found the missed token in seconds; the audit could easily have been declared 'clean' after only the trufflehog pass"
 problem_type: "Long-lived secret leak in public git history + secret-scanner false-negative driven by keyword-gated detection on legacy 40-hex tokens"
 module: "git history (specifically commits 34f1147 → 7c05ea9 in this repo) and secret-scanning workflow"
-related_solutions: []
+related_solutions:
+  - "docs/solutions/best-practices/public-repo-secret-audit-recipe-2026-05-06.md — generalized recipe + force-push-to-amend pattern distilled from this incident; this postmortem is the worked-example evidence the recipe references"
 ---
 
 ## TL;DR
