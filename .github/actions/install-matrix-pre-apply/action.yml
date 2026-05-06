@@ -1,0 +1,92 @@
+name: install-matrix pre-apply
+description: >
+  R2 (mutation-free dry-run) + R3 assertion 2 (Dotbot symlink-target
+  resolution) + clean actions/checkout side effects. Runs before
+  `./install`. Body is identical across the linux and macos legs by
+  construction — extracting it here closes the silent-divergence gap
+  flagged on PR #57 (the `created≥1` fresh-runner check originally
+  shipped on linux only).
+
+# Composite actions don't inherit the workflow's `defaults.run.shell`,
+# so each step declares `shell: bash` explicitly.
+runs:
+  using: composite
+  steps:
+    - name: R2 + R3 (mutation-free dry-run + symlink-resolution)
+      shell: bash
+      run: |
+        set -eo pipefail
+        DRY_LOG=$(mktemp)
+
+        # Pre-snapshot of $HOME for delta semantics. Works on a non-empty
+        # $HOME (the macOS leg's runner $HOME has setup state); the diff
+        # is what matters, not the absolute count.
+        # Prune runner-noise subtrees from the snapshot:
+        # - $HOME/actions-runner: the GH Actions agent rotates its
+        #   own _diag log files during the step, generating false-
+        #   positive deltas.
+        # - $HOME/work: GitHub workspace (on macOS, $GITHUB_WORKSPACE
+        #   is inside $HOME); checkout/runtime state isn't an
+        #   "install mutation."
+        # - $HOME/Library: macOS background services rotate caches/
+        #   logs continuously.
+        # On Linux containers ($HOME=/github/home or /root), none of
+        # these paths exist as $HOME children — the prune is a no-op.
+        snapshot_home() {
+          find "$HOME" -mindepth 1 \
+            \( -path "$HOME/actions-runner" -o -path "$HOME/work" -o -path "$HOME/Library" \) -prune \
+            -o -print 2>/dev/null \
+            | sort
+        }
+        pre=$(snapshot_home)
+        ./install --dry-run | tee "$DRY_LOG"
+        post=$(snapshot_home)
+
+        # R2: zero-mutation delta assertion.
+        if ! diff <(echo "$pre") <(echo "$post"); then
+          echo "::error::dry-run mutated \$HOME"
+          exit 1
+        fi
+
+        # R3 assertion 2: every "Would create symlink/hardlink X -> Y"
+        # target Y must exist in the repo. Strict prefix match against
+        # Dotbot's link-plugin emitter (see
+        # dotbot/src/dotbot/plugins/link.py:350 — format is
+        # "Would create {symlink|hardlink} {link_name} -> {target_path}").
+        # Color is auto-disabled when stdout is piped (use_color falls
+        # back to sys.stdout.isatty()), so no ANSI stripping needed.
+        #
+        # Fresh-runner sanity check: on a CI runner with empty $HOME,
+        # every link directive must produce a "Would create" line. Zero
+        # lines means either Dotbot's output format changed or $HOME is
+        # pre-populated — both should fail loudly, not silently pass.
+        created=$(grep -cE '^Would create (sym|hard)link ' "$DRY_LOG" || true)
+        if [ "${created:-0}" -eq 0 ]; then
+          echo "::error::expected ≥1 'Would create symlink' line in dry-run output (fresh CI runner). Output format change or pre-populated \$HOME?"
+          exit 1
+        fi
+
+        missing=0
+        while IFS= read -r line; do
+          target="${line##*-> }"
+          if [ -z "$target" ]; then continue; fi
+          if [ ! -e "$target" ]; then
+            echo "::error::Dotbot symlink target missing: $target  (from: $line)"
+            missing=$((missing + 1))
+          fi
+        done < <(grep -E '^Would create (sym|hard)link ' "$DRY_LOG" || true)
+        if [ "$missing" -gt 0 ]; then
+          echo "::error::$missing symlink target(s) missing from repo"
+          exit 1
+        fi
+
+    - name: Clean actions/checkout side effects in $HOME
+      # actions/checkout configures git in $HOME during its own setup
+      # phase, leaving a regular `$HOME/.gitconfig` behind. Dotbot's
+      # `~/.gitconfig: git/gitconfig` link entry then fails the real
+      # install with "already exists but is a regular file or
+      # directory" — even with `relink: true`, Dotbot refuses to
+      # delete a regular file (only existing symlinks). Remove it
+      # explicitly so Dotbot can symlink cleanly.
+      shell: bash
+      run: rm -f "$HOME/.gitconfig"
