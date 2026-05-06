@@ -27,7 +27,7 @@ at it. Zero new code. Darwin install untouched.
 When SSHed into `openclaw-prod` from a local tmux, the nested VPS
 tmux renders `main 1: ops 2: logs 3: openclaw 4: tui` — plain text —
 while the outer local bar renders glyph-prefixed colored tabs
-(`✦ Home`, `🌐 FedEx`, etc.). Visual parity across the two status
+(`✦ Home`, `🌐 Work`, etc.). Visual parity across the two status
 bars is the goal. Collapsing the nested bar is **out of scope**
 (confirmed during brainstorm — user answered "Match the glyph +
 palette style").

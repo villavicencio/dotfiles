@@ -23,7 +23,7 @@
 # 4. docker-desktop runtime: the cask installs but the daemon never
 #    starts in CI. If a future helper invokes `docker ps`, gate it on
 #    the same CI env-var pattern as chsh.
-# 5. Corporate-SSL paths (work-Mac via FedEx proxy) — would require a
+# 5. Corporate-SSL paths (work-Mac via TLS-intercepting proxy) — would require a
 #    self-hosted runner or cert-redaction strategy. Not in scope.
 # 6. Credential-pattern detection: R3's grep covers `/Users/<user>/`
 #    paths only — not API keys, OAuth tokens, JWT blobs, or service

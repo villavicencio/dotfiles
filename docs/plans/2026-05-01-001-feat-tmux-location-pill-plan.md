@@ -10,19 +10,19 @@ deepened: 2026-05-01
 
 ## Summary
 
-Add a city/region segment to the existing tmux status-right time/date pill so it reads `El Dorado Hills, CA · 3:24 PM · May 01` on the personal Mac and `Helsinki, Finland · 3:24 AM · May 02` on the VPS. Implementation is one new cross-platform shell script (`tmux/scripts/location.sh`) that resolves the city/region via CoreLocation on Darwin (the `corelocationcli` Homebrew **cask** — installs the binary as `CoreLocationCLI`, capitalized) and IP geolocation on Linux (`ipinfo.io` / `ip-api.com` over `curl + jq`), backed by a TTL cache outside the repo with async background refresh; `tmux/tmux.display.conf`'s `status-right` is rewritten to inject the segment, and the pill stays a single visual unit with the same blue/green palette.
+Add a city/region segment to the existing tmux status-right time/date pill so it reads `Sample City, ST · 3:24 PM · May 01` on the personal Mac and `Helsinki, Finland · 3:24 AM · May 02` on the VPS. Implementation is one new cross-platform shell script (`tmux/scripts/location.sh`) that resolves the city/region via CoreLocation on Darwin (the `corelocationcli` Homebrew **cask** — installs the binary as `CoreLocationCLI`, capitalized) and IP geolocation on Linux (`ipinfo.io` / `ip-api.com` over `curl + jq`), backed by a TTL cache outside the repo with async background refresh; `tmux/tmux.display.conf`'s `status-right` is rewritten to inject the segment, and the pill stays a single visual unit with the same blue/green palette.
 
 ---
 
 ## Problem Frame
 
-The status-right pill currently shows just `%-I:%M %p · %b %d`. The user travels (El Dorado Hills, FedEx office, occasional trips) and runs an inner tmux on a Hetzner-FI VPS. Showing the current city/region in the pill would give a glanceable "where am I right now" that also doubles as a clear LOCAL-vs-VPS visual differentiator beyond the existing palette split. There is no existing surface for this in the dotfiles repo — fresh build.
+The status-right pill currently shows just `%-I:%M %p · %b %d`. The user moves between locations (home, work, occasional travel) and runs an inner tmux on a Hetzner-FI VPS. Showing the current city/region in the pill would give a glanceable "where am I right now" that also doubles as a clear LOCAL-vs-VPS visual differentiator beyond the existing palette split. There is no existing surface for this in the dotfiles repo — fresh build.
 
 ---
 
 ## Requirements
 
-- R1. Render a city/region segment in the existing tmux status-right pill in the form `City, Region` for US (e.g. `El Dorado Hills, CA`) and `City, Country` for international (e.g. `Helsinki, Finland`).
+- R1. Render a city/region segment in the existing tmux status-right pill in the form `City, Region` for US (e.g. `Sample City, ST`) and `City, Country` for international (e.g. `Helsinki, Finland`).
 - R2. Use Apple CoreLocation (the `corelocationcli` Homebrew **cask**, which installs the binary as `CoreLocationCLI`) as the source on macOS for neighborhood-level precision.
 - R3. Use IP geolocation as the source on the Linux VPS — Hetzner-FI naturally returns Helsinki/Finland; no special-case hardcode.
 - R4. Never block or break the status bar. Network failure, missing dependency, missing permission, or empty cache must all silently fall through to a last-known value or an empty segment.
@@ -231,7 +231,7 @@ Not gathered — `corelocationcli` and `ipinfo.io` / `ip-api.com` are well-docum
 - `helpers/install_packages.sh:7` — `if [ "$(uname)" = "Darwin" ]; then ... fi` as the platform-branch idiom.
 
 **Test scenarios:**
-- *Happy path (Mac, cold cache):* Run `tmux/scripts/location.sh` from a Mac shell. First call returns empty (no cache yet) and spawns a worker. Within 2 seconds, `cat ~/.cache/tmux-location/value` shows `El Dorado Hills, CA · ` (or whatever the user's actual locality is).
+- *Happy path (Mac, cold cache):* Run `tmux/scripts/location.sh` from a Mac shell. First call returns empty (no cache yet) and spawns a worker. Within 2 seconds, `cat ~/.cache/tmux-location/value` shows `Sample City, ST · ` (or whatever the user's actual locality is).
 - *Happy path (Mac, warm cache):* Subsequent calls within the TTL window return instantly from cache. Time the call: should be <50 ms.
 - *Happy path (VPS, cold cache):* Same flow on the VPS. After a few seconds the cache contains `Helsinki, Finland · ` (or whatever Hetzner-FI's actual public IP geolocates to).
 - *Edge case (cache stale):* Manually `touch -t 202601010000 ~/.cache/tmux-location/value`. Next call returns the existing value AND spawns a worker that overwrites the file with a fresh value. Lock dir appears briefly during the refresh, vanishes after.

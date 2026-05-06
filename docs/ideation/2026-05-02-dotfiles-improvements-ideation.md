@@ -51,7 +51,7 @@ mise (Rust, ~10-30ms init) replaces NVM+pyenv+rbenv stack — eliminates lazy-lo
 ### 2. 1Password `op inject` for `~/env.sh` and machine overrides
 **Description:** Versioned `templates/env.sh.tpl` with `{{ op://Vault/Item/field }}` references; new `helpers/install_env.sh` runs `op inject` per machine. Vertex AI service-account JSON moves from `~/Downloads/` into 1Password.
 **Warrant:** **direct:** CLAUDE.md "Setting up the work Mac" step 6 prescribes `GOOGLE_APPLICATION_CREDENTIALS=~/Downloads/...json` — same doc's "Common offenders" flags `~/Downloads/` paths as anti-pattern. **external:** `op inject` is the canonical zero-disk-exposure pattern.
-**Rationale:** Work Mac is FedEx-managed; if MDM moves Downloads, every Claude Code session breaks. Centralizes secret rotation.
+**Rationale:** Work Mac is corporate-managed; if MDM moves Downloads, every Claude Code session breaks. Centralizes secret rotation.
 **Downsides:** Adds `op` as startup-path dependency (latency, "is op signed in?" prompts). Service-account auth on VPS needs separate setup.
 **Confidence:** 85%
 **Complexity:** Medium

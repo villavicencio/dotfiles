@@ -12,7 +12,7 @@ Give the **VPS's inner tmux status bar** the same glyph + palette treatment the
 Mac's outer tmux already has. When SSHed into `openclaw-prod` from a local
 tmux session, the nested VPS tmux currently shows plain `1: ops | 2: logs |
 3: openclaw | 4: tui` while the outer bar below shows colored glyph-prefixed
-tabs (✦ Home, 🌐 FedEx, 🎯 Eagle, ⚙ Dotfiles). The nesting itself stays —
+tabs (✦ Home, 🌐 Work, 🎯 Eagle, ⚙ Dotfiles). The nesting itself stays —
 we want **visual parity**, not collapse.
 
 The VPS already symlinks `tmux/tmux.conf` (including the glyph ternary in
