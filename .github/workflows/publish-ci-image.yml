@@ -92,6 +92,37 @@ jobs:
             exit 1
           fi
 
+      - name: Smoke-test image contents
+        # Pulls the just-pushed image by digest and runs each tool the install
+        # pipeline assumes is present in the base layer. A silent apt failure
+        # during build that Docker layer-caches past would otherwise produce a
+        # valid-shape digest pointing at a broken image; install-matrix.yml
+        # would only catch the regression after a consuming-side digest pin
+        # bump, by which time the broken artifact is already canonical on
+        # GHCR. Hard-failing here keeps the visibility flip below from
+        # promoting a broken image to public.
+        run: |
+          IMAGE="ghcr.io/${{ steps.owner.outputs.lc }}/dotfiles-ci-ubuntu@${{ steps.build.outputs.digest }}"
+          # `import json` covers the Dotbot trampoline (bin/dotbot exec's
+          # python3 with stdlib imports). `import yaml` is intentionally NOT
+          # tested here even though #63's spec listed it — Dotbot bundles its
+          # own PyYAML at lib/pyyaml/lib and inserts it into sys.path at
+          # runtime, so the image does not need a system-installed PyYAML.
+          # The Dockerfile uses --no-install-recommends and would have to add
+          # python3-yaml just for this assertion to pass; that would bloat the
+          # image for no real coverage gain.
+          docker run --rm "$IMAGE" python3 -c 'import json'        # Dotbot trampoline + stdlib
+          docker run --rm "$IMAGE" sh -c 'command -v sudo'         # install_packages.sh trampoline
+          docker run --rm "$IMAGE" sh -c 'command -v zsh'          # R4 assertion target
+          docker run --rm "$IMAGE" sh -c 'command -v git'          # checkout + dotbot submodules
+          # ForceIPv4 conf must stay first in the RUN chain (see comment in
+          # ci/Dockerfile). If a cleanup commit silently strips it, the apt
+          # IPv6 SYN-timeout regression on archive.ubuntu.com re-emerges and
+          # Linux CI goes from ~63s back toward ~12 minutes. Catching the
+          # strip at publish time stops the broken image from getting pinned
+          # downstream.
+          docker run --rm "$IMAGE" sh -c 'grep -q "Acquire::ForceIPv4" /etc/apt/apt.conf.d/99-force-ipv4'
+
       - name: Ensure package is public
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
