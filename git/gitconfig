@@ -78,9 +78,9 @@
 	helper = !/opt/homebrew/bin/gh auth git-credential
 
 # Machine-specific overrides (git identity, work email, etc.)
-# On the work Mac, create ~/.gitconfig.local with:
+# On a work machine, create ~/.gitconfig.local with:
 #   [user]
-#       email = david.villavicencio@fedex.com
+#       email = <your-work-email>
 [include]
     path = ~/.gitconfig.local
 [credential "https://dev.azure.com"]

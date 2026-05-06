@@ -5,7 +5,7 @@ This repo is the single source of truth for two Macs and one VPS:
 | Machine | OS | Hardware | Role |
 |---|---|---|---|
 | personal | macOS Tahoe | M-series | Primary, source of truth |
-| work | macOS Sequoia | M-series | FedEx managed |
+| work | macOS Sequoia | M-series | corporate-managed |
 | vps (openclaw-prod) | Ubuntu 24.04 | Hetzner VPS | OpenClaw + Forge host |
 
 Managed by [Dotbot](https://github.com/anishathalye/dotbot). Run `./install` to set up a machine — the wrapper picks `install.conf.yaml` on Darwin and `install-linux.conf.yaml` on Linux automatically.
@@ -65,12 +65,13 @@ Never use `$HOMEBREW_BREW_FILE` — it's unreliable across Homebrew versions. Us
 Use it on any machine for local-only exports, aliases, or PATH additions that should not be committed.
 
 **Git identity:** `~/.gitconfig.local` is included at the end of `git/gitconfig`.
-The personal email (`villavicencio.david@gmail.com`) is the default. The work Mac needs:
+The personal email (`villavicencio.david@gmail.com`) is the default. On a work machine,
+override with the corporate email in the local file:
 
 ```ini
 # ~/.gitconfig.local
 [user]
-    email = david.villavicencio@fedex.com
+    email = <your-work-email>
 ```
 
 **SSH hosts:** `~/.ssh/config` is not tracked. Per-machine host aliases (e.g. `Host openclaw-prod` for the VPS, `Host work` for the work Mac) are added directly there. Aliases are required for IDEs that read `~/.ssh/config` to populate Remote-SSH host pickers (Antigravity, VS Code, Cursor) — `ssh root@openclaw-prod` working from the shell is not sufficient on its own.
@@ -214,13 +215,13 @@ Helper scripts are in `helpers/`. Each is independently runnable.
 5. Create `~/.gitconfig.local`:
    ```ini
    [user]
-       email = david.villavicencio@fedex.com
+       email = <your-work-email>
    ```
-6. Create `~/env.sh` with required FedEx/Vertex AI overrides:
+6. Create `~/env.sh` with required corporate Vertex AI overrides:
    ```bash
    export CLOUDSDK_PYTHON=/usr/bin/python3
-   export GOOGLE_APPLICATION_CREDENTIALS=~/Downloads/fxei-meta-project-35631b0c2409.json
-   export ANTHROPIC_VERTEX_PROJECT_ID=fxei-meta-project
+   export GOOGLE_APPLICATION_CREDENTIALS=~/Downloads/<service-account-key>.json
+   export ANTHROPIC_VERTEX_PROJECT_ID=<corp-gcp-project>
    export CLAUDE_CODE_USE_VERTEX=1
    export CLOUD_ML_REGION=us-east5
    ```

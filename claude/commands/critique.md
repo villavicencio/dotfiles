@@ -23,7 +23,7 @@ Spin up three parallel Sonnet subagents, each with a different lens. Give each a
 ```
 You are reviewing an implementation plan. Your job is to find flaws, risks, and
 things that could go wrong. Consider: edge cases, breaking changes, cross-machine
-compatibility (personal Mac vs corporate FedEx Mac), rollback difficulty, and
+compatibility (personal Mac vs corporate Mac), rollback difficulty, and
 whether this is solving the right problem. Be specific — name the files and
 scenarios. Don't rubber-stamp anything.
 ```

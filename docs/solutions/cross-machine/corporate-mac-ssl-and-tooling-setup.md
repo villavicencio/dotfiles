@@ -43,7 +43,7 @@ scope:
 
 ## Context
 
-On the FedEx-managed Mac (macOS Sequoia, M-series), installing the Google Cloud SDK and Claude Code fails with `SSL_CERT_VERIFICATION_ERROR`. This affects both direct download (`curl https://sdk.cloud.google.com | bash`) and Homebrew (`brew install google-cloud-sdk`). Standard Python SSL environment variables (`REQUESTS_CA_BUNDLE`, `SSL_CERT_FILE`) do not resolve the issue because the gcloud SDK uses its own bundled Python SSL context.
+On the corporate-managed Mac (macOS Sequoia, M-series), installing the Google Cloud SDK and Claude Code fails with `SSL_CERT_VERIFICATION_ERROR`. This affects both direct download (`curl https://sdk.cloud.google.com | bash`) and Homebrew (`brew install google-cloud-sdk`). Standard Python SSL environment variables (`REQUESTS_CA_BUNDLE`, `SSL_CERT_FILE`) do not resolve the issue because the gcloud SDK uses its own bundled Python SSL context.
 
 Several other cross-machine issues surfaced during the same work Mac sync session.
 
@@ -75,7 +75,7 @@ The Python 3.9 deprecation warning from gcloud is safe to ignore.
 **Step 3 -- Configure the project**
 
 ```bash
-gcloud config set project fxei-meta-project
+gcloud config set project <corp-gcp-project>
 ```
 
 **Step 4 -- Persist env vars in `~/env.sh`**
@@ -83,10 +83,10 @@ gcloud config set project fxei-meta-project
 This file is sourced at the end of `zshrc` and is not committed to the repo:
 
 ```bash
-# ~/env.sh -- FedEx work Mac overrides
+# ~/env.sh -- corporate work-Mac overrides
 export CLOUDSDK_PYTHON=/usr/bin/python3
-export GOOGLE_APPLICATION_CREDENTIALS=~/Downloads/fxei-meta-project-35631b0c2409.json
-export ANTHROPIC_VERTEX_PROJECT_ID=fxei-meta-project
+export GOOGLE_APPLICATION_CREDENTIALS=~/Downloads/<service-account-key>.json
+export ANTHROPIC_VERTEX_PROJECT_ID=<corp-gcp-project>
 export CLAUDE_CODE_USE_VERTEX=1
 export CLOUD_ML_REGION=us-east5
 ```
@@ -218,7 +218,7 @@ Run after every `git pull && ./install`:
 
 - [ ] New terminal opens without errors or warnings
 - [ ] `echo $BREW_PREFIX` prints `/opt/homebrew`
-- [ ] `git config user.email` shows the FedEx email
+- [ ] `git config user.email` shows the corporate email
 - [ ] `node --version` works (triggers NVM lazy load)
 - [ ] `claude --version` works immediately
 - [ ] `echo $PATH | tr ':' '\n' | sort | uniq -d` -- no duplicates
