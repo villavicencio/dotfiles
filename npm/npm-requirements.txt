@@ -1,3 +1,4 @@
+@browserbasehq/cli
 bash-language-server
 corepack
 npm
