@@ -113,15 +113,16 @@ if [[ -s "$NVM_DIR/nvm.sh" ]]; then
   unset DEFAULT_NODE_PATH
 
   _load_nvm() {
-    unset -f _load_nvm nvm node npm npx bb
+    unset -f _load_nvm nvm node npm npx bb browse
     source "$NVM_DIR/nvm.sh"
     [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"
   }
-  nvm()  { _load_nvm; nvm "$@"; }
-  node() { _load_nvm; command node "$@"; }
-  npm()  { _load_nvm; command npm "$@"; }
-  npx()  { _load_nvm; command npx "$@"; }
-  bb()   { _load_nvm; command bb "$@"; }
+  nvm()    { _load_nvm; nvm "$@"; }
+  node()   { _load_nvm; command node "$@"; }
+  npm()    { _load_nvm; command npm "$@"; }
+  npx()    { _load_nvm; command npx "$@"; }
+  bb()     { _load_nvm; command bb "$@"; }
+  browse() { _load_nvm; command browse "$@"; }
 fi
 
 # Lazy load RVM

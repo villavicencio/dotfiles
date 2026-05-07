@@ -1,3 +1,4 @@
+@browserbasehq/browse-cli
 @browserbasehq/cli
 bash-language-server
 corepack
