@@ -22,23 +22,37 @@ When you hit a wall — unfamiliar tool, unknown API, missing docs — always pe
 before giving up or saying "I don't know." The WebSearch tool is available and should be your
 default fallback for anything outside your training data.
 
-## Realtime Facts
+## Web Tool Ladder
 
-For **realtime-fact queries** — prices, stock state, "as of today" claims, current-event facts,
-current external-system configuration, current package versions, or any claim phrased as
-"today" / "right now" / "current" / "as of this writing" — invoke the `/verify-cite` skill before
-quoting. The skill enforces a fetch-fresh + substring-assert + freshness-tag-or-decline contract
-that prevents the failure mode where stale training data is silently quoted as current.
+Three tiers, in order. Reach for the lowest tier that can actually answer the question.
 
-**Never quote a realtime fact from training data without a freshness tag.** WebSearch is fine for
-*finding* candidate URLs but its SERP snippets are stale-by-design and don't satisfy the freshness
-contract — when the user asks for a *specific current fact*, route through `/verify-cite`, not
-WebSearch alone.
+1. **`WebFetch`** — default. Static HTML, server-rendered pages, doc URLs, READMEs, anything
+   `curl` would handle. Free and fast.
+2. **`browser` skill (Browserbase)** — preferred for any fetch where WebFetch isn't sufficient
+   *and* for **realtime-fact queries** (prices, stock state, "as of today" claims, current-event
+   facts, current external-system configuration, current package versions, anything phrased as
+   "today" / "right now" / "current" / "as of this writing"). Real browser, JS rendering, anti-bot
+   bypass, residential proxies. The user has generous Browserbase usage and prefers it over the
+   stricter `/verify-cite` contract for everyday realtime fetches. **When using `browser` for a
+   realtime-fact query, apply the freshness discipline manually:** quote only what is literally
+   in the fetched page, attach source URL + fetch timestamp to the quote, or decline with a
+   reason. Same contract as `/verify-cite` — just enforced by you, not the skill.
+3. **`/verify-cite`** — strict-contract fallback. Use when the user explicitly asks for a
+   verified citation, when a claim is high-stakes (financial, medical, legal, public-record),
+   or when you want the skill itself to enforce fetch-fresh + substring-assert + freshness-tag-
+   or-decline rather than relying on your own discipline. Also the right tool when a fact came
+   from training data and you have specifically not yet fetched a current source for it.
 
-`/verify-cite` is exempt for non-realtime queries (general reasoning, code review, design
-discussion, summarization of static reference material) — the skill itself classifies and
-shouldn't get in the way. When in doubt about whether a query is realtime, default to firing
-`/verify-cite` (false-positive declines are recoverable; silent confabulations are not).
+**Never quote a realtime fact from training data without a freshness tag.** WebSearch returns
+SERP snippets that are stale-by-design and do not satisfy the freshness contract — it is fine
+for *finding* candidate URLs but a fact lifted from a search snippet is not a verified fact.
+When the user asks for a *specific current fact*, route through tier 2 or tier 3, not WebSearch
+alone.
+
+The ladder is for *realtime fetches*, not general reasoning, code review, design discussion, or
+summarization of static reference material — those don't need a fetch at all. When in doubt
+about whether a query is realtime, prefer fetching (false-positive fetches are recoverable;
+silent confabulations from stale training data are not).
 
 ## Reddit Content
 
