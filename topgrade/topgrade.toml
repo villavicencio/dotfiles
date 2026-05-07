@@ -34,3 +34,14 @@ disable = [
   "containers",
   "microsoft_office",
 ]
+
+# Custom commands appended to the topgrade run.
+# `command -v` guard makes each command a no-op on hosts where the binary is
+# absent, so the same config works on macOS + the VPS without per-host forks.
+# `yes y |` feeds the post-dry-run "Continue? [y/n]:" prompt — mac-cleanup-py's
+# --force accepts warnings but does NOT skip that final confirmation, and
+# topgrade runs non-interactively so a hanging stdin would block the whole run.
+# Config for which modules to run is stored in ~/.config/mac_cleanup/config.json
+# after the first interactive `mac-cleanup` invocation and reused here.
+[commands]
+"Clean macOS caches (mac-cleanup-py)" = "command -v mac-cleanup >/dev/null 2>&1 && yes y | mac-cleanup --force || true"
