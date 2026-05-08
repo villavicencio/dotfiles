@@ -41,7 +41,14 @@ disable = [
 # `yes y |` feeds the post-dry-run "Continue? [y/n]:" prompt — mac-cleanup-py's
 # --force accepts warnings but does NOT skip that final confirmation, and
 # topgrade runs non-interactively so a hanging stdin would block the whole run.
-# Config for which modules to run is stored in ~/.config/mac_cleanup/config.json
+# Config for which modules to run is stored in ~/.config/mac_cleanup_py/config.toml
 # after the first interactive `mac-cleanup` invocation and reused here.
+# Keep `dns_cache` OFF in that config — it shells out to `sudo dscacheutil` /
+# `sudo killall mDNSResponder`, and mac-cleanup's progress bar swallows sudo's
+# password prompt. Interactively this hangs forever (caught 2026-05-08, after a
+# 16h stall); under topgrade's no-TTY environment sudo errors out fast and the
+# `|| true` keeps the run going, but the cleanup silently aborts mid-list and
+# leaves later modules unrun. DNS cache flush is cosmetic anyway — Wi-Fi cycle
+# or reboot does the same thing.
 [commands]
 "Clean macOS caches (mac-cleanup-py)" = "command -v mac-cleanup >/dev/null 2>&1 && yes y | mac-cleanup --force || true"
