@@ -1,122 +1,80 @@
-# HANDOFF — 2026-05-07 (PDT, late afternoon)
+# HANDOFF — 2026-05-08 (PDT, late morning)
 
-Same-calendar-day continuation of the morning's `/pickup` (which itself opened on a clean tree post-#70-#74 merge train). This session is a tooling rebuild: Browserbase platform installed and wired durably into dotfiles; Maccy replaces Paste as clipboard manager; CleanMyMac replaced with a free stack (`mac-cleanup-py` + `kondo` + `pearcleaner`) and wired into `topgrade`; Setapp + 13 of its apps fully purged; a new global behavior rule (web tool ladder) lives in `~/.claude/CLAUDE.md`. **7 new commits, no PRs (all direct to master), no open PRs, one open issue (#75 — Node 24 deadline).**
+Same-calendar-day continuation of yesterday's tooling-rebuild session. Two tiny dotfiles commits (mac-cleanup config-path fix + Shottr cask adoption), pushed direct to master. The bulk of the session was off-repo: triaging a `mac-cleanup-py` 16-hour DNS-cache hang, then a deep, *unsuccessful* triage chain on a Cowork hang in Claude Desktop 1.6608.0 — confirmed upstream, workarounds documented. **2 new commits, both pushed (`fe16ea9`, `a924db9`), no PRs, no new tickets, one carry-forward issue (#75).**
 
 ## What We Built
 
-### `b2f4f01` — `feat(npm): add @browserbasehq/cli to global npm requirements + bb shim`
+### `fe16ea9` — `docs(topgrade): document mac-cleanup dns_cache sudo-prompt trap + fix config path`
 
-2 files / +3 lines. First half of Browserbase install. After `npm install -g @browserbasehq/cli` succeeded:
+1 file / +8 / -1. Triggered by the user noticing `mac-cleanup-py` had hung 16 hours on the `dns_cache` step. Diagnosis: `mac-cleanup-py`'s `rich`-style progress bar swallows sudo's password prompt during the `dscacheutil -flushcache` / `killall -HUP mDNSResponder` calls. With no visible prompt, sudo waits on stdin forever (no internal timeout). Under topgrade's no-TTY env, sudo errors out fast and the wrapper's `|| true` keeps the run going, but the cleanup silently aborts mid-list and leaves later modules unrun.
 
-- **`npm/npm-requirements.txt`** — `@browserbasehq/cli` added at top (alpha order — `@` sorts before `bash-language-server`).
-- **`zsh/zshrc`** (lines 115-123 NVM lazy-loader block) — added `bb` to the `unset -f` line and `bb() { _load_nvm; command bb "$@"; }` shim, per the documented convention in `claude/CLAUDE.md` ("any npm-globally-installed CLI must be added as a shim").
-- **Decorative-shim caveat documented**: the eager `DEFAULT_NODE_PATH` block at zshrc:110-113 already adds the NVM bin dir to PATH on fresh shell start, so the shim is conventional/redundant for `bb` resolution. Shim still added because the convention exists and the cost is zero.
+- **`topgrade/topgrade.toml`** — added a 7-line caveat above the mac-cleanup `[commands]` entry warning future-self off enabling `dns_cache`. Also corrected the path the existing comment block claimed: `~/.config/mac_cleanup/config.json` → `~/.config/mac_cleanup_py/config.toml` (different dir, different format).
+- **Local-only (uncommitted, no repo footprint):** edited `~/.config/mac_cleanup_py/config.toml` to drop both `dns_cache` (sudo trap) and `docker` (would prune Docker build cache and slow next OpenClaw rebuild). Remaining 11 enabled modules: `brew`, `chromium_caches`, `chrome`, `system_caches`, `system_log`, `trash`, `xcode`, `yarn`, `pnpm`, `npm`, `bun`.
 
-### `afbb539` — `docs(solutions): browserbase skill-bundle install + chain-of-trust pattern`
+### `a924db9` — `feat(brew): add shottr cask — bring existing screenshot-tool install under cask management`
 
-1 file / +106 lines. Captures the install moment as a *generalizable* pattern for any future vendor-CLI install with a meta-installer step (Stagehand, Steel.dev, Playwright Cloud, etc. — anything with `npm install -g <vendor>/cli` + `<vendor> skills --install` shape).
+1 file / +1. Shottr 1.9.1 was already running at `/Applications/Shottr.app` from a manual install (>90 days ago — predates this Claude session-history window per `/ce-sessions` search). Adopted under cask management via `brew install --cask --adopt shottr` so the existing app + TCC grants + configured hotkeys carry forward unchanged; no redownload, no settings reset.
 
-- **`docs/solutions/best-practices/browserbase-skill-bundle-install-and-trust-2026-05-07.md`**
-- **Locks down four things** that would otherwise have to be re-derived: (1) the two distinct harness halt categories — *code-from-external scouting* vs *self-modification* — and that AskUserQuestion `Yes` does NOT unblock self-modification (only a `.claude/settings.json` permission rule or user-runs-it-themselves via `!` prefix does); (2) the dotfiles wiring shape (npm-requirements + NVM shim get committed; skill content under `~/.agents/skills/` stays as per-machine state with no git audit); (3) the PATH gotcha (DEFAULT_NODE_PATH covers fresh zsh, but pre-existing shells need rehash/source/absolute-path); (4) the **2026-05-07 risk-assessment baseline** for the 13 installed skills (`fetch`=Critical Gen; `browser`/`cookie-sync`/`event-prospecting`=Critical Snyk).
-- **Recipe section** spells out the conservative scope for any future similar install.
+- **`brew/Brewfile`** — `cask "shottr"` after `cask "pearcleaner"` (alpha order with the cask block at the bottom).
+- Net effect: future `topgrade` runs upgrade Shottr automatically; fresh-install Macs (the work Mac, future replacements) get Shottr provisioned alongside the rest of the cask block.
 
-### `3ec1d7b` — `docs(claude): re-rank web tool ladder — Browserbase as tier 2, verify-cite as tier 3`
+### Off-repo: Claude Desktop Cowork hang triage (4 cumulative wipes, none fixed it)
 
-1 file / +31 / -17. Replaces the old "Realtime Facts" section in `~/.claude/CLAUDE.md` (symlinked to `claude/CLAUDE.md`) with an explicit three-tier "Web Tool Ladder":
+User reported Claude Desktop "hanging" — narrowed to: hangs ONLY when going to Cowork tab and starting/opening a session. Worked through 4 progressively-deeper local-state hypotheses, **all wrong**. The actual bug is upstream and I burned ~40 mins shooting at the wrong layer.
 
-- **Tier 1**: `WebFetch` — default for static HTML
-- **Tier 2**: `browser` skill (Browserbase) — preferred for non-static fetches AND for realtime-fact queries; manual freshness discipline (quote literal page content + source URL + fetch timestamp, or decline)
-- **Tier 3**: `/verify-cite` — strict-contract fallback for high-stakes claims (financial, medical, legal, public-record), when the user explicitly asks for verified citations, or when relying on skill-enforced substring-assert is preferable to manual discipline
+Tried in order:
+1. **Force-kill the wedged renderer** (PID 18393 → SIGTERM ignored → SIGKILL took). Restored launching but Cowork hang reproduced on first new-session attempt.
+2. **Quarantined 5 orphan session dirs** (`local_ea8e3761`, `local_3ab90314`, `local_20a29b70`, `local_eb4d994a`, `local_1309cc84`) under `local-agent-mode-sessions/.../.broken-orphans-2026-05-08/`. Each was 8KB of empty audit scaffolding with no matching `.json` transcript file (healthy sessions have both). Theory: enumerator hangs on the missing transcripts. **Wrong** — orphans were a downstream symptom, not cause. Hang reproduced.
+3. **Wiped the `Claude Safe Storage` keychain entry** (Electron's `safeStorage` master encryption key). Backed up first to `~/claude-safe-storage-backup-2026-05-08.txt`. **CAUSED A NEW BUG**: the IndexedDB files were encrypted with the deleted key, so on next launch `Uncaught (in promise) UnknownError: Internal error opening backing store for indexedDB.open` started firing four times in `claude.ai-web.log`. Made things worse.
+4. **Move-aside the 5 Chromium browser-storage dirs** (`IndexedDB`, `Local Storage`, `Session Storage`, `Cookies`, `Cookies-journal`) under `*.broken-2026-05-08-corrupted/`. Forced fresh browser-state init on relaunch; required full sign-in. Cowork hang **identical signature**.
 
-User has generous Browserbase usage and explicitly preferred this re-ranking. `/verify-cite` stays in the toolkit, just demoted from default to fallback. The "never quote a realtime fact from training data without a freshness tag" rule is preserved — applies regardless of which tier did the fetch.
+After all 4 attempts, the hang signature was character-for-character the same as the original log entry, with all local-state confounders eliminated:
+```
+LocalAgentModeSessions.start
+oauth config { clientId: 'a473d7bb-17ac-43a7-abc0-a1343d7c2805',
+               scope: 'user:inference user:file_upload user:profile' }
+[oauth] performing fresh oauth exchange
+[silence — no `obtained new token` line, ever]
+```
 
-### `b0afec6` — `feat(brew): add maccy cask — clipboard manager replacing Paste app`
+Compare to the OAuth call that **works** in the same session (Chat, different client `89355bc3`, scope `user:inference user:office`): completes in 1ms. So the bug is specifically in the Cowork OAuth client + scope round-trip with Anthropic's backend in the version of Claude Desktop currently shipping (1.6608.0 — confirmed via in-app `Check for Updates`: "you're up to date").
 
-1 file / +1. Maccy 2.6.1 installed locally via `brew install --cask maccy` and added to Brewfile.
-
-- **`brew/Brewfile`** — `cask "maccy"` after `cask "git-credential-manager"` (alpha order with the cask block at the bottom).
-- **Why**: Paste app was previously installed via Setapp; user wanted free MIT-licensed replacement. Maccy is keyboard-first, lightweight, requires macOS Sonoma 14+, auto-updates via cask.
-- **Spec source verified through the new `browser` skill** — first end-to-end use of Browserbase. Read https://github.com/p0deje/Maccy README, extracted version + install method + macOS minimum + license + features.
-- **Maccy is running** (PID 43487, configured by user — Accessibility granted, hotkey set, login-item enabled in their walkthrough).
-
-### `5ed5c28` — `feat(npm): add @browserbasehq/browse-cli + browse shim`
-
-2 files / +8 / -6. Pairs with the first Browserbase commit — `browse-cli` is the binary the `browser` skill drives. The original SKILL.md called this Step 4 ("optional"), but using the skill at all requires it.
-
-- **`npm/npm-requirements.txt`** — `@browserbasehq/browse-cli` added before `@browserbasehq/cli` (alpha: `browse-cli` < `cli`).
-- **`zsh/zshrc`** — `browse` added to NVM `unset -f` list and `browse()` shim function added, matching the `bb` pattern.
-
-### `c885573` — `feat(brew): replace CleanMyMac with free stack — mac-cleanup-py + kondo + pearcleaner`
-
-1 file / +3 lines. Three free, focused tools to replace CleanMyMac (subscription).
-
-- **`brew/Brewfile`** — `brew "kondo"` after `brew "jrnl"`; `brew "mac-cleanup-py"` after `brew "luv"`; `cask "pearcleaner"` after `cask "maccy"`. All three installed locally.
-- **`mac-cleanup-py`** (formula) — CLI cleanup. Trash, logs, caches, Homebrew, Docker, npm/pnpm/yarn, Xcode derived data/archives, iOS backups, browser caches. Always run `--dry-run --verbose` first.
-- **`kondo`** (formula) — dev-project cleanup (node_modules, build/, target/, .next/, etc.). README describes itself as "rm -rf with a prompt". **Manual single-shot use only — never schedule.** Misclassifying an active project as inactive risks uncommitted work.
-- **`pearcleaner`** (cask) — app-uninstall leftover scrubber. Open source, has CLI hooks (`pear list-orphaned`, `pear uninstall-all`, etc.).
-- **Skipped intentionally**: AppCleaner (Pearcleaner replaces it), Onyx (redundant with macOS background maintenance), CleanMyMac AV (Gatekeeper + XProtect built in; Patrick Wardle suite for serious analysis if ever needed).
-
-### `9e88bbf` — `feat(topgrade): wire mac-cleanup-py into the topgrade run`
-
-1 file / +11. Adds `[commands]` section to topgrade.toml so cache cleanup happens on the same cadence as other tooling updates.
-
-- **`topgrade/topgrade.toml`** — new `[commands]` table with `"Clean macOS caches (mac-cleanup-py)" = "command -v mac-cleanup >/dev/null 2>&1 && yes y | mac-cleanup --force || true"`.
-- **Three subtleties documented inline** with a 7-line comment block above:
-  1. `command -v` guard makes it a clean no-op on the VPS (where mac-cleanup isn't installed) — the same `topgrade.toml` is symlinked on Mac and Linux.
-  2. `yes y |` feeds the post-dry-run "Continue? [y/n]:" prompt — `--force` accepts warnings but does NOT skip that final confirmation, and topgrade is non-interactive so a hanging stdin would block.
-  3. Module config lives in `~/.config/mac_cleanup/config.json` after the first interactive run. If absent, the inquirer-based picker fires and crashes immediately under topgrade (no TTY) — intentionally loud rather than silently picking defaults.
-
-### Out-of-band cleanup (no commits — all live filesystem mutations)
-
-Massive deletion sweep, all post-authorization. Numbers:
-
-- **Paste app residue**: 16+ user-level paths across Containers, HTTPStorages, WebKit, Application Scripts, Logs, Group Containers, CloudKit cache, Daemon Containers, Logi icon cache.
-- **CleanMyMac residue**: 33 user-level paths + 1 system-level privileged helper (`/Library/PrivilegedHelperTools/com.macpaw.CleanMyMac-setapp.Agent`) + 1 system-level diagnostic report + 2 system-level Skylum-related paths in `/Library/Application Support/`.
-- **Setapp + 13 Setapp-managed apps**: 124 user-level paths swept + 4 booted-out launchctl services (SetappAgent, SetappLauncher, SetappAssistant, SetappUpdater) + 3 killed processes + `~/Library/Application Support/Setapp/` (LaunchAgent backup) + `/Applications/Setapp.app` already-Trashed by Pearcleaner emptied.
-- **Adobe/Skylum Photoshop plug-in**: `/Library/Application Support/Adobe/Plug-Ins/CC/Skylum/` (one Touch ID via osascript).
-
-Tooling used: direct `rm -rf` for most; **Finder-via-AppleScript** (`tell application "Finder" ... delete ...`) for `~/Library/Mobile Documents/iCloud~*` (the only thing that bypasses CloudDocs daemon's Permission-denied for `rm`/`mv`); **osascript-with-administrator-privileges** for system-level (`/Library/...`) paths to get a Touch ID dialog instead of the no-TTY sudo failure.
+**Cleanup at end of session:** all 4 quarantine artifacts deleted (`~/claude-safe-storage-backup-2026-05-08.txt`, the 5 Chromium-storage `.broken-*` dirs, the 5 orphan-session quarantine dirs). VM bundle (10GB) + 5 healthy cowork sessions + Claude Code-credentials keychain all preserved. State is back to baseline minus the (still-broken) Cowork.
 
 ## Decisions Made
 
-- **Web tool ladder re-ranking** (now in global CLAUDE.md): User has generous Browserbase usage and explicitly preferred Browserbase as default-fetch over `/verify-cite`. Manual freshness discipline (quote-literal + source URL + fetch timestamp + decline-with-reason) lives at the agent level rather than skill-enforced. `/verify-cite` reserved for high-stakes (financial/medical/legal/public-record) and when the user explicitly asks.
-- **Pearcleaner over AppCleaner** for the uninstall-leftover-scrubber slot. Open source, more modern, has CLI hooks (`pear list-orphaned`, `pear uninstall-all`). Atlas's recommendation; verified by use during this session — though the CLI's `list-orphaned` had **false positives** (flagged `org.p0deje.Maccy` as orphaned even though Maccy was running) so use the GUI for evaluation, not the CLI's blanket `remove-orphaned`.
-- **kondo install but never schedule.** Atlas flagged it as "rm -rf with a prompt" — accurate. User commits/pushes frequently (multiple per session), so most projects are "active" by any sensible definition; danger of misclassification too high to wire into topgrade. Manual-only single-shot use.
-- **Skipped Onyx and the CleanMyMac AV piece.** Onyx runs maintenance scripts macOS already runs in the background (redundant with mac-cleanup-py); the AV piece is theater (Gatekeeper + XProtect are built in; Patrick Wardle's free suite covers serious analysis if ever needed).
-- **mac-cleanup-py wired into topgrade with `yes y | mac-cleanup --force`.** Auto-cleans on the same cadence as other tooling updates rather than living as a separate manual cycle. The `command -v` guard makes it a clean no-op on the VPS — same `topgrade.toml` is symlinked on Mac + Linux.
-- **`bb` and `browse` get the NVM lazy-loader shim per convention** even though `DEFAULT_NODE_PATH` at zshrc:110-113 already covers PATH. Cost is zero, convention is documented in CLAUDE.md, future-self benefits from consistency.
-- **Skill content stays out of repo.** `~/.agents/skills/` (where `bb skills --install` deposited 13 skills) is per-machine state. No git audit trail for the install moment except the dated `docs/solutions/` doc — that's a deliberate trade-off (committing a vendor-managed skill bundle would be a maintenance burden for marginal value).
-- **Setapp subscription cancellation is on the user.** I can't do it — must be done at https://my.setapp.com/account.
-- **iCloud-managed paths handed off to user's iCloud cleanup pass.** The 4 reappearing paths (`Mobile Documents/iCloud~com~nikolaeu~numi-setapp`, `iCloud~com~renfei~SnippetsLab-setapp`, `Caches/CloudKit/com.aramapps.PilePro-setapp`, `Caches/CloudKit/com.wiheads.paste-setapp`) keep coming back because iCloud is syncing them from the canonical store. Local rm is futile until iCloud-side data is purged via System Settings → Apple ID → iCloud → Manage Account Storage. User will handle as part of broader iCloud cleanup.
+- **`dns_cache` permanently OFF in `~/.config/mac_cleanup_py/config.toml`.** DNS cache flush is cosmetic — Wi-Fi cycle or reboot does the same thing — and the sudo-prompt trap is a hard hang interactively, silent partial-cleanup under topgrade. Documented in `topgrade/topgrade.toml`'s comment block so future-me doesn't re-derive.
+- **`docker` also OFF in mac-cleanup config.** Reason: would clear Docker build cache and slow next OpenClaw rebuild on the VPS sync. Reversible (re-run `mac-cleanup` and edit the toml).
+- **Shottr adopted via `--adopt`, not reinstalled.** Existing app, existing TCC grants, existing hotkey config all preserved. The "feat(brew)" framing matches the session's small-additive direct-to-master pattern from yesterday.
+- **Push-immediately-after-commit rule saved as a feedback memory.** User said "Always" when asked whether to push. Updated `feedback_commit_approval.md` to add a Push rule next to the existing Carve-out rule: any commit I'm authorized to make under the carve-out (or any other commit), push immediately — never ask "want me to push?" Also bumped `MEMORY.md`'s pointer line.
+- **Cowork-via-web is the recommended workaround** until Anthropic ships a fix. `claude.ai/task/new` in any browser uses the web's `claude.ai` cookie session and bypasses the broken desktop OAuth client `a473d7bb-...` entirely.
+- **Reinstall would not have helped.** Confirmed via in-app update check: 1.6608.0 IS the current shipping version. A drag-to-Trash + redownload pulls the same binary, same compiled OAuth client, same bug. Pearcleaner-assisted nuke would also rebuild a 10GB VM and lose all 6 cowork sessions for nothing — only worth doing IF a newer build existed with the fix.
 
 ## What Didn't Work
 
-- **`bb skills --install` blocked by harness with "Self-Modification" reason** — installing skill bundles into the agent's own skill directory based on instructions from an unverified domain (browserbase.com SKILL.md) needs pre-authorization at the permission-rule level. AskUserQuestion `Yes` does NOT unblock this class. User ran via `!` prefix instead.
-- **`mac-cleanup-py` requires real TTY** — uses `inquirer` for interactive prompts. Bash subshells inside the agent (and even `!` prefix invocations) do NOT have a real TTY. `--force` accepts warnings but does NOT bypass the inquirer config picker on first run. User ran from real terminal.
-- **`sudo` over `!` prefix fails** — "a terminal is required to read the password." Workaround: `osascript -e 'do shell script "..." with administrator privileges'` pops a GUI Touch ID dialog (one-shot for multiple commands chained in the shell-script string).
-- **`~/Library/Containers/` is TCC-protected for `rm` even when path is owned by user** — the container's metadata file (`.com.apple.containermanagerd.metadata.plist`) is owned by `containermanagerd`, and the dir is part of macOS Data Vault. `rm` and `mv` both fail with "Operation not permitted." Even `sudo` doesn't bypass it cleanly. Fix: drag from Finder to Trash (Finder has the entitlement; gets a Touch ID prompt).
-- **`~/Library/Mobile Documents/iCloud~*` is CloudDocs-protected** — same shape but a different daemon (`bird`). `rm` and `mv` both fail with "Permission denied." **Even Finder doesn't always show these folders** because if the parent app is uninstalled, Finder's iCloud Drive view filters them out. Fix that DID work: AppleScript-driven Finder (`tell application "Finder" ... delete (POSIX file "...") as alias`) — Finder has the entitlement, AppleScript can drive it from outside Finder's UI. May need a second attempt if iCloud immediately re-syncs from another device.
-- **Pearcleaner's CLI `list-orphaned` has false positives** — flagged `org.p0deje.Maccy` (running RIGHT NOW), `com.skylum.luminar4-setapp` (Setapp app), and many other still-active app data dirs. Likely because Pearcleaner doesn't fully scan `/Applications/Setapp/` and similar non-standard install locations. **Don't ever run `pear remove-orphaned` blindly.** Use the GUI for evaluation, or `pear uninstall-all <specific-bundle-path>` for known targets.
-- **CleanMyMac wasn't catchable by Pearcleaner GUI** because the `/Applications/CleanMyMac.app` bundle was already gone — Pearcleaner's "orphan" detection requires the bundle to either be present (for "uninstall this") or to have left a residue Pearcleaner recognizes as belonging to a known-uninstalled app. With the bundle pre-removed, the residue was invisible to its scanner. Manual `find ~/Library -iname "*macpaw*"` + `rm -rf` was the actual cleanup tool.
-- **iCloud tug-of-war** — deleted ~/Library/Caches/CloudKit/com.* entries reappear because the local CloudKit daemon recreates them as long as the Apple ID is associated with the apps' CloudKit containers. Permanent fix is account-side, not disk-side.
+- **`mac-cleanup --dry-run` does NOT bypass the dns_cache hang.** The dry-run preview shows what it would clean, then asks "Continue? [y/n]:" — answer `y` and it proceeds with the REAL cleanup, hitting the sudo trap immediately at the dns_cache step. Treat dry-run as preview only.
+- **Quarantining orphan session dirs.** Removed visible artifacts but didn't fix the wedge. Each new failed Cowork attempt creates another orphan, so the quarantine refilled to size 1 within minutes.
+- **Wiping `Claude Safe Storage` keychain entry.** Worse than no-op — orphaned the IndexedDB files, introduced a new error class (`Internal error opening backing store for indexedDB.open`) without addressing the OAuth bug. Lesson: Electron's safeStorage encrypts more than just OAuth tokens; deleting the key without also wiping the encrypted files leaves the app in a worse state. If we ever do this again, wipe browser-state dirs in the SAME action, not as a follow-up.
+- **Move-aside of all 5 Chromium browser-storage dirs.** Forced fresh init, required full re-login, and the OAuth round-trip still hangs identically. Unambiguous proof the bug is in the OAuth round-trip itself, not local cache.
+- **Vanilla drag-to-Trash + redownload reinstall.** Would not have helped — `~/Library/Application Support/Claude/`, `~/Library/Caches/...`, prefs plist, and keychain all survive macOS app uninstall. Only the binary refreshes. Same as `Check for Updates` in the menu.
+- **Sign out + sign back in via Claude Desktop's UI.** User tried this first — gets logged right back in, doesn't drop the per-OAuth-client cached tokens that were the early hypothesis. (Also the early hypothesis turned out to be wrong, so even a "successful" sign-out wouldn't have fixed it.)
 
 ## What's Next
 
-1. ***(Carry-forward — STILL active, deadline 2026-06-02 = 26 days)*** **Issue #75 — bump GH Actions SHA pins to Node-24-supporting versions before deadline.** Filed during this session. `actions/checkout`, `docker/build-push-action`, `docker/login-action`, `docker/setup-buildx-action`, `actions/cache` are all SHA-pinned to Node-20 versions. June 2 forces them to Node 24; September 16 removes Node 20. Each pin needs a fresh release-tag → SHA lookup; SHA-pinning convention from PR #57 still applies (mutable-tag supply-chain risk). Highest-priority follow-up.
-2. **(User-side, manual) iCloud cleanup pass** — go to System Settings → Apple ID → iCloud → "Manage Account Storage" (or iCloud.com web UI for fully-uninstalled apps) and delete data for `Numi`, `SnippetsLab`, `PilePro`, `Paste`, plus the broader sweep the user spotted. Until done, the 4 local CloudKit/Mobile-Documents paths will keep reappearing on each `find` sweep — they're not a real problem, just iCloud doing its job.
-3. **(User-side, manual) Cancel Setapp subscription** at https://my.setapp.com/account. Until done, billing continues regardless of local app removal.
-4. **(Optional) Run `mac-cleanup` (without `--dry-run`) once** to actually free the 20.81 GB the dry-run identified. After that, topgrade will keep it on autopilot per the topgrade integration commit.
+1. **(Carry-forward — STILL active, deadline 2026-06-02 = 25 days)** **Issue #75 — bump GH Actions SHA pins to Node-24-supporting versions before deadline.** Highest priority follow-up. `actions/checkout`, `docker/build-push-action`, `docker/login-action`, `docker/setup-buildx-action`, `actions/cache` all SHA-pinned to Node-20 versions. Each needs a fresh release-tag → SHA lookup; SHA-pinning convention from PR #57 still applies. Per the user's standing rule, this needs a new branch (no ticket work on master). Touches `.github/workflows/*.yml`.
+2. **(User-side, manual) iCloud cleanup pass** — System Settings → Apple ID → iCloud → Manage Account Storage. Carry-forward from yesterday's session. Until done, the 4 reappearing CloudKit/Mobile-Documents paths (Numi, SnippetsLab, PilePro, Paste) keep coming back on `find` sweeps.
+3. **(User-side, manual) Cancel Setapp subscription** at `https://my.setapp.com/account`. Carry-forward from yesterday.
+4. **(Optional) Run `mac-cleanup --force` once** to free the ~20 GB the dry-run identified. Now safe — `dns_cache` and `docker` are deselected in `~/.config/mac_cleanup_py/config.toml`. After that, topgrade keeps it on autopilot.
+5. **(Optional, when annoyed enough) File feedback to Anthropic about the Cowork OAuth bug.** Diagnostic payload ready: build `1.6608.0`, macOS Tahoe `26.4.1`, OAuth client `a473d7bb-17ac-43a7-abc0-a1343d7c2805`, scope `user:inference user:file_upload user:profile`, signature `[oauth] performing fresh oauth exchange` never followed by `[oauth] obtained new token`. Compare to working Chat OAuth (client `89355bc3`, scope `user:inference user:office`) in the same session for the cleanest report shape.
 
 ## Gotchas & Watch-outs
 
-- **`bb` shim in `zshrc` is decorative.** `DEFAULT_NODE_PATH` at zshrc:110-113 already adds the NVM bin dir to PATH on shell start. Same applies to `browse`. The shims still match the documented convention in CLAUDE.md and cost nothing — leave them. If `DEFAULT_NODE_PATH` block ever gets removed, the shims become load-bearing.
-- **Browserbase agent skills live at `~/.agents/skills/` and are symlinked into Claude Code.** Machine-scoped, not project-scoped. There's no per-project disable knob — only "uninstall the skill globally." Worth knowing if you ever need a Browserbase-aware skill set on `dotfiles` but NOT on, say, `openclaw`.
-- **`~/Library/Containers/` and `~/Library/Mobile Documents/` are macOS Data-Vault / CloudDocs protected.** `rm` and `mv` fail (with "Operation not permitted" / "Permission denied") **even when path is owned by user, even with `sudo`**. Only Finder has the entitlement — escape hatch is `open <parent> -R <target>` to surface in Finder, then drag to Trash. For iCloud Mobile Documents specifically: if the parent app is uninstalled, Finder hides the folder from the iCloud Drive view — use AppleScript-driven Finder (`tell application "Finder" ... delete (POSIX file "...") as alias`) to bypass that filtering.
-- **`sudo` does not work via Claude Code's `!` prefix** ("a terminal is required to read the password"). Workaround: `osascript -e 'do shell script "..." with administrator privileges'` — chain multiple commands in the shell-script string for one Touch ID prompt. This pattern came up THREE times this session (CleanMyMac helper, Skylum Adobe plug-in, system-level Skylum Application Support).
-- **Vendor SKILL.md installs trigger the harness's "Self-Modification" halt** when their meta-installer would write into the agent's own skill directory. AskUserQuestion `Yes` does NOT unblock this class. Either pre-authorize via `.claude/settings.json` permission rule, or have the user run via `!` prefix. Documented in `docs/solutions/best-practices/browserbase-skill-bundle-install-and-trust-2026-05-07.md`.
-- **`mac-cleanup-py` and `bb skills --install` both require real TTY.** Can't run from inside the agent — `!` prefix doesn't allocate one either. User must run from a real terminal app (iTerm, Terminal.app).
-- **Pearcleaner CLI `list-orphaned` is over-eager** — flags Maccy and many active Setapp apps as orphaned. Never run `pear remove-orphaned` without explicit per-target review. GUI-driven evaluation is fine; CLI is dangerous.
-- **Setapp persists via `~/Library/Application Support/Setapp/LaunchAgents/Setapp.app`** — even after `/Applications/Setapp.app` is in the Trash, this backup copy is registered as a LaunchAgent and keeps `SetappAgent`, `SetappLauncher`, and `FinderSyncExt` running. Full purge requires `launchctl bootout gui/$UID/<service>` for each Setapp service + kill any straggler processes + `rm -rf` the Application Support copy. Same trick may exist for other Setapp-installed apps — be vigilant on future similar uninstalls.
-- **iCloud sync recreates locally-deleted CloudKit/Mobile-Documents data.** Permanent purge requires going to System Settings → Apple ID → iCloud → Manage Account Storage (or iCloud.com web). Don't waste time on local `rm` for these — will keep losing the tug-of-war.
-- **`--no-verify` was NOT used this session.** All 7 commits passed gitleaks pre-commit cleanly. Continuing the streak from yesterday's correction (the only `--no-verify` slip was on a throwaway seed branch, since deleted).
-- **HANDOFF.md is current-session-state-only.** Yesterday's handoff (`57972ec`, captures the morning + late-afternoon CleanMyMac ramp + the carryover-queue drain) lives in git history. This file gets overwritten each `/handoff`.
+- **`mac-cleanup --dry-run` is a misleading name** — it shows the preview AND offers a "Continue? [y/n]:" gate to proceed with the real cleanup. The "dry-run" wrapper isn't a hard guard. Always exit out via Ctrl+C if you want true preview-only.
+- **`mac-cleanup-py` config persists at `~/.config/mac_cleanup_py/config.toml`** (not `~/.config/mac_cleanup/config.json` as some docs claim). It's a single-line `enabled = [...]` array. Edit by hand — the picker only re-fires when the file is missing entirely, and ^C during the picker DOES persist your selection (write happens on `<enter>` confirm, before the cleanup loop starts).
+- **Claude Desktop's `Claude Safe Storage` keychain entry is more than OAuth.** It's Electron's `safeStorage` master key for encrypting EVERYTHING in `~/Library/Application Support/Claude/` — IndexedDB, cookies, cached state. Deleting it without simultaneously wiping the encrypted dirs leaves the app worse than before (IndexedDB unreadable, errors flood the renderer log). Don't repeat this mistake.
+- **Cowork OAuth in Claude Desktop 1.6608.0 is broken upstream** — the OAuth round-trip for client `a473d7bb-...` with scope `user:inference user:file_upload user:profile` simply doesn't return a token. Local fixes can't address this. Until Anthropic ships an update: use Cowork via web at `claude.ai/task/new`. Chat OAuth (different client/scope) still works fine in the desktop app.
+- **`Claude Code-credentials` keychain entry (account `dvillavicencio`) is for the Claude Code CLI** — `~/.local/bin/claude` — and is COMPLETELY separate from `Claude Safe Storage` (Desktop, account `Claude`). Different `svce`, different `acct`, different account names. Operations on one cannot affect the other. The CLI keeps working through any Desktop reset.
+- **`Claude Code-credentials` should never be deleted in a Desktop debugging session** — it would log you out of this Claude Code session you're currently using. Always grep keychain entries by exact `svce` name (`security find-generic-password -s "Claude Safe Storage"`), never by partial-match like `-s "Claude"`.
+- **Cowork creates orphan dirs under `local-agent-mode-sessions/<userId>/<orgId>/local_<uuid>/` whenever a session-create fails.** Each is ~8KB of empty audit scaffolding. They accumulate silently. Healthy sessions have both a directory AND a `.json` file with the same UUID; orphans have only the directory. Worth a periodic sweep — but doesn't fix the upstream bug, just keeps the dir tidy.
+- **`Network/` subdir doesn't exist on this Claude Desktop install** (newer Chromium versions have it, this build uses the older `Cookies` / `Cookies-journal` files at the top level). If a future cleanup script targets `~/Library/Application Support/Claude/Network/`, account for the absence.
+- **`--no-verify` was NOT used this session.** Both commits passed gitleaks pre-commit cleanly. Continuing the streak.
