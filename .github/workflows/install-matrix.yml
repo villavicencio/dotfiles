@@ -114,7 +114,7 @@ jobs:
       - name: Checkout
         # SHA-pinned to close the supply-chain vector where a force-pushed
         # mutable tag could compromise this workflow at run time.
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4.3.1
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
         with:
           submodules: recursive
 
@@ -150,7 +150,7 @@ jobs:
       CI: 'true'
     steps:
       - name: Checkout
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4.3.1
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
         with:
           submodules: recursive
 
@@ -158,7 +158,7 @@ jobs:
         # Restore-keys deliberately omits a Brewfile-hash subset — that
         # would let a stale cache survive a Brewfile change. Helper
         # changes also bust the cache via hashFiles('helpers/**').
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830  # v4.3.0
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae  # v5.0.5
         with:
           path: |
             ~/Library/Caches/Homebrew/downloads
