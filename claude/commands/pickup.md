@@ -57,73 +57,17 @@ If any artifacts are found:
 - **Plans** — mention them as ready for `/ce:work` (or already in progress)
 - **Solutions** — briefly note what was learned (read the `problem_type` and `module` from YAML frontmatter if present)
 
-### Step 2c — Forge bridge (if opted in)
+### Step 2c — VPS health snapshot (openclaw-prod projects)
 
-Check if the project CLAUDE.md contains a `forge-project-key:` field. If not found, skip this step entirely.
-
-If opted in, extract the project key value, then execute a **single SSH call** to read all Forge context:
+Skip this step unless this project targets `openclaw-prod`. Detect via git remote:
 
 ```bash
-# Replace {PROJECT_KEY} with the actual key from CLAUDE.md
-# Note: use host volume path (not container path) since we SSH as root, not docker exec
-# Use `find -maxdepth 1 -type f` (NOT `ls | grep -v`) to list drops — it skips
-# sibling directories like `archive/` and `done/` by type rather than by name,
-# and behaves predictably inside nested SSH quoting. Silent drops here = missed tickets.
-VOLBASE="/var/lib/docker/volumes/d95veq7chb3d8gllyj6vhpqy_openclaw-state/_data"
-ssh root@openclaw-prod "echo '===FORGE_SHARED===' && \
-  cat $VOLBASE/workspace-forge/projects/_shared/*.md 2>/dev/null && \
-  echo '===FORGE_PROJECT===' && \
-  cat $VOLBASE/workspace-forge/projects/{PROJECT_KEY}/*.md 2>/dev/null && \
-  echo '===FORGE_INBOX===' && \
-  find $VOLBASE/shared/inbox/forge -maxdepth 1 -type f -name '*.md' -printf '%f\n' 2>/dev/null && \
-  echo '===FORGE_PENDING_TICKETS===' && \
-  find $VOLBASE/workspace-forge/projects/{PROJECT_KEY}/pending -maxdepth 1 -type f -name 'ticket-*.md' -printf '%f\n' 2>/dev/null"
+git remote -v 2>/dev/null | grep -q "openclaw" || { echo "(not an openclaw-prod project — skipping VPS health snapshot)"; }
 ```
 
-**Verify the output.** The two list sections (`FORGE_INBOX`, `FORGE_PENDING_TICKETS`) must be treated as load-bearing. If either is empty, state that explicitly in your summary (*"No pending tickets"*). Never skip past an empty section silently — a bug that swallows ticket filenames will look identical to a genuinely empty queue, and silent drops are how missed tickets happen.
+If the remote doesn't contain "openclaw", skip entirely. Other projects run on different infrastructure.
 
-**If inbox files exist:**
-1. Read each file's content (in the same or a follow-up SSH call)
-2. Display the messages to the user under a "Messages for Forge:" header
-3. Archive them (trailing `chown` keeps the archive subtree writable by the container node user — see dotfiles#47/#50):
-   ```bash
-   # Uses `find ... -exec mv -t DEST {} +` (plus form, not `\;`): empty inbox
-   # is a natural no-op (exit 0), a real mv failure propagates to find's exit,
-   # and the outer && chain only runs chown if everything above succeeded.
-   # The `\;` form silently discards mv's exit code — use `+` here.
-   ssh root@openclaw-prod "mkdir -p $VOLBASE/shared/inbox/forge/archive && \
-     find $VOLBASE/shared/inbox/forge -maxdepth 1 -type f -name '*.md' \
-       -exec mv -n -t $VOLBASE/shared/inbox/forge/archive/ {} + && \
-     chown -R 1000:1000 $VOLBASE/shared/inbox/forge/archive"
-   ```
-
-**If pending ticket files exist:**
-1. Read each ticket file's content
-2. Display under a "Forge ticket requests:" header, showing title and description
-3. Ask the user: "Create this ticket? (y/n)"
-4. If approved, run the `/ticket` skill (or `gh issue create`) with the title and body from the file
-5. After creation, move the file to `pending/done/`:
-   ```bash
-   # Trailing chown keeps pending/done/ writable by the container node user
-   # (uid 1000). ssh-as-root mkdir + mv otherwise creates a root-owned `done/`
-   # that Forge cannot manage from inside the container. See dotfiles#47/#50.
-   ssh root@openclaw-prod "mkdir -p $VOLBASE/workspace-forge/projects/{PROJECT_KEY}/pending/done && \
-     mv -n $VOLBASE/workspace-forge/projects/{PROJECT_KEY}/pending/{FILENAME} \
-       $VOLBASE/workspace-forge/projects/{PROJECT_KEY}/pending/done/ && \
-     chown -R 1000:1000 $VOLBASE/workspace-forge/projects/{PROJECT_KEY}/pending/done"
-   ```
-
-**If SSH fails:** Note "Forge bridge unavailable — using local context only" and continue. Do NOT block pickup.
-
-**Also check for `.forge-pending`:** If a `.forge-pending` file exists in the project root (from a failed /handoff write-back), note it: "There are pending Forge write-backs from a previous session that failed to push."
-
-Include the Forge context in your session synthesis (Step 3) — mention any cross-project patterns or messages from agents.
-
-### Step 2d — VPS health snapshot (only when `forge-project-key: openclaw-forge`)
-
-Skip this step unless the project CLAUDE.md declares `forge-project-key: openclaw-forge`. Other Forge projects run on different infrastructure.
-
-This step is defensive — it catches classes of failure that HANDOFF.md and Forge inbox don't (security audit findings that haven't been landed as tickets yet, silent OOM regressions, runaway restart loops). Without it, the session can go several turns before you notice that the VPS has been degraded the whole time — exactly what happened on 2026-04-14.
+This step is defensive — it catches classes of failure that HANDOFF.md doesn't (security audit findings, silent OOM regressions, runaway restart loops, perm drift). Without it, the session can go several turns before you notice that the VPS has been degraded the whole time — exactly what happened on 2026-04-14.
 
 Run this **single SSH call** and include the resulting headline in your Step 3 synthesis:
 
@@ -156,16 +100,16 @@ ssh root@openclaw-prod '
 '
 ```
 
-Treat each section independently — empty sections are load-bearing, same rule as 2c. Never skip past one silently.
+Treat each section independently — empty sections are load-bearing. Never skip past one silently.
 
 **Interpretation rules:**
 
-- **Status lines starting with `CRITICAL` or `ERROR` in the `openclaw status --deep` output** — surface these prominently in Step 3. These are the exact class of thing that becomes Forge tickets the next day. Catching them at session start saves a round-trip.
+- **Status lines starting with `CRITICAL` or `ERROR` in the `openclaw status --deep` output** — surface these prominently in Step 3. Catching them at session start saves a round-trip.
 - **`RestartCount > 0` or `OOMKilled: true`** — the container has crashed since the handoff was written. Flag it; the session is starting against a degraded baseline.
 - **`memory.current` > 70% of `memory.max`** — gateway is close to its cgroup ceiling right now, not hours from now. If your workload for this session is heavy (multiple `/ce:compound` rounds, agent spawns), consider a graceful restart before starting work.
 - **OOM events in past 24h > 0** — there's a regression in progress. Escalate to "what changed recently" as the first order of business.
-- **Perm-drift alerts present** — the daily perm-drift check cron caught something. Read the alert file and remediate before other work.
-- **HANDOFF_STALENESS lists ANY workspace HANDOFF.md older than 7 days** — the agent-side `/handoff` skill (deployed 2026-04-30) hasn't fired for that agent in over a week. Surface in Step 3 as a per-agent staleness flag. If multiple agents show >7 days stale consistently, the V1 hybrid trigger model is insufficient and we should escalate to V2 (daily `/handoff` cron per agent). This is the observability hook that drives the V2 trigger-model decision.
+- **Perm-drift alerts present** — the daily perm-drift check cron (host-level, writes to `shared/inbox/forge/` because that path predates the Forge bridge deprecation) caught something. Read the alert file and remediate before other work.
+- **HANDOFF_STALENESS lists ANY workspace HANDOFF.md older than 7 days** — agent-side `/handoff` hasn't fired for that agent in over a week. Mostly informational post-fold-and-collapse since most workspaces are now archived; surface only if it's an actively-used workspace (`workspace/` for Atlas-on-OpenClaw is the main remaining one).
 
 If SSH fails: note "VPS health snapshot unavailable" and continue; do not block pickup. Rationale: a down VPS is important information, but a Mac-side `/pickup` shouldn't stall on network problems.
 
@@ -174,8 +118,8 @@ If SSH fails: note "VPS health snapshot unavailable" and continue; do not block 
 Synthesize everything into a brief, confident session kickoff:
 
 1. **2-3 sentence summary** of where things stand — what was completed, what's in flight
-2. **VPS health headline** (if Step 2d ran) — one line: *"VPS clean"* if all checks passed, or the most urgent finding if not (critical audit finding, OOM regression, restart loop, perm drift)
-3. **"Next up:"** — the single most important thing to tackle first, based on "What's Next" in the handoff; bump it below a VPS escalation if 2d surfaced one
+2. **VPS health headline** (if Step 2c ran) — one line: *"VPS clean"* if all checks passed, or the most urgent finding if not (critical audit finding, OOM regression, restart loop, perm drift)
+3. **"Next up:"** — the single most important thing to tackle first, based on "What's Next" in the handoff; bump it below a VPS escalation if 2c surfaced one
 4. **CE artifacts** — if any brainstorms, plans, or solutions were found, note them briefly (e.g., "There's an open brainstorm on X ready for planning" or "2 new solutions were compounded last session")
 5. **Any gotchas to keep in mind** — surface the watch-outs from the handoff so they're top of mind before touching code
 6. **A ready-to-go prompt** — end with something like: *"Ready when you are — just say go and I'll start on [specific task]."*
