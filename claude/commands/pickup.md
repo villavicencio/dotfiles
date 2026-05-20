@@ -67,36 +67,72 @@ git remote -v 2>/dev/null | grep -q "openclaw" || { echo "(not an openclaw-prod 
 
 If the remote doesn't contain "openclaw", skip entirely. Other projects run on different infrastructure.
 
-This step is defensive — it catches classes of failure that HANDOFF.md doesn't (security audit findings, silent OOM regressions, runaway restart loops, perm drift). Without it, the session can go several turns before you notice that the VPS has been degraded the whole time — exactly what happened on 2026-04-14.
+**As of 2026-05-20, OpenClaw is destroyed and Hermes-Atlas is the live runtime.** This step snapshots Hermes + Axiom + host health instead of the (defunct) OpenClaw container. See `docs/plans/2026-05-20-001-chore-destroy-openclaw-record.md` in the openclaw repo for the full transition.
+
+This step is defensive — it catches classes of failure that HANDOFF.md doesn't (cron-delivery errors that silently swallow output, scheduler crashes, Hermes-gateway restarts, sustained SSH bruteforce). Without it, the session can go several turns before you notice that the VPS has been degraded the whole time.
 
 Run this **single SSH call** and include the resulting headline in your Step 3 synthesis:
 
 ```bash
 ssh root@openclaw-prod '
-  echo "===OPENCLAW_STATUS_DEEP==="
-  docker exec openclaw-d95veq7chb3d8gllyj6vhpqy sh -c "openclaw status --deep 2>&1" 2>/dev/null | head -60
+  echo "===HERMES_GATEWAY==="
+  systemctl is-active hermes-gateway.service 2>&1
+  systemctl show hermes-gateway.service --property=NRestarts,ActiveEnterTimestamp,MainPID 2>&1 | tr "\n" " " | head -c 300; echo
+
+  echo "===HERMES_CRON_STATUS==="
+  sudo -u node bash -lc "hermes cron status 2>&1" | head -10
+
+  echo "===HERMES_CRON_FAILURES_24H==="
+  sudo -u node python3 -c "
+import json, datetime
+data = json.load(open(\"/home/node/.hermes/cron/jobs.json\"))
+now = datetime.datetime.now(datetime.timezone.utc)
+cutoff = now - datetime.timedelta(hours=24)
+issues = []
+for j in data.get(\"jobs\", []):
+    last_status = j.get(\"last_status\")
+    last_run = j.get(\"last_run_at\")
+    last_err = j.get(\"last_error\")
+    deliv_err = j.get(\"last_delivery_error\")
+    if last_run:
+        try:
+            t = datetime.datetime.fromisoformat(last_run.replace(\"Z\",\"+00:00\"))
+            if t >= cutoff and (last_status != \"ok\" or deliv_err):
+                issues.append(f\"  {j[\\\"id\\\"][:12]:12s} {j[\\\"name\\\"][:40]:40s} status={last_status} err={last_err or deliv_err}\")
+        except Exception: pass
+print(\"\n\".join(issues) if issues else \"(no cron failures in past 24h)\")
+" 2>&1
+
+  echo "===AXIOM_TMUX==="
+  systemctl is-active axiom-tmux.service 2>&1
+  sudo -u axiom tmux ls 2>&1 | head -3
+
   echo "===HOST_MEMORY==="
   free -h | head -3
-  echo "===CONTAINER_CGROUP==="
-  CID=$(docker inspect openclaw-d95veq7chb3d8gllyj6vhpqy --format "{{.Id}}" 2>/dev/null)
-  if [ -n "$CID" ]; then
-    cat /sys/fs/cgroup/system.slice/docker-$CID.scope/memory.current 2>/dev/null | awk "{ printf \"memory.current: %.2f MB\n\", \$1/1024/1024 }"
-    cat /sys/fs/cgroup/system.slice/docker-$CID.scope/memory.max 2>/dev/null | awk "{ printf \"memory.max:     %.2f MB\n\", \$1/1024/1024 }"
-    cat /sys/fs/cgroup/system.slice/docker-$CID.scope/memory.swap.current 2>/dev/null | awk "{ printf \"swap.current:   %.2f MB\n\", \$1/1024/1024 }"
-    docker inspect openclaw-d95veq7chb3d8gllyj6vhpqy --format "RestartCount: {{.RestartCount}} | OOMKilled: {{.State.OOMKilled}} | Status: {{.State.Status}} | StartedAt: {{.State.StartedAt}}" 2>/dev/null
-  fi
-  echo "===OOM_LAST_24H==="
-  journalctl -k --since "24 hours ago" --no-pager 2>/dev/null | grep -c "oom-kill:constraint" | awk "{ print \$1, \"OOM events in past 24h\" }"
-  echo "===PERM_DRIFT_ALERTS==="
-  find /var/lib/docker/volumes/d95veq7chb3d8gllyj6vhpqy_openclaw-state/_data/shared/inbox/forge -maxdepth 1 -type f -name "*perm-drift*.md" 2>/dev/null | head -3
-  echo "===HANDOFF_STALENESS==="
-  find /var/lib/docker/volumes/d95veq7chb3d8gllyj6vhpqy_openclaw-state/_data -mindepth 2 -maxdepth 2 -name "HANDOFF.md" -mtime +7 -printf "%TY-%Tm-%Td %p\n" 2>/dev/null
+
   echo "===HOST_LOAD==="
   uptime
+
+  echo "===HERMES_FEED_FRESHNESS==="
+  for d in doc-health ben-digest wire-signals volo-gaming borges-library bill-audit; do
+    latest=$(sudo -u node ls -t /home/node/.hermes/feeds/$d/*.md 2>/dev/null | head -1)
+    if [ -n "$latest" ]; then
+      age=$(stat -c %Y "$latest" 2>/dev/null)
+      now=$(date +%s)
+      hours_ago=$(( (now - age) / 3600 ))
+      printf "  %-15s last write %3dh ago  %s\n" "$d" "$hours_ago" "$(basename $latest)"
+    else
+      printf "  %-15s (no files)\n" "$d"
+    fi
+  done
+
   echo "===SSH_BRUTEFORCE_PRESSURE==="
   journalctl -u ssh --since "1 hour ago" --no-pager 2>/dev/null | grep -cE "Failed password|Invalid user" | awk "{ print \$1, \"failed-auth events in past 1h\" }"
   echo "===FAIL2BAN_JAIL_STATUS==="
   command -v fail2ban-client >/dev/null 2>&1 && fail2ban-client status sshd 2>/dev/null | grep -E "Currently failed|Currently banned|Total banned" || echo "(fail2ban not installed)"
+
+  echo "===OC_VOLUME_INTACT==="
+  test -f /var/lib/docker/volumes/d95veq7chb3d8gllyj6vhpqy_openclaw-state/_data/openclaw.json && echo "ok (cold backup present)" || echo "MISSING — cold backup gone"
 '
 ```
 
@@ -104,12 +140,13 @@ Treat each section independently — empty sections are load-bearing. Never skip
 
 **Interpretation rules:**
 
-- **Status lines starting with `CRITICAL` or `ERROR` in the `openclaw status --deep` output** — surface these prominently in Step 3. Catching them at session start saves a round-trip.
-- **`RestartCount > 0` or `OOMKilled: true`** — the container has crashed since the handoff was written. Flag it; the session is starting against a degraded baseline.
-- **`memory.current` > 70% of `memory.max`** — gateway is close to its cgroup ceiling right now, not hours from now. If your workload for this session is heavy (multiple `/ce:compound` rounds, agent spawns), consider a graceful restart before starting work.
-- **OOM events in past 24h > 0** — there's a regression in progress. Escalate to "what changed recently" as the first order of business.
-- **Perm-drift alerts present** — the daily perm-drift check cron (host-level, writes to `shared/inbox/forge/` because that path predates the Forge bridge deprecation) caught something. Read the alert file and remediate before other work.
-- **HANDOFF_STALENESS lists ANY workspace HANDOFF.md older than 7 days** — agent-side `/handoff` hasn't fired for that agent in over a week. Mostly informational post-fold-and-collapse since most workspaces are now archived; surface only if it's an actively-used workspace (`workspace/` for Atlas-on-OpenClaw is the main remaining one).
+- **`HERMES_GATEWAY` not `active`** — Hermes-Atlas is down. This is critical; surface as the headline before anything else. Restart via `sudo systemctl restart hermes-gateway.service`.
+- **`HERMES_CRON_STATUS` shows scheduler not running** — crons won't fire. Same severity as gateway down.
+- **`HERMES_CRON_FAILURES_24H` lists ANY job** — surface them. The output includes both agent errors (`last_error`) and delivery errors (`last_delivery_error` — Telegram down, etc.). Delivery errors are the classic silent-failure mode the user actually cares about.
+- **`AXIOM_TMUX` not `active`** — Axiom is down. Restart via `sudo systemctl restart axiom-tmux.service`.
+- **`HERMES_FEED_FRESHNESS` showing a daily feed > 30h** — that cron silently failed to deliver. Cross-reference with `HERMES_CRON_FAILURES_24H`. Daily feeds: `doc-health` (7am PT), `ben-digest` (10pm PT), `wire-signals` (3pm PT), `bill-audit` (6am PT). Weekly: `volo-gaming` (Sun 11am), `borges-library` (Sun 10am).
+- **`OC_VOLUME_INTACT` missing** — the cold backup is gone. Surface immediately; the rebuild reference is the volume, so losing it changes the rebuild story dramatically.
+- **SSH brute-force pressure** — informational unless fail2ban is at 0 banned + pressure is sustained over multiple `/pickup` calls.
 
 If SSH fails: note "VPS health snapshot unavailable" and continue; do not block pickup. Rationale: a down VPS is important information, but a Mac-side `/pickup` shouldn't stall on network problems.
 
