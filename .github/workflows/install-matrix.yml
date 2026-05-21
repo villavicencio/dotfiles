@@ -15,8 +15,9 @@
 # ----------------------------------------------------------
 # 1. Machine-local config: ~/env.sh, ~/.gitconfig.local, ~/.ssh/config are
 #    untracked and per-machine. CI does not exercise their integration.
-# 2. Tailscale: hosted runners aren't on the tailnet. The sync-vps workflow
-#    covers that path on its own.
+# 2. Tailscale: hosted runners aren't on the tailnet. No live workflow uses
+#    the tailnet path as of 2026-05-21 (sync-vps decommissioned with the VPS
+#    re-purpose); retained note in case a future workflow re-introduces one.
 # 3. chsh: PAM auth fails on hosted macOS. install.conf.yaml's chsh
 #    directive is CI-gated via `[[ "${CI:-false}" != "true" ]]`. If chsh
 #    breaks on a real machine we won't catch it here.

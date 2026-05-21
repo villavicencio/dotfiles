@@ -1,7 +1,7 @@
 ---
 title: "Sync dotfiles to a Linux VPS via GitHub Actions over Tailscale"
 date: 2026-04-14
-last_updated: 2026-04-20
+last_updated: 2026-05-21
 category: cross-machine
 tags:
   - vps
@@ -13,18 +13,31 @@ tags:
   - deploy
   - rollback
   - oauth
+  - retired
 severity: High
 component:
   - install
   - install-linux.conf.yaml
-  - .github/workflows/sync-vps.yml
-  - scripts/post-deploy-smoke.sh
+  - .github/workflows/sync-vps.yml (deleted 2026-05-21)
+  - scripts/post-deploy-smoke.sh (deleted 2026-05-21)
   - helpers/install_packages.sh
-status: Resolved
+status: Retired
 scope:
-  - openclaw-prod (Ubuntu 24.04)
+  - openclaw-prod (Ubuntu 24.04) — decommissioned as a dotfiles target 2026-05-21
   - any future Linux host with root access and tailnet connectivity
 ---
+
+> **Status: RETIRED 2026-05-21.** The only host this workflow targeted —
+> `openclaw-prod` — was re-purposed on 2026-05-20 (OpenClaw container
+> destroyed, Hermes-Atlas + Claude Code deployed in its place). The
+> dotfiles tree was not part of the new shape, so `.github/workflows/sync-vps.yml`
+> and `scripts/post-deploy-smoke.sh` were deleted in PR closing #79.
+> This runbook is preserved as a revival reference: if a future Linux host
+> ever wants a managed dotfiles tree synced via Tailscale + GitHub Actions,
+> the design and Tailscale ACL block below are the canonical recipe.
+> Generic Linux Dotbot support (`install-linux.conf.yaml`, `case Linux)`
+> in `./install`, helpers' `uname` guards) was left intact for that
+> revival path.
 
 # Sync dotfiles to a Linux VPS via GitHub Actions over Tailscale
 
