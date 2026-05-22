@@ -195,27 +195,73 @@ icons.
 
 ## Step 5 — Apply the chosen variation
 
-**Important:** The Claude Code Bash tool strips private-use-area (PUA)
-characters — most Nerd Font glyphs live in this range — from command-line
-arguments. To reliably set a Nerd Font glyph on a tmux option, invoke
-`tmux set-option` via `python3` with the glyph written as a `\uXXXX` escape:
+### ⚠️ PUA stripping — the load-bearing rule
+
+The Claude Code Bash tool strips private-use-area (PUA) characters — most
+Nerd Font glyphs (``–``, `0`–`￿f`) live in this
+range — from **everything it sends to the shell**: argv strings, here-doc
+bodies, double-quoted `-c` payloads. The Python wrapper does **not** save
+you on its own. What saves you is **writing the codepoint as a `\uXXXX`
+escape sequence in the Python source**, so Python (not the shell) is the
+thing that materializes the character.
+
+**WRONG — silently produces empty `@win_glyph`:**
 
 ```bash
 python3 -c "
 import subprocess
-glyph='\uFXXX'  # resolve codepoint from references/glyphs.md
-target='<target>'  # e.g. '' for current, ':2' for window 2
-subprocess.run(['tmux','rename-window','-t',target,'<title>'], check=True)
-subprocess.run(['tmux','set-option','-w','-t',target,'@win_glyph',glyph], check=True)
-subprocess.run(['tmux','set-option','-w','-t',target,'@win_glyph_color','<glyph_color>'], check=True)
+glyph = ''   # literal PUA character — Bash tool strips this BEFORE python sees it
+subprocess.run(['tmux','set-option','-w','-t',':2','@win_glyph',glyph], check=True)
 "
 ```
 
-Emojis (standard Unicode, outside PUA) can be passed directly in bash, but
-for uniform reliability **always use the python wrapper** for the glyph.
+**WRONG — heredoc with literal PUA also strips:**
+
+```bash
+python3 << 'PYEOF'
+glyph = ''   # still stripped
+PYEOF
+```
+
+**RIGHT — `\uXXXX` escape sequence in Python source survives:**
+
+```bash
+python3 << 'PYEOF'
+import subprocess
+glyph = '\uf4bc'   # literal backslash-u-f-4-b-c (6 ASCII chars) — Python materializes the char at runtime
+target = ':2'
+subprocess.run(['tmux','rename-window','-t',target,'<title>'], check=True)
+subprocess.run(['tmux','set-option','-w','-t',target,'@win_glyph',glyph], check=True)
+subprocess.run(['tmux','set-option','-w','-t',target,'@win_glyph_color','<glyph_color>'], check=True)
+print('glyph bytes:', glyph.encode('utf-8').hex())
+PYEOF
+```
+
+
+(Look at the raw bytes of the line above with `xxd` — it must contain the
+six ASCII characters `\`, `u`, `f`, `4`, `b`, `c` inside the quotes, **not**
+a single rendered PUA glyph. If your editor or tool round-trip renders it as
+the resolved character, the source has already been mis-transcribed and the
+example no longer demonstrates the correct pattern.)
+
+**Always verify** the stored bytes match the intended codepoint before
+declaring success. A 16-bit PUA codepoint encodes to exactly 3 UTF-8 bytes:
+
+```bash
+tmux show-options -wv -t :2 @win_glyph | xxd
+# Expected for : ef 92 bc 0a (the 0a is the trailing newline from show-options)
+```
+
+If the xxd output is just `0a` (newline only), the glyph got stripped —
+go back and use the escape sequence form.
+
+Emojis (standard Unicode, outside PUA) can be passed directly in bash. The
+escape-sequence rule applies specifically to PUA codepoints.
 
 After applying, persist to the sidecar (this is safe to run in plain bash
-because `bash` passes argv through without stripping):
+because the glyph at this point lives in a shell variable populated by
+`tmux show-options`, which returns real bytes from tmux — there is no
+Bash-tool argv stripping in this path):
 
 ```bash
 session=$(tmux display-message -p -t "$target" '#{session_name}')
