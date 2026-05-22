@@ -98,7 +98,7 @@ for j in data.get(\"jobs\", []):
         try:
             t = datetime.datetime.fromisoformat(last_run.replace(\"Z\",\"+00:00\"))
             if t >= cutoff and (last_status != \"ok\" or deliv_err):
-                issues.append(f\"  {j[\\\"id\\\"][:12]:12s} {j[\\\"name\\\"][:40]:40s} status={last_status} err={last_err or deliv_err}\")
+                issues.append(f\"  {j[\"id\"][:12]:12s} {j[\"name\"][:40]:40s} status={last_status} err={last_err or deliv_err}\")
         except Exception: pass
 print(\"\n\".join(issues) if issues else \"(no cron failures in past 24h)\")
 " 2>&1
@@ -114,7 +114,7 @@ print(\"\n\".join(issues) if issues else \"(no cron failures in past 24h)\")
   uptime
 
   echo "===HERMES_FEED_FRESHNESS==="
-  for d in doc-health ben-digest wire-signals volo-gaming borges-library bill-audit; do
+  for d in doc-health ben-digest wire-signals volo-gaming borges-library; do
     latest=$(sudo -u node ls -t /home/node/.hermes/feeds/$d/*.md 2>/dev/null | head -1)
     if [ -n "$latest" ]; then
       age=$(stat -c %Y "$latest" 2>/dev/null)
@@ -144,7 +144,7 @@ Treat each section independently — empty sections are load-bearing. Never skip
 - **`HERMES_CRON_STATUS` shows scheduler not running** — crons won't fire. Same severity as gateway down.
 - **`HERMES_CRON_FAILURES_24H` lists ANY job** — surface them. The output includes both agent errors (`last_error`) and delivery errors (`last_delivery_error` — Telegram down, etc.). Delivery errors are the classic silent-failure mode the user actually cares about.
 - **`AXIOM_TMUX` not `active`** — Axiom is down. Restart via `sudo systemctl restart axiom-tmux.service`.
-- **`HERMES_FEED_FRESHNESS` showing a daily feed > 30h** — that cron silently failed to deliver. Cross-reference with `HERMES_CRON_FAILURES_24H`. Daily feeds: `doc-health` (7am PT), `ben-digest` (10pm PT), `wire-signals` (3pm PT), `bill-audit` (6am PT). Weekly: `volo-gaming` (Sun 11am), `borges-library` (Sun 10am).
+- **`HERMES_FEED_FRESHNESS` showing a daily feed > 30h** — that cron silently failed to deliver. Cross-reference with `HERMES_CRON_FAILURES_24H`. Daily feeds: `doc-health` (7am PT), `ben-digest` (10pm PT), `wire-signals` (3pm PT). Weekly: `volo-gaming` (Sun 11am), `borges-library` (Sun 10am). Note: `bill-audit` cron exists but delivers via Telegram only — no local feed dir to track.
 - **`OC_VOLUME_INTACT` missing** — the cold backup is gone. Surface immediately; the rebuild reference is the volume, so losing it changes the rebuild story dramatically.
 - **SSH brute-force pressure** — informational unless fail2ban is at 0 banned + pressure is sustained over multiple `/pickup` calls.
 
