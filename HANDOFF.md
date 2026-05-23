@@ -1,34 +1,44 @@
-# HANDOFF — 2026-05-21 (PDT, evening)
+# HANDOFF — 2026-05-22 (PDT, afternoon)
 
-#79 closed via PR #80 — sync-vps decommissioned after a premise-shift investigation. **Issue board is now empty, no open PRs, working tree clean.** First clean-slate handoff since the Node-24 sweep started 2026-05-11.
+Session focused on **infra orientation + tmux window curation**. No board work — board's still empty since #79 closed yesterday. Net shipped: one skill-hardening commit (`549574d`), one new feedback memory, and a brand-new "Skills" tmux tab teed up for next session's actual work.
 
 ## What We Built
 
-- **PR #80 — `ci: decommission sync-vps.yml (closes #79)`** (squash-merged into `01890bc`, branch deleted). 5 files, 24 insertions / 275 deletions.
-  - **Deleted:** `.github/workflows/sync-vps.yml`, `scripts/post-deploy-smoke.sh` (only invoked by sync-vps).
-  - **Edited:**
-    - `CLAUDE.md` — dropped "one VPS" framing in the opening sentence, removed the VPS row from the machines table, removed the `## Setting up a Linux host (VPS)` section, removed the Tailscale `tag:prod` / `tag:gh-actions` ACL paragraph. Added replacement note about preserving generic Linux Dotbot infra under "Things intentionally left as-is."
-    - `.github/workflows/install-matrix.yml` — rewrote comment #2 in the "what this matrix does NOT validate" block (sync-vps was cited there as the workflow that covered the tailnet path).
-    - `docs/solutions/cross-machine/vps-dotfiles-target.md` — retire-noted (NOT deleted). `status: Resolved → Retired`, prominent banner at top with date stamp, knowledge preserved for any future Linux target.
-  - **Preserved as revival infrastructure:** `install-linux.conf.yaml`, `case Linux)` branch in `./install`, `helpers/*.sh` `uname` guards. `claude/commands/pickup.md` Step 2c left intact (already updated 2026-05-20 to snapshot Hermes/Axiom/host health, gates on `git remote contains "openclaw"` so dotfiles `/pickup` skips it).
+- **PR-less commit `549574d` — `docs(tmux-window-namer): harden PUA-stripping warning with WRONG/RIGHT examples`** (pushed direct to master per the docs carve-out rule).
+  - Step 5 now leads with a ⚠️-flagged "PUA stripping — the load-bearing rule" subsection.
+  - Three explicit code blocks: WRONG (`python3 -c "..."` with literal PUA), WRONG (heredoc with literal PUA — also strips), RIGHT (heredoc with `\uXXXX` escape sequence inline).
+  - Verification step using `tmux show-options | xxd` with the expected `ef 92 bc 0a` byte signature.
+  - Footnote pointing future-me at `xxd` to detect a mis-transcribed source **before** declaring success.
+  - Pre-commit gitleaks scan passed.
+- **New feedback memory** at `~/.claude/projects/-Users-dvillavicencio-Projects-Personal-dotfiles/memory/feedback_pua_glyph_escape_sequence.md` + index pointer in `MEMORY.md`. Captures the rule, the why (Bash tool strips `U+E000`–`U+F8FF` from argv, heredoc bodies, and `-c` payloads — including under `<< 'PYEOF'` single-quoted delimiters), and the "how to apply" — including the doubled-backslash trick (`\\uf4bc`) for embedding the literal escape sequence via the Edit/Write tools.
+- **Tmux window curation** (sidecar persisted to `~/.config/tmux/window-meta.json`):
+  - Window 1: **OpenClaw → Hermes**, glyph ``, ember `#D97757` (preserved from OpenClaw days).
+  - Window 2: D&B.com glyph swapped to ``, custom gold `#D4AF37` preserved (out-of-palette custom color, deliberate).
+  - Window 6 (new): **Skills**, glyph ``, forest `#98C379` — created for next-session's agent-skill-development project.
 
 ## Decisions Made
 
-- **Re-clone (option 1 in #79) was rejected** after VPS inspection revealed the dotfiles tree was deliberately removed during the 2026-05-20 OpenClaw destroy, not silently lost. The box is now `openclaw-prod-hil` hosting Hermes-Atlas (deployed 2026-05-17) + Claude Code (deployed 2026-05-19). Re-cloning would have overlaid Dotbot symlinks onto the freshly-shaped Hermes/Claude environment. **Decommission (option 2) was the correct call.**
-- **Generic Linux Dotbot support preserved.** Even though my AskUserQuestion option text listed `install-linux.conf.yaml` and helpers' Linux branches as deletion targets, on closer inspection they have no `openclaw-prod` coupling and serve as a revival path for any future Linux host. The retire-noted runbook is the canonical revival reference.
-- **Runbook retire-noted, not deleted.** `docs/solutions/cross-machine/vps-dotfiles-target.md` keeps its design + Tailscale ACL block as canonical reference. Anything else (the workflow itself, the smoke script) is recoverable from git history.
+- **Picked forest palette for the new Skills window** to dodge collision with Volo (window 5, lilac) and signal "green-field new project." User then immediately swapped the glyph from `` to `` — palette stuck.
+- **Hardened the skill in-place rather than just adding a feedback memory** — same footgun would still trip a fresh session that follows the skill blindly. The memory is the belt; the skill update is the suspenders. Both ship.
+- **Committed the skill change direct to master without asking**, per `feedback_commit_approval.md`: documentation-hardening on an existing skill counts as additive doc content, not a behavior change.
+- **Did NOT update the stale openclaw memory** `claude_code_vps_setup_token.md` (which claims root uses headless setup-token via `~/.env.local`). Confirmed both `/root/.claude/` and `/root/.env.local` are gone post-destroy. Memory lives in the openclaw project's memory dir, not dotfiles — fix it from an openclaw-side session. Offered, user did not pick up.
 
 ## What Didn't Work
 
-- N/A — execution was clean once the premise was clarified via AskUserQuestion. No dead ends this session.
+- **First attempt at `` on window 2** stripped to empty `@win_glyph` (xxd showed `0a` only) because I passed the literal PUA char in `python3 -c "..."` argv. The skill's prior wording said "use the python wrapper" but the template showed `'\uFXXX'` as a placeholder — I substituted the resolved char in. Same failure repeated on window 1's `` even with a `<< 'PYEOF'` heredoc — heredoc body **also** gets PUA-stripped before reaching python. The fix that actually works is `\uXXXX` (6 ASCII chars) inside the Python source itself.
+- **Edit tool also strips PUA chars** from `old_string` / `new_string` payloads in unpredictable ways — some WRONG examples in the new Step 5 had their literal PUA chars stripped (which actually fits the demo), but the RIGHT example accidentally got the *resolved* character instead of the literal escape-sequence text. Fixed via a `python3 << 'PYEOF'` heredoc that did the in-place edit with doubled-backslash escaping.
 
 ## What's Next
 
-1. **Nothing on the board.** No open issues, no open PRs, master is at `01890bc`. This is a clean slate — first time since the Node-24 sweep started 2026-05-11.
-2. **Optional follow-up not pursued:** if you decide you want NO Linux support at all (not just no VPS sync), the further-rip targets are `install-linux.conf.yaml`, `case Linux)` in `./install`, helpers' `uname` branches, retire-noted runbook deletion. Today's scope explicitly preserved them. Bring it up only if you actually want it; not on anyone's blocker list right now.
+1. **Use the new Skills tmux window for agent-skill development.** That's the natural next thread — user created the tab explicitly "for a new project where I will develop agent skills." Nothing more specific is in flight yet; just a workspace shell.
+2. **Optional: update the stale openclaw memory** `claude_code_vps_setup_token.md` next time you're in an openclaw-project session. Fix is "root has no `.claude/` and no `claude` binary post-2026-05-20 destroy; this memory describes a path that no longer exists."
+3. **Optional: enable Ubuntu Pro on the VPS** for the 13 ESM Apps security updates. Free for ≤5 personal machines, `sudo pro attach <token>`. Standard channel is fully patched (0 immediate updates) so this is defense-in-depth, not urgent.
+4. **No board work in flight.** Issues: 0. Open PRs: 0. master at `549574d`, working tree clean.
 
 ## Gotchas & Watch-outs
 
-- **`openclaw-prod` SSH alias still resolves**, just to a different identity. The box is now `openclaw-prod-hil` hosting Hermes + Claude Code. `claude/settings.json:133` and `.claude/settings.local.json` allowlists still permit `Bash(ssh root@openclaw-prod*)` and that's deliberate — Hermes liveness checks etc. still use it.
-- **Historical docs still reference `sync-vps.yml`** — `docs/plans/2026-04-14-feat-vps-dotfiles-sync-target-plan.md`, `docs/brainstorms/2026-04-14-vps-dotfiles-target-brainstorm.md`, `docs/solutions/cross-machine/*.md` (besides the retire-noted runbook), `docs/solutions/code-quality/zsh-dash-i-c-exit-false-positive-health-check.md`. These are intentional historical archive, not stale config. Don't sweep them.
-- **`HANDOFF.md` from 2026-05-20 mentioned `forge-project-key: dotfiles` was still in CLAUDE.md.** That marker is still there. Inert post-Forge-bridge-deprecation. Strip it if you want a tidier doc; harmless if you don't.
+- **PUA stripping is the load-bearing footgun for any future Nerd-Font glyph work.** Read `claude/skills/tmux-window-namer/SKILL.md` Step 5 (or `feedback_pua_glyph_escape_sequence.md`) before touching tmux glyphs. The skill itself is now self-defending — but only if you actually look at it.
+- **Window 2 (D&B.com) uses `#D4AF37` (gold) which is NOT in `references/palettes.md`.** Pre-existing custom override — left as-is during this session's icon-only swap. Don't "fix" it on a future tweak unless explicitly asked.
+- **Two openclaw memory files this dotfiles project regularly references are state-dependent on the VPS post-destroy:** `claude_code_vps_setup_token.md` (stale, see above) and `axiom_remote_control_oauth.md` (still accurate as of 2026-05-22 — Axiom OAuth path holds). Spot-check before quoting either as fact.
+- **VPS has 2 logged-in users right now** per the welcome banner. Likely your own Mac + Termius iPhone sessions but worth `who` / `last -10` if it surprises you next session.
+- **Forge identity marker `forge-project-key: dotfiles` is still in CLAUDE.md** — inert post-Forge-bridge-deprecation, harmless to strip if you want a tidier doc. Same note as the prior handoff; not worth bumping into the next one without intent.
