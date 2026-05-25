@@ -1,0 +1,13 @@
+{
+  "enabledPlugins": {
+    "tmux-window-namer@villavicencio-skills": true
+  },
+  "extraKnownMarketplaces": {
+    "villavicencio-skills": {
+      "source": {
+        "source": "github",
+        "repo": "villavicencio/skills"
+      }
+    }
+  }
+}
