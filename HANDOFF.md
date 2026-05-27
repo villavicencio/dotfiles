@@ -1,41 +1,34 @@
 # HANDOFF — 2026-05-27 (PDT)
 
-Same-session continuation of the browse-gateway arc. The prior sitting took it research → brainstorm → requirements doc → 6-persona doc review → spike → plan, all committed to `dotfiles`, ending at "the implementation repo does not exist yet." **This sitting created that repo, seeded it public-safe, and handed implementation off to a distinct Claude Code instance.** dotfiles itself got no new commits this session — all work landed in the new `browse-gateway` repo.
+Short, self-contained maintenance session. Picked up cold (browse-gateway arc parked — see note below), then chased one concrete bug: the Claude Code statusline on the Axiom (Linux) host rendered the git-branch Powerline glyph as the literal string `\xee\x82\xa0`. Diagnosed it to a non-POSIX `printf` escape, fixed it in both dotfiles and on the live Axiom host, and compounded the learning into `docs/solutions/`. Tree is clean, everything pushed.
 
 ## What We Built
 
-- **Created the implementation repo: `browse-gateway`** — public, at https://github.com/villavicencio/browse-gateway, local checkout `~/Projects/browse-gateway` (branch `main`, personal git identity). One commit: `8783da4 chore: bootstrap browse-gateway repo`.
-- **Seeded three public-safe files** (verified zero fleet internals via leak scan before push):
-  - `README.md` — generic gateway description (Node/TS, real-Chrome-under-Xvfb stealth core, outcome verbs, scoped proxy, allowlist). No hostnames/agent names/paths.
-  - `CLAUDE.md` — project conventions + intended `src/` layout + "build the kill-gate first" order; routes the implementing agent to private context.
-  - `.gitignore` — Node + `.env*` + a load-bearing `*.local.md` rule (keeps the bridge file private).
-- **Wrote `CONTEXT.local.md` in browse-gateway (gitignored, never pushed)** — the private bridge: absolute paths to the real plan/requirements/handoff in dotfiles, the validated spike facts, reusable spike-stack locations (`/root/bgw-spike`, `/tmp/bgw-spike`), deployment guardrails (don't disturb `hermes`/`axiom`), and the op gotchas. Verified on-disk-but-untracked.
-- **Left the dotfiles planning docs untouched** — the requirements brainstorm and the 7-unit plan stay private in dotfiles; browse-gateway references them via the bridge file rather than copying them.
+- **`de51edc` — `fix(statusline): octal escape for branch glyph so dash renders it`.** Changed `claude/statusline-command.sh` line 36 from `printf "...\xee\x82\xa0..."` (hex escape for U+E0A0) to octal `\356\202\240`, plus rewrote the comment to explain the dash/POSIX gap. Verified the octal form emits bytes `ee 82 a0` identically in `/bin/sh`, `dash`, and `bash`.
+- **Patched the live file on Axiom** via `! python3 -c '...'` (literal raw-string `.replace()`) — the dotfiles commit alone does NOT reach Axiom (it's not a dotfiles-managed target post-VPS-decommission). User confirmed the glyph now renders.
+- **`71bb507` — `docs(solutions): printf \xHH not POSIX — use octal; refresh PUA sibling`.** Ran `/ce-compound` (Full mode). Created `docs/solutions/code-quality/printf-hex-escape-not-posix-use-octal.md` (bug track, `runtime_error`/`tooling`/`wrong_api`, frontmatter validated). Also refreshed the sibling `docs/solutions/code-quality/claude-code-bash-tool-strips-pua-glyphs.md` (Phase 2.5): its on-disk-output guidance recommended `printf '\xHH'` without the dash caveat and missed octal — added the octal pointer + cross-reference, bumped `updated:`.
+- **tmux:** renamed window `local:1` from "Hermes" → "Agents" (kept glyph U+F4BC + ember `#D97757`), persisted to the sidecar.
 
 ## Decisions Made
 
-- **Distinct CC instance for implementation, not this one.** Rationale: context hygiene (dotfiles' CLAUDE.md is ~400 lines of Homebrew/dotbot/zsh rules irrelevant to a Node gateway), and CE memory/`docs/solutions/` should compound in the gateway repo. The plan already assumed a separate repo.
-- **Repo is public, but the planning docs stay private.** The user chose public for the repo; on reading the docs I flagged that they contain fleet hostnames (`openclaw-prod`/Hetzner), agent/account names (`hermes`/`axiom`/Atlas/`node`), file paths (`/home/node/.openclaw/bin/*`), and a complete threat-model-with-named-attack-surface (R18's prompt-injection note) — a public push would publish the fleet's operational security posture. User chose **"docs stay private; seed generic only."** Resolved via the gitignored `CONTEXT.local.md` bridge: CE convention (docs travel with code) is satisfied locally without leaking.
-- **No LICENSE committed.** Public + no license = "all rights reserved" by default. Left unpicked deliberately — MIT would fit the spike's MIT-Steel lineage if the user wants it actually open-source.
+- **Filed the new learning in `code-quality/`, not `runtime-errors/`** (where the schema's `runtime_error`→`runtime-errors/` mapping pointed). Rationale: the two closest sibling docs (PUA-glyph stripping, tmux-format-hex mangling) already cluster in `code-quality/`; co-locating the escape/glyph/portability gotcha family beats schema purity for discoverability. `runtime-errors/` holds one unrelated doc.
+- **Made the Phase 2.5 sibling-doc refresh surgically by hand** instead of spinning up the full `ce-compound-refresh` skill — it was a verified 4-line correctness fix already in hand; a whole skill invocation was disproportionate.
+- **Skipped Phase 3** (specialized reviews) — the doc's snippets are all verified one-liners and already minimal.
+- **Root cause is `wrong_api`** (non-portable `printf` escape), severity `low` (cosmetic glyph; branch name always showed).
 
 ## What Didn't Work
 
-- Nothing relitigated or dead-ended this session. The one course-correction: the original "push everything verbatim" reading of "public repo" was caught before any push — the leak scan + the docs-stay-private decision happened pre-commit, so no internals ever reached GitHub.
+- **First Axiom patch attempt (`grep -q`/`sed` find-and-replace) silently no-oped** — printed `NO_HEX_ESCAPE` while the escape was plainly still in the file. Two compounding causes: (1) bash double-quotes collapsed `\\x`→`\x`; (2) **GNU `grep`/`sed` interpret `\xHH` in a pattern as the byte `0xEE` itself**, so it searched for the rendered glyph bytes (absent from the file) and matched nothing. Fix: literal Python `.replace()` with single-quoted raw strings — no regex engine. (This became its own section in the new doc.)
+- **The Edit tool serialized a typed em-dash into a literal `—`** in the sibling doc — the inverse of the escape-mangling the doc is about. Caught on byte-inspection (`xxd`); fixed via a `chr(92)`-built Python literal replace (avoids typing either the em-dash or `—`, both of which the harness transforms on input). Worth remembering: **build literal escape-text search strings from `chr(92)`, never type the backslash sequence directly into a tool arg.**
 
 ## What's Next
 
-1. **In the `browse-gateway` instance** (`cd ~/Projects/browse-gateway && claude`): read `CONTEXT.local.md` → the plan it points to → start **U1, the stealth kill-gate** (Dockerize Chrome + Xvfb + Patchright, reproduce the spike bypass through the shipping vehicle; ≥3/3 on CF-challenge + DataDome). Everything U2→U7 is blocked on U1 passing.
-2. **Commit the CE config sitting uncommitted in browse-gateway** (see Gotchas) — mirrors dotfiles commit `60fb677`.
-3. Optional: add a LICENSE to browse-gateway if open-sourcing for real.
-4. Optional (deferred from ce-plan): deeper doc review on the plan before coding.
-5. **dotfiles' role for this project is now just custody of the private planning docs** — no further dotfiles work is implied. Implementation lives entirely in the other repo.
+- **Nothing pending in dotfiles.** This arc is closed — both commits pushed, tree clean, no open PRs.
+- **Parked (not this repo's work):** the **browse-gateway** arc. Implementation lives in `~/Projects/browse-gateway` (public repo); its context is in that repo's gitignored `CONTEXT.local.md`, and dotfiles only retains custody of the private planning docs (`docs/brainstorms/2026-05-27-self-hosted-browser-gateway-requirements.md`, `docs/plans/2026-05-27-001-feat-browse-gateway-plan.md`). To resume it: `cd ~/Projects/browse-gateway && claude` → read `CONTEXT.local.md` → start U1 (the stealth kill-gate). The prior HANDOFF (overwritten by this one) covered that arc in full; git history has it at commit `61095bc`.
 
 ## Gotchas & Watch-outs
 
-- **⚠️ Uncommitted changes in `~/Projects/browse-gateway`:** `M .gitignore` + untracked `.compound-engineering/` (CE project config the user added post-bootstrap). Not committed by this session — it's the user's change in the other repo. The new instance should commit it (pattern: dotfiles `60fb677`).
-- **The `*.local.md` gitignore rule is load-bearing.** `CONTEXT.local.md` carries all the fleet internals; if that rule is ever weakened, internals leak to the public repo. Any future private file in that repo must match `*.local.*` or `.env*`.
-- **Don't disturb the live agents** on openclaw-prod: `hermes` (Atlas, `node` user) and `axiom` (kernel-isolated). The gateway must be capped and additive.
-- **Auto-mode classifier blocks compound prod-mutating SSH** (`apt && npm && …` in one `ssh openclaw-prod '…'`). Use atomic single-purpose commands, or run setup via `! <cmd>`. Read-only SSH recon is fine.
-- **Spike stacks are pre-installed and reusable:** `/root/bgw-spike` on openclaw-prod (Xvfb + Chrome + Patchright, headful, `--no-sandbox`) and `/tmp/bgw-spike` on the Mac (throwaway).
-- Browserbase downgrades Developer → Free on **2026-06-07** — no managed stealth/proxy/CAPTCHA after that. Soft pressure, not a hard deadline; it's why the self-hosted stealth core is load-bearing.
-- This HANDOFF lives in **dotfiles**. The browse-gateway instance gets its own orientation from `CONTEXT.local.md`, not from here.
+- **`printf \xHH` and `\uXXXX` are bash/coreutils-only.** For any non-ASCII byte in a `#!/bin/sh` or `sh`-invoked script, use octal `\ooo`. Portability check before committing byte escapes: `for s in dash bash sh; do $s -c 'printf "\356\202\240"' | xxd; done` — all must emit `ee82a0`.
+- **dotfiles ≠ Axiom delivery.** Fixing a `claude/` file in dotfiles does not propagate to Axiom (no active Linux dotfiles target since the 2026-05-21 VPS decommission). Any `~/.claude/*` fix that must reach Axiom has to be applied to the live host separately — user ran it via the `!` prefix this session.
+- **Editing literal escape text on Linux: never use `grep`/`sed`** — their `\x` is a byte escape and misfires on the exact strings being edited. Use a literal-string replace (Python raw string, or `perl -pe` with `quotemeta`) and make it self-verifying (`PATCHED`/`NOT_FOUND`).
+- The statusline comment on Axiom's live file still references the old hex form (only the functional `printf` line was patched) — harmless drift; resync the whole file from the repo if it ever matters.
