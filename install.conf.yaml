@@ -85,8 +85,6 @@
     ~/.claude/settings.json: claude/settings.json
     ~/.claude/statusline-command.sh: claude/statusline-command.sh
     ~/.claude/hooks/tmux-attention.sh: claude/hooks/tmux-attention.sh
-    ~/.claude/commands/handoff.md: claude/commands/handoff.md
-    ~/.claude/commands/pickup.md: claude/commands/pickup.md
     ~/.claude/commands/reddit.md: claude/commands/reddit.md
     ~/.claude/commands/critique.md: claude/commands/critique.md
     ~/.claude/commands/twitter.md: claude/commands/twitter.md
