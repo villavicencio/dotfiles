@@ -5,8 +5,15 @@ model=$(echo "$input" | jq -r '.model.display_name // ""')
 used=$(echo "$input" | jq -r '.context_window.used_percentage // empty')
 
 # Shorten home directory to ~
+# POSIX prefix substitution (works in dash AND bash). The bash-only
+# form `${cwd/#$home/~}` triggers "Bad substitution" under dash, which
+# is /bin/sh on Linux — settings.json invokes this script via `sh`.
 home="$HOME"
-short_cwd="${cwd/#$home/~}"
+case "$cwd" in
+  "$home")   short_cwd="~" ;;
+  "$home"/*) short_cwd="~${cwd#"$home"}" ;;
+  *)         short_cwd="$cwd" ;;
+esac
 
 # Build status line with ANSI colors
 # Cyan for directory, dim white for model, color-coded context usage
