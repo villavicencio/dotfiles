@@ -1,7 +1,7 @@
 ---
 title: "Claude Code Bash, Write, and Edit tools strip Nerd Font PUA glyphs"
 date: 2026-04-08
-updated: 2026-04-29
+updated: 2026-05-27
 category: code-quality
 tags:
   - claude-code
@@ -108,9 +108,12 @@ contains only ASCII at rest and the escape is decoded at parse time:
   // RIGHT — JSON native \uXXXX escape, pure ASCII in the Write argument
   { "glyph": "\uee0d" }
   ```
-- **Bash/zsh scripts:** use `$'\uee0d'` ANSI-C quoting or
-  `printf '\xee\x... '` for on-disk output. For POSIX-portable:
-  write via `python3 -c 'import sys; sys.stdout.buffer.write(...)'`
+- **Bash/zsh scripts:** use `$'\uee0d'` ANSI-C quoting (bash/zsh only) for
+  on-disk output. For a POSIX `printf` that also works under dash (`/bin/sh`
+  on Linux), use **octal** `\356\202\240`, *not* `\xHH` hex, which is a
+  bash/coreutils extension that dash prints literally. See
+  [printf-hex-escape-not-posix-use-octal.md](./printf-hex-escape-not-posix-use-octal.md).
+  Or write the bytes via `python3 -c 'import sys; sys.stdout.buffer.write(...)'`
   redirected to the file.
 - **Python source files:** use `"\uXXXX"` or `"\U000XXXXX"` literals.
 
