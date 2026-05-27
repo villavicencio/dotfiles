@@ -1,6 +1,6 @@
 # HANDOFF — 2026-05-27 (PDT)
 
-Short, self-contained maintenance session. Picked up cold (browse-gateway arc parked — see note below), then chased one concrete bug: the Claude Code statusline on the Axiom (Linux) host rendered the git-branch Powerline glyph as the literal string `\xee\x82\xa0`. Diagnosed it to a non-POSIX `printf` escape, fixed it in both dotfiles and on the live Axiom host, and compounded the learning into `docs/solutions/`. Tree is clean, everything pushed.
+Short, self-contained maintenance session. Picked up cold (browse-gateway arc parked — see note below), then chased one concrete bug: the Claude Code statusline on the Axiom (Linux) host rendered the git-branch Powerline glyph as the literal string `\xee\x82\xa0`. Diagnosed it to a non-POSIX `printf` escape, fixed it in both dotfiles and on the live Axiom host, and compounded the learning into `docs/solutions/`. Closed with a quick diagnostic: Axiom's "10:33pm" is the VPS clock running on UTC (see gotchas). Tree is clean, everything pushed; no code changes since `74695c7`.
 
 ## What We Built
 
@@ -32,3 +32,4 @@ Short, self-contained maintenance session. Picked up cold (browse-gateway arc pa
 - **dotfiles ≠ Axiom delivery.** Fixing a `claude/` file in dotfiles does not propagate to Axiom (no active Linux dotfiles target since the 2026-05-21 VPS decommission). Any `~/.claude/*` fix that must reach Axiom has to be applied to the live host separately — user ran it via the `!` prefix this session.
 - **Editing literal escape text on Linux: never use `grep`/`sed`** — their `\x` is a byte escape and misfires on the exact strings being edited. Use a literal-string replace (Python raw string, or `perl -pe` with `quotemeta`) and make it self-verifying (`PATCHED`/`NOT_FOUND`).
 - The statusline comment on Axiom's live file still references the old hex form (only the functional `printf` line was patched) — harmless drift; resync the whole file from the repo if it ever matters.
+- **The VPS clock is UTC (Axiom reports UTC time, 7h ahead of PDT).** Verified 2026-05-27: Axiom's "10:33pm" = 22:33 UTC = 3:33pm PDT. So any "today/tonight/this morning" framing from Axiom is UTC-relative, and after ~5pm PDT its calendar date rolls a day ahead of the user's. Left on UTC by choice (unambiguous server logs); to align it, run `sudo timedatectl set-timezone America/Los_Angeles` on the host. Not changed this session.
