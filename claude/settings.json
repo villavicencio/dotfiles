@@ -130,7 +130,8 @@
     "Bash(curl -fsSL*)",
     "Bash(curl -s*)",
     "Bash(tmux -V*)",
-    "Bash(ssh root@openclaw-prod*)"
+    "Bash(ssh root@openclaw-prod*)",
+    "Bash(ssh openclaw-prod:*)"
   ],
   "mcpServers": {
     "eagle": {
