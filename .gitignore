@@ -7,3 +7,6 @@ install_tmux.log
 mcpconfig.json
 # Note: .claude/settings.json is tracked (portable plugin config). Keep any
 # machine-specific or secret values in .claude/settings.local.json (ignored).
+
+# Compound Engineering machine-local config
+.compound-engineering/*.local.yaml
