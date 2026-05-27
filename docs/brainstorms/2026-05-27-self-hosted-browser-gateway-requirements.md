@@ -180,7 +180,7 @@ what the browsers are doing.
 ## Dependencies / Assumptions
 
 - Steel Browser (MIT) is the chosen browser-execution engine. (Subject of the brainstorm; confirmed by the user.)
-- **A residential proxy provider account is likely a v1-blocking dependency, not just an optional escalation** — because the proof target is hard-class and the VPS datacenter IP is pre-flagged, the proof path is expected to require the proxy live. The go/no-go spike confirms whether stealth-alone or stealth-plus-proxy is needed.
+- **A residential proxy is a *scoped* dependency, not always-on** (resolved by the 2026-05-27 VPS-IP test). It is required specifically for Cloudflare managed-challenge targets run from the datacenter IP; DataDome and Cloudflare-WAF targets work from the VPS without it. v1 can ship the no-proxy path and add the proxy as the R7 escalation for the Cloudflare-managed-challenge case.
 - A CAPTCHA solver account (BYO key) is available and affordable at personal-fleet volume.
 - **The operator accepts an ongoing stealth-maintenance commitment** as the cost of sovereignty, with an explicit fallback if self-hosted stealth cannot reach (or stops reaching) the hard targets: route those sources elsewhere, accept the gap, or re-open a managed paid tier. The maintenance cadence and a re-evaluation threshold (e.g., hours/quarter, or a sustained failure rate on hard targets) are set during planning.
 - openclaw-prod has resource headroom for a capped browser container alongside the live agents. (Assumption — verify the resource budget at planning, given the box already runs kernel-isolated live sessions.)
@@ -209,12 +209,23 @@ strongest concern the document review raised. The remaining risk has collapsed t
 variable: the VPS datacenter IP** (all tests used a residential IP; DataDome especially is
 IP-reputation-sensitive, and a Hetzner IP may be flagged where the home IP was not).
 
-- [Affects R7] **VPS datacenter-IP test (the one remaining gate).** Reproduce the bypass from
-  openclaw-prod's datacenter IP. If it holds, no proxy is needed and R7's proxy path is a
-  soft-target-only nicety. If it fails (likely for DataDome), the residential proxy becomes a
-  hard v1 dependency — this is the test that resolves the R7 / Dependencies proxy question.
+**VPS datacenter-IP test — DONE 2026-05-27 (gate closed).** Reproduced on openclaw-prod
+(Ubuntu 24.04, Node 22, Chrome + Xvfb, headful, `--no-sandbox` for root), from the datacenter
+IP, no proxy:
 
-Planning may proceed, front-loading the VPS-IP test before the gateway hardens around it.
+- **DataDome** — `leboncoin.fr` GO (3/3, full content), `g2.com` GO. The Hetzner datacenter IP
+  was tolerated.
+- **Cloudflare managed challenge** — `scrapingcourse.com/cloudflare-challenge` NO-GO (3/3),
+  stuck on the interstitial — though it passed 4/4 from a residential IP. Only the IP changed.
+
+**Result — proxy question resolved.** The residential proxy is **conditionally required**:
+specifically for Cloudflare *managed-challenge* targets run from the datacenter IP. DataDome
+and Cloudflare-WAF targets worked from the VPS without it. This is exactly R7's per-session
+escalation model, now with a known trigger — escalate to the proxy when a Cloudflare managed
+challenge fails to clear from the datacenter IP. The proxy is a real but *scoped* dependency,
+not an always-on cost.
+
+**All gates resolved. Ready for ce-plan.**
 
 ### Deferred to Planning
 
