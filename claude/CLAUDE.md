@@ -118,6 +118,6 @@ existing docs — see API limitation below.
   rewrites. No library/lifecycle management.
 - **Apply button on suggestions is unreliable in some Proof UIs.** Resolve closes the comment
   but does not apply the attached suggestion. See
-  `~/.claude/projects/-Users-dvillavicencio-Projects-openclaw/memory/proof_apply_button_unreliable.md`.
+  `~/.claude/projects/-Users-dvillavicencio-Projects-agents/memory/proof_apply_button_unreliable.md`.
   Default to direct prose editing or API-level `suggestion.accept`; mandatory pre-push grep before
   syncing back to source.
