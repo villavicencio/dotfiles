@@ -29,11 +29,12 @@ if [ -n "$cwd" ]; then
       master|main) branch_color="\033[2m\033[37m" ;;
       *)           branch_color="\033[35m" ;;
     esac
-    # U+E0A0 (Powerline branch glyph) — encoded as UTF-8 \xee\x82\xa0 because
-    # /bin/sh / bash 3.2 printf does not interpret \uXXXX. Literal PUA chars
-    # in the source would also be stripped by the Claude Code Write tool (see
-    # docs/solutions/code-quality/claude-code-bash-tool-strips-pua-glyphs.md).
-    printf " \033[2m|\033[0m ${branch_color}\xee\x82\xa0 %s\033[0m" "$branch"
+    # U+E0A0 (Powerline branch glyph) — encoded as UTF-8 octal \356\202\240.
+    # Octal escapes are POSIX printf; \xHH hex and \uXXXX are NOT — dash (the
+    # /bin/sh on Linux hosts like axiom) prints \xee\x82\xa0 literally. Literal
+    # PUA chars in the source would also be stripped by the Claude Code Write
+    # tool (see docs/solutions/code-quality/claude-code-bash-tool-strips-pua-glyphs.md).
+    printf " \033[2m|\033[0m ${branch_color}\356\202\240 %s\033[0m" "$branch"
   fi
 fi
 
