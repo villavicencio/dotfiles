@@ -1,35 +1,95 @@
-# HANDOFF — 2026-05-27 (PDT)
+# HANDOFF — 2026-05-30 (PDT)
 
-Short, self-contained maintenance session. Picked up cold (browse-gateway arc parked — see note below), then chased one concrete bug: the Claude Code statusline on the Axiom (Linux) host rendered the git-branch Powerline glyph as the literal string `\xee\x82\xa0`. Diagnosed it to a non-POSIX `printf` escape, fixed it in both dotfiles and on the live Axiom host, and compounded the learning into `docs/solutions/`. Closed with a quick diagnostic: Axiom's "10:33pm" is the VPS clock running on UTC (see gotchas). Tree is clean, everything pushed; no code changes since `74695c7`.
+Two-track session off a cold `/pickup`. Track 1 (the bulk): bootstrapped a brand-new project
+— **ibmcconstruction.com**, the site for the user's general contractor (IBMC Construction),
+migrating Wix → Next.js + Sanity + Vercel and framed as instance #1 of an agent-operable
+SMB-site platform. That work lives in its **own repo** (`~/Projects/ibmcconstruction.com`,
+private), parked at context-docs stage. Track 2 (dotfiles): enhanced the Claude Code
+statusline to show the `/effort` level, accent the model descriptor, and link the branch
+name to GitHub. Closed by reconciling the project board. Tree clean, everything pushed.
 
 ## What We Built
 
-- **`de51edc` — `fix(statusline): octal escape for branch glyph so dash renders it`.** Changed `claude/statusline-command.sh` line 36 from `printf "...\xee\x82\xa0..."` (hex escape for U+E0A0) to octal `\356\202\240`, plus rewrote the comment to explain the dash/POSIX gap. Verified the octal form emits bytes `ee 82 a0` identically in `/bin/sh`, `dash`, and `bash`.
-- **Patched the live file on Axiom** via `! python3 -c '...'` (literal raw-string `.replace()`) — the dotfiles commit alone does NOT reach Axiom (it's not a dotfiles-managed target post-VPS-decommission). User confirmed the glyph now renders.
-- **`71bb507` — `docs(solutions): printf \xHH not POSIX — use octal; refresh PUA sibling`.** Ran `/ce-compound` (Full mode). Created `docs/solutions/code-quality/printf-hex-escape-not-posix-use-octal.md` (bug track, `runtime_error`/`tooling`/`wrong_api`, frontmatter validated). Also refreshed the sibling `docs/solutions/code-quality/claude-code-bash-tool-strips-pua-glyphs.md` (Phase 2.5): its on-disk-output guidance recommended `printf '\xHH'` without the dash caveat and missed octal — added the octal pointer + cross-reference, bumped `updated:`.
-- **tmux:** renamed window `local:1` from "Hermes" → "Agents" (kept glyph U+F4BC + ember `#D97757`), persisted to the sidecar.
+**Dotfiles (this repo):**
+- **`a621a85` — `docs(claude): add narration & verbosity guidance`.** Added the "Narration &
+  Verbosity" section to `claude/CLAUDE.md` (cut-filler / no-preamble rules). This was the
+  uncommitted symlink-writeback loose end flagged at `/pickup`.
+- **`249a624` — `feat(statusline): effort level, accented descriptor, clickable branch`.**
+  Three changes to `claude/statusline-command.sh`:
+  - Reads `.effort.level` from the statusline JSON and injects it into the model's paren
+    group → `Opus 4.8 (1M context, xhigh)`, the effort word in **bold violet**
+    (`38;2;165;110;255`). Bare model name when effort is absent (no empty parens).
+  - The parenthetical descriptor ("1M context") now renders in **soft gold**
+    (`38;2;205;170;100`). Both accent colors are defined as `effort_color` / `descriptor_color`
+    vars near the top for easy tweaking.
+  - Branch name wrapped in an **OSC 8 hyperlink** to its GitHub branch
+    (`/tree/<branch>`). URL parsed from `origin` offline (handles scp/https/ssh + SSH host
+    aliases like `github-work`, strips embedded creds, GitHub-only). BEL-terminated.
+- **Project board #2:** moved stale card **#42** (sync-vps tailnet ACL) from *In Progress* →
+  *Done*. Underlying issue was already CLOSED (2026-04-20). Board now 28 Done, **0 open issues**
+  on either repo.
+
+**IBMC Construction (separate repo — `github.com/villavicencio/ibmcconstruction.com`, private):**
+- **`2279ac5`** — scaffold: `CLAUDE.md` (`@AGENTS.md` + forge key `ibmc-construction`),
+  `AGENTS.md` (business ground truth, platform posture, stack, IA, Sanity content model,
+  agent-native requirements, build phases), `docs/design/design-brief.md` (seed for
+  claude.ai/design), `docs/reference/*.png` (current Wix-site screenshots).
+- **`28d7967`** — decoupled from `davidandbrittanie.com`: inlined the Next-16 + Sanity stack
+  gotchas AGENTS.md previously told the agent to read from d&b, removed all cross-repo
+  pointers. Repo is now fully self-contained (no `--add-dir` needed).
 
 ## Decisions Made
 
-- **Filed the new learning in `code-quality/`, not `runtime-errors/`** (where the schema's `runtime_error`→`runtime-errors/` mapping pointed). Rationale: the two closest sibling docs (PUA-glyph stripping, tmux-format-hex mangling) already cluster in `code-quality/`; co-locating the escape/glyph/portability gotcha family beats schema purity for discoverability. `runtime-errors/` holds one unrelated doc.
-- **Made the Phase 2.5 sibling-doc refresh surgically by hand** instead of spinning up the full `ce-compound-refresh` skill — it was a verified 4-line correctness fix already in hand; a whole skill invocation was disproportionate.
-- **Skipped Phase 3** (specialized reviews) — the doc's snippets are all verified one-liners and already minimal.
-- **Root cause is `wrong_api`** (non-portable `printf` escape), severity `low` (cosmetic glyph; branch name always showed).
+- **Statusline effort source = live `.effort.level`** from the statusline JSON, not
+  `settings.json`'s `effortLevel` default — so it tracks mid-session `/effort` changes.
+  Confirmed against captured live JSON (field documented at code.claude.com/docs/en/statusline.md).
+- **Solid violet for effort, gold for descriptor.** First shipped a per-char rainbow; user
+  found it distracting → replaced with a single solid color. See *What Didn't Work*.
+- **iTerm link-underline: explicitly DROPPED.** The underline is iTerm2's link decoration,
+  not script-controllable via SGR — governed by the advanced setting `underlineHyperlinks`
+  (default YES). User chose to leave it on rather than change the iTerm pref.
+- **IBMC architecture calls:** stay on **Sanity** (agent-drivable content API = the platform's
+  whole point); build a **single clean site with platform seams** (content-in-Sanity +
+  design-tokens), NOT multi-tenant now — defer until client #2 is real; **evolve the brand**
+  (keep/refine the logo, kill the rest); design owned in **claude.ai/design**, handed to code
+  as a token set.
 
 ## What Didn't Work
 
-- **First Axiom patch attempt (`grep -q`/`sed` find-and-replace) silently no-oped** — printed `NO_HEX_ESCAPE` while the escape was plainly still in the file. Two compounding causes: (1) bash double-quotes collapsed `\\x`→`\x`; (2) **GNU `grep`/`sed` interpret `\xHH` in a pattern as the byte `0xEE` itself**, so it searched for the rendered glyph bytes (absent from the file) and matched nothing. Fix: literal Python `.replace()` with single-quoted raw strings — no regex engine. (This became its own section in the new doc.)
-- **The Edit tool serialized a typed em-dash into a literal `—`** in the sibling doc — the inverse of the escape-mangling the doc is about. Caught on byte-inspection (`xxd`); fixed via a `chr(92)`-built Python literal replace (avoids typing either the em-dash or `—`, both of which the harness transforms on input). Worth remembering: **build literal escape-text search strings from `chr(92)`, never type the backslash sequence directly into a tool arg.**
+- **Rainbow per-character effort coloring** — implemented correctly (truecolor per-char cycle)
+  but the user found it distracting. Replaced with solid violet. Don't re-propose rainbow.
+- **Suppressing the OSC 8 underline from the script** — not possible. It's iTerm2's link
+  affordance; only the iTerm advanced setting `underlineHyperlinks=NO` disables it (and even
+  then Cmd-hover still underlines, per iTerm gitlab #10584). Ruled out a script-side fix.
+- **`browse` CLI via the Bash tool** — the zsh function shim calls `_load_nvm`, which doesn't
+  exist in the Bash tool's non-interactive shell (`command not found: _load_nvm`). Had to
+  invoke the real binary directly: prepend `~/.config/nvm/versions/node/v24.13.0/bin` to PATH.
+  Remember this for any future browser-skill use from the Bash tool here.
 
 ## What's Next
 
-- **Nothing pending in dotfiles.** This arc is closed — both commits pushed, tree clean, no open PRs.
-- **Parked (not this repo's work):** the **browse-gateway** arc. Implementation lives in `~/Projects/browse-gateway` (public repo); its context is in that repo's gitignored `CONTEXT.local.md`, and dotfiles only retains custody of the private planning docs (`docs/brainstorms/2026-05-27-self-hosted-browser-gateway-requirements.md`, `docs/plans/2026-05-27-001-feat-browse-gateway-plan.md`). To resume it: `cd ~/Projects/browse-gateway && claude` → read `CONTEXT.local.md` → start U1 (the stealth kill-gate). The prior HANDOFF (overwritten by this one) covered that arc in full; git history has it at commit `61095bc`.
+- **Dotfiles: nothing pending.** Tree clean, both commits pushed to `master`, board reconciled.
+- **IBMC (user-side, genuinely external — why it's parked):**
+  1. Paste `docs/design/design-brief.md` into a new **claude.ai/design** project; add
+     inspiration links.
+  2. Get the **logo source file** from Chris (Wix logo is obfuscated; we only have screenshots).
+  3. When design firms up: `cd ~/Projects/ibmcconstruction.com && claude` → "Read the design
+     brief and AGENTS.md, then start phase 1" (scaffold Next 16 + Sanity + Tailwind v4). That
+     repo's CC is self-contained — **no `--add-dir`** needed; it loads CLAUDE.md→AGENTS.md
+     automatically and reads the design brief by path.
 
 ## Gotchas & Watch-outs
 
-- **`printf \xHH` and `\uXXXX` are bash/coreutils-only.** For any non-ASCII byte in a `#!/bin/sh` or `sh`-invoked script, use octal `\ooo`. Portability check before committing byte escapes: `for s in dash bash sh; do $s -c 'printf "\356\202\240"' | xxd; done` — all must emit `ee82a0`.
-- **dotfiles ≠ Axiom delivery.** Fixing a `claude/` file in dotfiles does not propagate to Axiom (no active Linux dotfiles target since the 2026-05-21 VPS decommission). Any `~/.claude/*` fix that must reach Axiom has to be applied to the live host separately — user ran it via the `!` prefix this session.
-- **Editing literal escape text on Linux: never use `grep`/`sed`** — their `\x` is a byte escape and misfires on the exact strings being edited. Use a literal-string replace (Python raw string, or `perl -pe` with `quotemeta`) and make it self-verifying (`PATCHED`/`NOT_FOUND`).
-- The statusline comment on Axiom's live file still references the old hex form (only the functional `printf` line was patched) — harmless drift; resync the whole file from the repo if it ever matters.
-- **The VPS clock is UTC (Axiom reports UTC time, 7h ahead of PDT).** Verified 2026-05-27: Axiom's "10:33pm" = 22:33 UTC = 3:33pm PDT. So any "today/tonight/this morning" framing from Axiom is UTC-relative, and after ~5pm PDT its calendar date rolls a day ahead of the user's. Left on UTC by choice (unambiguous server logs); to align it, run `sudo timedatectl set-timezone America/Los_Angeles` on the host. Not changed this session.
+- **OSC 8 branch link clickability depends on Claude Code + tmux.** User confirmed it IS
+  clickable in their iTerm2 + tmux next-3.7. Upstream issues (#27047/#23438) make it
+  non-clickable in some tmux setups — degrades to plain (non-clickable) text, not garbled.
+  To kill the linking entirely, clear `branch_url` in `claude/statusline-command.sh`.
+- **Statusline stays POSIX/dash-safe** (octal escapes only, BEL-terminated OSC 8). Verified
+  under both `sh` and `dash`. Re-check on Axiom if a Linux dotfiles target ever revives.
+- **iTerm2 prefs load from the repo folder** (`LoadPrefsFromCustomFolder=1`,
+  `PrefsCustomFolder=…/dotfiles/iterm`); UI changes flush to `iterm/com.googlecode.iterm2.plist`
+  on iTerm quit. The `underlineHyperlinks` setting was NOT changed this session.
+- **IBMC ≠ davidandbrittanie.com.** Intentionally decoupled — do not re-introduce cross-repo
+  references; the IBMC AGENTS.md is the single source for its stack knowledge.
+- **The IBMC arc is a separate repo.** Its HANDOFF/context lives there, not here. This dotfiles
+  HANDOFF only tracks the statusline + board work; the IBMC bullets are pointers.
