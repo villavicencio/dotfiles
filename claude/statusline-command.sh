@@ -43,6 +43,19 @@ meter_color() {
   fi
 }
 
+# Battery fuel-gauge for a 0-100 meter — shows REMAINING capacity, so it drains
+# as usage climbs (full when fresh, empty when nearly out). Font Awesome battery
+# glyphs U+F240..F244 as octal UTF-8; emitted as real bytes (not \033 escapes),
+# so callers pass the result through printf %s.
+battery_glyph() {
+  if   [ "$1" -lt 20 ]; then printf '\357\211\200'   # U+F240 full
+  elif [ "$1" -lt 40 ]; then printf '\357\211\201'   # U+F241 three-quarters
+  elif [ "$1" -lt 60 ]; then printf '\357\211\202'   # U+F242 half
+  elif [ "$1" -lt 80 ]; then printf '\357\211\203'   # U+F243 quarter
+  else                       printf '\357\211\204'   # U+F244 empty
+  fi
+}
+
 # Shorten home directory to ~  (POSIX prefix substitution; works in dash AND
 # bash — the bash-only form ${cwd/#$home/~} triggers "Bad substitution" under
 # dash, which is /bin/sh and how settings.json invokes this script).
@@ -186,16 +199,16 @@ if [ -n "$model" ] || [ -n "$used" ] || [ -n "$lim5" ] || [ -n "$lim7" ]; then
     printf "%s" "$m2sep"
     sep=""
     if [ -n "$used" ]; then
-      u=$(printf "%.0f" "$used"); c=$(meter_color "$u")
-      printf "%s%sctx %d%%\033[0m" "$sep" "$c" "$u"; sep="  "
+      u=$(printf "%.0f" "$used"); c=$(meter_color "$u"); b=$(battery_glyph "$u")
+      printf "%s%sctx %s %d%%\033[0m" "$sep" "$c" "$b" "$u"; sep="  "
     fi
     if [ -n "$lim5" ]; then
-      v=$(printf "%.0f" "$lim5"); c=$(meter_color "$v")
-      printf "%s%s5h %d%%\033[0m" "$sep" "$c" "$v"; sep="  "
+      v=$(printf "%.0f" "$lim5"); c=$(meter_color "$v"); b=$(battery_glyph "$v")
+      printf "%s%s5h %s %d%%\033[0m" "$sep" "$c" "$b" "$v"; sep="  "
     fi
     if [ -n "$lim7" ]; then
-      v=$(printf "%.0f" "$lim7"); c=$(meter_color "$v")
-      printf "%s%s7d %d%%\033[0m" "$sep" "$c" "$v"; sep="  "
+      v=$(printf "%.0f" "$lim7"); c=$(meter_color "$v"); b=$(battery_glyph "$v")
+      printf "%s%s7d %s %d%%\033[0m" "$sep" "$c" "$b" "$v"; sep="  "
     fi
   fi
 fi
