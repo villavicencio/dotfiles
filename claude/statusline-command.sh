@@ -9,10 +9,10 @@ used=$(echo "$input" | jq -r '.context_window.used_percentage // empty')
 effort=$(echo "$input" | jq -r '.effort.level // empty')
 
 # Accent colors for the model section (truecolor; ASCII + octal \033 only, so
-# POSIX/dash-safe). Effort is bold violet (live status, draws the eye); the
-# parenthetical descriptor (e.g. "1M context") is a softer non-bold gold —
-# warm against the cyan dir + violet effort, distinct from the green ctx.
-effort_color="\033[1;38;2;165;110;255m"
+# POSIX/dash-safe). The parenthetical descriptor (e.g. "1M", "context" stripped)
+# and the effort level share one soft gold — warm against the cyan dir, distinct
+# from the green ctx; the whole "(1M, xhigh)" group reads as a single accent.
+effort_color="\033[38;2;205;170;100m"
 descriptor_color="\033[38;2;205;170;100m"
 
 # Shorten home directory to ~
@@ -81,11 +81,12 @@ if [ -n "$model" ]; then
   case "$model" in
     *"("*)
       # Display name carries a parenthetical descriptor, e.g.
-      # "Opus 4.8 (1M context)". Split into base + inner; color the descriptor
-      # gold and, if effort is set, append it in violet inside the same parens
-      # -> "Opus 4.8 (1M context, xhigh)".
+      # "Opus 4.8 (1M context)". Split into base + inner, strip the implied
+      # " context" word, color the descriptor gold and, if effort is set, append
+      # it in violet inside the same parens -> "Opus 4.8 (1M, xhigh)".
       mbase=${model%)}        # drop trailing ")":           "Opus 4.8 (1M context"
       minner=${mbase#*(}      # text inside the parens:      "1M context"
+      minner=${minner% context} # "context" is implied; drop it: "1M"
       mbase=${mbase%%(*}      # text before "(" (keeps space):"Opus 4.8 "
       printf "\033[37m%s(\033[0m" "$mbase"
       printf "${descriptor_color}%s\033[0m" "$minner"
