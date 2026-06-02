@@ -39,13 +39,19 @@
 	recurseSubmodules = on-demand
 [merge]
     ff = only
+    conflictStyle = zdiff3
 [credential]
 	helper = osxkeychain
 	helper = 
 	helper = /usr/local/share/gcm-core/git-credential-manager
 [pager]
-    diff = diff-so-fancy | less --tabs=4 -RFX
-    show = diff-so-fancy | less --tabs=4 -RFX
+    diff = delta
+    show = delta
+[interactive]
+    diffFilter = delta --color-only
+[delta]
+    navigate = true
+    line-numbers = true
 [alias]
 	# Basic aliases
 	push = push -u
