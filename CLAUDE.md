@@ -226,6 +226,24 @@ rm -rf "$FAKE"
 ### Project board
 GitHub Project board: https://github.com/users/villavicencio/projects/2
 
+### Branching & pull requests
+Work on a **feature branch and merge via pull request** — this is the default for
+this repo, not just ticket work. Avoid committing directly to `master`.
+
+- **Branch per change.** Cut a branch off `master` before starting; name it
+  conventionally by type: `feat/…`, `fix/…`, `chore/…`, `docs/…`,
+  `style/…` (e.g. `feat/statusline-slider-bars`).
+- **One PR per logical change.** Push the branch and open a PR with `gh pr create`;
+  let the PR carry the review surface. Keep `master` always-green.
+- **Merge, then clean up.** After merge, delete the branch and close any linked
+  issue (`gh issue close`) as part of the workflow.
+- **Trivial exceptions** (typo fixes, a one-line doc tweak) may go straight to
+  `master` at the author's discretion — the rule targets behavior and config
+  changes, where review and a clean history matter.
+
+Picking up a board ticket always gets its own branch (never work a ticket on
+`master`).
+
 ---
 
 ## Install pipeline
