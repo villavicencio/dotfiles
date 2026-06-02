@@ -23,6 +23,20 @@ alias lsd="ls -lF ${colorflag}"
 # Always use color output for 'ls'
 alias ls="command ls ${colorflag}"
 
+# eza (modern ls) — override the ls family when installed. Defined after the
+# plain-ls aliases above so these win when eza is present; a machine without
+# eza falls back to the GNU/BSD ls aliases. Escape hatch: `\ls` or `command ls`
+# always bypasses the alias for raw ls output. Aliases call eza directly (not
+# the `ls` alias) to avoid recursive ls-flag leakage into eza.
+if command -v eza >/dev/null 2>&1; then
+  alias ls='eza --group-directories-first'
+  alias l='eza -lh --git --group-directories-first'   # long, human sizes, git
+  alias ll='eza -lh --git --group-directories-first'  # alias of l
+  alias la='eza -lah --git --group-directories-first' # + dotfiles
+  alias lsd='eza -lhD --git'                           # long listing, dirs only
+  alias lt='eza --tree --level=2 --git'                # 2-level tree
+fi
+
 # Enable aliases to be sudo’ed
 alias sudo='sudo '
 

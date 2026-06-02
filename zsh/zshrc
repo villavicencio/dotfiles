@@ -141,6 +141,16 @@ fi
 # Initialize starship prompt
 eval "$(starship init zsh)"
 
+# Initialize zoxide (smart cd / frecency jumper). NOT lazy-loaded: zoxide hooks
+# the prompt (precmd) to record every directory you visit, so it must init at
+# startup or it never learns your frecent dirs. Init is a single fast eval (no
+# subshell chain like nvm), so it doesn't need the _load_X treatment. Keeps `z`
+# and `zi` as separate commands rather than shadowing `cd` (--cmd cd). Guarded
+# so a machine without zoxide (fresh host, pre-brew) just skips it.
+if command -v zoxide >/dev/null 2>&1; then
+  eval "$(zoxide init zsh)"
+fi
+
 # Perl local lib configuration
 export PERL5LIB="${HOME}/perl5/lib/perl5${PERL5LIB:+:${PERL5LIB}}"
 export PERL_LOCAL_LIB_ROOT="${HOME}/perl5${PERL_LOCAL_LIB_ROOT:+:${PERL_LOCAL_LIB_ROOT}}"
