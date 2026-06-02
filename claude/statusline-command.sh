@@ -208,22 +208,22 @@ if [ -n "$model" ] || [ -n "$used" ] || [ -n "$lim5" ] || [ -n "$lim7" ]; then
   fi
 
   # Meters: context window, then 5h / 7d rate-limit windows (Claude.ai subs
-  # only; absent on Vertex). Each = "<label> <bar> <pct>%"; label dim gray, bar
+  # only; absent on Vertex). Each = "<label> <bar> <pct>%"; label white, bar
   # fill + pct in the meter color, track dim.
   if [ -n "$used" ] || [ -n "$lim5" ] || [ -n "$lim7" ]; then
     printf "%s" "$m2sep"
     sep=""
     if [ -n "$used" ]; then
       u=$(printf "%.0f" "$used"); c=$(meter_color "$u")
-      printf "%s\033[2m\033[37mctx \033[0m" "$sep"; bar "$u" "$c"; printf "%s %d%%\033[0m" "$c" "$u"; sep="  "
+      printf "%s\033[37mctx \033[0m" "$sep"; bar "$u" "$c"; printf "%s %d%%\033[0m" "$c" "$u"; sep="  "
     fi
     if [ -n "$lim5" ]; then
       v=$(printf "%.0f" "$lim5"); c=$(meter_color "$v")
-      printf "%s\033[2m\033[37m5h \033[0m" "$sep"; bar "$v" "$c"; printf "%s %d%%\033[0m" "$c" "$v"; sep="  "
+      printf "%s\033[37m5h \033[0m" "$sep"; bar "$v" "$c"; printf "%s %d%%\033[0m" "$c" "$v"; sep="  "
     fi
     if [ -n "$lim7" ]; then
       v=$(printf "%.0f" "$lim7"); c=$(meter_color "$v")
-      printf "%s\033[2m\033[37m7d \033[0m" "$sep"; bar "$v" "$c"; printf "%s %d%%\033[0m" "$c" "$v"; sep="  "
+      printf "%s\033[37m7d \033[0m" "$sep"; bar "$v" "$c"; printf "%s %d%%\033[0m" "$c" "$v"; sep="  "
     fi
   fi
 fi
