@@ -1,95 +1,93 @@
-# HANDOFF — 2026-05-30 (PDT)
+# HANDOFF — 2026-06-02 07:24 (PDT)
 
-Two-track session off a cold `/pickup`. Track 1 (the bulk): bootstrapped a brand-new project
-— **ibmcconstruction.com**, the site for the user's general contractor (IBMC Construction),
-migrating Wix → Next.js + Sanity + Vercel and framed as instance #1 of an agent-operable
-SMB-site platform. That work lives in its **own repo** (`~/Projects/ibmcconstruction.com`,
-private), parked at context-docs stage. Track 2 (dotfiles): enhanced the Claude Code
-statusline to show the `/effort` level, accent the model descriptor, and link the branch
-name to GitHub. Closed by reconciling the project board. Tree clean, everything pushed.
+Continuation session that opened with `/pickup`. The dirty-tree blocker from the prior
+handoff (the `/reload-skills` reddit/twitter/critique migration) turned out to be **already
+resolved** — committed as `3a898a8` before this session's first real work. The bulk of this
+session was a long, iterative **statusline redesign** (many small visual rounds with the user),
+ending in a slider-bar look, plus **adopting a branch + pull-request workflow** for the repo.
 
 ## What We Built
 
-**Dotfiles (this repo):**
-- **`a621a85` — `docs(claude): add narration & verbosity guidance`.** Added the "Narration &
-  Verbosity" section to `claude/CLAUDE.md` (cut-filler / no-preamble rules). This was the
-  uncommitted symlink-writeback loose end flagged at `/pickup`.
-- **`249a624` — `feat(statusline): effort level, accented descriptor, clickable branch`.**
-  Three changes to `claude/statusline-command.sh`:
-  - Reads `.effort.level` from the statusline JSON and injects it into the model's paren
-    group → `Opus 4.8 (1M context, xhigh)`, the effort word in **bold violet**
-    (`38;2;165;110;255`). Bare model name when effort is absent (no empty parens).
-  - The parenthetical descriptor ("1M context") now renders in **soft gold**
-    (`38;2;205;170;100`). Both accent colors are defined as `effort_color` / `descriptor_color`
-    vars near the top for easy tweaking.
-  - Branch name wrapped in an **OSC 8 hyperlink** to its GitHub branch
-    (`/tree/<branch>`). URL parsed from `origin` offline (handles scp/https/ssh + SSH host
-    aliases like `github-work`, strips embedded creds, GitHub-only). BEL-terminated.
-- **Project board #2:** moved stale card **#42** (sync-vps tailnet ACL) from *In Progress* →
-  *Done*. Underlying issue was already CLOSED (2026-04-20). Board now 28 Done, **0 open issues**
-  on either repo.
+**Statusline (`claude/statusline-command.sh`) — all on `master`, pushed:**
+- **`700d594`** `style(statusline)` — dropped the implied " context" from the model descriptor
+  (`1M context` → `1M`); unified the `/effort` token color with the descriptor (both soft gold).
+- **`3764a12`** `feat(statusline)` — added worktree badge, PR badge (OSC 8-linked), session
+  line-delta, and 5h/7d rate-limit meters; refactored to a **single `jq` pass** (12 fields,
+  joined with `0x1F`).
+- **`f89505f`** `feat(statusline)` — **two-line layout**: line 1 = location/git (folder, dir,
+  worktree, branch, line-delta, PR), line 2 = model + meters. Dropped the `|` separators (line
+  break separates the groups); meters lost the `:` (`ctx 12%`).
+- **`a2c22a4`** `feat(statusline)` — battery fuel-gauge on meters (later superseded).
+- **`8453a40`** `feat(statusline)` — **folder glyph** (U+F07B, cyan) leading line 1; replaced
+  the battery with a **slider bar** (`▓` fill / `│` cursor U+2502 / `░` track), truecolor
+  lime/amber/salmon, article thresholds (green <50 / yellow 50-70 / red >70), 10 cells, dim label.
+- **`e60f646`** `style(statusline)` — **undimmed** the `ctx`/`5h`/`7d` labels (dim gray → white)
+  per user; branch and PR-state keep their dim.
 
-**IBMC Construction (separate repo — `github.com/villavicencio/ibmcconstruction.com`, private):**
-- **`2279ac5`** — scaffold: `CLAUDE.md` (`@AGENTS.md` + forge key `ibmc-construction`),
-  `AGENTS.md` (business ground truth, platform posture, stack, IA, Sanity content model,
-  agent-native requirements, build phases), `docs/design/design-brief.md` (seed for
-  claude.ai/design), `docs/reference/*.png` (current Wix-site screenshots).
-- **`28d7967`** — decoupled from `davidandbrittanie.com`: inlined the Next-16 + Sanity stack
-  gotchas AGENTS.md previously told the agent to read from d&b, removed all cross-repo
-  pointers. Repo is now fully self-contained (no `--add-dir` needed).
+**Final line-2 look:** `Opus 4.8 (1M, xhigh)  ctx ▓▓▓▓│░░░░░ 35%  5h ▓▓▓▓▓▓│░░░ 58%  7d …` (~79 cols).
+
+**Workflow adoption — PR #83, OPEN/UNMERGED:**
+- **`6bbeb72`** (branch `chore/adopt-branch-pr-workflow`) — `docs:` adds a "Branching & pull
+  requests" section to repo-root `CLAUDE.md`: branch-per-change with conventional names, one PR
+  per logical change via `gh`, merge→delete-branch→close-issue, trivial-doc carve-out.
+  PR: https://github.com/villavicencio/dotfiles/pull/83
 
 ## Decisions Made
 
-- **Statusline effort source = live `.effort.level`** from the statusline JSON, not
-  `settings.json`'s `effortLevel` default — so it tracks mid-session `/effort` changes.
-  Confirmed against captured live JSON (field documented at code.claude.com/docs/en/statusline.md).
-- **Solid violet for effort, gold for descriptor.** First shipped a per-char rainbow; user
-  found it distracting → replaced with a single solid color. See *What Didn't Work*.
-- **iTerm link-underline: explicitly DROPPED.** The underline is iTerm2's link decoration,
-  not script-controllable via SGR — governed by the advanced setting `underlineHyperlinks`
-  (default YES). User chose to leave it on rather than change the iTerm pref.
-- **IBMC architecture calls:** stay on **Sanity** (agent-drivable content API = the platform's
-  whole point); build a **single clean site with platform seams** (content-in-Sanity +
-  design-tokens), NOT multi-tenant now — defer until client #2 is real; **evolve the brand**
-  (keep/refine the logo, kill the rest); design owned in **claude.ai/design**, handed to code
-  as a token set.
+- **Two-line statusline** (location/git over engine/meters) — chosen over a tightened single line.
+- **Slider bar over block bars.** Hard constraint surfaced: in one terminal cell, block width and
+  gap are zero-sum, and you can't have {10 cells + wide blocks + 3 bars} simultaneously (~100+
+  cols, wraps). Sliders are one char/cell, so all three meters fit. The `│` cursor glyph came
+  from reading ccstatusline's `makeSliderBar` source.
+- **Color thresholds** adopted from the source article: green <50, yellow 50-70, red >70, in
+  brighter truecolor lime/amber/salmon. Meter **labels are white** (undimmed); bar fill + % carry
+  the threshold color; track is dim gray.
+- **Branch + PR is now the default workflow** (PR #83). Generalizes the prior "tickets get a
+  branch" rule to all behavior/config changes; trivial doc tweaks (incl. HANDOFF.md) may still go
+  straight to `master`.
+- **HANDOFF.md lives on `master`**, not feature branches (session-state doc; trivial-doc carve-out).
 
 ## What Didn't Work
 
-- **Rainbow per-character effort coloring** — implemented correctly (truecolor per-char cycle)
-  but the user found it distracting. Replaced with solid violet. Don't re-propose rainbow.
-- **Suppressing the OSC 8 underline from the script** — not possible. It's iTerm2's link
-  affordance; only the iTerm advanced setting `underlineHyperlinks=NO` disables it (and even
-  then Cmd-hover still underlines, per iTerm gitlab #10584). Ruled out a script-side fix.
-- **`browse` CLI via the Bash tool** — the zsh function shim calls `_load_nvm`, which doesn't
-  exist in the Bash tool's non-interactive shell (`command not found: _load_nvm`). Had to
-  invoke the real binary directly: prepend `~/.config/nvm/versions/node/v24.13.0/bin` to PATH.
-  Remember this for any future browser-skill use from the Bash tool here.
+The statusline bar went through a long glyph odyssey — **do not relitigate these:**
+- `■` (U+25A0) / `` (FA square) solid glyphs → render **contiguous** (no gaps) in the
+  user's Nerd Font; user disliked.
+- `▉` (7/8 block) → "tiny tiny gap," rejected as too small.
+- Spaced FA squares (` `) → correct gaps but line 2 → **103 cols** (wraps).
+- `██` double-width + space, 8 cells → **118 cols**, way too wide.
+- Partial-block ladder (`▊`/`▋`/`▌`) → can't satisfy wide-blocks + gaps + 10-cells + 3-bars (the
+  zero-sum-within-a-cell constraint). 3-4 fat cells fit but were too coarse.
+- Dot `·` divider between segments → user said "ugly," reverted.
+- **ccstatusline source** uses `█/░` (progress) or `▓/░` (slider) — both contiguous; the reference
+  images' gapped-square look is font-dependent/custom, not reproducible 1:1 in the user's font.
 
 ## What's Next
 
-- **Dotfiles: nothing pending.** Tree clean, both commits pushed to `master`, board reconciled.
-- **IBMC (user-side, genuinely external — why it's parked):**
-  1. Paste `docs/design/design-brief.md` into a new **claude.ai/design** project; add
-     inspiration links.
-  2. Get the **logo source file** from Chris (Wix logo is obfuscated; we only have screenshots).
-  3. When design firms up: `cd ~/Projects/ibmcconstruction.com && claude` → "Read the design
-     brief and AGENTS.md, then start phase 1" (scaffold Next 16 + Sanity + Tailwind v4). That
-     repo's CC is self-contained — **no `--add-dir`** needed; it loads CLAUDE.md→AGENTS.md
-     automatically and reads the design brief by path.
+1. **Merge PR #83** (branch+PR workflow). Then `git checkout master && git pull`, delete the
+   local + remote branch. (Currently checked out on `master`; the branch is pushed.)
+2. **Update the compound-engineering plugin** — on **v3.9.2**, **v3.9.4** available:
+   `claude plugin update compound-engineering@compound-engineering-plugin`, then restart Claude Code.
+3. **Board tickets, now via branch+PR per the new convention:** **#81** (zoxide + eza — quick
+   additive) and **#82** (delta + atuin — needs the delta-vs-`vim -` pager and atuin-history
+   decisions first).
+4. Optional: squash the 6 statusline commits on `master` into one if you want tidier history
+   (offered, not done — it's all working and pushed).
 
 ## Gotchas & Watch-outs
 
-- **OSC 8 branch link clickability depends on Claude Code + tmux.** User confirmed it IS
-  clickable in their iTerm2 + tmux next-3.7. Upstream issues (#27047/#23438) make it
-  non-clickable in some tmux setups — degrades to plain (non-clickable) text, not garbled.
-  To kill the linking entirely, clear `branch_url` in `claude/statusline-command.sh`.
-- **Statusline stays POSIX/dash-safe** (octal escapes only, BEL-terminated OSC 8). Verified
-  under both `sh` and `dash`. Re-check on Axiom if a Linux dotfiles target ever revives.
-- **iTerm2 prefs load from the repo folder** (`LoadPrefsFromCustomFolder=1`,
-  `PrefsCustomFolder=…/dotfiles/iterm`); UI changes flush to `iterm/com.googlecode.iterm2.plist`
-  on iTerm quit. The `underlineHyperlinks` setting was NOT changed this session.
-- **IBMC ≠ davidandbrittanie.com.** Intentionally decoupled — do not re-introduce cross-repo
-  references; the IBMC AGENTS.md is the single source for its stack knowledge.
-- **The IBMC arc is a separate repo.** Its HANDOFF/context lives there, not here. This dotfiles
-  HANDOFF only tracks the statusline + board work; the IBMC bullets are pointers.
+- **⚠️ `0x1F` jq delimiter trap.** The single-`jq` parse joins fields with `join("")`. The
+  **Write tool silently injects a literal `0x1F` byte** if you type `join("")` — twice this
+  session it had to be fixed via a Python replace. After any edit near that line, `grep "join"
+  claude/statusline-command.sh | cat -v` and confirm it reads ``, not `^_`.
+- **Glyphs must be octal-encoded** in the script (`\357\203\210` etc.) — never literal PUA chars
+  (Write tool strips them) and never `\xHH`/`\uXXXX` (dash prints them literally). See
+  `docs/solutions/code-quality/claude-code-bash-tool-strips-pua-glyphs.md`.
+- **Two `SC2059` inline-disabled** (branch + PR glyph printfs). The suggested `%s` fix **breaks**
+  them — the color vars hold literal `\033` escape strings that must sit in the printf *format*
+  to be interpreted. Don't "fix." `shellcheck -s sh` is otherwise clean.
+- **Statusline is symlinked/live** — edits take effect on the next refresh; verify visual changes
+  by looking at the actual statusline (the user screenshots), since rendering is font-dependent
+  and can't be confirmed from stripped output here.
+- **gitleaks pre-commit** stashes unstaged files on every commit (the dangling `HANDOFF.md` `M`
+  triggers the "Stashing unstaged files" warning — harmless).
+- **PR #83 is open and unmerged** — no review comments yet; it's the in-flight item.
