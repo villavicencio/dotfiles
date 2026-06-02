@@ -80,14 +80,17 @@ source "$HOME/env.sh" 2>/dev/null   # Optional overrides at the very end
 # Lazy load fzf
 if [[ -f "$HOME/.fzf.zsh" ]]; then
   _load_fzf() {
-    unset -f _load_fzf fzf fzf-history-widget fzf-cd-widget fzf-file-widget
+    unset -f _load_fzf fzf fzf-cd-widget fzf-file-widget
     source "$HOME/.fzf.zsh"
+    # fzf's key-bindings re-bind ^R on load; atuin owns ^R, so restore it.
+    if command -v atuin >/dev/null 2>&1; then
+      bindkey -M emacs '^r' atuin-search 2>/dev/null
+      bindkey -M viins '^r' atuin-search-viins 2>/dev/null
+    fi
   }
-  fzf()                { _load_fzf; fzf "$@"; }
-  fzf-history-widget() { _load_fzf; fzf-history-widget "$@"; }
-  fzf-cd-widget()      { _load_fzf; fzf-cd-widget "$@"; }
-  fzf-file-widget()    { _load_fzf; fzf-file-widget "$@"; }
-  bindkey '^R' fzf-history-widget
+  fzf()             { _load_fzf; fzf "$@"; }
+  fzf-cd-widget()   { _load_fzf; fzf-cd-widget "$@"; }
+  fzf-file-widget() { _load_fzf; fzf-file-widget "$@"; }
   bindkey '^T' fzf-file-widget
   bindkey '\ec' fzf-cd-widget
 fi
@@ -154,6 +157,18 @@ eval "$(starship init zsh)"
 # so a machine without zoxide (fresh host, pre-brew) just skips it.
 if command -v zoxide >/dev/null 2>&1; then
   eval "$(zoxide init zsh)"
+fi
+
+# Initialize atuin (SQLite shell history + ^R fuzzy search). NOT lazy-loaded:
+# atuin hooks preexec/precmd to record every command, so it must init at
+# startup. --disable-up-arrow keeps zsh's Up (lower surprise); --disable-ai
+# drops atuin 18.x's `?`-bound AI feature so `?` stays a literal key. ^R opens
+# atuin search. Sync is opt-in + login-gated: run `atuin register` on the
+# PERSONAL Mac only (hosted api.atuin.sh, E2E) — leave the work Mac
+# unregistered so corporate shell history stays local. Guarded so a machine
+# without atuin just skips it.
+if command -v atuin >/dev/null 2>&1; then
+  eval "$(atuin init zsh --disable-up-arrow --disable-ai)"
 fi
 
 # Perl local lib configuration
