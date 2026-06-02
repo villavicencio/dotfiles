@@ -35,25 +35,38 @@ wt_color="\033[1;38;2;235;140;60m"
 # PR badge: violet, distinct from the magenta working-branch name.
 pr_color="\033[38;2;170;130;255m"
 
-# Color a 0-100 meter: green < 50, amber < 80, red >= 80.
+# Color a 0-100 meter (thresholds per the source article): green < 50,
+# yellow 50-70, red > 70. Brighter truecolor lime/amber/salmon to match the
+# reference status line.
 meter_color() {
-  if [ "$1" -ge 80 ]; then printf '\033[31m'
-  elif [ "$1" -ge 50 ]; then printf '\033[33m'
-  else printf '\033[32m'
+  if [ "$1" -gt 70 ]; then printf '\033[38;2;246;108;108m'    # salmon red
+  elif [ "$1" -ge 50 ]; then printf '\033[38;2;232;184;74m'   # amber
+  else printf '\033[38;2;158;226;78m'                          # lime green
   fi
 }
 
-# Battery fuel-gauge for a 0-100 meter — shows REMAINING capacity, so it drains
-# as usage climbs (full when fresh, empty when nearly out). Font Awesome battery
-# glyphs U+F240..F244 as octal UTF-8; emitted as real bytes (not \033 escapes),
-# so callers pass the result through printf %s.
-battery_glyph() {
-  if   [ "$1" -lt 20 ]; then printf '\357\211\200'   # U+F240 full
-  elif [ "$1" -lt 40 ]; then printf '\357\211\201'   # U+F241 three-quarters
-  elif [ "$1" -lt 60 ]; then printf '\357\211\202'   # U+F242 half
-  elif [ "$1" -lt 80 ]; then printf '\357\211\203'   # U+F243 quarter
-  else                       printf '\357\211\204'   # U+F244 empty
-  fi
+# Render a BAR_CELLS-cell slider for a 0-100 value (the ccstatusline "slider"
+# style): cells left of the playhead are filled (U+2593 dark shade ->
+# \342\226\223) in the color passed as $2, a │ cursor (U+2502 -> \342\224\202)
+# marks the playhead, and cells after it are a dim light-shade track (U+2591 ->
+# \342\226\221). $2 is raw escape bytes (e.g. from meter_color). Playhead rounds
+# to nearest cell: (pct * BAR_CELLS + 50) / 100; at 100% the bar is fully filled
+# with no cursor. Each cell is one character, so the slider stays compact.
+BAR_CELLS=10
+bar() {
+  _bf=$(( ($1 * BAR_CELLS + 50) / 100 )); [ "$_bf" -gt "$BAR_CELLS" ] && _bf=$BAR_CELLS
+  _bi=0
+  while [ "$_bi" -lt "$BAR_CELLS" ]; do
+    if [ "$_bi" -eq "$_bf" ]; then
+      printf '%s\342\224\202' "$2"
+    elif [ "$_bi" -lt "$_bf" ]; then
+      printf '%s\342\226\223' "$2"
+    else
+      printf '\033[38;2;92;94;110m\342\226\221'
+    fi
+    _bi=$(( _bi + 1 ))
+  done
+  printf '\033[0m'
 }
 
 # Shorten home directory to ~  (POSIX prefix substitution; works in dash AND
@@ -72,8 +85,9 @@ esac
 # the line break itself replaces the old " | " group separators.
 
 # ── Line 1: directory, worktree, branch (+line-delta), PR ─────────────────────
-# Cyan directory (always present, leads the line — no preceding gap).
-printf "\033[36m%s\033[0m" "$short_cwd"
+# Cyan directory, led by a folder glyph (U+F07B -> octal \357\201\273) in the
+# same cyan so glyph + path read as one location token.
+printf "\033[36m\357\201\273 %s\033[0m" "$short_cwd"
 
 # Worktree badge (fork glyph U+F126 -> octal \357\204\246). Sourced from the
 # session JSON, not git, so it shows even on a detached-HEAD worktree.
@@ -194,21 +208,22 @@ if [ -n "$model" ] || [ -n "$used" ] || [ -n "$lim5" ] || [ -n "$lim7" ]; then
   fi
 
   # Meters: context window, then 5h / 7d rate-limit windows (Claude.ai subs
-  # only; absent on Vertex). Space-separated, no "label:value" colon.
+  # only; absent on Vertex). Each = "<label> <bar> <pct>%"; label dim gray, bar
+  # fill + pct in the meter color, track dim.
   if [ -n "$used" ] || [ -n "$lim5" ] || [ -n "$lim7" ]; then
     printf "%s" "$m2sep"
     sep=""
     if [ -n "$used" ]; then
-      u=$(printf "%.0f" "$used"); c=$(meter_color "$u"); b=$(battery_glyph "$u")
-      printf "%s%sctx %s %d%%\033[0m" "$sep" "$c" "$b" "$u"; sep="  "
+      u=$(printf "%.0f" "$used"); c=$(meter_color "$u")
+      printf "%s\033[2m\033[37mctx \033[0m" "$sep"; bar "$u" "$c"; printf "%s %d%%\033[0m" "$c" "$u"; sep="  "
     fi
     if [ -n "$lim5" ]; then
-      v=$(printf "%.0f" "$lim5"); c=$(meter_color "$v"); b=$(battery_glyph "$v")
-      printf "%s%s5h %s %d%%\033[0m" "$sep" "$c" "$b" "$v"; sep="  "
+      v=$(printf "%.0f" "$lim5"); c=$(meter_color "$v")
+      printf "%s\033[2m\033[37m5h \033[0m" "$sep"; bar "$v" "$c"; printf "%s %d%%\033[0m" "$c" "$v"; sep="  "
     fi
     if [ -n "$lim7" ]; then
-      v=$(printf "%.0f" "$lim7"); c=$(meter_color "$v"); b=$(battery_glyph "$v")
-      printf "%s%s7d %s %d%%\033[0m" "$sep" "$c" "$b" "$v"; sep="  "
+      v=$(printf "%.0f" "$lim7"); c=$(meter_color "$v")
+      printf "%s\033[2m\033[37m7d \033[0m" "$sep"; bar "$v" "$c"; printf "%s %d%%\033[0m" "$c" "$v"; sep="  "
     fi
   fi
 fi
