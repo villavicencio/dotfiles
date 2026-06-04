@@ -128,8 +128,7 @@ alias reload="exec $SHELL -l"
 # Open tmux with custom config location
 alias tmux='tmux -f "$XDG_CONFIG_HOME"/tmux/tmux.conf'
 
-# Shorter alias to HSTR (https://github.com/dvorka/hstr)
-alias hh=hstr
+# `hh` (history search) now lives in zsh/functions/hh.sh — atuin-backed, mirrors ^R.
 
 # Alias for NVIM
 if type nvim >/dev/null 2>&1; then
