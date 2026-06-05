@@ -2,9 +2,9 @@
 
 Short same-day follow-on to the morning recovery session. Confirmed the
 post-Pearcleaner plugin tree rebuilt on restart, committed the leftover
-machine-generated settings flags (#92), then diagnosed and fixed a non-obvious
-plugin **install-registry** split state left behind by the rebuild. Board stays
-empty; working tree clean.
+machine-generated settings flags (#92), diagnosed and fixed a non-obvious
+plugin **install-registry** split state left behind by the rebuild, and
+documented that gotcha in `docs/solutions/`. Board empty; working tree clean.
 
 ## What We Built
 - **#92** `chore` — recorded the `"autoUpdate": true` flags Claude Code wrote onto
@@ -22,6 +22,13 @@ empty; working tree clean.
   `claude plugin install compound-engineering@compound-engineering-plugin` and
   `claude plugin install frontend-design@claude-plugins-official`.
   `claude plugin list` now shows all three installed + enabled.
+- **`a54a8a1` `docs`** — wrote
+  `docs/solutions/code-quality/claude-code-plugin-registry-desync-after-plugins-dir-wipe.md`
+  capturing the two-registry desync: on-disk diagnosis commands, the
+  `claude plugin install` fix, the `version: "unknown"` + duplicate-cache-dir
+  caveats, and a verified `comm`-based reconcile snippet that lists all
+  enabled-but-unregistered plugins in one pass (tested — runs clean, returns
+  empty in the fixed state). Committed direct to master per the docs carve-out.
 
 ## Decisions Made
 - Used `claude plugin install` (the supported install flow) to repair the registry
@@ -30,32 +37,34 @@ empty; working tree clean.
 - Committed the autoUpdate flags via branch+PR (#92) rather than direct-to-master,
   matching the repo default and the #91 settings-sync precedent. They're
   machine-generated but persistent drift, so recording them keeps `git status` clean.
+- Filed the new solution doc under `code-quality/` (dateless filename) to sit with
+  the existing `claude-code-*` sibling docs, not `cross-machine/` — the reusable
+  lesson is a Claude Code plugin-state behavior, independent of the Pearcleaner
+  trigger that surfaced it.
 - **Pearcleaner replacement: explored, not adopted.** Discussed GUI (AppCleaner,
   Hazel) and CLI (`brew uninstall --cask --zap`, `trash`, `mdfind`) alternatives.
-  User closed the thread with "never mind" — no tooling change made, nothing to
-  install or document. The reframe stands if it comes up again: the danger was
-  global cache/binary *sweeping* (Lipo, orphan hunt), not per-app uninstall;
-  `brew --zap` is the CLI-native, declarative, auditable replacement.
+  User closed the thread with "never mind" — no tooling change made. The reframe
+  stands if it recurs: the danger was global cache/binary *sweeping* (Lipo, orphan
+  hunt), not per-app uninstall; `brew --zap` is the CLI-native, declarative,
+  auditable replacement.
 
 ## What Didn't Work
 - Nothing failed this session. (`Update now` in the `/plugin` UI was the *symptom*
   being fixed, not an approach we tried.)
 
 ## What's Next
-1. **Board is empty — no open PRs or tickets.** Nothing queued.
-2. *(Optional)* Capture the plugin install-registry gotcha in `docs/solutions/`
-   (or fold into the cross-machine recovery notes). I offered; it was never
-   explicitly accepted or declined. The one-line version: after a
-   `~/.claude/plugins/` wipe, restart rebuilds *loading* but NOT the install
-   registry — re-run `claude plugin install <plugin>@<marketplace>` for each
-   enabled-but-unregistered plugin.
+1. **Board is empty — no open PRs or tickets.** Nothing queued. The plugin-registry
+   gotcha that was the prior handoff's optional follow-up is now documented and
+   shipped (`a54a8a1`).
 
 ## Gotchas & Watch-outs
-- **Two plugin registries can desync.** `enabledPlugins` (settings.json) drives
-  loading; `installed_plugins.json` drives Update/Uninstall. A plugin can be
+- **Two plugin registries can desync** — now documented in full at
+  `docs/solutions/code-quality/claude-code-plugin-registry-desync-after-plugins-dir-wipe.md`.
+  Short version: `enabledPlugins` (settings.json) drives loading;
+  `installed_plugins.json` drives Update/Uninstall. A plugin can be
   loaded-and-enabled yet invisible to lifecycle ops. Symptom: "Plugin X is not
-  installed" on Update/Uninstall while the plugin clearly works. Fix:
-  `claude plugin install X@marketplace`. Verify with `claude plugin list`.
+  installed" on Update/Uninstall while it clearly works. Fix:
+  `claude plugin install X@marketplace`; verify with `claude plugin list`.
 - **`frontend-design` registered as version "unknown"** — expected, not a bug.
   Official-marketplace plugins are pinned by commit SHA, not semver. The install
   also created a second cache dir (`.../frontend-design/unknown` alongside the
