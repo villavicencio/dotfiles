@@ -83,7 +83,8 @@
   "enabledPlugins": {
     "frontend-design@claude-plugins-official": true,
     "compound-engineering@compound-engineering-plugin": true,
-    "vercel@claude-plugins-official": true
+    "vercel@claude-plugins-official": false,
+    "dv@villavicencio-skills": true
   },
   "extraKnownMarketplaces": {
     "claude-code-plugins": {
@@ -103,12 +104,28 @@
         "source": "github",
         "repo": "anthropics/claude-plugins-official"
       }
+    },
+    "villavicencio-skills": {
+      "source": {
+        "source": "github",
+        "repo": "villavicencio/skills"
+      }
+    },
+    "villavicencio-skills-private": {
+      "source": {
+        "source": "github",
+        "repo": "villavicencio/skills-private"
+      }
     }
   },
-  "effortLevel": "high",
+  "effortLevel": "xhigh",
   "tui": "fullscreen",
   "showThinkingSummaries": true,
   "skipDangerousModePermissionPrompt": true,
+  "preferredNotifChannel": "iterm2",
+  "remoteControlAtStartup": true,
+  "inputNeededNotifEnabled": true,
+  "agentPushNotifEnabled": true,
   "skipAutoPermissionPrompt": true,
   "allowedTools": [
     "Bash(git branch*)",
@@ -130,16 +147,12 @@
     "Bash(curl -fsSL*)",
     "Bash(curl -s*)",
     "Bash(tmux -V*)",
-    "Bash(ssh root@openclaw-prod*)",
-    "Bash(ssh openclaw-prod:*)"
+    "Bash(ssh root@openclaw-prod*)"
   ],
   "mcpServers": {
     "eagle": {
       "type": "streamable-http",
       "url": "http://127.0.0.1:41596/mcp"
     }
-  },
-  "preferredNotifChannel": "iterm2",
-  "remoteControlAtStartup": true,
-  "agentPushNotifEnabled": true
+  }
 }
