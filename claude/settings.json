@@ -97,7 +97,8 @@
       "source": {
         "source": "github",
         "repo": "EveryInc/compound-engineering-plugin"
-      }
+      },
+      "autoUpdate": true
     },
     "claude-plugins-official": {
       "source": {
