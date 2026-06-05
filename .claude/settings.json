@@ -7,7 +7,8 @@
       "source": {
         "source": "github",
         "repo": "villavicencio/skills"
-      }
+      },
+      "autoUpdate": true
     }
   }
 }
