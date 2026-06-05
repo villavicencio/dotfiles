@@ -1,90 +1,71 @@
-# HANDOFF — 2026-06-05 (morning PDT)
+# HANDOFF — 2026-06-05 (midday PDT)
 
-VPS ops + local system-recovery session. Merged the two pending PRs (#88 delta,
-#89 atuin) plus a recovery PR (#91), **closing the board**. The back half was
-recovering from a **Pearcleaner Lipo incident** on the personal Mac that deleted
-Oh My Zsh's plugin dir and the *entire* Claude Code plugin tree.
+Short same-day follow-on to the morning recovery session. Confirmed the
+post-Pearcleaner plugin tree rebuilt on restart, committed the leftover
+machine-generated settings flags (#92), then diagnosed and fixed a non-obvious
+plugin **install-registry** split state left behind by the rebuild. Board stays
+empty; working tree clean.
 
-> ⚠️ **READ FIRST:** Claude Code's plugin directory was wiped. After restarting
-> Claude Code it should rebuild — verify per **What's Next #1** before assuming
-> skills/plugins work.
-
-## What We Did
-
-**Merged (board now empty — no open PRs or tickets):**
-- **#91** `chore` — post-Pearcleaner recovery: synced `~/.claude/settings.json`
-  (it had drifted to a real file, *newer* than the repo) back into the repo and
-  restored the tracked symlink; added `lazygit` to the Brewfile.
-- **#88** `feat(git)` — delta as the diff/show pager (`core.pager = vim -` kept
-  for log/etc.). Live now: delta 0.19.2, `pager.diff = delta`.
-- **#89** `feat(zsh)` — atuin `^R` history + hosted sync; **closed #82**. Live
-  now: atuin 18.16.1, registered as `villavicencio`. `exec zsh` loads `^R` in
-  shells started before the merge.
-
-**VPS (Axiom / `openclaw-prod`) fixes:**
-- tmux-resurrect `save.sh returned 127` — plugins were never installed (only tpm
-  was cloned). Ran `~/.config/tmux/plugins/tpm/bin/install_plugins` → resurrect /
-  continuum / sensible / focus-events installed; `save.sh` exits 0 and writes
-  state. `@continuum-restore on` will now restore on reboot.
-- Reinstalled the Claude Code **native** binary (user accidentally uninstalled it):
-  `curl -fsSL https://claude.ai/install.sh | bash` **as `axiom`, not root** →
-  v2.1.153 at `~/.local/bin/claude`. `~/.claude` config + `~/.claude.json` auth
-  were preserved → no re-login.
-- dv plugin install failed on VPS — marketplace `villavicencio-skills` was
-  registered but its clone was missing. `git clone https://github.com/villavicencio/skills`
-  into `~/.claude/plugins/marketplaces/villavicencio-skills` (shallow); dv then
-  installed.
-
-**Local Pearcleaner Lipo recovery (personal Mac):**
-- Lipo invalidated app code signatures (apps reinstalled by user) and deleted
-  files. Full health sweep result: dotfiles repo clean, **all CLI tooling execs
-  (no binary corruption)**, `brew bundle check` satisfied (**zero brew packages
-  removed**), 16/17 declared symlinks intact.
-- **OMZ `~/.oh-my-zsh/plugins/` wiped (881 git-tracked files)** → restored offline:
-  `git -C ~/.oh-my-zsh checkout -- plugins`. 357 built-ins back; `zsh -i` clean.
-- **`~/.claude/plugins/` deleted ENTIRELY** (cache, marketplace clones,
-  `installed_plugins.json`, `known_marketplaces.json`, `plugin-catalog-cache.json`).
-  Caught when `dv:handoff` failed mid-session. Rest of `~/.claude/` (commands,
-  hooks, skills, settings.json, CLAUDE.md, statusline) survived.
+## What We Built
+- **#92** `chore` — recorded the `"autoUpdate": true` flags Claude Code wrote onto
+  two marketplace declarations during the plugin rebuild. Synced repo → live state:
+  `claude/settings.json` (compound-engineering-plugin) and `.claude/settings.json`
+  (villavicencio/skills). Squash-merged, branch deleted, master clean.
+- **Fixed the `/plugin` "Update now → Plugin not installed" error.** Root cause:
+  the post-Pearcleaner restart rebuilt `~/.claude/plugins/` from `settings.json`,
+  which restored the marketplace clones, cache, and `enabledPlugins` (so plugins
+  *loaded* — agents/skills present, UI showed "Enabled"), but only re-registered
+  `dv` in `installed_plugins.json` (the *install registry* that drives
+  Update/Uninstall). `compound-engineering` and `frontend-design` were
+  **enabled-but-not-installed** → lifecycle ops failed with "not installed."
+  Fix: backfilled via the CLI without disturbing the loaded plugins —
+  `claude plugin install compound-engineering@compound-engineering-plugin` and
+  `claude plugin install frontend-design@claude-plugins-official`.
+  `claude plugin list` now shows all three installed + enabled.
 
 ## Decisions Made
-- Pearcleaner: **not** writing a `docs/solutions/` entry (user won't repeat the
-  action). `fixmouse` keybinding **dropped**. tmux right-pane text-selection quirk
-  **self-resolved** after a tmux restart.
-- The #91 settings.json sync turned out load-bearing — it's the declarative
-  source that drives plugin re-acquisition after the cache wipe (see below).
+- Used `claude plugin install` (the supported install flow) to repair the registry
+  rather than hand-editing `installed_plugins.json` — guarantees schema-correct
+  entries (path, version, gitCommitSha, timestamps).
+- Committed the autoUpdate flags via branch+PR (#92) rather than direct-to-master,
+  matching the repo default and the #91 settings-sync precedent. They're
+  machine-generated but persistent drift, so recording them keeps `git status` clean.
+- **Pearcleaner replacement: explored, not adopted.** Discussed GUI (AppCleaner,
+  Hazel) and CLI (`brew uninstall --cask --zap`, `trash`, `mdfind`) alternatives.
+  User closed the thread with "never mind" — no tooling change made, nothing to
+  install or document. The reframe stands if it comes up again: the danger was
+  global cache/binary *sweeping* (Lipo, orphan hunt), not per-app uninstall;
+  `brew --zap` is the CLI-native, declarative, auditable replacement.
+
+## What Didn't Work
+- Nothing failed this session. (`Update now` in the `/plugin` UI was the *symptom*
+  being fixed, not an approach we tried.)
 
 ## What's Next
-1. **Restore Claude Code plugins — RESTART REQUIRED.** `~/.claude/plugins/` is
-   gone, but `~/.claude/settings.json` still declares the marketplaces + enabled
-   plugins, so **restarting Claude Code rebuilds the tree from settings.json**
-   (same path a fresh machine takes). After restart, verify:
-   - `ls ~/.claude/plugins/` is repopulated (cache/ + marketplaces/ back), and
-   - a dv skill works (e.g. `/dv:pickup`).
-   - If it does **not** auto-rebuild, re-add manually via `/plugin` →
-     *Marketplaces*. Declared in settings.json:
-     - **Enabled plugins:** `frontend-design@claude-plugins-official`,
-       `compound-engineering@compound-engineering-plugin`, `dv@villavicencio-skills`
-     - **Marketplaces:** `anthropics/claude-code`,
-       `EveryInc/compound-engineering-plugin`, `anthropics/claude-plugins-official`,
-       `villavicencio/skills`, `villavicencio/skills-private` *(private — needs gh
-       auth; you're logged in as `villavicencio`)*
-2. Board is otherwise empty.
+1. **Board is empty — no open PRs or tickets.** Nothing queued.
+2. *(Optional)* Capture the plugin install-registry gotcha in `docs/solutions/`
+   (or fold into the cross-machine recovery notes). I offered; it was never
+   explicitly accepted or declined. The one-line version: after a
+   `~/.claude/plugins/` wipe, restart rebuilds *loading* but NOT the install
+   registry — re-run `claude plugin install <plugin>@<marketplace>` for each
+   enabled-but-unregistered plugin.
 
 ## Gotchas & Watch-outs
-- **Pearcleaner Lipo is destructive well beyond binary-thinning** — it deleted
-  `~/.oh-my-zsh/plugins/` *and* all of `~/.claude/plugins/`. Anything with `cache`
-  in the path is a target, and there is no pre-deletion preview (Pearcleaner FR
-  #489). User does not intend to run it again.
-- **`~/.claude/settings.json` can re-break its symlink:** Claude Code's atomic
-  writes replace the tracked symlink with a real file (happened this session). If
-  `M claude/settings.json` stops reflecting local edits, re-sync local→repo +
-  relink (the #91 procedure). It is the recovery map for plugins — keep the repo
-  copy current.
-- **VPS dv marketplace clone is shallow** (`--depth 1`, autoUpdate on). If an
-  auto-update ever hiccups: `git -C ~/.claude/plugins/marketplaces/villavicencio-skills fetch --unshallow`.
-- **atuin = personal Mac only.** Work Mac stays unregistered so corporate history
-  never leaves the device.
-- Axiom VPS sync (statusline / global CLAUDE.md only):
-  `ssh root@openclaw-prod 'sudo -u axiom git -C /home/axiom/.dotfiles pull --ff-only'`.
-  zsh tooling (eza/zoxide/atuin) does **not** apply there — axiom's shell is bash.
+- **Two plugin registries can desync.** `enabledPlugins` (settings.json) drives
+  loading; `installed_plugins.json` drives Update/Uninstall. A plugin can be
+  loaded-and-enabled yet invisible to lifecycle ops. Symptom: "Plugin X is not
+  installed" on Update/Uninstall while the plugin clearly works. Fix:
+  `claude plugin install X@marketplace`. Verify with `claude plugin list`.
+- **`frontend-design` registered as version "unknown"** — expected, not a bug.
+  Official-marketplace plugins are pinned by commit SHA, not semver. The install
+  also created a second cache dir (`.../frontend-design/unknown` alongside the
+  pre-existing `435820146b71`); harmless, left in place — do **not** delete cache
+  dirs to "tidy up" (that's the class of action that caused the original wipe).
+- **settings.json symlink held this session** — the autoUpdate-flag commit went
+  through without the symlink re-breaking. Keep watching: Claude Code's atomic
+  writes can still replace `~/.claude/settings.json` with a real file (the #91
+  failure mode). If `M claude/settings.json` stops reflecting edits, re-sync +
+  relink.
+- Axiom VPS sync unchanged: `ssh root@openclaw-prod 'sudo -u axiom git -C
+  /home/axiom/.dotfiles pull --ff-only'` (statusline / global CLAUDE.md only;
+  zsh tooling and plugin state don't apply there).
