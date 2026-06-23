@@ -1,117 +1,100 @@
-# HANDOFF — 2026-06-12 (morning PDT)
+# HANDOFF — 2026-06-22 (evening PDT)
 
-A long multi-day session (June 9–12) that started as VPS maintenance and grew an
-entire personal-web-presence arc: fixed Axiom's Claude install + lifecycle on
-openclaw-prod, bought the identity domains, built and shipped davidv.sh
-(Next.js on Vercel, two domains, symmetric routing), and replaced the PDF-runbook
-workflow with a private `/ops` living-documentation section. One new solution doc
-compounded into this repo. Board empty; no open PRs.
+Same-session continuation from the June 12 handoff. Started with `/pickup`, worked
+handoff item 2 (NODE_ENV), then the session pivoted into VPS operations on
+`openclaw-prod` — a mosh install, a health check that surfaced a pending kernel
+reboot, and a deep multi-hour debugging arc to make Axiom's Claude Code survive a
+reboot unattended. Closed with a Ship Sigma deliverability page update (deployed)
+and a `/ce-compound` documenting the reboot fix. Board empty, no open PRs, working
+tree clean.
 
 ## What We Built
 
-**VPS (openclaw-prod):**
-- Axiom Claude Code: was pinned to stable channel (2.1.153) — set
-  `autoUpdatesChannel: latest` in axiom's settings, updated to 2.1.170.
-- Killed the "Multiple installations" false positive for good: axiom's npm
-  prefix moved `~/.local` → `~/.npm-global` (`~/.npmrc`), three npm globals
-  reinstalled at pinned versions, compat symlinks left in `~/.local/bin`
-  (agent-browser, ast-grep, browse, sg — intentional, don't clean up).
-- Settings sync: axiom's `~/.claude/settings.json` is now a **generated file**
-  — repo base + `~/.claude/settings.overlay.jq`, rebuilt by
-  `~/.local/bin/sync-dotfiles` (pull + regen). Sync command:
-  `ssh root@openclaw-prod 'sudo -u axiom /home/axiom/.local/bin/sync-dotfiles'`.
-- Axiom lifecycle consolidated: killed the 5-day orphan claude (manual
-  `su - axiom` session from a Tailscale SSH window); the **AXIOM tmux pane**
-  (axiom-tmux.service) is now the one home, running 2.1.170 with `--continue`.
-- Docker: renamed `syncthing-d95veq7chb3d8gllyj6vhpqy` → `syncthing-hermes`
-  (compose `container_name`), removed the disabled openclaw service block +
-  orphan volume declaration from `/opt/openclaw/docker-compose.yml` (timestamped
-  backups alongside; the `openclaw-state` Docker volume itself preserved).
+**dotfiles repo (all merged to master):**
+- **PR #93** — removed the global `export NODE_ENV=development` from `zsh/zshenv:145`
+  (was poisoning `next build` etc.); updated the integration-issues solution doc's
+  Prevention note to record the removal.
+- **PR #94** — recorded `claude/settings.json` baseline: model pin `opus[1m]`, enabled
+  vercel + skill-creator plugins, `skipWorkflowUsageWarning`. (Reminder: this file is
+  rewritten by `/model` and `/effort` at runtime, so it goes dirty again after use.)
+- **028aee0** — new solution doc
+  `docs/solutions/cross-machine/axiom-claude-not-surviving-vps-reboot-systemd-tmux.md`
+  (via `/ce-compound`): the two-part root cause, the dead-end trail, and the final fix.
 
-**Domains (Vercel registrar, under team `david-villavicencios-projects`):**
-- Bought `villavicencio.dev` ($9.99, renews $13) and `davidv.sh` ($22, renews
-  **$60**) — both auto-renew ON, expire 2026-06-11+1yr. Found via the new
-  `/v1/registrar` API (old `/v4` endpoints sunsetted Nov 2025).
-- `dav.id` confirmed taken (PANDI whois: registered 2016, expires 2027).
-  `villavi.dev` identified as available cheap sayable alias ($9.99/$13) — not bought.
+**VPS `openclaw-prod` (Ubuntu 24.04, Hetzner):**
+- **mosh 1.4.0 installed.** Attach alternative: `mosh root@openclaw-prod -- sudo -u axiom
+  tmux attach -t AXIOM`. Works over Tailscale with zero firewall changes (UFW inactive;
+  MagicDNS → 100.x; mosh UDP rides inside WireGuard).
+- **4 GiB swapfile** created + persisted in `/etc/fstab` (was `0B` swap before).
+- **Kernel updated** — pending `6.8.0-124` applied via reboot; reboot flag cleared.
+- **axiom-tmux reboot-survival FIXED + validated.** claude now returns unattended after
+  reboot. Fix = systemd drop-ins under `/etc/systemd/system/axiom-tmux.service.d/`:
+  - `10-network-online.conf`: `After=/Wants=network-online.target time-sync.target`
+    (+ `systemctl enable systemd-time-wait-sync`).
+  - `30-wait-for-api.conf`: `ExecStartPre=/usr/local/bin/axiom-wait-for-api`,
+    `ExecStart=/usr/local/bin/axiom-claude-launch`, `TimeoutStartSec=240`.
+  - `/usr/local/bin/axiom-wait-for-api` — blocks until `api.anthropic.com:443` reachable.
+  - `/usr/local/bin/axiom-claude-launch` — creates AXIOM shell session, waits for the
+    pane shell to be ready, then `send-keys "claude --continue"` with retry.
 
-**davidv.sh site (repo `~/Projects/davidv.sh`, private GitHub villavicencio/davidv.sh):**
-- Next.js 16 + @next/mdx on Vercel, both domains attached, push-to-deploy via
-  git integration. Symmetric routing: `davidv.sh/*` →307→ `villavicencio.dev/*`
-  except `/x/*` (experiments) and `/ops/*`; `.dev/x|ops/*` →307→ `.sh`.
-- **`/ops` private living docs**: middleware magic-link cookie gate
-  (`OPS_SECRET`; unauthorized → bare 404; `robots: noindex`). Three pages:
-  `/ops/axiom`, `/ops/atlas` (ported playbooks), `/ops/shipsigma-deliverability`
-  (v3 — DNS audit scorecard, persistent checklists, capacity calculator, ramp
-  chart, GFM tables).
-- README decision log: 307→308 flip revisit ~2026-12-11 (calendar event set).
+**davidv.sh (deployed live, commit `63ba935`, Vercel `dpl_GBJ4PBB…` READY):**
+- Ship Sigma `/ops/shipsigma-deliverability` page: kept the 8-inbox framing, reframed
+  strategy to *maintain* volume via added capacity (not cut it), Phase-1 changed from
+  "pause heavy senders" to "throttle to safe ceiling," and added how to measure the
+  aggregate daily volume (M365 message trace). Calculator left at illustrative 200.
 
-**Docs & knowledge:**
-- New solution doc (4c50bf6): `docs/solutions/integration-issues/`
-  `static-vercel-to-nextjs-mdx-conversion-traps.md` — NODE_ENV poisoning builds,
-  Vercel framework preset null, remark-gfm/singleTilde. New category dir.
-- PDFs on Desktop (axiom-ops-playbook, atlas-ops-playbook, domain-decision) —
-  superseded for playbooks by the `/ops` pages.
-- Memories added: axiom claude lifecycle, davidv.sh living-docs workflow,
-  npm-prefix fix; axiom dotfiles-clone memory updated (sync-dotfiles).
+**Memory updated:** `axiom-vps-claude-lifecycle` now carries the corrected two-part root
+cause + the final fix (replacing the earlier wrong network-online-only theory) and the
+mosh attach option.
 
 ## Decisions Made
-- **Runbooks → `/ops` MDX pages, not PDFs** (saved as preference memory).
-  Update = edit page.mdx + push; re-verify facts + bump `<Verified>` badge.
-- **Settings sync via overlay-merge, not symlink** on axiom: Claude Code's
-  runtime writes would dirty the clone and break `--ff-only`; machine deltas
-  live in the overlay (channel, theme, vercel plugin, local marketplace path;
-  deletes eagle MCP, skills-private, model pin).
-- **307 (temporary) redirects deliberately** — browsers cache 301s and paths may
-  flip from redirect to experiment; revisit Dec 11.
-- **Magic-link cookie auth over Vercel Authentication** for `/ops` — path-scoped,
-  free, no third party; fails closed (404).
-- **`davidv.sh` over `vill.sh`** for the alias: the .sh exists to be spoken;
-  "vill" re-imports the spelling problem.
-- Volume figure in the deliverability playbook is **TBV** — user validating the
-  real daily send number; calculator is the tool once known.
+- **Reboot-survival root cause is TWO things, not one:** (1) early-boot connectivity
+  transient — `api.anthropic.com` not reachable for ~30s+ even after `network-online.target`
+  (proven: timesyncd couldn't reach NTP until +33s); (2) claude only survives launched by
+  `send-keys` into a READY interactive bash pane, never as tmux's direct command or via a
+  non-interactive script. Fix had to address both.
+- **Gate on real reachability (`wait-for-api`), not proxies.** network-online and clock-sync
+  gates were each tried and were insufficient on their own.
+- **Ship Sigma: maintain volume, don't cut it** (user directive) — so the page now sizes
+  dedicated infra to carry current volume rather than recommending a volume cap. Aggregate
+  daily number is still unmeasured; user said move on without it.
+- **New solution docs go straight to master** (additive content), per standing preference —
+  no branch/PR for the `/ce-compound` doc.
 
 ## What Didn't Work
-- `vercel domains add` CLI (interactive prompts) — used the API
-  (`POST /v10/projects/{id}/domains`) instead.
-- Vercel encrypted env values can't be read back via API — when the clipboard
-  got overwritten mid-flight, the fix was rotate + redeploy; secret now also in
-  the repo's untracked `.env.local`.
-- who.is gateway claimed "no WHOIS data" for dav.id — PANDI's own `whois.id`
-  (slow but authoritative) showed it registered. Don't trust gateways for .id.
-- First Next.js deploy served platform errors despite READY — framework preset
-  was null (see solution doc).
+- **network-online.target gate alone** — "online" = interface has an address, not that
+  outbound works. claude still died.
+- **systemd-time-wait-sync + time-sync.target gate** — unit started right after clock sync,
+  claude still died. Clock was a correlate, not the cause.
+- **Retry wrapper as the tmux session command** (claude as child of a non-interactive bash
+  loop) — made it worse; pane fell to `-bash`, wrapper died after one attempt.
+- **Direct ExecStart + ExecStartPre wait** — still died on a fully-booted `systemctl restart`;
+  claude-as-tmux-direct-command is fragile from the service context.
+- The breakthrough: manual `send-keys` into a READY pane worked every time; the launcher's
+  `sleep 1`+send-keys lost keystrokes (clean prompt, no echoed command) → it was a send-keys
+  race, not a deep crash.
 
 ## What's Next
-1. **Validate Ship Sigma's real daily send volume** → plug into
-   `/ops/shipsigma-deliverability` (calculator + prose); also run the
-   learndmarc.com alignment test and the Phase-1 checklist there.
-2. **Decide the `NODE_ENV=development` removal** from `zsh/zshenv:145` —
-   flagged twice now (build crash + solution doc); behavior change → branch+PR.
-3. **`M claude/settings.json`** (uncommitted): Claude Code wrote
-   `"model": "claude-fable-5[1m]"` on June 9. Commit to record the pin (axiom's
-   overlay already strips it) or discard. Left pending deliberately.
-4. Optional: buy `villavi.dev` ($9.99/$13) as the cheap sayable alias.
-5. Dec 11: calendar event fires — consider 307→308 flip (README decision log).
+1. **Measure Ship Sigma's aggregate daily send volume** across the 8 inboxes (M365 message
+   trace / sending-platform stats) → plug into the `/ops/shipsigma-deliverability` calculator,
+   which is still at the illustrative 200 default. The page tells the user how to get it.
+2. **Optional: buy `villavi.dev`** ($9.99/$13) as the sayable alias (carried from June 12).
+3. **Dec 11, 2026** — calendar event fires to revisit the davidv.sh 307→308 redirect flip.
 
 ## Gotchas & Watch-outs
-- **`OPS_SECRET` lives in Vercel env + `~/Projects/davidv.sh/.env.local`
-  (untracked).** Losing both = rotate + redeploy. Magic URL must be visited
-  once per browser/device; cookie lasts 1 year.
-- **`davidv.sh` renews at $60/yr** (all Vercel .sh do — purchase $22 was
-  year-one only). Auto-renew is ON; flip via `PATCH /v1/registrar/.../auto-renew`
-  if the bit stops being worth it.
-- **Axiom settings.json is generated** — edit `~/.claude/settings.overlay.jq`,
-  never the file; bare `git pull` on the clone doesn't regen (use sync-dotfiles).
-- **Don't launch claude ad-hoc on the VPS** (`su - axiom` → claude) — that's the
-  orphan failure mode; everything via the AXIOM pane
-  (`ssh -t root@openclaw-prod 'sudo -u axiom tmux attach -t AXIOM'`, prefix C-b).
-- **Vercel project framework preset must stay `nextjs`** for davidv.sh — null
-  preset = platform NOT_FOUND/MIDDLEWARE_INVOCATION_FAILED on READY deploys.
-- **remark-gfm needs `singleTilde: false`** in any MDX with `~/paths` — and the
-  string/tuple plugin form for Turbopack serializability.
-- Next 16 deprecation: `middleware.ts` → "proxy" convention. Works with a
-  warning; rename eventually.
-- The deliverability playbook's DNS facts: SPF/DKIM verified by live audit;
-  **Exclaimer alignment still unverified** (learndmarc test pending);
-  shipsigma.com volume figure TBV.
+- **axiom reboot-survival is validated but new** — if a future reboot ever strands claude
+  again, the next suspect beyond what's fixed is DNS-resolver-specific readiness. Detection
+  gotcha: `ps | grep claude` matches the tmux launcher's argv — always
+  `grep -v "tmux new-session"`. And `tmux ls` / `systemctl is-active` look healthy even when
+  claude is dead; check for an actual claude PID.
+- **Large-session resume caveat** — even with the fix, `claude --continue` parks at a
+  "Resume from summary / full" menu for a big session; a perfect auto-launch still won't fully
+  resume a large session unattended (someone must pick).
+- **axiom settings.json is generated** — edit `~/.claude/settings.overlay.jq`, sync via
+  `sync-dotfiles`; never edit the file directly. (Unchanged from before.)
+- **Don't launch claude ad-hoc on the VPS** (`su - axiom` → claude) — everything via the
+  AXIOM pane. (Unchanged.)
+- **`claude/settings.json` will keep going dirty** as `/model` and `/effort` write to it —
+  expected churn, not a problem; commit a fresh baseline when it matters.
+- **davidv.sh framework preset must stay `nextjs`**; this deploy was content-only MDX so no
+  preset risk. `OPS_SECRET` lives only in Vercel env + untracked `.env.local`.
