@@ -39,6 +39,15 @@ disable = [
   "microsoft_office",
 ]
 
+# Known-benign Claude Code step failure: a private project-scoped plugin's
+# project lives on an external volume (the "vault") that is only mounted on
+# demand. When the vault is unmounted, `claude`'s plugin-update sweep shells
+# out to a child rooted in that (now-absent) path and reports the plugin
+# "Failed to execute". The plugin is disabled and already at its latest
+# version, so this is cosmetic — it clears itself whenever the vault is mounted.
+# topgrade can't skip a single plugin within the Claude Code step, so this is
+# documented here rather than disabled. (Diagnosed 2026-07-11; all else green.)
+
 # Custom commands appended to the topgrade run.
 # `command -v` guard makes each command a no-op on hosts where the binary is
 # absent, so the same config works on macOS + the VPS without per-host forks.
