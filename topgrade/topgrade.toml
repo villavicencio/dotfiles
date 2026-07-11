@@ -10,6 +10,9 @@ cleanup = true
 # refuses to run there — yarn step handles the actual updates.
 # Skip containers: Docker Desktop is installed via Brewfile but the daemon is
 # only run on demand; topgrade's image-update step requires it to be running.
+# Skip colima: same on-demand rationale — the runtime-update step needs the VM
+# running (fails `colima is not running` when it's down). The colima binary
+# still updates via Brew; only the in-VM runtime step is skipped.
 # Skip microsoft_office: not used; msupdate fires `XPC Connection invalidated`
 # every run when no Office app is foregrounded — pure noise.
 disable = [
@@ -32,6 +35,7 @@ disable = [
   "ruby_gems",
   "pnpm",
   "containers",
+  "colima",
   "microsoft_office",
 ]
 
