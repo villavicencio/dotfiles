@@ -1,81 +1,93 @@
-# HANDOFF — 2026-07-07
+# HANDOFF — 2026-07-13, evening (PST)
 
-Started with `/pickup` on dotfiles to clear the one dirty file left from last session,
-then the session pivoted almost entirely into a **cross-project naming + domain-availability
-exercise** for the operator's `ibmcconstruction.com` platform (the "Foreman" SMB-site builder).
-The only dotfiles deliverable is PR #95; everything else was scratch research that produced no
-repo artifacts (by design — it belongs to a different project).
+Started with `/pickup` and found the prior handoff (2026-07-07) had drifted: back on `master`
+with a new dirty file, and the "next up" item (merge PR #95) was blocked by a **red macOS CI**.
+The session became a full CI-rot investigation + cleanup — diagnosed two distinct macOS-CI
+failures, fixed both, conformed a terminal installer's shell block, then cleared the entire
+four-PR queue via a coordinated merge. **Master is green and the queue is empty.**
 
 ## What We Built
 
-**dotfiles (the only code change):**
-- **PR #95 (OPEN)** — `chore: register openai-codex plugin in Claude settings`, branch
-  `chore/register-codex-plugin`, commit `77fb26d`. Separated the two changes that were sitting
-  dirty in `claude/settings.json`:
-  - **Kept (intentional):** the `codex@openai-codex` plugin the operator installed today via
-    slash command, plus its `openai-codex` marketplace (`openai/codex-plugin-cc`) under
-    `extraKnownMarketplaces`.
-  - **Reverted (runtime churn):** restored the `"model": "opus[1m]"` pin that `/model` had
-    stripped at runtime — so the net diff vs. the recorded baseline is *only* the codex addition.
-  - Followed the #94 precedent (settings-baseline changes go through a branch/PR, not straight
-    to master). Working tree is now clean.
+All four PRs **MERGED** (squash, branches deleted). Master head: `8ca976f`.
 
-**Cross-project research (NO artifacts written anywhere — pure conversation):**
-- Confirmed from memory that we (Claude, in the `browse-gateway` project) **helped name Obscura**
-  on 2026-06-11 — picked from a shortlist (Portunus, Heimdall, Janus, Charon, Vantage, Scry,
-  Bastion, Iris…), rationale = camera-obscura + "obscured"/stealth. Recorded in
-  `~/Projects/browse-gateway/docs/brainstorms/2026-06-11-obscura-brand-and-connect-experience-requirements.local.md`.
-- Read the IBMC platform context (`~/Projects/ibmcconstruction.com/{README,AGENTS,docs/design/design-brief}.md`):
-  "Foreman" names the **productizable agent-operable SMB-site platform**, not the client GC.
-- Generated **10 Greek/Roman/mythological alternatives** to "Foreman": Daedalus, Talos,
-  Hephaestus/Vulcan, Tekton, Faber, Vesta/Hestia, Terminus, Janus, Vitruvius, Opus — each mapped
-  to the builder/agentic-maker thesis.
-- Ran an **exhaustive Vercel domain sweep (~150+ lookups)** — all 10 names × 14 TLDs
-  (`.com .ai .co .io .build .app .work .pro .team .studio .dev .run .us .contractors`) + the full
-  Foreman variant set (the-/get-/try-/my-/hire- prefixes, -hq/-app/-ai suffixes).
+- **PR #96 (MERGED, `f94ab5a`)** — `fix: remove dead adoptopenjdk/openjdk tap from Brewfile`.
+  Root cause: modern Homebrew audits a tap's cask definitions on `brew tap`, and
+  `adoptopenjdk-jre` still uses the removed `appcast` stanza → `undefined method 'appcast'` →
+  "Tapping adoptopenjdk/openjdk has failed!" → `brew bundle` fails. The `tap "adoptopenjdk/openjdk"`
+  line in `brew/Brewfile:1` was **orphaned** — no cask installed from it, it was the sole
+  adoptopenjdk reference in the repo, present since the original Dotbot conversion. Removal is
+  behavior-preserving (no Java was being installed). Want a JDK later → add `cask "temurin"`.
+
+- **PR #98 (MERGED, `ab3c347`)** — `fix: force serial brew bundle in CI to stop Cellar lock-race`.
+  Added `HOMEBREW_BUNDLE_JOBS: '1'` to the macOS job `env:` in
+  `.github/workflows/install-matrix.yml`. Root cause: an "already locked …/Cellar/<keg>" error
+  requires two concurrent `brew` processes, so `brew bundle` was installing in **parallel** on the
+  runner even though our helper passes no `--jobs` and Homebrew's upstream default is `--jobs=1` —
+  the `macos-15` runner image injects a higher bundle job count. Parallel installs race on
+  shared-dependency Cellar locks (`go` pulled by `gitleaks`; `luajit` by `luarocks`). Serial
+  install kills it. **Verified:** #98's macOS log had ZERO `already locked` lines (failure count
+  dropped 3 → 1, that 1 being adoptopenjdk which #96 removed).
+
+- **PR #97 (MERGED, `e36f26b`)** — `chore: conform Otty shell-integration block to repo idiom`.
+  The Otty terminal installer appended a multi-line POSIX block to `zsh/zshrc` (`if [ -n … ]`,
+  `.` sourcing, `# >>>`/`# <<<` markers). Rewrote it as a single guarded one-liner matching the
+  gcloud/openclaw/antigravity idiom directly above it:
+  `[[ -n "$OTTY_SHELL_INTEGRATION" && -r "$OTTY_SHELL_INTEGRATION/otty-integration.zsh" ]] && source …`.
+  **Verified:** `zsh -n` parses + sources cleanly under Otty (exit 0, emits OSC 7 CWD sequence).
+
+- **PR #95 (MERGED, `8ca976f`)** — `chore: register openai-codex plugin in Claude settings`.
+  Carried over from the 2026-07-07 session (was OPEN at pickup). Rebased onto the fixed master
+  and merged. Net diff is only the `codex@openai-codex` plugin + `openai-codex` marketplace
+  addition in `claude/settings.json`.
 
 ## Decisions Made
-- **Platform name = Foreman (FINAL).** Operator chose to stick with it after seeing the mythic
-  alternatives and the domain reality. Rationale: construction-native double meaning (runs the
-  *job* site / runs the *web* site); plainspoken. Mythic names ruled out — don't relitigate.
-- **`claude/settings.json` churn handling:** the model-pin removal is `/model` runtime noise and
-  gets reverted on commit; only genuine additions (plugins/marketplaces) are the real diff. This
-  is the standing pattern for that file.
-- **Naming/domain work stays out of the repos** — it was exploratory; nothing was written to
-  dotfiles or ibmcconstruction. The two offered follow-ups (record the name / buy a domain) were
-  left for the operator to trigger, not done.
+
+- **Two CI bugs = two PRs.** adoptopenjdk removal (#96) and the lock-race fix (#98) are distinct
+  logical changes, kept separate per repo convention even though each branch alone still showed
+  the *other's* failure (mutually blocking for a green check).
+- **Otty block → conform, not keep-verbatim** (operator chose via prompt). Trade-off accepted:
+  dropping the `# >>>` installer markers means Otty's in-app toggle (Settings → Shell) no longer
+  manages the block — it's **manually owned in the repo** now, consistent with source-of-truth.
+- **Lock-race fix scoped to CI, not the helper.** `HOMEBREW_BUNDLE_JOBS=1` lives in the workflow
+  env, NOT `install_from_brewfile.sh` — real-machine `./install` relies on Homebrew's serial
+  default; forcing `--jobs=1` in the helper would forgo parallel speedup forever. Escape hatch if a
+  real fresh install ever races: export the same var in the helper. Drop the pin once Homebrew
+  ships the upstream lock-fix (Homebrew/brew#22293 / #22297) to the runner image.
+- **Coordinated merge, master stays green.** No branch protection on `master` (red checks don't
+  block), but honored "keep-green": merged the mutually-blocking pair #98+#96 first → master
+  green → rebased #97+#95 onto green master → both went fully green (linux + macOS) → merged.
 
 ## What Didn't Work
-- **Every clean domain for Foreman is taken** — bare `foreman.*` gone on all 14 TLDs; every
-  strong `.com` variant (the/try/my/hire/get-foreman, foreman-hq/app/ai) also gone. There's an
-  established open-source **Foreman** (theforeman.org infra tool + the `foreman` Ruby process-
-  manager gem) holding the namespace — different category, not a blocker, but you share search
-  results.
-- **The mythic names are no better** — none of the 10 has a clean premium TLD available either
-  (`.com/.ai/.io/.co/.app/...` all taken across the board). The dictionary/mythic-word well for
-  ownable domains is dry.
+
+- **A plain CI re-run does NOT fix the lock-race.** Re-ran #96's macOS job; it failed again on a
+  *different* racing pair (`gitleaks`→`go`, `luarocks`→`luajit` vs. the original `go`/`luarocks`).
+  The collisions are nondeterministic — only serial install fixes it deterministically. Don't
+  burn re-runs hoping it clears.
 
 ## What's Next
-1. **Merge PR #95** (`gh pr merge 95 --squash --delete-branch` once CI is green) — the one open
-   dotfiles item. Currently on branch `chore/register-codex-plugin`; switch back to master after.
-2. **(ibmcconstruction, optional)** Record "Foreman" as the platform's official name — its
-   `AGENTS.md`/`README` still calls it "a productizable, agent-operable SMB-site platform" with no
-   name. Would be a branch/PR in that repo, not dotfiles.
-3. **(ibmcconstruction, optional/low-priority)** If locking a domain early matters, the only
-   realistic buys are **`theforeman.io`** ($38/yr) or **`foremanhq.ai`** (~$80/yr). No urgency —
-   the platform isn't productized and IBMC already lives at `ibmcconstruction.com`.
-4. **Carried from prior handoff (davidv.sh / external, unchanged):** measure Ship Sigma aggregate
-   daily send volume → plug into `/ops/shipsigma-deliverability` calculator; optional `villavi.dev`
-   purchase; Dec 11 2026 calendar event for the 307→308 redirect flip.
+
+1. **(dotfiles, low-priority) Fix the `install_omz.sh:21` arithmetic warning.** Every macOS CI run
+   prints `helpers/install_omz.sh: line 21: zsh-256color: value too great for base (error token is
+   "256color")`. Non-fatal (install continues, CI passes), but real: line 21 does an arithmetic
+   evaluation over the OMZ plugin list and chokes on the plugin name `zsh-256color` (treats
+   `256color` as a number). One-line fix (quote/guard the arithmetic). Its own small `fix/` PR.
+2. **(dotfiles, housekeeping) Remove the `HOMEBREW_BUNDLE_JOBS: '1'` pin** once the upstream
+   Homebrew lock-fix (Homebrew/brew#22293 / #22297) lands in the `macos-15` runner image. The
+   pin's inline comment already flags this.
+3. **(external, carried from 2026-07-07 handoff — unchanged):** record "Foreman" as the
+   ibmcconstruction platform's official name; optional domain buys (`theforeman.io` / `foremanhq.ai`);
+   Ship Sigma send-volume → `/ops/shipsigma-deliverability` calculator; optional `villavi.dev`;
+   Dec 11 2026 calendar event for the 307→308 redirect flip.
 
 ## Gotchas & Watch-outs
-- **PR #95 is open and unmerged** — you're still on the `chore/register-codex-plugin` branch. Don't
-  start new dotfiles work until it's merged and you're back on master, or you'll stack changes.
-- **`claude/settings.json` will keep going dirty** as `/model` and `/effort` write to it — expected
-  churn. When committing, revert the model-pin removal and keep only real additions (see Decisions).
-- **The domain research produced no files** — if you go looking for a saved report, there isn't one.
-  The full matrix is in this session's transcript only. The single actionable finding: `.contractors`
-  ($9.99) is the one TLD open for every name — on-theme for a contractor platform if you ever want a
-  cheap coherent domain, but Foreman itself was the lone name whose `.contractors` was already taken.
-- **The Vercel domain-check MCP** (`mcp__plugin_vercel_vercel__check_domain_availability_and_price`)
-  caps at 10 names/call — batch accordingly if you re-run any sweep.
+
+- **Master is GREEN as of this session** — first clean macOS CI in a while. If it goes red on an
+  *unchanged* commit later, suspect `macos-15` runner-image rotation (workflow header caveat #8)
+  before debugging the pipeline.
+- **macOS CI is now ~slower but deterministic** — serial `brew bundle` trades wall-clock for no
+  flakiness. Intended.
+- **The Otty block is manually owned in `zsh/zshrc`.** If you toggle Otty's shell integration
+  off/on in-app, it may re-append a fresh installer block (duplicate) — delete the installer block
+  if that happens; keep the conformed one-liner.
+- **`claude/settings.json` still goes dirty from `/model` + `/effort` churn** — standing pattern:
+  on commit, revert the model-pin removal and keep only genuine additions (plugins/marketplaces).
