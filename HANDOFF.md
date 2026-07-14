@@ -3,12 +3,13 @@
 Started with `/pickup` and found the prior handoff (2026-07-07) had drifted: back on `master`
 with a new dirty file, and the "next up" item (merge PR #95) was blocked by a **red macOS CI**.
 The session became a full CI-rot investigation + cleanup — diagnosed two distinct macOS-CI
-failures, fixed both, conformed a terminal installer's shell block, then cleared the entire
-four-PR queue via a coordinated merge. **Master is green and the queue is empty.**
+failures, fixed both, handled a terminal installer's shell block (twice — conformed in #97, then
+reverted in #99 when the tool fought back), cleared the queue via a coordinated merge, and
+compounded two solution docs. **Master is green and the queue is empty.**
 
 ## What We Built
 
-All four PRs **MERGED** (squash, branches deleted). Master head: `8ca976f`.
+Five PRs **MERGED** (squash, branches deleted) + two solution docs. Master head: `16285f4`.
 
 - **PR #96 (MERGED, `f94ab5a`)** — `fix: remove dead adoptopenjdk/openjdk tap from Brewfile`.
   Root cause: modern Homebrew audits a tap's cask definitions on `brew tap`, and
@@ -33,21 +34,36 @@ All four PRs **MERGED** (squash, branches deleted). Master head: `8ca976f`.
   `.` sourcing, `# >>>`/`# <<<` markers). Rewrote it as a single guarded one-liner matching the
   gcloud/openclaw/antigravity idiom directly above it:
   `[[ -n "$OTTY_SHELL_INTEGRATION" && -r "$OTTY_SHELL_INTEGRATION/otty-integration.zsh" ]] && source …`.
-  **Verified:** `zsh -n` parses + sources cleanly under Otty (exit 0, emits OSC 7 CWD sequence).
+  **Verified:** `zsh -n` parses + sources cleanly under Otty. **⚠️ Reversed by #99 (below)** — Otty
+  re-added its markered block within the session; conforming fought the tool.
 
 - **PR #95 (MERGED, `8ca976f`)** — `chore: register openai-codex plugin in Claude settings`.
   Carried over from the 2026-07-07 session (was OPEN at pickup). Rebased onto the fixed master
   and merged. Net diff is only the `codex@openai-codex` plugin + `openai-codex` marketplace
   addition in `claude/settings.json`.
 
+- **PR #99 (MERGED, `16285f4`)** — `fix: let Otty manage its own shell-integration block`.
+  Reverts #97. Otty uses its `# >>>`/`# <<<` markers to detect whether its integration is
+  installed; #97 removed them, so Otty re-appended a fresh block on shell launch — a duplicate in
+  the Dotbot-symlinked live `zshrc`, verified within one session of #97 merging. Restored Otty's
+  block **verbatim** so it matches its own markers and stops re-adding. CI green (linux + macOS).
+
+- **Two `docs/solutions/` entries (`30e48aa`)** — compounded the CI-rot fixes under
+  `docs/solutions/cross-machine/`: `adoptopenjdk-dead-tap-fails-brew-bundle-2026-07-13.md` and
+  `brew-bundle-parallel-cellar-lock-race-macos-runner-2026-07-13.md`, cross-linked to each other
+  and the existing install-matrix docs.
+
 ## Decisions Made
 
 - **Two CI bugs = two PRs.** adoptopenjdk removal (#96) and the lock-race fix (#98) are distinct
   logical changes, kept separate per repo convention even though each branch alone still showed
   the *other's* failure (mutually blocking for a green check).
-- **Otty block → conform, not keep-verbatim** (operator chose via prompt). Trade-off accepted:
-  dropping the `# >>>` installer markers means Otty's in-app toggle (Settings → Shell) no longer
-  manages the block — it's **manually owned in the repo** now, consistent with source-of-truth.
+- **Otty block → let the tool own it (verbatim markered block).** Initially conformed to the repo
+  one-liner idiom (#97), but Otty re-added its markered block within the session — it self-manages
+  via its `# >>>` markers. Final call (#99, operator chose via prompt): keep Otty's block verbatim.
+  General rule: tool-managed markered blocks (conda, nvm, Otty) are left as-is *because* the tool
+  rewrites them; the one-line `[[ … ]] && source` idiom is only for hand-managed integrations
+  (gcloud, openclaw) that nothing re-adds.
 - **Lock-race fix scoped to CI, not the helper.** `HOMEBREW_BUNDLE_JOBS=1` lives in the workflow
   env, NOT `install_from_brewfile.sh` — real-machine `./install` relies on Homebrew's serial
   default; forcing `--jobs=1` in the helper would forgo parallel speedup forever. Escape hatch if a
@@ -86,8 +102,10 @@ All four PRs **MERGED** (squash, branches deleted). Master head: `8ca976f`.
   before debugging the pipeline.
 - **macOS CI is now ~slower but deterministic** — serial `brew bundle` trades wall-clock for no
   flakiness. Intended.
-- **The Otty block is manually owned in `zsh/zshrc`.** If you toggle Otty's shell integration
-  off/on in-app, it may re-append a fresh installer block (duplicate) — delete the installer block
-  if that happens; keep the conformed one-liner.
+- **Do NOT conform/edit the Otty `# >>>`…`# <<<` block in `zsh/zshrc`.** Otty self-manages it via
+  those markers and re-appends a fresh copy on shell launch if it can't find them — #97 conformed
+  it and Otty duplicated the block within one session (fixed by #99). Leave it verbatim. Because
+  `zsh/zshrc` is Dotbot-symlinked to the live config, Otty's rewrites land straight in the repo
+  working tree; if a duplicate ever reappears, keep the markered block and delete the extra.
 - **`claude/settings.json` still goes dirty from `/model` + `/effort` churn** — standing pattern:
   on commit, revert the model-pin removal and keep only genuine additions (plugins/marketplaces).
