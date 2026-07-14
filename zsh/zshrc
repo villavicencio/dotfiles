@@ -200,5 +200,10 @@ fi
 [[ -f "$HOME/.google-cloud-sdk/path.zsh.inc" ]] && source "$HOME/.google-cloud-sdk/path.zsh.inc"
 [[ -f "$HOME/.google-cloud-sdk/completion.zsh.inc" ]] && source "$HOME/.google-cloud-sdk/completion.zsh.inc"
 
-# Otty shell integration (optional; inert unless launched by Otty)
-[[ -n "$OTTY_SHELL_INTEGRATION" && -r "$OTTY_SHELL_INTEGRATION/otty-integration.zsh" ]] && source "$OTTY_SHELL_INTEGRATION/otty-integration.zsh"
+# >>> otty shell integration >>>
+# Added by Otty — toggle in Settings > Shell > Shell Integration.
+# Inert unless launched by Otty (it sets $OTTY_SHELL_INTEGRATION).
+if [ -n "$OTTY_SHELL_INTEGRATION" ] && [ -r "$OTTY_SHELL_INTEGRATION/otty-integration.zsh" ]; then
+  . "$OTTY_SHELL_INTEGRATION/otty-integration.zsh"
+fi
+# <<< otty shell integration <<<
