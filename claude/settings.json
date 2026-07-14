@@ -86,7 +86,8 @@
     "compound-engineering@compound-engineering-plugin": true,
     "vercel@claude-plugins-official": true,
     "dv@villavicencio-skills": true,
-    "skill-creator@claude-plugins-official": true
+    "skill-creator@claude-plugins-official": true,
+    "codex@openai-codex": true
   },
   "extraKnownMarketplaces": {
     "claude-code-plugins": {
@@ -118,6 +119,12 @@
       "source": {
         "source": "github",
         "repo": "villavicencio/skills-private"
+      }
+    },
+    "openai-codex": {
+      "source": {
+        "source": "github",
+        "repo": "openai/codex-plugin-cc"
       }
     }
   },
