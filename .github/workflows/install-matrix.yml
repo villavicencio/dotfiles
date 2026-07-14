@@ -148,6 +148,18 @@ jobs:
       # directive consults it.
       HOMEBREW_NO_AUTO_UPDATE: '1'
       HOMEBREW_NO_INSTALL_CLEANUP: '1'
+      # Force serial `brew bundle` install. The macos-15 runner image ships a
+      # default env that parallelizes bundle installs (upstream default is
+      # --jobs=1, so the runner is injecting a higher value). Parallel installs
+      # race on shared-dependency Cellar locks — e.g. `luajit` installing while
+      # `luarocks` (which depends on it) installs, or `go` being pulled by two
+      # formulae at once — producing intermittent "process has already locked
+      # /opt/homebrew/Cellar/<keg>" failures and a red macos leg on unchanged
+      # commits. Pinning to 1 here overrides the runner value regardless of its
+      # source. Upstream lock-fix tracked in Homebrew/brew#22293 / #22297; drop
+      # this once the runner image ships it. Real-machine `./install` is
+      # unaffected (it uses Homebrew's serial default).
+      HOMEBREW_BUNDLE_JOBS: '1'
       CI: 'true'
     steps:
       - name: Checkout
