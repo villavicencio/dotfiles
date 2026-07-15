@@ -11,3 +11,14 @@ mcpconfig.json
 
 # Compound Engineering machine-local config
 .compound-engineering/*.local.yaml
+
+# iTerm2 live-writes its full prefs plist here when PrefsCustomFolder points at
+# iterm/ — do not track it (it carries usernames/hostname/window arrangements).
+# The intentional prefs live in iterm/profile-dynamic.json instead. The glob also
+# catches any suffixed variant iTerm2 or a migration might drop (.plist.bak, a
+# lock file, etc.) so a PII-bearing copy can never be `git add`ed here.
+iterm/com.googlecode.iterm2.plist*
+# Defense-in-depth: the migration backup basename, ignored repo-wide (no slash),
+# so even a misdirected backup can never be staged. helpers/restore-iterm-app-prefs.sh
+# also refuses to write it inside the repo, but this covers any path that slips through.
+iterm2-prefs.pre-dynamic-profile.plist
