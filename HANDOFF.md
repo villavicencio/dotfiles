@@ -1,86 +1,79 @@
-# HANDOFF — 2026-07-14, evening (PST)
+# HANDOFF — 2026-07-15 (PST)
 
-Full-repo **10x audit session** (Fable 5, max effort). Produced an evidence-backed strategy
-brief (~45 findings, all with file:line evidence), verified upstream facts live, benchmarked
-the shell, ran secret scans, and converted everything into a PR-sized execution plan:
-**`docs/plans/2026-07-14-001-chore-10x-roadmap-execution-plan.md`** — the authoritative
-artifact for the overnight execution loop (Opus 4.8 + Codex adversarial review). Baseline:
-`master @ 2950864`, tree clean, CI green, no open PRs/issues.
+Overnight execution of the **Dotfiles 10x roadmap**
+(`docs/plans/2026-07-14-001-chore-10x-roadmap-execution-plan.md`) is complete. Opus 4.8 (1M) ran
+the 19-packet queue under a Codex adversarial-review gate (`gpt-5.6-sol`). Full per-packet detail
+is in **`docs/plans/2026-07-14-001-run-log.md`**. Master ends **green + clean @ `8a0d19c`**.
 
-## Headline findings (full detail + evidence lives in the plan doc)
+## Outcome — 19 packets
 
-- **BOOT-01 (critical):** `helpers/install_omz.sh` uses a bash-4 associative array; under
-  macOS `/bin/bash` 3.2 the plugin map is empty → fresh Macs/CI silently install **0/4 OMZ
-  plugins** while reporting success. The prior handoff's "arithmetic warning" item
-  underdiagnosed this. Reproduced live.
-- **SEC-01 (high):** iTerm2 actively **live-syncs prefs into the repo** (`PrefsCustomFolder`
-  = repo `iterm/`, `LoadPrefsFromCustomFolder` = 1, verified via `defaults read`) — the tracked
-  plist carries two usernames, a corporate hostname, command history, and an 838-line window-
-  arrangement blob. CI's PII grep never covered `iterm/`.
-- **HYG-01 (high):** `fonts/` = 189 MB (96 files; `Fura Code` is a pre-2019 duplicate of Fira
-  Code); everything-else-tracked = 1.0 MB. All needed families exist as homebrew casks
-  (verified live 2026-07-14).
-- **BOOT-02/NVIM (high):** `nvim/custom` targets removed NvChad v1.0 APIs while
-  `install_nvim.sh` clones unpinned HEAD (v2.x, `custom/` mechanism deleted upstream);
-  live `~/.config/nvim` is a non-git 2022 fossil. Fresh machine = broken editor.
-- **CI-01 (REVERSED 2026-07-14):** the `HOMEBREW_BUNDLE_JOBS: '1'` pin is NOT droppable. The
-  upstream #22297 fix shipped in Homebrew 5.1.12 and reached the runner (6.0.5+), but run
-  `29301199411` (image `20260706.0213.1`, Homebrew ≥6.0.5) still hit the Cellar-lock race — so
-  #22297 doesn't cover this Brewfile's contention. Keep the pin (P0-4 repurposed to a comment/doc
-  correction). Current Homebrew defaults bundle jobs to parallel `auto`, so real machines are
-  exposed too.
-- **BOOT-05:** Brewfile is a stale dump — 99 installed-but-unrecorded, 7 recorded-but-missing,
-  ~30 transitive deps as fake intent; `export_deps` regeneration would corrupt scoped npm names.
-- **TMUX-01:** `tmux-attention.sh` spinner cleanup `pkill` prefix-collides (pane `%2` kills
-  `%20`'s loop).
-- Startup is **healthy**: 240 ms median / 350 ms cold (12 samples) — speed is not the story;
-  correctness/hygiene/feedback-loops are.
+| Disposition | Count | Packets |
+|---|---|---|
+| **Merged** (CI-green, review-approved) | 15 | P0-1..P0-5, P1-3, P1-4, P2-6, P2-3, P2-4, P2-8, P2-5, P2-1, P3-2, P2-7 |
+| **Parked** — draft PR, machine-affecting | 2 | P1-1 (#108 iTerm), P1-2 (#109 fonts) |
+| **Parked** — stale premise, needs decision | 1 | P3-1 (nvim) |
+| **Deferred** — blocked by parked P1-1/P1-2 | 1 | P2-2 (dotbot layered configs) |
 
-## Obscura adversarial-review protocol (verified this session)
+Merged PRs: #100, #102–#107, #110–#117. Highlights: bash-3.2 OMZ install fixed (P0-1); CI now
+asserts install outcomes + a weekly cron/failure-notifier (P0-2, P2-5); tmux spinner pkill anchor
+(P0-3); Brewfile curated + read-only drift reporter (P1-3); zsh/tmux/alias dead-config sweeps
+(P2-3, P2-4, P2-8); truth-pass docs + LICENSE + solutions INDEX (P2-6); new **`dot` CLI** with a
+read-only `doctor` (P2-1); **`AGENTS.md`** tool-neutral brief (P3-2); `claude/settings.json`
+hygiene (P2-7). Startup held under budget (237 ms median). Follow-up issue: #101 (P0-1 staging-swap).
 
-- Project = `~/Projects/browse-gateway` (CLI brand **Obscura**, `src/cli/obscura.ts`).
-- Its SOP (`codex-review-loop-sop`, HANDOFF there): each change lands only after a Claude↔Codex
-  **adversarial-review loop returns `approve`**; verify-don't-blind-accept each finding;
-  commit each fix round; up to ~10 rounds.
-- Mechanism: `codex@openai-codex` plugin v1.0.6 (already enabled in `claude/settings.json`,
-  PR #95) → `/codex:adversarial-review` → `codex-companion.mjs` → Codex CLI 0.144.1 with
-  `~/.codex/config.toml`: **`model = "gpt-5.6-sol"`, reasoning `high`**. Verdicts: `approve` /
-  `needs-attention` (structured JSON, file+lines+confidence).
-- **Gotcha (from Obscura):** run `--wait` inside a *detached background task*; plain
-  `--background` is killed by the 2-min shell timeout mid-handshake, leaving an orphaned
-  "running" job. Verify pid + log mtime, not the status field.
+## Open decisions / needs you
 
-## What's Next
+1. **P3-1 (nvim) — the plan's premise was wrong; I did not build it.** The plan assumed the live
+   `~/.config/nvim` is a "2022 NvChad fossil" and the repo `nvim/custom` is the active overlay.
+   Reality (investigated, not modified): the live config is a **maintained NvChad v2.5** lazy.nvim
+   setup (`lazy-lock.json` updated 2026-07-11), **not** git-tracked, and the repo `nvim/custom`
+   overlay is symlinked into it but **never imported** (dead). Building P3-1 as written would shelve
+   your working editor and replace it with a config reconstructed from the *dead v1.0 overlay* — a
+   regression + data-loss risk. **Your call:** (A) adopt the live v2.5 config into the repo as-is
+   (track it, pin the existing lockfile, fix `install` to link it); (B) true from-scratch rewrite
+   (bigger — and port from the *live v2.5* plugin set, not the old overlay); or (C) leave nvim out.
+   Secondary real bug either way: on a fresh machine `install_nvim.sh` clones NvChad HEAD and links
+   the v1.0-incompatible overlay → fresh-machine editor is broken.
+2. **Parked draft PRs #108 (iTerm) & #109 (fonts)** — both machine-affecting, want your review +
+   the one-time manual migration on each Mac (see run-log "Morning-checklist additions").
+3. **P2-2 (dotbot layered configs) deferred** — it restructures `install.conf.yaml`, which #108/#109
+   also modify; it should run *after* those two are merged or closed.
 
-1. **Execute the roadmap**: new session (Opus 4.8, high effort), paste the mission prompt
-   (operator has it on the clipboard; identical protocol is §Loop-protocol of the plan doc).
-   19 packets, strict order P0-1 → P3-1, one branch/PR/squash-merge per packet, Codex
-   adversarial review gate (≤10 rounds) before every commit, master stays green.
-2. Morning: work the **manual checklist** in the plan doc (iTerm prefs flip, font visual check,
-   brew reconcile, mcpconfig relocation, parked PRs).
-3. External items carried from 2026-07-07 (unchanged): Foreman naming, domain buys, Ship Sigma
-   calculator, Dec 11 redirect-flip calendar event.
+## Morning checklist (machine-side; nothing was mutated overnight except noted)
 
-## Gotchas & Watch-outs
+- [ ] **Apply P2-7 settings hygiene on the personal Mac** (currently INERT — see gotcha below):
+      back up → remove → `./install` → verify. It's a manual step because `./install` won't clobber
+      the live regular file.
+- [ ] **#108 iTerm** (if merging): iTerm2 **quit** → `helpers/restore-iterm-app-prefs.sh --migrate`
+      → relaunch → Preferences → Profiles → select **Dotfiles** → mark default.
+- [ ] **#109 fonts** (if merging): both Nerd Font casks were force-installed during P1-2 verification
+      (`font-jetbrains-mono-nerd-font`, `font-fira-code-nerd-font` @3.4.0); old manual Nerd Font
+      files remain orphaned in `~/Library/Fonts` (harmless; `migrate_legacy_fonts.sh` handles the
+      collision on a fresh `./install`). Visually confirm tmux pill glyphs + starship symbols.
+- [ ] **P3-1 nvim** — decide A/B/C above before any nvim restructure.
+- [ ] **Stray dir (safe to delete, not deleted — data-safety):** `~/.config/zsh/ohmyzsh` — inert OMZ
+      clone created 2026-07-14 by the P0-1 acceptance test's ZDOTDIR leak. Real OMZ is `~/.oh-my-zsh`.
+      `rm -rf ~/.config/zsh/ohmyzsh` when convenient.
 
-- **Do NOT conform/edit the Otty `# >>>`…`# <<<` block in `zsh/zshrc`** (see #97→#99 lesson).
-- **No machine-side uninstalls overnight** — repo-side changes only; machine reconciliation is
-  a morning-checklist activity (plan doc §Safety-rails).
-- **iTerm defaults flip is manual** — iTerm rewrites the prefs folder on quit; don't fight it
-  from a background agent.
-- **`claude/settings.json` is now the shared cross-machine baseline** (P2-7 landed, D5): the
-  `model`/`effortLevel` pins, the two dead marketplaces (`claude-code-plugins`,
-  `villavicencio-skills-private`), and the host-specific `curl`/`ssh root@openclaw-prod`
-  auto-allow rules were removed. Claude Code has **no user-level `*.local` override layer**
-  (`settings.local.json` is project-scoped only), so genuinely per-machine user settings must
-  live on that machine's own `~/.claude/settings.json`, not be committed here.
-- **The P2-7 change is currently INERT on the personal Mac** and applying it is a manual step.
-  The live `~/.claude/settings.json` is a **regular file** (decoupled from the repo — it still
-  carries the old pins + `curl`/`ssh` allow rules). Dotbot's `link` defaults are `relink: true`
-  with **no `force`**, so `./install` will *not* overwrite a regular file — it reports a link
-  failure and leaves the old settings active. To actually apply the hygiene change on a machine
-  (morning-checklist, **do not auto-delete — it's live user data**): (1) back up the live file
-  (`cp ~/.claude/settings.json ~/.claude/settings.json.bak`); (2) remove it; (3) run `./install`
-  so Dotbot creates the symlink; (4) verify `~/.claude/settings.json` is now the symlink and the
-  removed rules are absent (`readlink ~/.claude/settings.json`; `jq '.model // "gone"'`). A fresh
-  session will then see more permission prompts — by design.
+## Gotchas & watch-outs (durable)
+
+- **Do NOT conform/edit the Otty `# >>>`…`# <<<` block in `zsh/zshrc`** (tool-managed; #97→#99).
+- **`zsh/zshenv` must stay POSIX-safe** — it is `.`-sourced by `dash`/`bash` during `./install`;
+  zsh-only syntax (`${var:A:h}`) is a fatal "bad substitution" there (P2-3 lesson).
+- **`claude/settings.json` is now the shared cross-machine baseline** (P2-7): pins, two dead
+  marketplaces, and host-specific `curl`/`ssh` auto-allow rules removed. Claude Code has **no
+  user-level `*.local` override layer** (`settings.local.json` is project-scoped only), so
+  per-machine user settings live on that machine's own `~/.claude/settings.json`, uncommitted.
+- **P2-7 is INERT on the personal Mac until migrated.** The live `~/.claude/settings.json` is a
+  **regular file** (decoupled). Dotbot links `relink: true` with **no `force`**, so `./install`
+  won't overwrite it. To apply (**do not auto-delete — live user data**): `cp ~/.claude/settings.json
+  ~/.claude/settings.json.bak` → remove it → `./install` → verify (`readlink ~/.claude/settings.json`;
+  `jq '.model // "gone"' ~/.claude/settings.json`). A fresh session then sees more prompts, by design.
+- **Verify tooling:** `dot doctor` (read-only health), `dot check` (mirrors CI static checks),
+  `dot bench` (startup vs 300 ms). `AGENTS.md` is the tool-neutral repo brief.
+- **Codex review gate:** launch on **staged-uncommitted** changes (`--scope working-tree`); a review
+  run after commit sees an empty diff and returns a vacuous approve.
+
+## External items (carried, unchanged from 2026-07-07)
+
+Foreman naming, domain buys, Ship Sigma calculator, Dec 11 redirect-flip calendar event.
