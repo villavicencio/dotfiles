@@ -35,6 +35,22 @@ a dry run. After a first install, make zsh your default shell and re-login:
 chsh -s "$(which zsh)"
 ```
 
+## The `dot` command
+
+`bin/dot` (symlinked to `~/.local/bin/dot`) is a small dispatcher for common
+operations — no new dependencies:
+
+| Command | What |
+|---|---|
+| `dot doctor` | read-only health check (symlinks resolve, OMZ/TPM plugins, brew bundle, alias binaries, gitleaks on tracked files, INDEX/HANDOFF freshness, toolchain shadowing). Exits non-zero on any failure; makes no changes. |
+| `dot check` | static checks — `shellcheck` + `zsh -n`/`bash -n` + a Dotbot dry-run parse. A local mirror of what CI would reject. |
+| `dot bench` | 10× interactive-`zsh` startup; prints the distribution and median/max against the 300 ms budget. |
+| `dot explain <name>` | locate and print an alias / function / key-binding definition. |
+| `dot drift` | package/global-install drift report (`helpers/report_drift.sh`). |
+| `dot docs-index` | regenerate `docs/solutions/INDEX.md`. |
+| `dot install [args…]` | passthrough to `./install`. |
+| `dot update` | `topgrade`. |
+
 ## Layout
 
 | Path | What |

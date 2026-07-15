@@ -1,0 +1,313 @@
+#!/usr/bin/env bash
+#
+# dot — a small dispatcher for common dotfiles operations. No new dependencies:
+# pure bash plus tools already in the Brewfile (git, brew, shellcheck, gitleaks,
+# topgrade, zsh). Symlinked to ~/.local/bin/dot by Dotbot.
+#
+# Subcommands:
+#   dot install [args…]   → ./install passthrough
+#   dot doctor            → read-only health check (exits non-zero on any FAIL)
+#   dot check             → static checks: shellcheck + zsh -n/bash -n + dotbot parse
+#   dot bench             → 10× interactive zsh startup; median/max vs 300ms budget
+#   dot drift             → helpers/report_drift.sh
+#   dot update            → topgrade
+#   dot explain <name>    → locate + print an alias / function / key-bind definition
+#   dot docs-index        → regenerate docs/solutions/INDEX.md
+#   dot help              → this text
+set -uo pipefail
+
+# --- Resolve the repo root, even when invoked through the ~/.local/bin symlink.
+_self="${BASH_SOURCE[0]}"
+while [ -L "$_self" ]; do _self="$(readlink "$_self")"; done
+# On macOS `readlink` isn't recursive; the while-loop above handles chained links.
+case "$_self" in /*) : ;; *) _self="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/$(basename "$_self")" ;; esac
+REPO="$(cd "$(dirname "$_self")/.." && pwd -P)"
+
+green() { printf '\033[32m%s\033[0m' "$1"; }
+red()   { printf '\033[31m%s\033[0m' "$1"; }
+yellow(){ printf '\033[33m%s\033[0m' "$1"; }
+
+# doctor state
+_fail=0; _warn=0
+ok()   { printf '  %s %s\n' "$(green PASS)" "$1"; }
+fail() { printf '  %s %s\n' "$(red FAIL)" "$1"; _fail=$((_fail+1)); }
+warn() { printf '  %s %s\n' "$(yellow WARN)" "$1"; _warn=$((_warn+1)); }
+
+usage() { sed -n '3,20p' "$_self" | sed 's/^# \{0,1\}//'; }
+
+# --------------------------------------------------------------------------
+cmd_install() { exec "$REPO/install" "$@"; }
+cmd_drift()   { exec bash "$REPO/helpers/report_drift.sh" "$@"; }
+cmd_update()  { exec topgrade "$@"; }
+
+cmd_docs_index() {
+  bash "$REPO/helpers/generate_docs_index.sh"
+}
+
+# --- explain: find where a shell name is defined --------------------------
+cmd_explain() {
+  local name="${1:-}"
+  [ -n "$name" ] || { echo "usage: dot explain <alias|function|key>" >&2; return 64; }
+  local found=0
+  # alias
+  local a
+  a="$(grep -hE "^[[:space:]]*alias[[:space:]]+${name}=" "$REPO/zsh/alias.sh" 2>/dev/null)"
+  [ -n "$a" ] && { echo "alias ($REPO/zsh/alias.sh):"; printf '  %s\n' "$a"; found=1; }
+  # function (functions.sh + functions/*.sh)
+  local fmatch
+  fmatch="$(grep -rlE "^(function[[:space:]]+)?${name}[[:space:]]*\(\)" "$REPO/zsh/functions.sh" "$REPO/zsh/functions" 2>/dev/null | head -1)"
+  if [ -n "$fmatch" ]; then
+    echo "function ($fmatch):"
+    awk -v n="$name" '
+      $0 ~ "^(function[[:space:]]+)?"n"[[:space:]]*\\(\\)" {p=1}
+      p{print "  "$0}
+      p && /^}/{exit}
+    ' "$fmatch"
+    found=1
+  fi
+  # key-bind (tmux + zsh bindkey)
+  local kb
+  kb="$(grep -rhnE "bind(key)?.*${name}" "$REPO/zsh" "$REPO/tmux" 2>/dev/null | head -5)"
+  [ -n "$kb" ] && { echo "key-binding matches:"; printf '  %s\n' "$kb"; found=1; }
+  [ "$found" = 1 ] || { echo "no alias/function/binding named '$name' found"; return 1; }
+}
+
+# --- check: local mirror of CI static checks ------------------------------
+cmd_check() {
+  local rc=0
+  echo "shellcheck (helpers + bin):"
+  local shf
+  shf="$(git -C "$REPO" ls-files 'helpers/*.sh' 'bin/*' 2>/dev/null)"
+  if command -v shellcheck >/dev/null 2>&1; then
+    # lint each tracked script that starts with a bash/sh shebang
+    local f
+    while IFS= read -r f; do
+      [ -n "$f" ] || continue
+      head -1 "$REPO/$f" | grep -qE '^#!.*(bash|sh)' || continue
+      if shellcheck -S warning "$REPO/$f" >/dev/null 2>&1; then :; else
+        echo "  $(red FAIL) $f"; shellcheck -S warning "$REPO/$f" 2>&1 | head -5; rc=1
+      fi
+    done <<< "$shf"
+    [ "$rc" = 0 ] && echo "  $(green clean)"
+  else
+    echo "  $(yellow skip) shellcheck not installed"
+  fi
+
+  echo "zsh -n (zsh config):"
+  local z
+  for z in zshenv zshrc alias.sh functions.sh iterm2.zsh; do
+    [ -f "$REPO/zsh/$z" ] || continue
+    zsh -n "$REPO/zsh/$z" 2>/dev/null && echo "  $(green ok) zsh/$z" || { echo "  $(red FAIL) zsh/$z"; rc=1; }
+  done
+
+  echo "dotbot --dry-run parse:"
+  local cfg
+  for cfg in install.conf.yaml install-linux.conf.yaml; do
+    [ -f "$REPO/$cfg" ] || continue
+    local fake; fake="$(mktemp -d)"
+    if PYTHONDONTWRITEBYTECODE=1 DOTFILES_DRY_RUN=1 HOME="$fake" \
+         "$REPO/dotbot/bin/dotbot" -d "$REPO" -c "$cfg" --dry-run >/dev/null 2>&1; then
+      echo "  $(green ok) $cfg"
+    else
+      echo "  $(red FAIL) $cfg"; rc=1
+    fi
+    rm -rf "$fake"
+  done
+  return "$rc"
+}
+
+# --- bench: interactive startup distribution ------------------------------
+cmd_bench() {
+  python3 - <<'PY'
+import subprocess, time, os
+budget = 300
+env = dict(os.environ); env["TERM_PROGRAM"]="x"; env["TMUX"]=""
+ts=[]
+for _ in range(10):
+    t=time.perf_counter()
+    subprocess.run(["zsh","-i","-c","true"], env=env, capture_output=True)
+    ts.append((time.perf_counter()-t)*1000)
+ts.sort()
+med=(ts[4]+ts[5])/2; mx=ts[-1]
+print("startup (ms):", [round(x) for x in ts])
+print(f"median {med:.0f} ms  max {mx:.0f} ms  budget {budget} ms")
+raise SystemExit(0 if med <= budget else 1)
+PY
+}
+
+# --- doctor: read-only health checks --------------------------------------
+cmd_doctor() {
+  echo "dot doctor — $REPO"
+
+  echo "symlinks (Dotbot targets resolve; installed links aren't dangling):"
+  local cfg out perr=0
+  out="$(mktemp)"
+  for cfg in install.conf.yaml install-linux.conf.yaml; do
+    [ -f "$REPO/$cfg" ] || continue
+    # For each `~/target: src` link entry: the repo SOURCE must exist, and if the
+    # target is already installed as a symlink it must not dangle. A not-yet-
+    # installed target is fine (partial/fresh machine) — only report real breakage.
+    # The parser prints PARSER_ERROR and exits non-zero on any import/parse/schema
+    # fault, so a degraded vendored-PyYAML can't turn this into an always-pass.
+    if ! python3 - "$REPO/$cfg" "$REPO" >>"$out" 2>>"$out"; then
+      perr=1
+    fi <<'PY'
+import sys, os
+cfgp, repo = sys.argv[1], sys.argv[2]
+try:
+    # System python3 has no PyYAML; use dotbot's vendored copy (same as the docs
+    # index generator) so this check actually runs instead of silently passing.
+    sys.path.insert(0, os.path.join(repo, "dotbot", "lib", "pyyaml", "lib"))
+    import yaml
+    doc = yaml.safe_load(open(cfgp)) or []
+    for block in doc:
+        if not isinstance(block, dict) or "link" not in block: continue
+        for target, v in (block["link"] or {}).items():
+            src = v["path"] if isinstance(v, dict) else v
+            if not os.path.exists(os.path.join(repo, src)):
+                print("MISSING_SOURCE", src); continue
+            t = os.path.expanduser(target)
+            if os.path.islink(t) and not os.path.exists(t):   # installed but dangling
+                print("DANGLING_SYMLINK", target)
+except Exception as e:
+    print("PARSER_ERROR", os.path.basename(cfgp), repr(e)); sys.exit(1)
+PY
+  done
+  local broken
+  broken="$(grep -cE 'MISSING_SOURCE|DANGLING_SYMLINK|PARSER_ERROR' "$out" 2>/dev/null)"; broken="${broken:-0}"
+  if [ "$perr" = 1 ] || [ "$broken" != 0 ]; then
+    fail "$broken symlink issue(s)"; sed 's/^/    /' "$out"
+  else
+    ok "all link sources exist + no dangling installed symlinks"
+  fi
+  rm -f "$out"
+
+  echo "OMZ custom plugins:"
+  local p missp=0
+  for p in zsh-autosuggestions zsh-history-substring-search zsh-syntax-highlighting; do
+    [ -d "$HOME/.oh-my-zsh/custom/plugins/$p/.git" ] || missp=$((missp+1))
+  done
+  [ "$missp" = 0 ] && ok "3 custom plugins present" || fail "$missp OMZ plugin(s) missing"
+
+  echo "tmux plugin manager:"
+  [ -d "$HOME/.config/tmux/plugins/tpm/.git" ] && ok "TPM present" || warn "TPM not installed"
+
+  echo "Homebrew:"
+  if command -v brew >/dev/null 2>&1; then
+    # orphan taps: tapped but nothing in Brewfile references them (best-effort)
+    if HOMEBREW_NO_AUTO_UPDATE=1 brew bundle check --file="$REPO/brew/Brewfile" >/dev/null 2>&1; then
+      ok "brew bundle satisfied"
+    else
+      warn "brew bundle has unmet entries (dot drift / brew bundle check for detail)"
+    fi
+  else
+    warn "brew not installed"
+  fi
+
+  echo "alias/function binaries resolve:"
+  local missb
+  missb="$(DOTFILES="$REPO" zsh -c '
+    export DOTFILES="'"$REPO"'"
+    source "$DOTFILES/zsh/functions.sh" 2>/dev/null  # so aliases pointing at functions resolve
+    source "$DOTFILES/zsh/alias.sh" 2>/dev/null
+    for a in ${(k)aliases}; do
+      w=(${(z)${aliases[$a]}}); c="${w[1]}"
+      [[ "$c" == (command|sudo|exec) ]] && c="${w[2]}"
+      c="${c#\\}"
+      case "$c" in ""|/*|echo|cd|exec|:|.|source) continue;; esac
+      command -v -- "$c" >/dev/null 2>&1 || print "$a->$c"
+    done
+  ' 2>/dev/null)"
+  [ -z "$missb" ] && ok "every alias resolves to a binary" || { warn "aliases pointing at missing binaries:"; printf '    %s\n' $missb; }
+
+  echo "secret scan (gitleaks, tracked files):"
+  if command -v gitleaks >/dev/null 2>&1; then
+    local rep; rep="$(mktemp)"
+    gitleaks dir "$REPO" --no-banner --report-format json --report-path "$rep" >/dev/null 2>&1 || true
+    # A successful scan always writes a JSON report ([] when clean). A missing or
+    # unparseable report means gitleaks itself errored — treat that as a failure,
+    # never a silent pass.
+    if ! python3 -c "import json,sys; json.load(open(sys.argv[1]))" "$rep" >/dev/null 2>&1; then
+      fail "gitleaks scan failed to produce a valid report (rerun: gitleaks dir '$REPO' --verbose)"
+    else
+      # `gitleaks dir` scans every on-disk file, including git-ignored machine-local
+      # secret stores (mcpconfig.json, *.local.*) and untracked scratch files that
+      # never get committed. Only TRACKED files can actually leak, so confirm each
+      # finding's path with `git ls-files --error-unmatch` (excludes both ignored
+      # and untracked). Also exclude the documented examples: the security
+      # postmortem quotes real historical tokens as teaching material and CLAUDE.md
+      # ships a high-entropy smoke-test fake.
+      local real=0 file rel
+      while IFS= read -r file; do
+        [ -n "$file" ] || continue
+        rel="${file#"$REPO"/}"
+        case "$rel" in docs/solutions/security/*|CLAUDE.md) continue ;; esac
+        git -C "$REPO" ls-files --error-unmatch -- "$rel" >/dev/null 2>&1 || continue  # tracked only
+        real=$((real+1))
+      done < <(python3 -c "import json,sys
+d=json.load(open(sys.argv[1]))
+print('\n'.join(sorted({f.get('File','') for f in d})))" "$rep" 2>/dev/null)
+      [ "$real" = 0 ] && ok "no leaks in tracked files (git-ignored + untracked + documented examples excluded)" \
+        || fail "$real tracked file(s) with a gitleaks finding (gitleaks dir '$REPO' --verbose)"
+    fi
+    rm -f "$rep"
+  else warn "gitleaks not installed"; fi
+
+  echo "HANDOFF freshness:"
+  if [ -f "$REPO/HANDOFF.md" ]; then
+    # Read mtime via Python (already a doctor dependency). `stat` is not portable:
+    # BSD wants `-f %m`, GNU wants `-c %Y`, and on this repo's gnubin-first PATH the
+    # BSD form emits filesystem text that a `||` fallback would leak into the
+    # arithmetic and crash under `set -u`.
+    local mt
+    mt="$(python3 -c "import os,sys; print(int(os.path.getmtime(sys.argv[1])))" "$REPO/HANDOFF.md" 2>/dev/null)"
+    if [ -n "$mt" ]; then
+      local age=$(( ( $(date +%s) - mt ) / 86400 ))
+      [ "$age" -le 7 ] && ok "HANDOFF.md updated ${age}d ago" || warn "HANDOFF.md is ${age}d old (>7d)"
+    else warn "could not read HANDOFF.md mtime"; fi
+  else warn "HANDOFF.md missing"; fi
+
+  echo "docs INDEX freshness:"
+  if [ -f "$REPO/docs/solutions/INDEX.md" ]; then
+    # Read-only count check: every solution doc should have exactly one link row
+    # in INDEX. A mismatch means a doc was added/removed without regenerating.
+    local doccount idxcount
+    doccount="$(find "$REPO/docs/solutions" -name '*.md' ! -name INDEX.md 2>/dev/null | wc -l | tr -d ' ')"
+    idxcount="$(grep -oE '\]\([^)]+\.md\)' "$REPO/docs/solutions/INDEX.md" 2>/dev/null | wc -l | tr -d ' ')"
+    [ "$doccount" = "$idxcount" ] && ok "INDEX lists all $doccount solution docs" \
+      || warn "INDEX lists $idxcount of $doccount docs — regenerate (dot docs-index)"
+  else warn "docs/solutions/INDEX.md missing"; fi
+
+  echo "toolchain shadowing (which -a):"
+  local t
+  for t in node ruby python3 claude; do
+    local n; n="$(command which -a "$t" 2>/dev/null | grep -c .)"
+    if [ "${n:-0}" -gt 1 ]; then warn "$t resolves in $n locations (shadowing): $(command which -a "$t" 2>/dev/null | tr '\n' ' ')"; fi
+  done
+  ok "toolchain shadow scan done"
+
+  echo
+  if [ "$_fail" -gt 0 ]; then
+    printf '%s  %d fail, %d warn\n' "$(red 'doctor: FAIL')" "$_fail" "$_warn"; return 1
+  else
+    printf '%s  0 fail, %d warn\n' "$(green 'doctor: OK')" "$_warn"; return 0
+  fi
+}
+
+# --------------------------------------------------------------------------
+main() {
+  local sub="${1:-help}"; shift || true
+  case "$sub" in
+    install)    cmd_install "$@" ;;
+    doctor)     cmd_doctor "$@" ;;
+    check)      cmd_check "$@" ;;
+    bench)      cmd_bench "$@" ;;
+    drift)      cmd_drift "$@" ;;
+    update)     cmd_update "$@" ;;
+    explain)    cmd_explain "$@" ;;
+    docs-index) cmd_docs_index "$@" ;;
+    help|-h|--help) usage ;;
+    *) echo "dot: unknown subcommand '$sub'" >&2; usage; exit 64 ;;
+  esac
+}
+main "$@"
