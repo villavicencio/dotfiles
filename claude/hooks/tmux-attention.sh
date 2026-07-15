@@ -46,12 +46,23 @@ fi
 pane="$TMUX_PANE"
 pane_safe=$(printf '%s' "$pane" | tr -dc 'A-Za-z0-9')
 sentinel="${TMPDIR:-/tmp}/claude-spinner-${pane_safe}.alive"
-marker="claude-spinner-marker-${pane_safe}"
+# Terminal delimiter (-end) so a marker for pane %2 can't be a prefix of pane
+# %20's (pane ids strip to bare digits, so "…-2" is a prefix of "…-20"). The `-`
+# can't appear in pane_safe (tr keeps only [A-Za-z0-9]), so it is an unambiguous
+# boundary.
+marker="claude-spinner-marker-${pane_safe}-end"
+
+# ERE for `pkill -f` that targets THIS pane's loop without matching a longer
+# pane id (%20): the pane token must be followed by `-end`, whitespace, or
+# end-of-command. `(-end)?` also matches loops started by the pre-`-end` version
+# of this hook (legacy marker `claude-spinner-marker-2`) so a spinner restart
+# after an upgrade cleans them up instead of leaving them to race the new loop.
+marker_kill_re="claude-spinner-marker-${pane_safe}(-end)?([[:space:]]|$)"
 
 stop_spinner() {
   rm -f "$sentinel"
-  # Nuclear cleanup: any leaked loops for this pane.
-  pkill -f "$marker" 2>/dev/null || true
+  # Nuclear cleanup: any leaked loops for this pane (current or legacy marker).
+  pkill -f "$marker_kill_re" 2>/dev/null || true
 }
 
 set_status() {
