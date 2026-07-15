@@ -63,6 +63,16 @@ on:
       - '**.md'
       - 'claude/**/*.md'
   workflow_dispatch:
+  schedule:
+    # Weekly, Monday 14:17 UTC (06:17 PST / 07:17 PDT). Catches drift that a
+    # quiet week wouldn't: runner-image rotation (macos-15 / ubuntu-24.04
+    # re-bakes), upstream tool/formula bumps, dead taps. Scheduled runs execute
+    # on the default branch (master). PR runs surface in the checks UI; a
+    # scheduled red has no PR, so the notify-on-schedule-failure job below opens
+    # a tracking issue. Minute 17 (not :00): GitHub docs warn that top-of-hour
+    # schedules land in a high-load window and can be delayed or silently
+    # dropped — which would create no run for the notifier to catch.
+    - cron: '17 14 * * 1'
 
 # Least-privilege: the workflow only needs to read the repo. No issue
 # writes, no package writes, no token-scoped externalization. Sibling
@@ -138,6 +148,48 @@ jobs:
 
       - name: Post-apply assertions (R3 user-paths + R4 zsh init)
         uses: ./.github/actions/install-matrix-post-apply
+
+  # Surface a red SCHEDULED run (a weekly cron has no PR to eyeball) by opening —
+  # or, if one is already open, commenting on — a single tracking issue. Scoped
+  # to schedule-only + failure(): a PR failure already shows in the checks UI, and
+  # a manual workflow_dispatch is watched by whoever triggered it.
+  #
+  # Least privilege: the matrix jobs above run at the workflow-default
+  # `contents: read`. Only THIS job elevates to `issues: write`, and to nothing
+  # else — the permission bump is isolated to the notifier, not the code-executing
+  # install jobs.
+  notify-on-schedule-failure:
+    needs: [linux, macos]
+    if: ${{ failure() && github.event_name == 'schedule' }}
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - name: Open or update the failure-tracking issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          TITLE: '⚠️ Weekly install-matrix is failing on master'
+        run: |
+          set -euo pipefail
+          body="The scheduled install-matrix run failed on master.
+
+          - Run: ${RUN_URL}
+          - Commit: ${GITHUB_SHA}
+          - When: $(date -u '+%Y-%m-%d %H:%M UTC')
+
+          Re-run \`workflow_dispatch\` after a fix; close this issue once green."
+          # De-dupe by exact title so repeated weekly failures append instead of
+          # spawning a new issue each Monday.
+          num="$(gh issue list --repo "$GITHUB_REPOSITORY" --state open \
+                   --search "\"$TITLE\" in:title" --json number,title \
+                   --jq 'map(select(.title=="'"$TITLE"'")) | .[0].number // empty')"
+          if [ -n "$num" ]; then
+            gh issue comment "$num" --repo "$GITHUB_REPOSITORY" --body "$body"
+          else
+            gh issue create --repo "$GITHUB_REPOSITORY" --title "$TITLE" --body "$body"
+          fi
 
   macos:
     runs-on: macos-15
