@@ -2,6 +2,11 @@
 
 # Install packages specified in the Brewfile using Homebrew
 
+if [ "${DOTFILES_DRY_RUN:-0}" = "1" ]; then
+  echo "[dry-run] would run: brew bundle --file=${BREWFILE_PATH:-./brew/Brewfile}"
+  exit 0
+fi
+
 # Source the Homebrew initialization script
 . "./helpers/init_homebrew.sh"
 

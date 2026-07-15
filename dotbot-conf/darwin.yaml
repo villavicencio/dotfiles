@@ -1,0 +1,46 @@
+# macOS-only install layer. Runs AFTER dotbot-conf/base.yaml (base has already
+# set up ~/.zshenv, installed Homebrew packages, and linked the shared configs).
+
+- defaults:
+    link:
+      relink: true
+    shell:
+      quiet: true
+      stdout: true
+      stderr: true
+
+- create:
+    - ~/.claude/hooks
+    - ~/.claude/skills
+
+- shell:
+    # chsh is skipped in CI (PAM auth fails on hosted GitHub runners and would
+    # break the install-matrix exit-zero assertion) and when zsh is already the
+    # login shell. Block style is intentional: the inline [cmd, desc] flow form
+    # trips YAML's `&` anchor parser on the `&&`.
+    - command: |
+        if [ "${CI:-false}" != "true" ] && [ "$SHELL" != "$(command -v zsh)" ]; then
+          chsh -s "$(command -v zsh)"
+        else
+          echo "skipping chsh (CI, or zsh already the login shell)"
+        fi
+      description: Making zsh the default shell (skipped in CI / if already zsh)
+    - [bash helpers/install_nvm.sh, "Installing nvm"]
+    - [bash helpers/install_node.sh, "Installing node + modules"]
+    - [bash helpers/install_claude_code.sh, "Installing Claude Code (native installer)"]
+
+- link:
+    ~/.claude/CLAUDE.md: claude/CLAUDE.md
+    ~/.claude/settings.json: claude/settings.json
+    ~/.claude/statusline-command.sh: claude/statusline-command.sh
+    ~/.claude/hooks/tmux-attention.sh: claude/hooks/tmux-attention.sh
+    # iTerm2 Dynamic Profile. `create: true` makes the DynamicProfiles parent dir
+    # if iTerm hasn't yet. Replaces the live-synced full prefs plist (which leaked
+    # usernames/hostname/window arrangements).
+    "~/Library/Application Support/iTerm2/DynamicProfiles/dotfiles.json":
+      path: iterm/profile-dynamic.json
+      create: true
+
+- shell:
+    - command: echo "Installation complete!"
+      quiet: false

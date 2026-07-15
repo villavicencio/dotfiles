@@ -4,7 +4,7 @@
 # Mirrors the VPS production target documented in
 # docs/solutions/cross-machine/vps-dotfiles-target.md:
 #   - ubuntu:24.04 base
-#   - root user (the install runbook expects root; install-linux.conf.yaml
+#   - root user (the install runbook expects root; dotbot-conf/linux.yaml
 #     assumes root)
 #   - only the bootstrap deps that helpers/install_packages.sh does NOT
 #     install itself; downstream apt installs are the install pipeline's

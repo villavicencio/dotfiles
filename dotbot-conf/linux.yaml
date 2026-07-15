@@ -1,0 +1,25 @@
+# Linux-only install layer. Runs AFTER dotbot-conf/base.yaml.
+#
+# No active Linux target as of 2026-05-21 (the Hetzner VPS was repurposed) —
+# kept as generic infrastructure for any future Linux host. The en_US.UTF-8
+# locale generation lives in base.yaml (uname-guarded) because it must run
+# before install_packages.sh, which base runs.
+
+- defaults:
+    link:
+      relink: true
+    shell:
+      quiet: true
+      stdout: true
+      stderr: true
+
+- link:
+    # Seed glyph + palette metadata for a static Linux window layout. The
+    # client-attached hook in tmux/tmux.general.conf applies it on next attach.
+    # macOS deliberately does NOT link this — its sidecar is written live by the
+    # tmux-window-namer skill.
+    ~/.config/tmux/window-meta.json: tmux/window-meta.linux.json
+
+- shell:
+    - command: echo "Installation complete!"
+      quiet: false

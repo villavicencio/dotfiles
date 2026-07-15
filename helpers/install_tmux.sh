@@ -23,8 +23,11 @@ handle_error() {
   exit 1
 }
 
-# Set up logging
-LOG_FILE="install_tmux.log"
+# Set up logging under XDG cache (not the repo root, which the old relative
+# path polluted when this ran from the install pipeline).
+LOG_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/dotfiles"
+mkdir -p "$LOG_DIR" || handle_error "Unable to create log directory"
+LOG_FILE="$LOG_DIR/install_tmux.log"
 touch "$LOG_FILE" || handle_error "Unable to create log file"
 
 TPM_INSTALL_DIR="$HOME/.config/tmux/plugins/tpm"

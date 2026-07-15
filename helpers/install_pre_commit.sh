@@ -4,7 +4,7 @@
 # see docs/solutions/security/2018-leaked-github-pats-and-trufflehog-verified-false-trap-2026-05-06.md).
 #
 # Darwin: pre-commit + gitleaks come from Brewfile via install_packages.sh
-#         (which runs ahead of this helper in install.conf.yaml). This script
+#         (which runs ahead of this helper in dotbot-conf/base.yaml). This script
 #         then runs `pre-commit install` to wire the hook.
 # Linux:  pre-commit via pipx (pipx itself comes from install_packages.sh apt
 #         block); gitleaks via GitHub release binary download into ~/.local/bin

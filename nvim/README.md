@@ -1,7 +1,7 @@
 # nvim
 
 Neovim config — an **NvChad v2.5** starter, tracked here as the single source of truth and
-symlinked to `~/.config/nvim` by Dotbot (whole-directory link; see `install.conf.yaml`).
+symlinked to `~/.config/nvim` by Dotbot (whole-directory link; see `dotbot-conf/base.yaml`).
 
 - **Framework:** `NvChad/NvChad` (branch `v2.5`) is consumed as a *plugin* via `lazy.nvim`
   (`init.lua`), so this is a thin config over NvChad, not a fork of it.

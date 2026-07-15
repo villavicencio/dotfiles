@@ -74,7 +74,7 @@ runs:
         # could let a partial-match regression through silently.
         # [^[:space:]]+ on each side because Dotbot's emitter never
         # produces whitespace-bearing link-names or targets — repo paths
-        # in install.conf.yaml don't allow them.
+        # in the dotbot-conf/ configs do not allow them.
         LINK_RE='^Would create (sym|hard)link [^[:space:]]+ -> [^[:space:]]+$'
 
         # Fresh-runner sanity check: on a CI runner with empty $HOME,

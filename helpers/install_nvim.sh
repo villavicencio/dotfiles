@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
 # The nvim config is a tracked NvChad v2.5 starter, symlinked to ~/.config/nvim
-# by Dotbot (whole-directory link — see install.conf.yaml). This helper only
+# by Dotbot (whole-directory link — see dotbot-conf/base.yaml). This helper only
 # bootstraps the pinned plugin set from the committed nvim/lazy-lock.json; it
 # does NOT clone NvChad or Packer (the old flow did, which broke fresh machines
 # because the tracked overlay targeted removed NvChad v1.0 APIs).

@@ -18,7 +18,7 @@
 # 2. Tailscale: hosted runners aren't on the tailnet. No live workflow uses
 #    the tailnet path as of 2026-05-21 (sync-vps decommissioned with the VPS
 #    re-purpose); retained note in case a future workflow re-introduces one.
-# 3. chsh: PAM auth fails on hosted macOS. install.conf.yaml's chsh
+# 3. chsh: PAM auth fails on hosted macOS. dotbot-conf/darwin.yaml's chsh
 #    directive is CI-gated via `[[ "${CI:-false}" != "true" ]]`. If chsh
 #    breaks on a real machine we won't catch it here.
 # 4. docker-desktop runtime: the cask installs but the daemon never
@@ -196,7 +196,7 @@ jobs:
     timeout-minutes: 45
     env:
       # Cuts metadata churn on a Brew-heavy install. CI=true is set by
-      # GitHub Actions but pinned for clarity — install.conf.yaml's chsh
+      # GitHub Actions but pinned for clarity — dotbot-conf/darwin.yaml's chsh
       # directive consults it.
       HOMEBREW_NO_AUTO_UPDATE: '1'
       HOMEBREW_NO_INSTALL_CLEANUP: '1'

@@ -102,7 +102,7 @@ cmd_check() {
 
   echo "dotbot --dry-run parse:"
   local cfg
-  for cfg in install.conf.yaml install-linux.conf.yaml; do
+  for cfg in dotbot-conf/base.yaml dotbot-conf/darwin.yaml dotbot-conf/linux.yaml; do
     [ -f "$REPO/$cfg" ] || continue
     local fake; fake="$(mktemp -d)"
     if PYTHONDONTWRITEBYTECODE=1 DOTFILES_DRY_RUN=1 HOME="$fake" \
@@ -140,17 +140,17 @@ cmd_doctor() {
   echo "dot doctor — $REPO"
 
   echo "symlinks (Dotbot sources exist; installed links wired to this repo):"
-  # Only the ACTIVE platform's config gets installed-target checks — the other
-  # platform's targets are never installed here (e.g. the Linux config links
+  # The shared base layer + THIS platform's layer get installed-target checks;
+  # the other platform's layer is parsed for source integrity only, since its
+  # targets are never installed here (e.g. linux.yaml links
   # ~/.config/tmux/window-meta.json, which on macOS is a live regular file written
-  # by the tmux-window-namer skill). The inactive config is still parsed for repo
-  # integrity (sources must exist, top-level must be a well-formed list).
-  local cfg out perr=0 active
-  case "$(uname)" in Darwin) active="install.conf.yaml" ;; *) active="install-linux.conf.yaml" ;; esac
+  # by the tmux-window-namer skill).
+  local cfg out perr=0 active_platform
+  case "$(uname)" in Darwin) active_platform="dotbot-conf/darwin.yaml" ;; *) active_platform="dotbot-conf/linux.yaml" ;; esac
   out="$(mktemp)"
-  for cfg in install.conf.yaml install-linux.conf.yaml; do
+  for cfg in dotbot-conf/base.yaml dotbot-conf/darwin.yaml dotbot-conf/linux.yaml; do
     if [ ! -f "$REPO/$cfg" ]; then echo "MISSING_CONFIG $cfg" >>"$out"; perr=1; continue; fi
-    local mode="sources"; [ "$cfg" = "$active" ] && mode="full"
+    local mode="sources"; { [ "$cfg" = "dotbot-conf/base.yaml" ] || [ "$cfg" = "$active_platform" ]; } && mode="full"
     # The parser prints PARSER_ERROR and exits non-zero on any import/parse/schema
     # fault (degraded vendored-PyYAML, non-list top level, malformed block), so it
     # can never turn into an always-pass. FAIL markers: MISSING_SOURCE (repo
