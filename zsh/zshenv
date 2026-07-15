@@ -50,7 +50,13 @@ export EDITOR='nvim'
 if [ -n "$ZSH_VERSION" ]; then
   eval 'export DOTFILES=${${:-$ZDOTDIR/.zshrc}:A:h:h}'
 else
-  export DOTFILES="$(CDPATH= cd -- "$(dirname -- "$(readlink "$ZDOTDIR/.zshrc")")/.." && pwd -P)"
+  # Non-zsh (the install pipeline `.`-sources this under sh/bash, sometimes with
+  # ZDOTDIR unset — e.g. helpers/install_tmux.sh). Use the git derivation, which
+  # resolves the repo whether or not ZDOTDIR is set: with it, from the symlinked
+  # .zshrc's dir; without it, readlink yields "" so `git -C .` runs from the repo
+  # cwd the install helpers already sit in. A subprocess here is fine — never hit
+  # on the subprocess-free zsh startup path above.
+  export DOTFILES="$(git -C "$(dirname "$(readlink "$ZDOTDIR/.zshrc" 2>/dev/null)" 2>/dev/null)" rev-parse --show-toplevel 2>/dev/null)"
 fi
 
 # ======================================
