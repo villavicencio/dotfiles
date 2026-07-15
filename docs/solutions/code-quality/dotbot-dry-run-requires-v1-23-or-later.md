@@ -2,6 +2,8 @@
 title: "Dotbot's `--dry-run` flag requires vendored submodule ≥ v1.23.0"
 date: 2026-04-15
 category: code-quality
+module: "install pipeline (dotbot)"
+problem_type: tool_limitation
 tags:
   - dotbot
   - dry-run

@@ -15,7 +15,7 @@ component: "tmux format-string parser; tmux/tmux.display.conf status-left block"
 symptoms:
   - tmux status-line pill renders with no background or foreground color after adding a conditional (#{?...}) around bg/fg
   - No error on `tmux source-file`; the pill is just colorless
-  - `tmux display-message -p '<string>'` shows the expanded style attribute with a truncated hex (e.g. `fg=*FFFFF` instead of `fg=#FFFFFF`)
+  - "`tmux display-message -p '<string>'` shows the expanded style attribute with a truncated hex (e.g. `fg=*FFFFF` instead of `fg=#FFFFFF`)"
   - Only hex colors whose second character is `F`, `D`, `S`, `H`, etc. trip the bug — colors starting with other chars look fine
 problem_type: ui_bug
 module: tmux-config

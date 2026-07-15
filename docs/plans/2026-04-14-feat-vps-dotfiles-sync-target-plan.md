@@ -1,7 +1,7 @@
 ---
 title: Make VPS a first-class dotfiles sync target
 type: feat
-status: active
+status: abandoned
 date: 2026-04-14
 origin: docs/brainstorms/2026-04-14-vps-dotfiles-target-brainstorm.md
 ---

@@ -5,7 +5,7 @@ category: cross-machine
 module: sync-vps workflow, Tailscale ACL policy
 problem_type: workflow_issue
 component: tooling
-severity: high
+severity: High
 applies_when:
   - "Tailscale ACL is in grants mode (the newer schema — all new tailnets default to this)"
   - "A tagged source needs to reach another node via anything other than `tailscale ssh`"

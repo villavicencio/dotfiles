@@ -3,6 +3,8 @@ title: "Sync dotfiles to a Linux VPS via GitHub Actions over Tailscale"
 date: 2026-04-14
 last_updated: 2026-05-21
 category: cross-machine
+module: "cross-machine sync workflow"
+problem_type: workflow_issue
 tags:
   - vps
   - linux

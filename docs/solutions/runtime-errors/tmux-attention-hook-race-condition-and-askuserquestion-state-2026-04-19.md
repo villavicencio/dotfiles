@@ -11,7 +11,7 @@ symptoms:
   - "AskUserQuestion renders the generic amber warning glyph instead of a distinct question-mark icon"
 root_cause: async_timing
 resolution_type: code_fix
-severity: medium
+severity: Medium
 related_components:
   - tooling
 tags:

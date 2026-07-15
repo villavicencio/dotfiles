@@ -2,6 +2,7 @@
 title: "Zsh config audit follow-up: gcloud path fix, pyenv consolidation, PATH deduplication"
 date: 2026-03-12
 category: code-quality
+module: "zsh config"
 tags:
   - zsh
   - shell-configuration

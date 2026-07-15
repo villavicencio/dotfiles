@@ -29,7 +29,6 @@ iterm/          iTerm2 preferences (exported plist, includes Shift+Enter key map
 lazygit/        lazygit config
 npm/            npm global package list (npm-requirements.txt)
 nvim/           Neovim config (custom/ is symlinked into ~/.config/nvim/)
-osx/            macOS defaults scripts
 starship/       Starship prompt config (command_timeout is a global top-level key)
 tmux/           tmux config
 topgrade/       Topgrade system updater config
@@ -41,10 +40,15 @@ zsh/
   functions.sh  Functions (also sources zsh/functions/*.sh)
   functions/    Individual function files (man_colorful, mkdir_and_cd, etc.)
 claude/
-  commands/     Claude Code slash commands (handoff, pickup, review-claudemd, reddit)
-  CLAUDE.md     Global Claude Code instructions (symlinked to ~/.claude/CLAUDE.md)
-  settings.json Claude Code settings — plugins, allowed tools (symlinked to ~/.claude/settings.json)
+  CLAUDE.md              Global Claude Code instructions (symlinked to ~/.claude/CLAUDE.md)
+  settings.json          Claude Code settings — plugins, allowed tools (symlinked to ~/.claude/settings.json)
+  statusline-command.sh  Statusline script (symlinked to ~/.claude/statusline-command.sh)
+  hooks/                 Claude Code hooks (e.g. tmux-attention.sh)
 ```
+
+Note: the `/handoff`, `/pickup`, and `/review-claudemd` slash commands now live in an
+external Claude Code plugin, not this repo. The only repo-local command is
+`.claude/commands/ticket.md` (a hidden `.claude/` dir for working *in* this repo).
 
 ---
 
@@ -160,18 +164,18 @@ Current shims: `nvm`, `node`, `npm`, `npx`.
 Note: `claude` is installed as a native Homebrew cask (`claude-code`), not via npm, so it
 does not need an NVM shim.
 
-### tmux-window-namer skill
-`claude/skills/tmux-window-namer/SKILL.md` is a Claude Code skill that renames
-tmux windows with a glyph + curated palette color. It stores per-window state in
-two tmux user options (`@win_glyph`, `@win_glyph_color`) read by the ternary in
+### tmux-window-namer skill (external plugin + repo-side tmux infra)
+The **tmux-window-namer skill itself now lives in an external Claude Code plugin**
+(the `dv` plugin), not this repo. What this repo keeps is the **tmux-side
+infrastructure** the skill drives: the skill stores per-window state in two tmux
+user options (`@win_glyph`, `@win_glyph_color`) read by the ternary in
 `tmux/tmux.display.conf`'s `window-status-format`. Title text always uses default
 tmux colors so inactive tabs naturally dim — only the glyph carries palette color.
 Persistence is a JSON sidecar at `~/.config/tmux/window-meta.json`, written by
 `tmux/scripts/save-window-meta.sh` and re-applied on every client attach via
 `tmux/scripts/restore-window-meta.sh` (wired up in `tmux/tmux.general.conf`
-with `set-hook -g client-attached`). Palettes live in
-`claude/skills/tmux-window-namer/references/palettes.md` — the skill may only
-use hex codes from that file.
+with `set-hook -g client-attached`). The curated palette the skill draws from is
+part of the plugin, not this repo.
 
 ### Claude Code tmux tab indicator
 `claude/hooks/tmux-attention.sh` is invoked by Claude Code hooks (declared in
@@ -200,7 +204,12 @@ Variant names must be exact (e.g., `jetbrains_idea`, not `jetbrains`). Run
 `topgrade` with an invalid name to see the full list of valid variants.
 
 ### `--dry-run` and `DOTFILES_DRY_RUN`
-`./install --dry-run` is a true preview: zero filesystem mutations on any host, including a fresh bootstrap.
+`./install --dry-run` previews every Dotbot directive without applying it — zero
+mutations to your *config* (no symlinks, dirs, or shell steps). The one thing the
+wrapper does regardless of `--dry-run` is `git submodule sync` + `update --init
+--recursive dotbot` (it needs the vendored Dotbot to run at all), so on a
+brand-new clone the `dotbot/` submodule is checked out first — a one-time git
+operation, not part of the preview. The Dotbot run itself is mutation-free.
 
 - **Dotbot ≥ v1.23.0 handles the flag natively.** The vendored submodule is pinned at v1.24.1 (see `dotbot/` submodule state). All built-in plugins (`link`, `create`, `clean`, `shell`) support dry-run and emit `Would create path / Would create symlink / Would run command` lines instead of executing.
 - **The `install` wrapper passes `--dry-run` through** to Dotbot. It also exports `DOTFILES_DRY_RUN=1` as defense-in-depth.

@@ -13,7 +13,7 @@ tags:
   - nvm-lazy-loader
   - env.sh
   - skills-outside-repo
-severity: medium
+severity: Medium
 component: tooling
 problem_type: best_practice
 module: agent-skill-install-pattern

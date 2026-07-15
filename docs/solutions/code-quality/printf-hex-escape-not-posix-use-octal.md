@@ -1,7 +1,7 @@
 ---
 title: "printf \\xHH hex escapes are not POSIX — dash prints them literally; use octal"
 date: 2026-05-27
-category: docs/solutions/code-quality/
+category: code-quality
 module: claude
 problem_type: runtime_error
 component: tooling
@@ -11,7 +11,7 @@ symptoms:
   - "grep/sed find-and-replace silently no-ops while reporting the escape is already fixed"
 root_cause: wrong_api
 resolution_type: code_fix
-severity: low
+severity: Low
 tags: [printf, posix-shell, dash, shell-portability, statusline, octal-escape, powerline, gnu-sed]
 ---
 

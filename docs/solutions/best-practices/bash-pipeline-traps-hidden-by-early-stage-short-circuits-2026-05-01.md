@@ -3,7 +3,7 @@ module: dotfiles
 date: 2026-05-01
 problem_type: best_practice
 component: tooling
-severity: medium
+severity: Medium
 applies_when:
   - "Writing bash helper functions that consume stdin via `IFS= read -r` and guard with `|| return 0`"
   - "Refactoring shell scripts to deduplicate `stat`/`date` calls via `uname`-based dispatch"

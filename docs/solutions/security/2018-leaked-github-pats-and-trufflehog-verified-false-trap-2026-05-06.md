@@ -156,3 +156,31 @@ Pair the scan with a platform-UI cross-check on whatever account the leaked toke
 Two reasons. First, the keyword-gating blind spot in trufflehog's legacy GitHub detector is exactly the kind of pitfall that compounds across audits — once you know it exists, every future audit on a repo with pre-2021 history benefits from the manual hex-env grep as a paired step. Second, the manual-grep recipe in the section above is reusable infrastructure: copy-paste those three commands into the next audit and they produce keyword-agnostic coverage independent of which scanner you run, so they don't inherit any single tool's blind spots.
 
 The gravitational center of the lesson is **not** "rotate your tokens" — it's **"know the shape of your scanner's blind spots and pair it with a tool whose blind spots are different."** For trufflehog v3.95.2, that means pairing the legacy 40-hex detector (keyword-gated, blind to non-GitHub-named env vars) with a keyword-agnostic regex like the one above.
+
+## Addendum (2026-07-14): second historical-token finding — OpenClaw internal bearer
+
+A follow-up history audit surfaced a second credential in git history: an
+**OpenClaw internal bearer token** recorded in a handoff note
+(`handoff.md:147`, dated 2026-04-14). Unlike the 2018 GitHub PATs, this one is
+**not a public-provider token** — it authenticated to the internal OpenClaw
+service.
+
+**Get the host-vs-container history right.** The OpenClaw *container/service* was
+torn down on 2026-05-20, but the *host* (`openclaw-prod`) was **re-purposed, not
+destroyed** — Hermes-Atlas + Claude Code were deployed in its place (see
+[`../cross-machine/vps-dotfiles-target.md`](../cross-machine/vps-dotfiles-target.md),
+"RETIRED 2026-05-21"). So the machine is still alive under a different workload;
+only the specific OpenClaw endpoint the bearer targeted is gone.
+
+**Residual risk: LOW / risk-accepted — not "nil".** Removing the OpenClaw
+container removes the endpoint the token was minted for, but it does **not** by
+itself prove the token was revoked, nor that its signing/verifier material could
+not be reused by a service re-deployed on the same host. There is no evidence the
+secret was rotated or reused elsewhere, and no live OpenClaw endpoint remains to
+authenticate against, so the practical exposure is low and accepted rather than
+resolved. If OpenClaw (or anything reusing that secret) is ever redeployed,
+re-open this and rotate. Logged here so a future audit that re-finds the token in
+history has the disposition on record. The same discipline as the main finding
+applies: the manual hex-env grep recipe above keeps surfacing history-resident
+tokens like this one, and each should be explicitly dispositioned (rotate, or
+record-as-risk-accepted) rather than silently ignored.

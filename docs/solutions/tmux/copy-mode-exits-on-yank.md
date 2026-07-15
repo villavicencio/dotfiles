@@ -1,6 +1,6 @@
 ---
 problem_type: UX keybinding default
-severity: medium
+severity: Medium
 module: tmux/copy-mode
 tags: [copy-mode-vi, yank, scroll-position, keybinding]
 date_resolved: 2026-04-10
