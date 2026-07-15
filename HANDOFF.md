@@ -9,37 +9,35 @@ is in **`docs/plans/2026-07-14-001-run-log.md`**. Master ends **green + clean @ 
 
 | Disposition | Count | Packets |
 |---|---|---|
-| **Merged** (CI-green, review-approved) | 18 | P0-1..P0-5, P1-1..P1-4, P2-1, P2-3..P2-8, P3-1, P3-2 |
-| **Ready** — unblocked, not yet started | 1 | P2-2 (dotbot layered configs) |
+| **Merged** (CI-green, review-approved) | **19 (all)** | P0-1..P0-5, P1-1..P1-4, P2-1..P2-8, P3-1, P3-2 |
 
-All 18 roadmap packets except P2-2 are merged; both parked drafts (#108 iTerm, #109 fonts) were
-rebased onto post-run master and merged. Merged PRs: #100, #102–#118. Highlights: bash-3.2 OMZ install fixed (P0-1); CI now
-asserts install outcomes + a weekly cron/failure-notifier (P0-2, P2-5); tmux spinner pkill anchor
-(P0-3); Brewfile curated + read-only drift reporter (P1-3); zsh/tmux/alias dead-config sweeps
-(P2-3, P2-4, P2-8); truth-pass docs + LICENSE + solutions INDEX (P2-6); new **`dot` CLI** with a
-read-only `doctor` (P2-1); **`AGENTS.md`** tool-neutral brief (P3-2); `claude/settings.json`
-hygiene (P2-7). Startup held under budget (237 ms median). Follow-up issue: #101 (P0-1 staging-swap).
+**The entire 19-packet roadmap is merged.** Both parked drafts (#108 iTerm, #109 fonts) were
+rebased onto post-run master and merged; P2-2 (layered dotbot configs) landed once they cleared.
+Merged PRs: #100, #102–#119. Highlights: bash-3.2 OMZ install fixed (P0-1); CI asserts install
+outcomes + a weekly cron/failure-notifier (P0-2, P2-5); tmux spinner pkill anchor (P0-3); Brewfile
+curated + drift reporter (P1-3); 189 MB `fonts/` → Homebrew casks (P1-2); PII-free iTerm Dynamic
+Profile (P1-1); zsh/tmux/alias dead-config sweeps (P2-3, P2-4, P2-8); truth-pass docs + LICENSE +
+INDEX (P2-6); new **`dot` CLI** + read-only `doctor` (P2-1); **`AGENTS.md`** (P3-2);
+`claude/settings.json` hygiene (P2-7); live **NvChad v2.5 nvim** config adopted (P3-1); install
+manifests split into **layered `dotbot-conf/`** (P2-2). Startup held under budget (237 ms median).
+Follow-up issue: #101 (P0-1 staging-swap).
 
-## Open decisions / needs you
+## Open — the only things left are two manual machine migrations (see checklist)
 
-1. **P3-1 (nvim) — RESOLVED via Option A (PR #118, merged `fa7c96b`).** The repo now tracks your
-   live NvChad v2.5 config (`nvim/`, 27 plugins pinned in `lazy-lock.json`); the dead v1.0 overlay
-   is gone and `install_nvim.sh` bootstraps + verifies the pinned set (no NvChad clone). The **only
-   remaining step is the one-time machine migration** to swap your live `~/.config/nvim` real dir
-   for the repo symlink — it's manual + backup-first (see the checklist below); merging the PR did
-   not touch your live config.
-2. **#108 (iTerm) — MERGED** (`4df9003`). One manual step left: the iTerm migration (checklist
-   below). **#109 (fonts) — MERGED** (`4b412e1`); glyphs confirmed rendering from the casks, so
-   **no machine step pending** — the 189 MB tracked `fonts/` is gone from the working tree.
-3. **P2-2 (dotbot layered configs) — now UNBLOCKED** (its blockers #108/#109 merged). It's the
-   one remaining roadmap packet: restructure `install.conf.yaml` into layered
-   `dotbot-conf/{base,darwin,linux}.yaml` + a per-layer wrapper.
+Nothing in the repo is pending. Two one-time, backup-first migrations remain on the personal Mac:
+the **iTerm** profile swap (#108) and the **nvim** `~/.config/nvim` symlink swap (#118). The
+settings.json step is a **no-op** — do not symlink it (it would strip your Otty hooks); your live
+file is fine as-is. Both migrations are detailed in the checklist below.
 
 ## Morning checklist (machine-side; nothing was mutated overnight except noted)
 
-- [ ] **Apply P2-7 settings hygiene on the personal Mac** (currently INERT — see gotcha below):
-      back up → remove → `./install` → verify. It's a manual step because `./install` won't clobber
-      the live regular file.
+- [x] **P2-7 settings hygiene — NO ACTION on the personal Mac.** Do **not** symlink the repo
+      `claude/settings.json` here: your live `~/.claude/settings.json` carries machine-local **Otty
+      hooks** (on all 6 events) that the shared baseline can't hold (your work Mac has no Otty), and
+      Claude Code has no user-level `*.local` layer. P2-7's real deliverable — a clean *tracked*
+      baseline for fresh machines — already shipped in the repo. Your live file is fine as-is. If you
+      ever want the minor tidy (drop the `curl`/`ssh` auto-allow rules while keeping Otty + your
+      pins): `jq '.allowedTools -= ["Bash(curl -fsSL*)","Bash(curl -s*)","Bash(ssh root@openclaw-prod*)"]'`.
 - [ ] **#108 iTerm migration** (MERGED — one-time per Mac). `git pull` first, then `./install`
       (creates the Dynamic Profile link), then: **quit iTerm2** →
       `helpers/restore-iterm-app-prefs.sh --migrate` (disables the leaky custom-prefs-folder mode,
