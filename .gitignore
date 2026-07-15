@@ -2,6 +2,7 @@
 
 .idea/
 install_tmux.log
+logs/
 
 # Machine-specific / contains secrets
 mcpconfig.json

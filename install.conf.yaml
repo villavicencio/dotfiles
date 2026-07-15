@@ -76,7 +76,6 @@
     - [bash helpers/install_pre_commit.sh, "Installing pre-commit + gitleaks hook"]
 
 - create:
-    - ~/.claude/commands
     - ~/.claude/hooks
     - ~/.claude/skills
 
