@@ -64,13 +64,15 @@ on:
       - 'claude/**/*.md'
   workflow_dispatch:
   schedule:
-    # Weekly, Monday 14:00 UTC (06:00 PST / 07:00 PDT). Catches drift that a
+    # Weekly, Monday 14:17 UTC (06:17 PST / 07:17 PDT). Catches drift that a
     # quiet week wouldn't: runner-image rotation (macos-15 / ubuntu-24.04
     # re-bakes), upstream tool/formula bumps, dead taps. Scheduled runs execute
     # on the default branch (master). PR runs surface in the checks UI; a
     # scheduled red has no PR, so the notify-on-schedule-failure job below opens
-    # a tracking issue.
-    - cron: '0 14 * * 1'
+    # a tracking issue. Minute 17 (not :00): GitHub docs warn that top-of-hour
+    # schedules land in a high-load window and can be delayed or silently
+    # dropped — which would create no run for the notifier to catch.
+    - cron: '17 14 * * 1'
 
 # Least-privilege: the workflow only needs to read the repo. No issue
 # writes, no package writes, no token-scoped externalization. Sibling
