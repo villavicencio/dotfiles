@@ -69,7 +69,7 @@ runs:
       shell: bash
       run: |
         set -eo pipefail
-        plugins="zsh-256color zsh-autosuggestions zsh-history-substring-search zsh-syntax-highlighting"
+        plugins="zsh-autosuggestions zsh-history-substring-search zsh-syntax-highlighting"
         missing=0
         for p in $plugins; do
           d="$HOME/.oh-my-zsh/custom/plugins/$p"

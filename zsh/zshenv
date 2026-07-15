@@ -42,9 +42,22 @@ export EDITOR='nvim'
 # Prioritize using GNU commands over BSD commands (macOS only)
 [[ -d "$BREW_PREFIX/opt/coreutils/libexec/gnubin" ]] && export PATH="$BREW_PREFIX/opt/coreutils/libexec/gnubin:$PATH"
 
-# Save reference to dotfiles directory.
-export DOTFILES=$(git -C "$(dirname "$(readlink "$ZDOTDIR/.zshrc")")" \
-    rev-parse --show-toplevel)
+# Save reference to the dotfiles directory: resolve the symlinked .zshrc to its
+# real path in the repo, then take its grandparent (repo root). In zsh this is
+# subprocess-free via modifiers. This file is ALSO `.`-sourced by /bin/sh during
+# `./install`, where the zsh `${…:A:h:h}` form is a fatal "bad substitution" — so
+# guard on $ZSH_VERSION and give POSIX sh a readlink/dirname fallback.
+if [ -n "$ZSH_VERSION" ]; then
+  eval 'export DOTFILES=${${:-$ZDOTDIR/.zshrc}:A:h:h}'
+else
+  # Non-zsh (the install pipeline `.`-sources this under sh/bash, sometimes with
+  # ZDOTDIR unset — e.g. helpers/install_tmux.sh). Use the git derivation, which
+  # resolves the repo whether or not ZDOTDIR is set: with it, from the symlinked
+  # .zshrc's dir; without it, readlink yields "" so `git -C .` runs from the repo
+  # cwd the install helpers already sit in. A subprocess here is fine — never hit
+  # on the subprocess-free zsh startup path above.
+  export DOTFILES="$(git -C "$(dirname "$(readlink "$ZDOTDIR/.zshrc" 2>/dev/null)" 2>/dev/null)" rev-parse --show-toplevel 2>/dev/null)"
+fi
 
 # ======================================
 #             PATH CONFIG
@@ -110,26 +123,13 @@ export HISTFILE="$ZDOTDIR/.zsh_history"
 # Change the time stamp shown in the history command output.
 export HIST_STAMPS="mm/dd/yyyy"
 
-# Allow 32³ entries; the default is 500.
+# Allow up to 1,000,000 entries; the default is 500.
 export HISTSIZE=1000000
 export SAVEHIST=$HISTSIZE
 
 # ======================================
-#             HOMEBREW CONFIG
-# ======================================
-
-# Enables automatic cleanup of installed Homebrew packages.
-export HOMEBREW_INSTALL_CLEANUP=1
-
-# ======================================
 #             NVM CONFIG
 # ======================================
-
-# Defer NVM initialization until it's actually needed.
-export NVM_LAZY=true
-
-# Enable NVM command-line completion.
-export NVM_COMPLETION=true
 
 # Node Version Manager path.
 export NVM_DIR=$XDG_CONFIG_HOME/nvm
@@ -174,22 +174,8 @@ export AWS_ASSUME_ROLE_TTL=12h
 export STARSHIP_CONFIG=$DOTFILES/starship/starship.toml
 
 # ======================================
-#          NVIM CONFIG
-# ======================================
-
-# Set the path to the Neovim configuration file
-export MYVIMRC=$XDG_CONFIG_HOME/nvim/init.vim
-
-# ======================================
 #           TMUX CONFIG
 # ======================================
 
 # Set the path for the Tmux plugin manager to store installed plugins
 export TMUX_PLUGIN_MANAGER_PATH=$XDG_CONFIG_HOME/tmux/plugins/
-
-# ======================================
-#           LUA CONFIG
-# ======================================
-
-# Set the path used by require to search for a Lua loader
-export LUA_PATH="$DOTFILES/?.lua;./?.lua"

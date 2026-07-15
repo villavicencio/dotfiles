@@ -131,7 +131,6 @@ fi
 # associative arrays, so a plain indexed array of delimited strings is used —
 # the previous `declare -A` silently failed under bash 3.2 and installed 0 plugins.
 PLUGINS=(
-  "zsh-256color|https://github.com/chrissicool/zsh-256color"
   "zsh-autosuggestions|https://github.com/zsh-users/zsh-autosuggestions"
   "zsh-history-substring-search|https://github.com/zsh-users/zsh-history-substring-search"
   "zsh-syntax-highlighting|https://github.com/zsh-users/zsh-syntax-highlighting"
