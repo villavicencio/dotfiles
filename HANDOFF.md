@@ -23,8 +23,12 @@ artifact for the overnight execution loop (Opus 4.8 + Codex adversarial review).
 - **BOOT-02/NVIM (high):** `nvim/custom` targets removed NvChad v1.0 APIs while
   `install_nvim.sh` clones unpinned HEAD (v2.x, `custom/` mechanism deleted upstream);
   live `~/.config/nvim` is a non-git 2022 fossil. Fresh machine = broken editor.
-- **CI-01 (actionable now):** the `HOMEBREW_BUNDLE_JOBS: '1'` pin is droppable — upstream fix
-  shipped in Homebrew 5.1.12; macos-15 runner image carries 6.0.5 (verified).
+- **CI-01 (REVERSED 2026-07-14):** the `HOMEBREW_BUNDLE_JOBS: '1'` pin is NOT droppable. The
+  upstream #22297 fix shipped in Homebrew 5.1.12 and reached the runner (6.0.5+), but run
+  `29301199411` (image `20260706.0213.1`, Homebrew ≥6.0.5) still hit the Cellar-lock race — so
+  #22297 doesn't cover this Brewfile's contention. Keep the pin (P0-4 repurposed to a comment/doc
+  correction). Current Homebrew defaults bundle jobs to parallel `auto`, so real machines are
+  exposed too.
 - **BOOT-05:** Brewfile is a stale dump — 99 installed-but-unrecorded, 7 recorded-but-missing,
   ~30 transitive deps as fake intent; `export_deps` regeneration would corrupt scoped npm names.
 - **TMUX-01:** `tmux-attention.sh` spinner cleanup `pkill` prefix-collides (pane `%2` kills

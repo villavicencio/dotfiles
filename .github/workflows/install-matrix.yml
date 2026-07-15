@@ -148,17 +148,29 @@ jobs:
       # directive consults it.
       HOMEBREW_NO_AUTO_UPDATE: '1'
       HOMEBREW_NO_INSTALL_CLEANUP: '1'
-      # Force serial `brew bundle` install. The macos-15 runner image ships a
-      # default env that parallelizes bundle installs (upstream default is
-      # --jobs=1, so the runner is injecting a higher value). Parallel installs
-      # race on shared-dependency Cellar locks — e.g. `luajit` installing while
-      # `luarocks` (which depends on it) installs, or `go` being pulled by two
-      # formulae at once — producing intermittent "process has already locked
-      # /opt/homebrew/Cellar/<keg>" failures and a red macos leg on unchanged
-      # commits. Pinning to 1 here overrides the runner value regardless of its
-      # source. Upstream lock-fix tracked in Homebrew/brew#22293 / #22297; drop
-      # this once the runner image ships it. Real-machine `./install` is
-      # unaffected (it uses Homebrew's serial default).
+      # Force serial `brew bundle`. Parallel installs race on shared-dependency
+      # Cellar locks — e.g. `gitleaks` pulling `go` while another formula does,
+      # or `luarocks` pulling `luajit` — producing intermittent
+      # "process has already locked /opt/homebrew/Cellar/<keg>" failures and a
+      # red macos leg on commits that don't touch the Brewfile.
+      #
+      # DO NOT remove this expecting the upstream lock-fix to cover it. The
+      # Homebrew/brew#22293 issue / #22297 fix shipped in Homebrew 5.1.12
+      # (2026-05-16), yet the race STILL occurred on 2026-07-14 (run
+      # 29301199411, macos-15 image 20260706.0213.1, which carries
+      # Homebrew >= 6.0.5 — well above 5.1.12). #22297 does not eliminate this
+      # Brewfile's specific contention. Keep the pin until the race is
+      # root-caused (Brewfile shared-dep fan-out; the P1-3 curation may reduce
+      # but is not expected to eliminate it).
+      #
+      # This pin is workflow-scoped and does not change real-machine `./install`.
+      # Current Homebrew (6.x) defaults HOMEBREW_BUNDLE_JOBS to `auto` (parallel,
+      # up to 4 jobs), so real machines can hit the same contention. The helper
+      # deliberately does not pin it — an explicit speed-vs-reliability tradeoff:
+      # a failed local `brew bundle` MAY succeed on re-run, but the race is
+      # nondeterministic (the colliding pair changes run-to-run), so re-running is
+      # not a guaranteed fix. Pin it in helpers/install_from_brewfile.sh if
+      # deterministic local installs are needed.
       HOMEBREW_BUNDLE_JOBS: '1'
       CI: 'true'
     steps:

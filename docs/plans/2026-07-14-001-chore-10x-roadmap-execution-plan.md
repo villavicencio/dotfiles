@@ -117,11 +117,19 @@ Acceptance: with two panes whose ids are prefix-related (spawn stub loops), clea
 the other's loop alive; `zsh -n`/`bash -n` clean; hook still sets/clears `@claude_status`.
 
 ### 4. P0-4 `ci/drop-brew-bundle-jobs-pin`
-Scope: `.github/workflows/install-matrix.yml:145-162`. Delete `HOMEBREW_BUNDLE_JOBS: '1'`; fix
-the comment (#22293 is the issue, #22297 the fix PR).
-Evidence: fix merged 2026-05-16 → Homebrew 5.1.12; macos-15 image `20260629.0276.1` ships 6.0.5.
-Acceptance: macOS leg green with zero `already locked` lines (check run log); record wall-clock
-delta in run log. Rollback: re-add the env line.
+**REVERSED during execution (2026-07-14) — DO NOT delete the pin.** The premise below was
+falsified: run `29301199411` (2026-07-14, macos-15 image `20260706.0213.1`, Homebrew ≥6.0.5 —
+above the 5.1.12 fix) still hit `already locked /opt/homebrew/Cellar/{go,luajit}`. #22297 does
+not cover this Brewfile's contention, so removing the pin would reintroduce flaky macOS reds.
+P0-4 was repurposed to a **comment + solution-doc + HANDOFF correction** that keeps the pin and
+records why it can't be dropped. See
+`docs/solutions/cross-machine/brew-bundle-parallel-cellar-lock-race-macos-runner-2026-07-13.md`
+("When to remove the pin" update).
+
+~~Scope: `.github/workflows/install-matrix.yml:145-162`. Delete `HOMEBREW_BUNDLE_JOBS: '1'`; fix
+the comment (#22293 is the issue, #22297 the fix PR). Evidence: fix merged 2026-05-16 → Homebrew
+5.1.12; macos-15 image `20260629.0276.1` ships 6.0.5. Acceptance: macOS leg green with zero
+`already locked` lines; record wall-clock delta. Rollback: re-add the env line.~~
 
 ### 5. P0-5 `fix/remove-orphan-rigellute-tap`
 Scope: `brew/Brewfile:1`. Nothing is installed from `rigellute/tap` (verified); same dead-tap
