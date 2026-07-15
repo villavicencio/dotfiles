@@ -1,0 +1,26 @@
+# Legacy Nerd Font blobs the old helpers/install_fonts.sh copied into
+# ~/Library/Fonts, which collide (same basename, different bytes) with the
+# font-jetbrains-mono-nerd-font cask and block 'brew bundle' adoption on
+# already-provisioned Macs. This file is the set of cask-target basenames plus
+# the sha256 each shipped with. helpers/migrate_legacy_fonts.sh moves every
+# colliding entry aside (reversibly) so the cask can install, then — on success
+# — drops only the backups whose sha256 matches here (the dotfiles' own font)
+# and keeps any that differ (the user's). Format: '<sha256>  <basename>'.
+# Generated from the fonts/ blobs at their last tracked commit (P1-2 deletes
+# fonts/ from the tip).
+546d7f5e93b51397a84d019a56cf557b6b9631e94d29bda92815a5d65170b8da  JetBrainsMonoNerdFont-Bold.ttf
+bdca3df31fc347744e71fe8c1c851444c9bda3527fc89a06f1359fc1741ef06b  JetBrainsMonoNerdFont-BoldItalic.ttf
+19363ad7c8d6672d3d1b2c36e8c66adc0e33faa127a54cefe22ea6424bf012cb  JetBrainsMonoNerdFont-ExtraBold.ttf
+b1b6b50e9ed42ae0339081c66217ebee1d7a28e78b9b8c42ee17d6c17a0ff6d2  JetBrainsMonoNerdFont-ExtraBoldItalic.ttf
+09420d91c3bad7af702b63a5ebaa2cdb6a1921993e7a3adb78dbdbcdc30c5db3  JetBrainsMonoNerdFont-ExtraLight.ttf
+67d200c45d018d59caba55cebfa8fc6ab1e6f96086bf8e751df74e96a4fc0b3d  JetBrainsMonoNerdFont-ExtraLightItalic.ttf
+56d098093832a5d7c47b6b65ec5bc9cdb3fe4add15ca2cffa49ba95fd001da65  JetBrainsMonoNerdFont-Italic.ttf
+bd8906763c7bfa2f5eebf3d84c611e20ab3fa3021113c301ee32383f97231e28  JetBrainsMonoNerdFont-Light.ttf
+53b2eb8741f9d59d61d9b20185b1447f13e0d1f1f90a315f6dbb2a658dec15f4  JetBrainsMonoNerdFont-LightItalic.ttf
+f7523dbc7758a157a2a6b8feccb2992c3e4ca7f9ee2a68e5a8b2bfcf9f51c76a  JetBrainsMonoNerdFont-Medium.ttf
+b7a0e16cd929ea28379750589856b354a0962568eb8b1235ce4441f3ad2de44f  JetBrainsMonoNerdFont-MediumItalic.ttf
+c8af9dfd91f01293a7e0fa6f3481c2827042c853d2d5a71dbf5f012fdee6925f  JetBrainsMonoNerdFont-Regular.ttf
+387fd979261e715fd7c7c1b1cebea133ed45e963b52da0f588b485a2111a40e1  JetBrainsMonoNerdFont-SemiBold.ttf
+388561109eca82534999efad4ad0ff1c8e60b151d02601b199a9770a06bf4f27  JetBrainsMonoNerdFont-SemiBoldItalic.ttf
+f81384bc3554b5c88e492bf4bfbb1c3e735677b56688ecf16f5c1a8773cf2d39  JetBrainsMonoNerdFont-Thin.ttf
+2978ded781ea848cbaf9d85cf16496c45b625a46ac611626474a631608d167f9  JetBrainsMonoNerdFont-ThinItalic.ttf

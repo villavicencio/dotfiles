@@ -28,7 +28,6 @@ docs/           Compound-engineering pipeline artifacts:
                 - docs/plans/        Implementation plans from /ce-plan
                 - docs/solutions/    documented solutions to past problems (bugs, best practices, workflow patterns), organized by category with YAML frontmatter (module, tags, problem_type)
 ci/             CI assets (Dockerfile for install-matrix workflow)
-fonts/          Nerd fonts installed by helpers/install_fonts.sh
 git/            gitconfig, gitignore, gitattributes
 helpers/        Bash scripts called by the install pipeline
 iterm/          iTerm2 preferences (exported plist, includes Shift+Enter key mapping)
@@ -272,7 +271,7 @@ Picking up a board ticket always gets its own branch (never work a ticket on
 2. Writes `~/.zshenv` to set `ZDOTDIR=$HOME/.config/zsh`
 3. Installs Oh My Zsh and plugins
 4. Symlinks config files into `~/.config/`
-5. Runs helper scripts: omz, brew, Brewfile, tmux, nvim, fonts, nvm, node
+5. Runs helper scripts: omz, brew, Brewfile, tmux, nvim, nvm, node (fonts install via Brewfile casks)
 
 Helper scripts are in `helpers/`. Each is independently runnable.
 

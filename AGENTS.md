@@ -189,7 +189,8 @@ Project board: https://github.com/users/villavicencio/projects/2
 Runs Dotbot with the platform config, which: (1) creates `~/.config/` dirs; (2) writes
 `~/.zshenv` setting `ZDOTDIR=$HOME/.config/zsh`; (3) installs Oh My Zsh + plugins;
 (4) symlinks config into `~/.config/`; (5) runs the `helpers/` scripts (omz, brew,
-Brewfile, tmux, nvim, fonts, nvm, node). Each helper is independently runnable.
+Brewfile, tmux, nvim, nvm, node). Each helper is independently runnable. (Nerd Fonts
+install via Homebrew casks in `brew/Brewfile`, not a helper.)
 
 ---
 

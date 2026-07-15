@@ -7,6 +7,13 @@
 if [ "$(uname)" = "Darwin" ]; then
     echo "macOS detected — using Homebrew"
     bash helpers/install_brew.sh
+    # Clear legacy-font collisions and install the font casks as one recoverable
+    # step BEFORE the main brew bundle — otherwise bundle can't adopt the casks on
+    # already-provisioned Macs. Runs here (not as a dotbot pre-step) because it
+    # needs brew, which install_brew.sh just bootstrapped. Terminal on failure:
+    # if migration rolled back, do NOT proceed to brew bundle (which would hit the
+    # same unresolved collision and mask the failure).
+    bash helpers/migrate_legacy_fonts.sh || exit $?
     bash helpers/install_from_brewfile.sh
 else
     echo "Linux detected — using apt"
