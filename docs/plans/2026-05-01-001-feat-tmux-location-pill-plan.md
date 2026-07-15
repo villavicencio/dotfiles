@@ -1,7 +1,7 @@
 ---
 title: "feat: Add city/region location segment to tmux status-right pill"
 type: feat
-status: active
+status: completed
 date: 2026-05-01
 deepened: 2026-05-01
 ---

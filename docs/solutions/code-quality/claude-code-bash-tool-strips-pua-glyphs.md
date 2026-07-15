@@ -19,7 +19,7 @@ symptoms:
   - tmux user options set via the Bash tool end up with empty string values instead of glyphs
   - Files written via the Write tool containing PUA glyphs land on disk with the glyphs stripped — surrounding ASCII and standard-plane Unicode (emojis) remain intact
   - Files modified via the Edit tool with PUA glyphs in `new_string` land on disk with surrounding text and color attributes preserved but the glyph bytes absent — `xxd` shows zero `ee 8x xx` triplets where the glyphs should be
-  - Committed JSON seed files (e.g., `tmux/window-meta.linux.json`) contain `"glyph": ""` after a Write-tool write, even though the source prompt included the literal glyph
+  - "Committed JSON seed files (e.g., `tmux/window-meta.linux.json`) contain `\"glyph\": \"\"` after a Write-tool write, even though the source prompt included the literal glyph"
   - Emojis (outside PUA range) pass through fine in all three tools, making the issue intermittent-looking
 problem_type: tool_limitation
 module: claude-code-hooks

@@ -3,7 +3,7 @@ module: tmux
 date: 2026-05-01
 problem_type: best_practice
 component: tooling
-severity: low
+severity: Low
 applies_when:
   - "Designing tmux status-bar chrome (pills, gaps, separators) on iTerm2 with window transparency enabled"
   - "Trying to fake sub-row vertical spacing using Unicode half-block or block-element glyphs (U+2580 ▀, U+2584 ▄, U+2581 ▁, U+2594 ▔)"

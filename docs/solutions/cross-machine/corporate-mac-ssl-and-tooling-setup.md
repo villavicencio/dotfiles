@@ -2,6 +2,8 @@
 title: "Fix gcloud SDK and Claude Code setup on corporate Mac with SSL interception"
 date: 2026-03-12
 category: cross-machine
+module: "cross-machine setup (corporate mac)"
+problem_type: integration_issue
 tags:
   - ssl
   - gcloud

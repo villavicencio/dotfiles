@@ -13,7 +13,7 @@ symptoms:
   - "MDX build fails with 'Expected the closing tag `</code>`' — two single `~` path references in one paragraph parsed as strikethrough across JSX boundaries"
 root_cause: config_error
 resolution_type: config_change
-severity: high
+severity: High
 related_components:
   - development_workflow
   - documentation

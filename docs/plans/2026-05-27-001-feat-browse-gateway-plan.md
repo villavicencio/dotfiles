@@ -1,7 +1,7 @@
 ---
 title: "feat: Self-Hosted Browse Gateway"
 type: feat
-status: active
+status: externalized
 date: 2026-05-27
 origin: docs/brainstorms/2026-05-27-self-hosted-browser-gateway-requirements.md
 ---

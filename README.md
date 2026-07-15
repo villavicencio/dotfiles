@@ -1,62 +1,74 @@
-# 🏠 Dotfiles
+# Dotfiles
 
-These are dotfiles I've been refining over the years. Running the instructions below will set up your environment swiftly and efficiently.
+[![install-matrix](https://github.com/villavicencio/dotfiles/actions/workflows/install-matrix.yml/badge.svg)](https://github.com/villavicencio/dotfiles/actions/workflows/install-matrix.yml)
 
-## 🛠️ Tech Stack & Tools
+Personal macOS dotfiles — the single source of truth for two Macs (a primary
+personal machine and a corporate-managed work machine). Managed by
+[Dotbot](https://github.com/anishathalye/dotbot): idempotent symlinking plus a
+handful of helper scripts that install Homebrew packages, Oh My Zsh, tmux/nvim
+plugins, Nerd Fonts, and a gitleaks pre-commit hook.
 
-This dotfiles setup leverages:
+## Install
 
-- Homebrew for package management
-- Neovim as the primary text editor
-- iTerm2 as the terminal emulator
-- Starship for a customized shell prompt
-- Vale for prose linting
-- Git for version control
-- Various shell utilities (zsh, bash)
-
-## 📦 What's Installed
-
-The setup script installs and configures:
-
-- Command-line tools: ack, aria2, bat, fd, fzf, jq, ripgrep, tmux, and more
-- Programming languages: Go, Python, Ruby, Node.js
-- Development tools: Git, GitHub CLI (gh)
-- Text editors: Neovim with custom plugins
-- Shell enhancements: Starship prompt, zsh-completions
-- Linters and formatters: Vale, shellcheck
-- Productivity tools: btop, tldr
-
-## 🚀 Installation
-
-Follow these steps to get started:
-
-1. Clone the repository:
-```
-git clone https://github.com/yourusername/dotfiles.git
-cd dotfiles
-```
-2. Run the installation script:
-```
+```sh
+git clone https://github.com/villavicencio/dotfiles.git ~/Projects/Personal/dotfiles
+cd ~/Projects/Personal/dotfiles
 ./install
 ```
-The installation script handles everything, including Homebrew setup and environment configuration.
 
-## 🛠️ Customization
+`./install` picks `install.conf.yaml` on macOS (and `install-linux.conf.yaml` on
+Linux) automatically. Preview the Dotbot changes without applying them (after the
+one-time Dotbot submodule init the wrapper always does):
 
-Explore and modify the configuration files to suit your preferences. The repository is organized as follows:
+```sh
+./install --dry-run
+```
 
-- `brew/`: Homebrew-related files
-- `nvim/`: Neovim configuration
-- `vale/`: Vale linter configuration
-- `starship/`: Starship prompt configuration
-- `iterm/`: iTerm2 settings
+The dry run previews every Dotbot directive (links, created dirs, shell steps)
+without applying any of them. One caveat: the `install` wrapper first
+syncs/initializes its vendored Dotbot submodule, so on a brand-new clone the
+`dotbot/` submodule gets checked out (a one-time git operation) before the
+preview runs — the *config* is untouched, but that submodule init is not itself
+a dry run. After a first install, make zsh your default shell and re-login:
 
-## 🤝 Contributing
+```sh
+chsh -s "$(which zsh)"
+```
 
-Contributions are welcome! Feel free to submit a Pull Request.
+## Layout
 
-## 📄 License
+| Path | What |
+|---|---|
+| `brew/` | `Brewfile` — all Homebrew formulae and casks |
+| `zsh/` | `zshenv`, `zshrc`, `alias.sh`, `functions.sh`, `functions/` |
+| `git/` | `gitconfig`, `gitignore`, `gitattributes` |
+| `nvim/` | Neovim config (`custom/` symlinked into `~/.config/nvim/`) |
+| `tmux/` | tmux config, status-bar scripts, window-meta persistence |
+| `starship/` | Starship prompt config |
+| `iterm/` | iTerm2 profile settings |
+| `helpers/` | install scripts run by the Dotbot pipeline |
+| `claude/` | Claude Code config, statusline, hooks (symlinked into `~/.claude/`) |
+| `docs/` | solution write-ups (`docs/solutions/`) and planning artifacts |
+| `ci/` | CI assets (Dockerfile for the install-matrix workflow) |
 
-This project is open source and available under the MIT License.
+## Machine-specific overrides (not tracked)
 
-Enjoy your new, supercharged development environment! 🎉
+- **`~/env.sh`** — sourced last in `zshrc`; local-only exports, aliases, `PATH`.
+- **`~/.gitconfig.local`** — included at the end of `git/gitconfig`; set a
+  work email here to override the personal default.
+- **`~/.ssh/config`** — per-machine host aliases live here; not tracked.
+
+## Conventions
+
+- Never hardcode `/Users/<name>` (use `$HOME`) or a Homebrew prefix (use
+  `$BREW_PREFIX`, set from `uname -m` at shell startup).
+- Every commit is scanned by gitleaks via a pre-commit hook (installed by
+  `helpers/install_pre_commit.sh`).
+- Work on a feature branch and merge via PR; keep `master` green.
+
+See [`CLAUDE.md`](CLAUDE.md) for the full conventions and the two-machine setup
+runbook.
+
+## License
+
+[MIT](LICENSE).

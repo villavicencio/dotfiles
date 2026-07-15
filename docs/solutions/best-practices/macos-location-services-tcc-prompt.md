@@ -3,7 +3,7 @@ module: tmux
 date: 2026-05-01
 problem_type: best_practice
 component: tooling
-severity: low
+severity: Low
 applies_when:
   - "Installing CoreLocationCLI (Homebrew cask `corelocationcli`) on macOS"
   - "Wiring CoreLocationCLI into the tmux status bar (or any tmux-spawned context)"

@@ -11,7 +11,7 @@ tags:
   - defense-in-depth
   - pre-commit
   - github-pat
-severity: high
+severity: High
 component: tooling
 problem_type: best_practice
 module: security-audit-workflow

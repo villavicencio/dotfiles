@@ -1,6 +1,6 @@
 ---
 problem_type: silent plugin state loss
-severity: high
+severity: High
 module: tmux/continuum
 tags: [tmux-continuum, TPM, status-right, config-reload, silent-failure, resurrect]
 date_resolved: 2026-04-10

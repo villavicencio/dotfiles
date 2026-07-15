@@ -3,7 +3,7 @@ module: dotfiles
 date: 2026-05-30
 problem_type: best_practice
 component: tooling
-severity: low
+severity: Low
 applies_when:
   - "Considering whether to 'port the dotfiles to Lua and/or Rust' to ride the modern-tooling trend"
   - "Tempted to rewrite the install pipeline (Dotbot + `helpers/*.sh`) in Rust/Go for speed or type-safety"

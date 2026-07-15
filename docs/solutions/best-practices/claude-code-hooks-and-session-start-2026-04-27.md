@@ -9,7 +9,7 @@ tags:
   - additional-context
   - automation
   - workflow
-severity: low
+severity: Low
 component: tooling
 problem_type: best_practice
 module: claude-code-hooks

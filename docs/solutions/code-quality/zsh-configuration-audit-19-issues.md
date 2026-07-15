@@ -2,6 +2,8 @@
 title: "Zsh Configuration Audit: 19 Issues Resolved Across Dotfiles"
 date: 2026-03-11
 category: code-quality
+module: "zsh config"
+problem_type: code-quality
 tags:
   - zsh
   - dotfiles

@@ -14,7 +14,7 @@ symptoms:
   - Python f-string replacement writes fewer closing braces than the source contained
   - tmux active window pill renders only `4:` instead of `4: <glyph> <name>` after a wrap-with-pill edit
   - tmux config reload silently succeeds; bad format string just produces truncated output
-  - `}}}}#W` in source string becomes `}}#W` in output, breaking N levels of `#{?...}` ternary nesting at once
+  - "`}}}}#W` in source string becomes `}}#W` in output, breaking N levels of `#{?...}` ternary nesting at once"
 problem_type: language_quirk
 module: tmux-config-tooling
 ---

@@ -2,6 +2,8 @@
 title: "`zsh -i -c exit` is a false-positive health check"
 date: 2026-04-15
 category: code-quality
+module: shell-init
+problem_type: best_practice
 tags:
   - zsh
   - health-check

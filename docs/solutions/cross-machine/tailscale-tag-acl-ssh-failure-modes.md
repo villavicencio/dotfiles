@@ -3,6 +3,8 @@ title: "Tailscale tag + ACL + expiry interactions that broke SSH to a tagged nod
 date: 2026-04-15
 last_updated: 2026-04-20
 category: cross-machine
+module: "Tailscale ACL / SSH"
+problem_type: integration_issue
 tags:
   - tailscale
   - ssh
