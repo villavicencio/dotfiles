@@ -1,109 +1,145 @@
-brew "ack"
-brew "aria2"
-brew "atuin"
+# =============================================================================
+# Brewfile — Homebrew formulae & casks for both Macs.
+#
+# This records INTENTIONAL top-level tools only. Pure transitive dependencies
+# (libraries pulled in by the tools below) are deliberately NOT listed —
+# Homebrew reinstalls them automatically as dependencies. Language runtimes
+# owned by version managers are excluded on purpose:
+#   node   -> nvm    (zsh/zshenv NODE_VERSION + helpers/install_node.sh)
+#   ruby   -> rvm    (~/.rvm)
+#   python -> pyenv
+#
+# Before editing, run `helpers/report_drift.sh` to see installed-but-unrecorded
+# and recorded-but-missing formulae/casks and npm globals. It is read-only.
+# =============================================================================
+
+# --- Shell, prompt, history, navigation ---
+brew "bash"                 # modern bash (macOS ships 3.2); used by scripts + fresh installs
+brew "starship"             # cross-shell prompt (starship/starship.toml)
+brew "atuin"                # shell history database + Ctrl-R search
+brew "fzf"                  # fuzzy finder (Ctrl-T widget; ^R restored to atuin)
+brew "zoxide"               # smarter cd (z)
+brew "zsh-completions"      # extra completions — inert until wired: add
+                            #   fpath+=($(brew --prefix)/share/zsh-completions)
+                            # before compinit in zsh/zshrc (ZSH-12 follow-up).
+
+# --- Modern CLI replacements / file & text tools ---
+brew "bat"                  # cat with syntax highlighting
+brew "eza"                  # modern ls
+brew "fd"                   # modern find
+brew "ripgrep"              # fast recursive grep (rg)
+brew "tree"                 # directory tree view
+brew "duf"                  # disk usage/free (df replacement)
+brew "ncdu"                 # interactive disk usage
+brew "jq"                   # JSON processor
+brew "glow"                 # markdown renderer
+brew "tldr"                 # simplified, example-first man pages
+brew "watch"                # run a command periodically
+brew "most"                 # feature-rich pager
+
+# --- Git & code review ---
+brew "git"
+brew "gh"                   # GitHub CLI
+brew "git-delta"            # syntax-highlighting diff pager (git [pager] override)
+brew "lazygit"              # git TUI
+brew "tig"                  # git history TUI
+brew "icdiff"               # side-by-side colored diff
+brew "gitleaks"             # secret scanner (pre-commit hook)
+brew "pre-commit"           # git hook framework
+
+# --- Editor & Lua stack (Neovim) ---
+brew "neovim"
+brew "lua"
+brew "luajit"
+brew "luarocks"
+brew "lua-language-server"
+
+# --- Language runtimes / version managers (node/ruby/python: see header) ---
+brew "pyenv"                # Python version manager
+brew "pyenv-virtualenv"     # pyenv virtualenv plugin
+brew "pipx"                 # install Python CLI apps in isolated venvs
+brew "perl"                 # scripting + irssi
+brew "cpanminus"            # Perl module installer (cpanm)
+brew "go"                   # Go toolchain
+brew "yarn"                 # JS package manager
+
+# --- Build toolchain (compiling from source) ---
 brew "autoconf"
 brew "autoconf-archive"
 brew "automake"
-brew "bash"
-brew "bat"
-brew "bdw-gc"
-brew "berkeley-db"
-brew "boost"
-brew "brotli"
-brew "btop"
-brew "c-ares"
-brew "cffi"
 brew "cmake"
-brew "coreutils"
-brew "cpanminus"
-brew "curl"
-brew "docbook"
-brew "docbook-xsl"
-brew "libyaml"
-brew "dotbot"
-brew "duf"
-brew "eza"
-brew "fd"
-brew "freetype"
-brew "fswatch"
-brew "fzf"
-brew "gawk"
-brew "gdbm"
+brew "make"                 # GNU make (newer than macOS's)
+brew "coreutils"            # GNU coreutils (gnubin on PATH — see zsh/zshenv)
+brew "gnu-sed"              # GNU sed (gsed)
+brew "gawk"                 # GNU awk
+
+# --- Networking & downloads ---
+brew "curl"                 # newer curl (opt/curl/bin on PATH)
+brew "wget"
+brew "aria2"                # multi-connection downloader
+brew "yt-dlp"               # video/audio downloader
+
+# --- System monitoring & cleanup ---
+brew "btop"                 # resource monitor
+brew "fswatch"              # filesystem change monitor
+brew "mac-cleanup-py"       # macOS cleanup utility
+brew "kondo"                # project build-artifact cleanup
+
+# --- Security ---
+brew "gnupg"                # GPG (signing, encryption)
+
+# --- Terminal multiplexer ---
+brew "tmux"
+
+# --- Docs, linting, prose ---
+brew "vale"                 # prose linter (vale/)
+brew "shellcheck"           # shell script linter
+brew "source-highlight"     # syntax highlighting for less (LESSOPEN)
+
+# --- Package / dotfiles / system management ---
+brew "dotbot"               # dotfiles installer (a vendored submodule also exists)
+brew "topgrade"             # unified system updater (topgrade/topgrade.toml)
+
+# --- Cloud / deploy ---
+brew "vercel-cli"
+
+# --- Misc / oddballs (intentional installs) ---
+brew "grc"                  # generic text colorizer
+brew "lolcat"               # rainbow text
+brew "jrnl"                 # command-line journal
+brew "irssi"                # IRC client
+brew "handbrake"            # video transcoder (CLI)
+# Prune candidates — redundant with ripgrep / cosmetic. Kept for now; remove if
+# unwanted (flagged in the P1-3 PR for review):
+brew "ack"                  # grep-like search (ripgrep covers this)
+brew "the_silver_searcher"  # ag search (ripgrep covers this)
+brew "screenfetch"          # system-info banner (cosmetic)
+
+# --- Explicitly installed, retained pending owner review ---
+# Each of these was `brew install`ed on request (per `brew leaves
+# --installed-on-request`) but is currently required by nothing — mostly stale
+# library / build deps pulled in by hand for tools no longer present. They are
+# kept (not silently dropped) because they were intentional; prune once
+# confirmed unused. `helpers/report_drift.sh` and `brew uses --installed <f>`
+# help decide.
+brew "berkeley-db"
 brew "gdk-pixbuf"
-brew "gh"
-brew "giflib"
-brew "git"
-brew "git-delta"
-brew "gitleaks"
-brew "glow"
-brew "gnu-getopt"
-brew "gnu-sed"
-brew "gnupg"
-brew "go"
-brew "grc"
 brew "guile"
-brew "handbrake"
-brew "icdiff"
 brew "imlib2"
-brew "irssi"
-brew "jq"
-brew "jrnl"
-brew "kondo"
-brew "lazygit"
 brew "libpthread-stubs"
-brew "libtermkey"
-brew "libuv"
-brew "libvterm"
-brew "libxml2"
+brew "libtermkey"           # historical Neovim dependency
+brew "libvterm"             # historical Neovim dependency
 brew "libxslt"
 brew "libzip"
-brew "lolcat"
-brew "lua"
-brew "lua-language-server"
-brew "luajit"
-brew "luarocks"
-brew "luv"
-brew "mac-cleanup-py"
-brew "make"
-brew "most"
-brew "topgrade"
-brew "msgpack"
-brew "ncdu"
-brew "neovim"
-brew "node"
-brew "pcre"
-brew "perl"
-brew "pipx"
+brew "msgpack"              # historical Neovim dependency
 brew "portaudio"
-brew "pre-commit"
-brew "pyenv"
-brew "pyenv-virtualenv"
-brew "python@3.10"
-brew "rbenv"
-brew "ripgrep"
-brew "ruby"
-brew "screenfetch"
-brew "shellcheck"
-brew "source-highlight"
-brew "starship"
-brew "the_silver_searcher"
-brew "tig"
-brew "tldr"
-brew "tmux"
-brew "tree"
 brew "util-linux"
-brew "vale"
-brew "vercel-cli"
-brew "watch"
-brew "wget"
 brew "xmlto"
-brew "yarn"
-brew "yt-dlp"
-brew "zoxide"
-brew "zsh-completions"
-cask "corelocationcli"
+
+# --- Casks ---
+cask "corelocationcli"      # CLI to read macOS CoreLocation (location-based tooling)
 cask "docker-desktop"
 cask "git-credential-manager"
-cask "maccy"
-cask "pearcleaner"
-cask "shottr"
+cask "maccy"                # clipboard manager
+cask "pearcleaner"          # app uninstaller
+cask "shottr"               # screenshot tool
