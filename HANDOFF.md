@@ -1,113 +1,69 @@
-# HANDOFF — 2026-07-13, evening (PST)
+# HANDOFF — 2026-07-14, evening (PST)
 
-Started with `/pickup` and found the prior handoff (2026-07-07) had drifted: back on `master`
-with a new dirty file, and the "next up" item (merge PR #95) was blocked by a **red macOS CI**.
-The session became a full CI-rot investigation + cleanup — diagnosed two distinct macOS-CI
-failures, fixed both, handled a terminal installer's shell block (twice — conformed in #97, then
-reverted in #99 when the tool fought back), cleared the queue via a coordinated merge, and
-compounded three solution docs. **Master is green and the queue is empty.**
+Full-repo **10x audit session** (Fable 5, max effort). Produced an evidence-backed strategy
+brief (~45 findings, all with file:line evidence), verified upstream facts live, benchmarked
+the shell, ran secret scans, and converted everything into a PR-sized execution plan:
+**`docs/plans/2026-07-14-001-chore-10x-roadmap-execution-plan.md`** — the authoritative
+artifact for the overnight execution loop (Opus 4.8 + Codex adversarial review). Baseline:
+`master @ 2950864`, tree clean, CI green, no open PRs/issues.
 
-## What We Built
+## Headline findings (full detail + evidence lives in the plan doc)
 
-Five PRs **MERGED** (squash, branches deleted) + three solution docs. Master head: `a4f6988`.
+- **BOOT-01 (critical):** `helpers/install_omz.sh` uses a bash-4 associative array; under
+  macOS `/bin/bash` 3.2 the plugin map is empty → fresh Macs/CI silently install **0/4 OMZ
+  plugins** while reporting success. The prior handoff's "arithmetic warning" item
+  underdiagnosed this. Reproduced live.
+- **SEC-01 (high):** iTerm2 actively **live-syncs prefs into the repo** (`PrefsCustomFolder`
+  = repo `iterm/`, `LoadPrefsFromCustomFolder` = 1, verified via `defaults read`) — the tracked
+  plist carries two usernames, a corporate hostname, command history, and an 838-line window-
+  arrangement blob. CI's PII grep never covered `iterm/`.
+- **HYG-01 (high):** `fonts/` = 189 MB (96 files; `Fura Code` is a pre-2019 duplicate of Fira
+  Code); everything-else-tracked = 1.0 MB. All needed families exist as homebrew casks
+  (verified live 2026-07-14).
+- **BOOT-02/NVIM (high):** `nvim/custom` targets removed NvChad v1.0 APIs while
+  `install_nvim.sh` clones unpinned HEAD (v2.x, `custom/` mechanism deleted upstream);
+  live `~/.config/nvim` is a non-git 2022 fossil. Fresh machine = broken editor.
+- **CI-01 (actionable now):** the `HOMEBREW_BUNDLE_JOBS: '1'` pin is droppable — upstream fix
+  shipped in Homebrew 5.1.12; macos-15 runner image carries 6.0.5 (verified).
+- **BOOT-05:** Brewfile is a stale dump — 99 installed-but-unrecorded, 7 recorded-but-missing,
+  ~30 transitive deps as fake intent; `export_deps` regeneration would corrupt scoped npm names.
+- **TMUX-01:** `tmux-attention.sh` spinner cleanup `pkill` prefix-collides (pane `%2` kills
+  `%20`'s loop).
+- Startup is **healthy**: 240 ms median / 350 ms cold (12 samples) — speed is not the story;
+  correctness/hygiene/feedback-loops are.
 
-- **PR #96 (MERGED, `f94ab5a`)** — `fix: remove dead adoptopenjdk/openjdk tap from Brewfile`.
-  Root cause: modern Homebrew audits a tap's cask definitions on `brew tap`, and
-  `adoptopenjdk-jre` still uses the removed `appcast` stanza → `undefined method 'appcast'` →
-  "Tapping adoptopenjdk/openjdk has failed!" → `brew bundle` fails. The `tap "adoptopenjdk/openjdk"`
-  line in `brew/Brewfile:1` was **orphaned** — no cask installed from it, it was the sole
-  adoptopenjdk reference in the repo, present since the original Dotbot conversion. Removal is
-  behavior-preserving (no Java was being installed). Want a JDK later → add `cask "temurin"`.
+## Obscura adversarial-review protocol (verified this session)
 
-- **PR #98 (MERGED, `ab3c347`)** — `fix: force serial brew bundle in CI to stop Cellar lock-race`.
-  Added `HOMEBREW_BUNDLE_JOBS: '1'` to the macOS job `env:` in
-  `.github/workflows/install-matrix.yml`. Root cause: an "already locked …/Cellar/<keg>" error
-  requires two concurrent `brew` processes, so `brew bundle` was installing in **parallel** on the
-  runner even though our helper passes no `--jobs` and Homebrew's upstream default is `--jobs=1` —
-  the `macos-15` runner image injects a higher bundle job count. Parallel installs race on
-  shared-dependency Cellar locks (`go` pulled by `gitleaks`; `luajit` by `luarocks`). Serial
-  install kills it. **Verified:** #98's macOS log had ZERO `already locked` lines (failure count
-  dropped 3 → 1, that 1 being adoptopenjdk which #96 removed).
-
-- **PR #97 (MERGED, `e36f26b`)** — `chore: conform Otty shell-integration block to repo idiom`.
-  The Otty terminal installer appended a multi-line POSIX block to `zsh/zshrc` (`if [ -n … ]`,
-  `.` sourcing, `# >>>`/`# <<<` markers). Rewrote it as a single guarded one-liner matching the
-  gcloud/openclaw/antigravity idiom directly above it:
-  `[[ -n "$OTTY_SHELL_INTEGRATION" && -r "$OTTY_SHELL_INTEGRATION/otty-integration.zsh" ]] && source …`.
-  **Verified:** `zsh -n` parses + sources cleanly under Otty. **⚠️ Reversed by #99 (below)** — Otty
-  re-added its markered block within the session; conforming fought the tool.
-
-- **PR #95 (MERGED, `8ca976f`)** — `chore: register openai-codex plugin in Claude settings`.
-  Carried over from the 2026-07-07 session (was OPEN at pickup). Rebased onto the fixed master
-  and merged. Net diff is only the `codex@openai-codex` plugin + `openai-codex` marketplace
-  addition in `claude/settings.json`.
-
-- **PR #99 (MERGED, `16285f4`)** — `fix: let Otty manage its own shell-integration block`.
-  Reverts #97. Otty uses its `# >>>`/`# <<<` markers to detect whether its integration is
-  installed; #97 removed them, so Otty re-appended a fresh block on shell launch — a duplicate in
-  the Dotbot-symlinked live `zshrc`, verified within one session of #97 merging. Restored Otty's
-  block **verbatim** so it matches its own markers and stops re-adding. CI green (linux + macOS).
-
-- **Three `docs/solutions/` entries** — compounded the session's learnings. Two CI-rot docs under
-  `cross-machine/` (`30e48aa`): `adoptopenjdk-dead-tap-fails-brew-bundle-2026-07-13.md` and
-  `brew-bundle-parallel-cellar-lock-race-macos-runner-2026-07-13.md`; plus a best-practice under
-  `best-practices/` (`a4f6988`): `dont-conform-tool-managed-shell-rc-blocks-2026-07-13.md` (the
-  Otty #97→#99 lesson — tool-managed markered blocks re-add themselves; leave them verbatim). All
-  cross-linked.
-
-## Decisions Made
-
-- **Two CI bugs = two PRs.** adoptopenjdk removal (#96) and the lock-race fix (#98) are distinct
-  logical changes, kept separate per repo convention even though each branch alone still showed
-  the *other's* failure (mutually blocking for a green check).
-- **Otty block → let the tool own it (verbatim markered block).** Initially conformed to the repo
-  one-liner idiom (#97), but Otty re-added its markered block within the session — it self-manages
-  via its `# >>>` markers. Final call (#99, operator chose via prompt): keep Otty's block verbatim.
-  General rule: tool-managed markered blocks (conda, nvm, Otty) are left as-is *because* the tool
-  rewrites them; the one-line `[[ … ]] && source` idiom is only for hand-managed integrations
-  (gcloud, openclaw) that nothing re-adds.
-- **Lock-race fix scoped to CI, not the helper.** `HOMEBREW_BUNDLE_JOBS=1` lives in the workflow
-  env, NOT `install_from_brewfile.sh` — real-machine `./install` relies on Homebrew's serial
-  default; forcing `--jobs=1` in the helper would forgo parallel speedup forever. Escape hatch if a
-  real fresh install ever races: export the same var in the helper. Drop the pin once Homebrew
-  ships the upstream lock-fix (Homebrew/brew#22293 / #22297) to the runner image.
-- **Coordinated merge, master stays green.** No branch protection on `master` (red checks don't
-  block), but honored "keep-green": merged the mutually-blocking pair #98+#96 first → master
-  green → rebased #97+#95 onto green master → both went fully green (linux + macOS) → merged.
-
-## What Didn't Work
-
-- **A plain CI re-run does NOT fix the lock-race.** Re-ran #96's macOS job; it failed again on a
-  *different* racing pair (`gitleaks`→`go`, `luarocks`→`luajit` vs. the original `go`/`luarocks`).
-  The collisions are nondeterministic — only serial install fixes it deterministically. Don't
-  burn re-runs hoping it clears.
+- Project = `~/Projects/browse-gateway` (CLI brand **Obscura**, `src/cli/obscura.ts`).
+- Its SOP (`codex-review-loop-sop`, HANDOFF there): each change lands only after a Claude↔Codex
+  **adversarial-review loop returns `approve`**; verify-don't-blind-accept each finding;
+  commit each fix round; up to ~10 rounds.
+- Mechanism: `codex@openai-codex` plugin v1.0.6 (already enabled in `claude/settings.json`,
+  PR #95) → `/codex:adversarial-review` → `codex-companion.mjs` → Codex CLI 0.144.1 with
+  `~/.codex/config.toml`: **`model = "gpt-5.6-sol"`, reasoning `high`**. Verdicts: `approve` /
+  `needs-attention` (structured JSON, file+lines+confidence).
+- **Gotcha (from Obscura):** run `--wait` inside a *detached background task*; plain
+  `--background` is killed by the 2-min shell timeout mid-handshake, leaving an orphaned
+  "running" job. Verify pid + log mtime, not the status field.
 
 ## What's Next
 
-1. **(dotfiles, low-priority) Fix the `install_omz.sh:21` arithmetic warning.** Every macOS CI run
-   prints `helpers/install_omz.sh: line 21: zsh-256color: value too great for base (error token is
-   "256color")`. Non-fatal (install continues, CI passes), but real: line 21 does an arithmetic
-   evaluation over the OMZ plugin list and chokes on the plugin name `zsh-256color` (treats
-   `256color` as a number). One-line fix (quote/guard the arithmetic). Its own small `fix/` PR.
-2. **(dotfiles, housekeeping) Remove the `HOMEBREW_BUNDLE_JOBS: '1'` pin** once the upstream
-   Homebrew lock-fix (Homebrew/brew#22293 / #22297) lands in the `macos-15` runner image. The
-   pin's inline comment already flags this.
-3. **(external, carried from 2026-07-07 handoff — unchanged):** record "Foreman" as the
-   ibmcconstruction platform's official name; optional domain buys (`theforeman.io` / `foremanhq.ai`);
-   Ship Sigma send-volume → `/ops/shipsigma-deliverability` calculator; optional `villavi.dev`;
-   Dec 11 2026 calendar event for the 307→308 redirect flip.
+1. **Execute the roadmap**: new session (Opus 4.8, high effort), paste the mission prompt
+   (operator has it on the clipboard; identical protocol is §Loop-protocol of the plan doc).
+   19 packets, strict order P0-1 → P3-1, one branch/PR/squash-merge per packet, Codex
+   adversarial review gate (≤10 rounds) before every commit, master stays green.
+2. Morning: work the **manual checklist** in the plan doc (iTerm prefs flip, font visual check,
+   brew reconcile, mcpconfig relocation, parked PRs).
+3. External items carried from 2026-07-07 (unchanged): Foreman naming, domain buys, Ship Sigma
+   calculator, Dec 11 redirect-flip calendar event.
 
 ## Gotchas & Watch-outs
 
-- **Master is GREEN as of this session** — first clean macOS CI in a while. If it goes red on an
-  *unchanged* commit later, suspect `macos-15` runner-image rotation (workflow header caveat #8)
-  before debugging the pipeline.
-- **macOS CI is now ~slower but deterministic** — serial `brew bundle` trades wall-clock for no
-  flakiness. Intended.
-- **Do NOT conform/edit the Otty `# >>>`…`# <<<` block in `zsh/zshrc`.** Otty self-manages it via
-  those markers and re-appends a fresh copy on shell launch if it can't find them — #97 conformed
-  it and Otty duplicated the block within one session (fixed by #99). Leave it verbatim. Because
-  `zsh/zshrc` is Dotbot-symlinked to the live config, Otty's rewrites land straight in the repo
-  working tree; if a duplicate ever reappears, keep the markered block and delete the extra.
-- **`claude/settings.json` still goes dirty from `/model` + `/effort` churn** — standing pattern:
-  on commit, revert the model-pin removal and keep only genuine additions (plugins/marketplaces).
+- **Do NOT conform/edit the Otty `# >>>`…`# <<<` block in `zsh/zshrc`** (see #97→#99 lesson).
+- **No machine-side uninstalls overnight** — repo-side changes only; machine reconciliation is
+  a morning-checklist activity (plan doc §Safety-rails).
+- **P2-7 (settings hygiene) runs last** — it removes allow-rules the running loop may rely on.
+- **iTerm defaults flip is manual** — iTerm rewrites the prefs folder on quit; don't fight it
+  from a background agent.
+- `claude/settings.json` `/model`-churn rule stays in force until P2-7 lands (then pins are
+  gone by design, D5).
