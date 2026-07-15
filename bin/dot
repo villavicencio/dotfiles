@@ -139,46 +139,80 @@ PY
 cmd_doctor() {
   echo "dot doctor — $REPO"
 
-  echo "symlinks (Dotbot targets resolve; installed links aren't dangling):"
-  local cfg out perr=0
+  echo "symlinks (Dotbot sources exist; installed links wired to this repo):"
+  # Only the ACTIVE platform's config gets installed-target checks — the other
+  # platform's targets are never installed here (e.g. the Linux config links
+  # ~/.config/tmux/window-meta.json, which on macOS is a live regular file written
+  # by the tmux-window-namer skill). The inactive config is still parsed for repo
+  # integrity (sources must exist, top-level must be a well-formed list).
+  local cfg out perr=0 active
+  case "$(uname)" in Darwin) active="install.conf.yaml" ;; *) active="install-linux.conf.yaml" ;; esac
   out="$(mktemp)"
   for cfg in install.conf.yaml install-linux.conf.yaml; do
-    [ -f "$REPO/$cfg" ] || continue
-    # For each `~/target: src` link entry: the repo SOURCE must exist, and if the
-    # target is already installed as a symlink it must not dangle. A not-yet-
-    # installed target is fine (partial/fresh machine) — only report real breakage.
+    if [ ! -f "$REPO/$cfg" ]; then echo "MISSING_CONFIG $cfg" >>"$out"; perr=1; continue; fi
+    local mode="sources"; [ "$cfg" = "$active" ] && mode="full"
     # The parser prints PARSER_ERROR and exits non-zero on any import/parse/schema
-    # fault, so a degraded vendored-PyYAML can't turn this into an always-pass.
-    if ! python3 - "$REPO/$cfg" "$REPO" >>"$out" 2>>"$out"; then
+    # fault (degraded vendored-PyYAML, non-list top level, malformed block), so it
+    # can never turn into an always-pass. FAIL markers: MISSING_SOURCE (repo
+    # integrity), DANGLING_SYMLINK, PARSER_ERROR. WARN markers: CONFLICTING_FILE /
+    # WRONG_TARGET — a regular file or mis-pointed symlink where a link is expected
+    # is often legitimate (app-managed files like ~/.claude/settings.json) so it's
+    # surfaced, not fatal. A not-yet-installed target is fine (fresh machine).
+    if ! python3 - "$REPO/$cfg" "$REPO" "$mode" >>"$out" 2>>"$out"; then
       perr=1
     fi <<'PY'
 import sys, os
-cfgp, repo = sys.argv[1], sys.argv[2]
+cfgp, repo, mode = sys.argv[1], sys.argv[2], sys.argv[3]
 try:
     # System python3 has no PyYAML; use dotbot's vendored copy (same as the docs
     # index generator) so this check actually runs instead of silently passing.
     sys.path.insert(0, os.path.join(repo, "dotbot", "lib", "pyyaml", "lib"))
     import yaml
-    doc = yaml.safe_load(open(cfgp)) or []
+    doc = yaml.safe_load(open(cfgp))
+    if not isinstance(doc, list):
+        print("PARSER_ERROR", os.path.basename(cfgp), "top-level is not a list"); sys.exit(1)
+    links = 0
     for block in doc:
         if not isinstance(block, dict) or "link" not in block: continue
-        for target, v in (block["link"] or {}).items():
+        entries = block["link"] or {}
+        if not isinstance(entries, dict):
+            print("PARSER_ERROR", os.path.basename(cfgp), "link block is not a mapping"); sys.exit(1)
+        for target, v in entries.items():
+            links += 1
             src = v["path"] if isinstance(v, dict) else v
-            if not os.path.exists(os.path.join(repo, src)):
+            srcabs = os.path.join(repo, src)
+            if not os.path.exists(srcabs):
                 print("MISSING_SOURCE", src); continue
+            if mode != "full":
+                continue                      # inactive config: source integrity only
             t = os.path.expanduser(target)
-            if os.path.islink(t) and not os.path.exists(t):   # installed but dangling
-                print("DANGLING_SYMLINK", target)
+            if not os.path.lexists(t):
+                continue                      # not installed yet — fine
+            if os.path.islink(t) and not os.path.exists(t):
+                print("DANGLING_SYMLINK", target); continue
+            if not os.path.islink(t):
+                print("CONFLICTING_FILE", target); continue   # regular file blocks relink
+            if not os.path.samefile(t, srcabs):
+                print("WRONG_TARGET", target)                 # symlink to a different source
+    print("LINKS", links)
+except SystemExit:
+    raise
 except Exception as e:
-    print("PARSER_ERROR", os.path.basename(cfgp), repr(e)); sys.exit(1)
+    print("PARSER_ERROR", os.path.basename(cfgp), repr(e)[:80]); sys.exit(1)
 PY
   done
-  local broken
-  broken="$(grep -cE 'MISSING_SOURCE|DANGLING_SYMLINK|PARSER_ERROR' "$out" 2>/dev/null)"; broken="${broken:-0}"
-  if [ "$perr" = 1 ] || [ "$broken" != 0 ]; then
-    fail "$broken symlink issue(s)"; sed 's/^/    /' "$out"
+  # Tally: FAILs are hard breakage; WARNs are surfaced drift; require ≥1 parsed link.
+  local totlinks fails warns
+  totlinks="$(grep -oE '^LINKS [0-9]+' "$out" 2>/dev/null | awk '{s+=$2} END{print s+0}')"
+  grep -v '^LINKS ' "$out" > "$out.f" 2>/dev/null && mv "$out.f" "$out"
+  fails="$(grep -cE 'MISSING_SOURCE|DANGLING_SYMLINK|PARSER_ERROR|MISSING_CONFIG' "$out" 2>/dev/null)"; fails="${fails:-0}"
+  warns="$(grep -cE 'CONFLICTING_FILE|WRONG_TARGET' "$out" 2>/dev/null)"; warns="${warns:-0}"
+  if [ "$perr" = 1 ] || [ "$fails" != 0 ] || [ "${totlinks:-0}" -lt 1 ]; then
+    fail "$fails hard symlink issue(s)$([ "${totlinks:-0}" -lt 1 ] && echo ' + no links parsed')"; sed 's/^/    /' "$out"
+  elif [ "$warns" != 0 ]; then
+    warn "$warns installed link(s) not wired to this repo (conflicting file / wrong target):"; sed 's/^/    /' "$out"
   else
-    ok "all link sources exist + no dangling installed symlinks"
+    ok "all $totlinks source(s) exist; active links wired to this repo (no dangling/conflicting/mis-targeted)"
   fi
   rm -f "$out"
 
@@ -224,11 +258,31 @@ PY
   if command -v gitleaks >/dev/null 2>&1; then
     local rep; rep="$(mktemp)"
     gitleaks dir "$REPO" --no-banner --report-format json --report-path "$rep" >/dev/null 2>&1 || true
-    # A successful scan always writes a JSON report ([] when clean). A missing or
-    # unparseable report means gitleaks itself errored — treat that as a failure,
-    # never a silent pass.
-    if ! python3 -c "import json,sys; json.load(open(sys.argv[1]))" "$rep" >/dev/null 2>&1; then
-      fail "gitleaks scan failed to produce a valid report (rerun: gitleaks dir '$REPO' --verbose)"
+    # One extractor validates the report's *shape* (must be a JSON array of objects,
+    # not just syntactically valid JSON) and emits File paths. Its exit status is
+    # captured directly — not lost through process substitution — so a scanner
+    # error, a missing report, or schema drift (e.g. `{}`) becomes a FAIL rather
+    # than reading as a clean scan.
+    local files extrc
+    files="$(python3 -c "
+import json,sys
+try:
+    d=json.load(open(sys.argv[1]))
+except Exception:
+    sys.exit(2)               # missing / unparseable report
+if not isinstance(d,list):
+    sys.exit(3)               # unexpected top-level shape
+out=[]
+for f in d:
+    if not isinstance(f,dict):
+        sys.exit(3)           # malformed finding entry
+    fn=f.get('File','')
+    if fn: out.append(fn)
+print('\n'.join(sorted(set(out))))" "$rep" 2>/dev/null)"
+    extrc=$?
+    rm -f "$rep"
+    if [ "$extrc" != 0 ]; then
+      fail "gitleaks report missing/unparseable/mis-shaped (rc=$extrc) — rerun: gitleaks dir '$REPO' --verbose"
     else
       # `gitleaks dir` scans every on-disk file, including git-ignored machine-local
       # secret stores (mcpconfig.json, *.local.*) and untracked scratch files that
@@ -236,7 +290,8 @@ PY
       # finding's path with `git ls-files --error-unmatch` (excludes both ignored
       # and untracked). Also exclude the documented examples: the security
       # postmortem quotes real historical tokens as teaching material and CLAUDE.md
-      # ships a high-entropy smoke-test fake.
+      # ships a high-entropy smoke-test fake. The heredoc feed keeps the counter in
+      # this shell (no subshell), so `real` survives the loop.
       local real=0 file rel
       while IFS= read -r file; do
         [ -n "$file" ] || continue
@@ -244,13 +299,12 @@ PY
         case "$rel" in docs/solutions/security/*|CLAUDE.md) continue ;; esac
         git -C "$REPO" ls-files --error-unmatch -- "$rel" >/dev/null 2>&1 || continue  # tracked only
         real=$((real+1))
-      done < <(python3 -c "import json,sys
-d=json.load(open(sys.argv[1]))
-print('\n'.join(sorted({f.get('File','') for f in d})))" "$rep" 2>/dev/null)
+      done <<EOF
+$files
+EOF
       [ "$real" = 0 ] && ok "no leaks in tracked files (git-ignored + untracked + documented examples excluded)" \
         || fail "$real tracked file(s) with a gitleaks finding (gitleaks dir '$REPO' --verbose)"
     fi
-    rm -f "$rep"
   else warn "gitleaks not installed"; fi
 
   echo "HANDOFF freshness:"
