@@ -7,31 +7,46 @@ description: >
 runs:
   using: composite
   steps:
-    - name: R3 assertion 1 (no hardcoded user paths)
+    - name: R3 assertion 1 (no hardcoded user paths / PII in tracked files)
       shell: bash
       run: |
         set -eo pipefail
-        # Fail-closed scope check: a refactor that drops a pathspec
-        # would otherwise let the assertion silently no-op. claude/**
-        # is included because Dotbot symlinks claude/settings.json,
-        # claude/commands/*.md, and claude/hooks/*.sh into ~/.claude/
-        # — they're install-pipeline content for cross-platform
-        # purposes even though they live outside the helpers/zsh tree.
-        files=$(git ls-files -- 'zsh/**' 'helpers/**' 'brew/**' 'git/**' 'claude/**')
-        if [ -z "$files" ]; then
+        # Scan ALL tracked files EXCEPT docs/** for hardcoded home paths and
+        # machine hostnames — PII that used to leak via the live-synced iTerm
+        # prefs plist (usernames, `<host>-MacBook-Pro.local`). docs/** is
+        # exempt: narrative solution/plan docs legitimately quote real paths as
+        # examples (owner decision D6).
+        #
+        # Fail-closed scope check: a refactor that drops the pathspec would let
+        # this silently no-op.
+        if [ -z "$(git ls-files -- ':!docs/**')" ]; then
           echo "::error::scoping returned no files — file-list bug"
           exit 1
         fi
-        # Match macOS-style hardcoded /Users/<user>/ paths. We do NOT
-        # include /home/<user>/ — that prefix matches legitimate
-        # upstream paths (Linuxbrew at /home/linuxbrew/.linuxbrew, the
-        # OpenClaw container's /home/node user) where the path is the
-        # actual install location, not a hardcoded user path.
-        # `git grep` (vs `xargs grep`) handles filenames with embedded
-        # whitespace and avoids the xargs no-input edge case.
-        if git grep -l --extended-regexp '/Users/[^/]+/' -- \
-            'zsh/**' 'helpers/**' 'brew/**' 'git/**' 'claude/**'; then
-          echo "::error::found hardcoded user path(s) in install-pipeline files"
+        # Patterns (self-match-safe — the literals below contain `[` right after
+        # `/Users/` and `+`/`]` right before -MacBook, so the regex never matches
+        # its own definition):
+        #   /Users/[A-Za-z0-9][A-Za-z0-9._-]*   a real home path — an alnum right
+        #       after /Users/, then username chars (incl. `-`). Matches a bare
+        #       `/Users/<name>` (as the removed plist held) and `/Users/<name>/`,
+        #       but ignores `/Users/<user>/` and `/Users/[^/]+/` placeholders (`<`
+        #       and `[` aren't alnum). We do NOT match /home/<user>/: that prefix
+        #       names real upstream install locations (Linuxbrew /home/linuxbrew,
+        #       the container /home/node).
+        #   [A-Za-z0-9]+-MacBook   machine hostnames.
+        #
+        # Allowlisting is PER-OCCURRENCE, not per-line: the sed strips the exact
+        # allowed `runner`/`Shared` home segments (each only when NOT followed by
+        # a username char, so a hyphen-suffixed variant like `runner-x` — a
+        # different user — is NOT allowlisted), then the second grep re-checks
+        # the remainder. A line mixing an allowed path with a real one is still
+        # caught. `runner` = GitHub macOS runner home; `Shared` = macOS shared dir.
+        hits="$(git grep -nE '/Users/[A-Za-z0-9][A-Za-z0-9._-]*|[A-Za-z0-9]+-MacBook' -- ':!docs/**' \
+                | sed -E 's#/Users/(runner|Shared)([^A-Za-z0-9._-])#\2#g; s#/Users/(runner|Shared)$##g' \
+                | grep -E '/Users/[A-Za-z0-9]|[A-Za-z0-9]+-MacBook' || true)"
+        if [ -n "$hits" ]; then
+          echo "::error::found hardcoded user path / hostname (PII) in tracked files:"
+          printf '%s\n' "$hits"
           exit 1
         fi
 

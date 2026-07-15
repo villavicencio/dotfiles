@@ -91,4 +91,4 @@ Reply with:
 - Reference file paths relative to repo root: `zsh/zshenv`, `zsh/zshrc`, `helpers/install_node.sh`
 - Note which machine(s) are affected when relevant (personal, work, or both)
 - If the fix is obvious and small (< 5 min), note it in the body so the next session can blitz through it
-- Use `$HOME` not `/Users/dvillavicencio/` and `$BREW_PREFIX` not `/opt/homebrew/` per CLAUDE.md conventions
+- Use `$HOME` not `/Users/<user>/` and `$BREW_PREFIX` not `/opt/homebrew/` per CLAUDE.md conventions

@@ -30,11 +30,19 @@ runs:
         #   "install mutation."
         # - $HOME/Library: macOS background services rotate caches/
         #   logs continuously.
+        # - $HOME/Movies, $HOME/Music, $HOME/Pictures: macOS media apps
+        #   (TV.app, Music.app, Photos) lazily materialize localization
+        #   and library files into these on a runner during the dry-run
+        #   window (observed: ~/Movies/TV/Media.localized/*.strings). The
+        #   dotfiles installer never touches user-media dirs, so pruning
+        #   them removes false-positive deltas without hiding a real
+        #   install mutation.
         # On Linux containers ($HOME=/github/home or /root), none of
         # these paths exist as $HOME children — the prune is a no-op.
         snapshot_home() {
           find "$HOME" -mindepth 1 \
-            \( -path "$HOME/actions-runner" -o -path "$HOME/work" -o -path "$HOME/Library" \) -prune \
+            \( -path "$HOME/actions-runner" -o -path "$HOME/work" -o -path "$HOME/Library" \
+               -o -path "$HOME/Movies" -o -path "$HOME/Music" -o -path "$HOME/Pictures" \) -prune \
             -o -print 2>/dev/null \
             | sort
         }

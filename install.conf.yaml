@@ -77,6 +77,12 @@
     ~/.config/nvim:
       path: nvim
       if: '[ ! -e "$HOME/.config/nvim" ] || [ -L "$HOME/.config/nvim" ]'
+    # iTerm2 Dynamic Profile (macOS). `create: true` makes the DynamicProfiles
+    # parent dir if iTerm hasn't created it yet. Replaces the live-synced full
+    # prefs plist (which leaked usernames/hostname/window arrangements).
+    "~/Library/Application Support/iTerm2/DynamicProfiles/dotfiles.json":
+      path: iterm/profile-dynamic.json
+      create: true
 
 - shell:
     - . ~/.zshenv
