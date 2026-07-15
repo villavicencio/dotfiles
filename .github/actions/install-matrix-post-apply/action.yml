@@ -35,7 +35,7 @@ runs:
           exit 1
         fi
 
-    - name: R4 assertion (zsh -i -c true exits cleanly)
+    - name: R4 assertion (zsh -i -c true exits cleanly AND emits no stderr)
       # Per docs/solutions/code-quality/zsh-dash-i-c-exit-false-positive-health-check.md:
       # use `true` not `exit` — `zsh -i -c exit` returns the exit
       # status of the last statement in .zshrc (because `exit` with no
@@ -43,5 +43,115 @@ runs:
       # propagates 1 from a clean shell. `-c true` always exits 0
       # unless init itself errored, making this a real "did init
       # complete cleanly?" probe.
+      #
+      # Also assert stderr is EMPTY. Exit-code-only was blind to BOOT-01:
+      # a partial/0-plugin OMZ install exits 0 but the plugins=() list in
+      # .zshrc references missing plugins, so OMZ writes "plugin not found"
+      # (and bash-arithmetic / compinit noise) to stderr. Capture stderr
+      # (2>&1 1>/dev/null) and fail if non-empty; `err=$(zsh …)` also keeps
+      # the exit-code check because a non-zero exit trips `set -e` here.
       shell: bash
-      run: zsh -i -c true
+      run: |
+        set -eo pipefail
+        err=$(zsh -i -c true 2>&1 1>/dev/null)
+        if [ -n "$err" ]; then
+          echo "::error::zsh -i -c true wrote to stderr (broken/partial shell init, e.g. missing OMZ plugin):"
+          printf '%s\n' "$err"
+          exit 1
+        fi
+
+    - name: R5 assertion (all OMZ custom plugins fully installed)
+      # Guards BOOT-01 directly: helpers/install_omz.sh must install every
+      # OMZ custom plugin as a real git checkout. The bash-3.2 associative-
+      # array regression (or a misspelled plugin name) silently under-installs
+      # while the pipeline still exits 0. Each plugin dir must carry a .git.
+      # NOTE: keep this list in sync with the plugins in helpers/install_omz.sh.
+      shell: bash
+      run: |
+        set -eo pipefail
+        plugins="zsh-256color zsh-autosuggestions zsh-history-substring-search zsh-syntax-highlighting"
+        missing=0
+        for p in $plugins; do
+          d="$HOME/.oh-my-zsh/custom/plugins/$p"
+          if [ ! -d "$d/.git" ]; then
+            echo "::error::OMZ plugin missing or not a git checkout: $p ($d)"
+            missing=$((missing + 1))
+          fi
+        done
+        if [ "$missing" -gt 0 ]; then
+          echo "::error::$missing OMZ custom plugin(s) missing — install_omz.sh under-installed"
+          exit 1
+        fi
+
+    - name: R6 assertion (TPM + every configured tmux plugin installed)
+      # helpers/install_tmux.sh clones TPM and installs the plugins declared in
+      # tmux/tmux.general.conf's @tpm_plugins list. Assert each expected plugin
+      # is a real git checkout under ~/.config/tmux/plugins. The set is listed
+      # explicitly (like R5's OMZ plugins) rather than parsed from the config:
+      # robustly resolving tmux's grammar (comments, quoting, append, semicolon
+      # sequences, line continuations) is a config parser, not a CI assertion,
+      # and a wrong parse is worse than an out-of-sync literal.
+      # KEEP THIS LIST IN SYNC with @tpm_plugins in tmux/tmux.general.conf.
+      shell: bash
+      run: |
+        set -eo pipefail
+        plugdir="$HOME/.config/tmux/plugins"
+        plugins="tpm tmux-sensible vim-tmux-focus-events tmux-resurrect tmux-continuum"
+        missing=0
+        for p in $plugins; do
+          if [ ! -d "$plugdir/$p/.git" ]; then
+            echo "::error::configured tmux plugin missing or not a git checkout: $p"
+            missing=$((missing + 1))
+          fi
+        done
+        if [ "$missing" -gt 0 ]; then
+          echo "::error::$missing configured tmux plugin(s) missing under $plugdir"
+          exit 1
+        fi
+
+    - name: R7 assertion (interactive startup within budget)
+      # 10 samples of `zsh -i -c true`; fail if the median exceeds a
+      # runner-generous 800 ms. Catches a config change that reintroduces a
+      # blocking synchronous init (e.g. un-lazy-loading nvm). Timed in python3
+      # (baked into both legs; PYTHONDONTWRITEBYTECODE is already set) because
+      # BSD `date` has no %N and macos /bin/bash 3.2 has no $EPOCHREALTIME.
+      shell: bash
+      run: |
+        set -eo pipefail
+        python3 - <<'PY'
+        import subprocess, time, sys
+        PER_SAMPLE_TIMEOUT = 30  # s; a healthy startup is well under 1s, so this
+                                 # only ever trips on a hung/blocking init and
+                                 # fails fast with a specific error rather than
+                                 # stalling until the 20/45-minute job timeout.
+        times = []
+        for i in range(10):
+            t0 = time.perf_counter()
+            try:
+                r = subprocess.run(["zsh", "-i", "-c", "true"],
+                                   capture_output=True, text=True,
+                                   timeout=PER_SAMPLE_TIMEOUT)
+            except subprocess.TimeoutExpired:
+                print("::error::zsh -i -c true did not finish within %ds on startup "
+                      "sample %d (blocking init?)" % (PER_SAMPLE_TIMEOUT, i + 1))
+                sys.exit(1)
+            dt = (time.perf_counter() - t0) * 1000.0
+            # Every sample must be a clean, successful startup — otherwise a
+            # shell that fails fast (nonzero exit or BOOT-01 stderr noise) would
+            # be timed anyway and could *lower* the median, masking breakage.
+            if r.returncode != 0:
+                print("::error::zsh -i -c true exited %d on startup sample %d" % (r.returncode, i + 1))
+                sys.exit(1)
+            if r.stderr.strip():
+                print("::error::zsh -i -c true emitted stderr on startup sample %d:" % (i + 1))
+                print(r.stderr)
+                sys.exit(1)
+            times.append(dt)
+        times.sort()
+        median = (times[4] + times[5]) / 2.0
+        print("startup samples (ms):", [round(x) for x in times])
+        print("median (ms):", round(median))
+        if median > 800:
+            print("::error::interactive startup median %d ms exceeds 800 ms budget" % round(median))
+            sys.exit(1)
+        PY
