@@ -5,11 +5,11 @@ with a new dirty file, and the "next up" item (merge PR #95) was blocked by a **
 The session became a full CI-rot investigation + cleanup — diagnosed two distinct macOS-CI
 failures, fixed both, handled a terminal installer's shell block (twice — conformed in #97, then
 reverted in #99 when the tool fought back), cleared the queue via a coordinated merge, and
-compounded two solution docs. **Master is green and the queue is empty.**
+compounded three solution docs. **Master is green and the queue is empty.**
 
 ## What We Built
 
-Five PRs **MERGED** (squash, branches deleted) + two solution docs. Master head: `16285f4`.
+Five PRs **MERGED** (squash, branches deleted) + three solution docs. Master head: `a4f6988`.
 
 - **PR #96 (MERGED, `f94ab5a`)** — `fix: remove dead adoptopenjdk/openjdk tap from Brewfile`.
   Root cause: modern Homebrew audits a tap's cask definitions on `brew tap`, and
@@ -48,10 +48,12 @@ Five PRs **MERGED** (squash, branches deleted) + two solution docs. Master head:
   the Dotbot-symlinked live `zshrc`, verified within one session of #97 merging. Restored Otty's
   block **verbatim** so it matches its own markers and stops re-adding. CI green (linux + macOS).
 
-- **Two `docs/solutions/` entries (`30e48aa`)** — compounded the CI-rot fixes under
-  `docs/solutions/cross-machine/`: `adoptopenjdk-dead-tap-fails-brew-bundle-2026-07-13.md` and
-  `brew-bundle-parallel-cellar-lock-race-macos-runner-2026-07-13.md`, cross-linked to each other
-  and the existing install-matrix docs.
+- **Three `docs/solutions/` entries** — compounded the session's learnings. Two CI-rot docs under
+  `cross-machine/` (`30e48aa`): `adoptopenjdk-dead-tap-fails-brew-bundle-2026-07-13.md` and
+  `brew-bundle-parallel-cellar-lock-race-macos-runner-2026-07-13.md`; plus a best-practice under
+  `best-practices/` (`a4f6988`): `dont-conform-tool-managed-shell-rc-blocks-2026-07-13.md` (the
+  Otty #97→#99 lesson — tool-managed markered blocks re-add themselves; leave them verbatim). All
+  cross-linked.
 
 ## Decisions Made
 
