@@ -66,6 +66,17 @@
     ~/.config/tmux/tmux.display.conf: tmux/tmux.display.conf
     ~/.config/topgrade.toml: topgrade/topgrade.toml
     ~/.local/bin/dot: bin/dot
+    # Whole-directory link: the tracked NvChad v2.5 config IS ~/.config/nvim.
+    # Placed in THIS (first) link block so the symlink exists BEFORE the shell
+    # block below runs install_nvim.sh — otherwise the headless plugin bootstrap
+    # would run against a missing config and no-op. The `if` skips (not fails) the
+    # link while ~/.config/nvim is still a real directory (pre-migration on an
+    # existing machine), since Dotbot won't clobber a real dir without force;
+    # remove/back-up that dir once to let the symlink take over. :Lazy update
+    # writes lazy-lock.json back through the symlink into the repo.
+    ~/.config/nvim:
+      path: nvim
+      if: '[ ! -e "$HOME/.config/nvim" ] || [ -L "$HOME/.config/nvim" ]'
 
 - shell:
     - . ~/.zshenv
@@ -91,7 +102,6 @@
     ~/.config/tmux/scripts/save-window-meta.sh: tmux/scripts/save-window-meta.sh
     ~/.config/tmux/scripts/restore-window-meta.sh: tmux/scripts/restore-window-meta.sh
     ~/.config/tmux/scripts/location.sh: tmux/scripts/location.sh
-    ~/.config/nvim/lua/custom: nvim/custom
 
 - shell:
     - command: |

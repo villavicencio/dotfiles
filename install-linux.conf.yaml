@@ -79,6 +79,13 @@
     ~/.config/tmux/tmux.display.conf: tmux/tmux.display.conf
     ~/.config/topgrade.toml: topgrade/topgrade.toml
     ~/.local/bin/dot: bin/dot
+    # Whole-directory link, placed in THIS (first) link block so the symlink
+    # exists before the shell block below runs install_nvim.sh (else the headless
+    # plugin bootstrap runs against a missing config and no-ops). The `if` skips
+    # (not fails) the link while ~/.config/nvim is still a real directory.
+    ~/.config/nvim:
+      path: nvim
+      if: '[ ! -e "$HOME/.config/nvim" ] || [ -L "$HOME/.config/nvim" ]'
 
 - shell:
     - command: |
@@ -107,12 +114,6 @@
     # install.conf.yaml intentionally does NOT symlink this path —
     # Mac's sidecar is written live by the tmux-window-namer skill.
     ~/.config/tmux/window-meta.json: tmux/window-meta.linux.json
-    # create: true ensures Dotbot mkdir -p's the parent `~/.config/nvim/lua`
-    # before symlinking. Needed for fresh-host dry-run where install_nvim.sh
-    # (which otherwise clones NvChad and creates this directory) is skipped.
-    ~/.config/nvim/lua/custom:
-      path: nvim/custom
-      create: true
 
 - shell:
     - command: |
