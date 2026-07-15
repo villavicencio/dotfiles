@@ -61,6 +61,8 @@
     ~/.config/btop/btop.conf: btop/btop.conf
     ~/.config/lazygit/config.yml: lazygit/config.yml
     ~/.config/tmux/tmux.conf: tmux/tmux.conf
+    ~/.config/tmux/tmux.general.conf: tmux/tmux.general.conf
+    ~/.config/tmux/tmux.display.conf: tmux/tmux.display.conf
     ~/.config/topgrade.toml: topgrade/topgrade.toml
 
 - shell:
