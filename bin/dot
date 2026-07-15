@@ -332,6 +332,69 @@ EOF
       || warn "INDEX lists $idxcount of $doccount docs — regenerate (dot docs-index)"
   else warn "docs/solutions/INDEX.md missing"; fi
 
+  echo "docs cross-references (AGENTS.md + CLAUDE.md paths resolve):"
+  local dmiss=0 df
+  for df in AGENTS.md CLAUDE.md; do
+    [ -f "$REPO/$df" ] || { fail "$df missing"; dmiss=$((dmiss+1)); }
+  done
+  if [ "$dmiss" = 0 ]; then
+    # Extract backtick-wrapped path references and confirm each resolves. Whether a
+    # token is a repo-relative path is decided DYNAMICALLY: its first segment must
+    # match a real top-level entry (os.listdir) — so .github/, dotbot/, ./install,
+    # etc. are all covered without a hand-maintained prefix list, while prose like
+    # `and/or` or a URL is skipped. Placeholders/globs (`<x>`, `*`, `$`, `~`, `…`)
+    # and space-containing spans are skipped too. Fenced code blocks are stripped
+    # first so their ``` fences don't desync inline extraction.
+    # The parser runs as a plain command to a temp file (a heredoc inside $(...) is
+    # mis-scanned by bash); both mktemp and the parser's exit status are checked so
+    # an extraction failure FAILs instead of silently PASSing.
+    local badrefs pyout pyrc; pyout="$(mktemp 2>/dev/null)"
+    if [ -z "$pyout" ] || [ ! -f "$pyout" ]; then
+      fail "docs cross-ref: could not create temp file"
+    else
+      python3 - "$REPO" AGENTS.md CLAUDE.md >"$pyout" 2>/dev/null <<'PY'
+import sys, os, re
+try:
+    repo = sys.argv[1]
+    top_entries = set(os.listdir(repo))   # every real top-level name (dirs + files)
+    bt = chr(96)                           # backtick, kept out of the source literally
+    fence = re.compile(bt * 3 + r'.*?' + bt * 3, re.DOTALL)   # strip fenced blocks first
+    pat = re.compile(bt + r'([^' + bt + r']+)' + bt)          # then inline path spans
+    missing = set()
+    for df in sys.argv[2:]:
+        p = os.path.join(repo, df)
+        if not os.path.exists(p):
+            continue
+        text = fence.sub('', open(p, encoding="utf-8", errors="replace").read())
+        for tok in pat.findall(text):
+            tok = tok.strip()
+            if "/" not in tok:
+                continue
+            if any(c in tok for c in "<>*$~ ") or "…" in tok:
+                continue
+            explicit = tok.startswith("./")   # a ./-prefix is an unambiguous path ref
+            rel = (tok[2:] if explicit else tok).rstrip("/")
+            if not explicit and rel.split("/", 1)[0] not in top_entries:
+                continue                       # first segment isn't a repo entry → prose
+            if not os.path.exists(os.path.join(repo, rel)):
+                missing.add(rel)
+    for m in sorted(missing):
+        print(m)
+except Exception as e:
+    sys.stderr.write("PARSER_ERROR %r\n" % (e,)); sys.exit(1)
+PY
+      pyrc=$?
+      if [ "$pyrc" != 0 ]; then
+        fail "docs cross-ref parser failed (rc=$pyrc)"
+      else
+        badrefs="$(cat "$pyout")"
+        if [ -z "$badrefs" ]; then ok "AGENTS.md + CLAUDE.md reference only existing repo paths"
+        else warn "doc(s) reference missing repo paths:"; printf '    %s\n' $badrefs; fi
+      fi
+      rm -f "$pyout"
+    fi
+  fi
+
   echo "toolchain shadowing (which -a):"
   local t
   for t in node ruby python3 claude; do
