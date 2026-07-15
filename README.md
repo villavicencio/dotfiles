@@ -16,8 +16,8 @@ cd ~/Projects/Personal/dotfiles
 ./install
 ```
 
-`./install` picks `install.conf.yaml` on macOS (and `install-linux.conf.yaml` on
-Linux) automatically. Preview the Dotbot changes without applying them (after the
+`./install` runs a shared `dotbot-conf/base.yaml` then the platform layer
+(`dotbot-conf/darwin.yaml` on macOS, `dotbot-conf/linux.yaml` on Linux) automatically. Preview the Dotbot changes without applying them (after the
 one-time Dotbot submodule init the wrapper always does):
 
 ```sh

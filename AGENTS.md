@@ -21,10 +21,11 @@ Personal dotfiles — the single source of truth for two Macs, managed by
 | personal | macOS Tahoe | M-series | Primary, source of truth |
 | work | macOS Sequoia | M-series | corporate-managed |
 
-`./install` sets up a machine — the wrapper auto-selects `install.conf.yaml` on Darwin
-and `install-linux.conf.yaml` on Linux. There is no active Linux target as of 2026-05-21
-(the Hetzner VPS was repurposed); the Linux config and `uname` guards are kept as generic
-infrastructure — see `docs/solutions/cross-machine/vps-dotfiles-target.md`.
+`./install` sets up a machine — the wrapper runs a shared `dotbot-conf/base.yaml` then the
+platform layer (`dotbot-conf/darwin.yaml` on Darwin, `dotbot-conf/linux.yaml` on Linux).
+There is no active Linux target as of 2026-05-21 (the Hetzner VPS was repurposed); the Linux
+layer and `uname` guards are kept as generic infrastructure — see
+`docs/solutions/cross-machine/vps-dotfiles-target.md`.
 
 ---
 
@@ -162,7 +163,9 @@ without applying them. The only thing the wrapper does regardless is init the ve
 `dotbot/` submodule (a one-time git op). Verify a fresh host stays clean:
 ```bash
 FAKE=/tmp/dotbot-dryrun-$$; mkdir -p "$FAKE"
-DOTFILES_DRY_RUN=1 HOME="$FAKE" ./dotbot/bin/dotbot -d "$PWD" -c install-linux.conf.yaml --dry-run
+for cfg in dotbot-conf/base.yaml dotbot-conf/linux.yaml; do
+  DOTFILES_DRY_RUN=1 HOME="$FAKE" ./dotbot/bin/dotbot -d "$PWD" -c "$cfg" --dry-run
+done
 find "$FAKE" -mindepth 1 | wc -l   # must print 0
 rm -rf "$FAKE"
 ```

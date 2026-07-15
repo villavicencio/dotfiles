@@ -2,6 +2,11 @@
 
 . ./zsh/zshenv
 
+if [ "${DOTFILES_DRY_RUN:-0}" = "1" ]; then
+  echo "[dry-run] would install/update NVM at ${NVM_DIR:-$XDG_CONFIG_HOME/nvm} and source nvm.sh"
+  exit 0
+fi
+
 if [ ! -d "$HOME/.config/nvm" ]; then
   echo "Installing NVM..."
   export NVM_DIR="$XDG_CONFIG_HOME/nvm" && (
@@ -15,7 +20,6 @@ if [ ! -d "$HOME/.config/nvm" ]; then
     }
     git checkout "$(git describe --abbrev=0 --tags --match "v[0-9]*" "$(git rev-list --tags --max-count=1)")"
   ) && \. "$NVM_DIR/nvm.sh"
-  . "$NVM_DIR/nvm.sh"
   echo "NVM installed successfully"
 else
   echo "NVM is already installed. Updating to the latest version..."

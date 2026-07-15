@@ -6,9 +6,13 @@ DOTBOT_DIR="dotbot"
 DOTBOT_BIN="bin/dotbot"
 BASEDIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+# Layered configs: a shared base layer plus one platform layer. The base runs
+# first (shared dirs/links/helpers, incl. the Linux locale step which must
+# precede install_packages), then the platform layer adds its specifics.
+BASE_CONFIG="dotbot-conf/base.yaml"
 case "$(uname)" in
-  Darwin) CONFIG="install.conf.yaml" ;;
-  Linux)  CONFIG="install-linux.conf.yaml" ;;
+  Darwin) PLATFORM_CONFIG="dotbot-conf/darwin.yaml" ;;
+  Linux)  PLATFORM_CONFIG="dotbot-conf/linux.yaml" ;;
   *)      echo "Unsupported OS: $(uname)" >&2; exit 1 ;;
 esac
 
@@ -19,15 +23,40 @@ esac
 # Also export DOTFILES_DRY_RUN=1 as defense-in-depth for any helper invoked
 # directly (outside Dotbot) and for inline shell blocks that want to emit a
 # human-readable "[dry-run] would ..." message.
+# Mirror the fail-fast (-x / --exit-on-failure) and dry-run (-n / --dry-run) flags
+# that get passed through to Dotbot, matching Dotbot's argparse grammar: long
+# abbreviations (--exit* is unambiguous vs Dotbot's --except) and clustered short
+# flags (-xv, -nx, …). Getting this right matters because -x makes the base layer
+# stop on first failure; the wrapper must then honor that across the layer boundary.
+FAIL_FAST=0
 for arg in "$@"; do
-  if [ "$arg" = "--dry-run" ] || [ "$arg" = "-n" ]; then
-    export DOTFILES_DRY_RUN=1
-    break
-  fi
+  case "$arg" in
+    --dry-run)  export DOTFILES_DRY_RUN=1 ;;
+    --exit*)    FAIL_FAST=1 ;;
+    --*)        : ;;  # some other long option — not ours to interpret
+    -*)               # short-flag cluster: scan for n (dry-run) and x (exit-on-failure)
+      case "$arg" in *n*) export DOTFILES_DRY_RUN=1 ;; esac
+      case "$arg" in *x*) FAIL_FAST=1 ;; esac
+      ;;
+  esac
 done
 
 cd "${BASEDIR}"
 git -C "${DOTBOT_DIR}" submodule sync --quiet --recursive
 git submodule update --init --recursive "${DOTBOT_DIR}"
 
-exec "${BASEDIR}/${DOTBOT_DIR}/${DOTBOT_BIN}" -d "${BASEDIR}" -c "${CONFIG}" "$@"
+DOTBOT="${BASEDIR}/${DOTBOT_DIR}/${DOTBOT_BIN}"
+# Default (no -x): run BOTH layers best-effort, matching the pre-split single run
+# — Dotbot with exit-on-failure off continued past a failed shell command and
+# reported failure only at the end, so a benign base failure (e.g. one flaky
+# `brew bundle` cask) never skipped the platform layer's chsh / node / ~/.claude
+# + iTerm links. With -x / --exit-on-failure the caller explicitly wants fail-fast,
+# which the old single process honored across the whole install — so skip the
+# platform layer if base fails. `|| rc=$?` stops `set -e` from aborting between.
+rc=0
+"${DOTBOT}" -d "${BASEDIR}" -c "${BASE_CONFIG}" "$@" || rc=$?
+if [ "$rc" -ne 0 ] && [ "$FAIL_FAST" -eq 1 ]; then
+  exit "$rc"
+fi
+"${DOTBOT}" -d "${BASEDIR}" -c "${PLATFORM_CONFIG}" "$@" || rc=$?
+exit "$rc"
