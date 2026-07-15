@@ -66,8 +66,21 @@ artifact for the overnight execution loop (Opus 4.8 + Codex adversarial review).
 - **Do NOT conform/edit the Otty `# >>>`…`# <<<` block in `zsh/zshrc`** (see #97→#99 lesson).
 - **No machine-side uninstalls overnight** — repo-side changes only; machine reconciliation is
   a morning-checklist activity (plan doc §Safety-rails).
-- **P2-7 (settings hygiene) runs last** — it removes allow-rules the running loop may rely on.
 - **iTerm defaults flip is manual** — iTerm rewrites the prefs folder on quit; don't fight it
   from a background agent.
-- `claude/settings.json` `/model`-churn rule stays in force until P2-7 lands (then pins are
-  gone by design, D5).
+- **`claude/settings.json` is now the shared cross-machine baseline** (P2-7 landed, D5): the
+  `model`/`effortLevel` pins, the two dead marketplaces (`claude-code-plugins`,
+  `villavicencio-skills-private`), and the host-specific `curl`/`ssh root@openclaw-prod`
+  auto-allow rules were removed. Claude Code has **no user-level `*.local` override layer**
+  (`settings.local.json` is project-scoped only), so genuinely per-machine user settings must
+  live on that machine's own `~/.claude/settings.json`, not be committed here.
+- **The P2-7 change is currently INERT on the personal Mac** and applying it is a manual step.
+  The live `~/.claude/settings.json` is a **regular file** (decoupled from the repo — it still
+  carries the old pins + `curl`/`ssh` allow rules). Dotbot's `link` defaults are `relink: true`
+  with **no `force`**, so `./install` will *not* overwrite a regular file — it reports a link
+  failure and leaves the old settings active. To actually apply the hygiene change on a machine
+  (morning-checklist, **do not auto-delete — it's live user data**): (1) back up the live file
+  (`cp ~/.claude/settings.json ~/.claude/settings.json.bak`); (2) remove it; (3) run `./install`
+  so Dotbot creates the symlink; (4) verify `~/.claude/settings.json` is now the symlink and the
+  removed rules are absent (`readlink ~/.claude/settings.json`; `jq '.model // "gone"'`). A fresh
+  session will then see more permission prompts — by design.
