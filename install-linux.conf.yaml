@@ -19,6 +19,7 @@
     - ~/.config/tmux/resurrect
     - ~/.config/tmux/plugins
     - ~/.config/tmux/scripts
+    - ~/.local/bin
 
 - shell:
     - command: |
@@ -77,6 +78,7 @@
     ~/.config/tmux/tmux.general.conf: tmux/tmux.general.conf
     ~/.config/tmux/tmux.display.conf: tmux/tmux.display.conf
     ~/.config/topgrade.toml: topgrade/topgrade.toml
+    ~/.local/bin/dot: bin/dot
 
 - shell:
     - command: |
