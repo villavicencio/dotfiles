@@ -42,9 +42,16 @@ export EDITOR='nvim'
 # Prioritize using GNU commands over BSD commands (macOS only)
 [[ -d "$BREW_PREFIX/opt/coreutils/libexec/gnubin" ]] && export PATH="$BREW_PREFIX/opt/coreutils/libexec/gnubin:$PATH"
 
-# Save reference to dotfiles directory. Subprocess-free: resolve the symlinked
-# .zshrc to its real path in the repo, then take its grandparent (repo root).
-export DOTFILES=${${:-$ZDOTDIR/.zshrc}:A:h:h}
+# Save reference to the dotfiles directory: resolve the symlinked .zshrc to its
+# real path in the repo, then take its grandparent (repo root). In zsh this is
+# subprocess-free via modifiers. This file is ALSO `.`-sourced by /bin/sh during
+# `./install`, where the zsh `${…:A:h:h}` form is a fatal "bad substitution" — so
+# guard on $ZSH_VERSION and give POSIX sh a readlink/dirname fallback.
+if [ -n "$ZSH_VERSION" ]; then
+  eval 'export DOTFILES=${${:-$ZDOTDIR/.zshrc}:A:h:h}'
+else
+  export DOTFILES="$(CDPATH= cd -- "$(dirname -- "$(readlink "$ZDOTDIR/.zshrc")")/.." && pwd -P)"
+fi
 
 # ======================================
 #             PATH CONFIG
