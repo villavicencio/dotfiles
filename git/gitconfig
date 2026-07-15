@@ -20,17 +20,6 @@
     pager = vim -
 [help]
     autocorrect = 1
-[gitflow "branch"]
-    master = master
-    develop = develop
-[gitflow "prefix"]
-    feature = feature/
-    release = release/
-    hotfix = hotfix/
-    support = support/
-    versiontag =
-[diff "exif"]
-    textconv = exiftool
 [diff]
 	submodule = log
 [status]
@@ -54,7 +43,6 @@
     line-numbers = true
 [alias]
 	# Basic aliases
-	push = push -u
 	stat = status
     co = checkout
     ci = commit
@@ -78,6 +66,12 @@
 	provider = generic
 [credential "https://github.com"]
 	helper = 
+	# Absolute path (not bare `gh`): git credential helpers are invoked by GUI/IDE
+	# git clients with a minimal PATH that never sourced the shell, where bare `gh`
+	# fails with "command not found" and the scoped block has no fallback. Both
+	# machines are Apple Silicon, so /opt/homebrew/bin/gh is correct on both; git
+	# config has no $BREW_PREFIX expansion, so an absolute literal is the only
+	# PATH-independent option.
 	helper = !/opt/homebrew/bin/gh auth git-credential
 [credential "https://gist.github.com"]
 	helper =
