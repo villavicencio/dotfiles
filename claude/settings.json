@@ -1,8 +1,8 @@
 {
+  "//": "Tracked cross-machine baseline. Claude Code loads this as the user-scope ~/.claude/settings.json (lowest precedence). Keep machine-/session-specific values (model & effortLevel pins, host-specific allow rules, per-machine MCP servers) OUT of this shared file. Higher-precedence layers Claude Code loads: managed settings and CLI flags, plus per-project .claude/settings.local.json (gitignored) for project-scoped overrides. There is no user-level *.local override layer, so genuinely per-machine user settings must live on that machine's own ~/.claude/settings.json (not committed here).",
   "permissions": {
     "defaultMode": "auto"
   },
-  "model": "opus[1m]",
   "hooks": {
     "SessionStart": [
       {
@@ -90,12 +90,6 @@
     "codex@openai-codex": true
   },
   "extraKnownMarketplaces": {
-    "claude-code-plugins": {
-      "source": {
-        "source": "github",
-        "repo": "anthropics/claude-code"
-      }
-    },
     "compound-engineering-plugin": {
       "source": {
         "source": "github",
@@ -115,12 +109,6 @@
         "repo": "villavicencio/skills"
       }
     },
-    "villavicencio-skills-private": {
-      "source": {
-        "source": "github",
-        "repo": "villavicencio/skills-private"
-      }
-    },
     "openai-codex": {
       "source": {
         "source": "github",
@@ -128,7 +116,6 @@
       }
     }
   },
-  "effortLevel": "xhigh",
   "tui": "fullscreen",
   "showThinkingSummaries": true,
   "skipDangerousModePermissionPrompt": true,
@@ -155,10 +142,7 @@
     "Bash(npm view*)",
     "Bash(npm uninstall*)",
     "Bash(claude *)",
-    "Bash(curl -fsSL*)",
-    "Bash(curl -s*)",
-    "Bash(tmux -V*)",
-    "Bash(ssh root@openclaw-prod*)"
+    "Bash(tmux -V*)"
   ],
   "mcpServers": {
     "eagle": {
