@@ -9,6 +9,12 @@ This repo is the single source of truth for two Macs:
 
 Managed by [Dotbot](https://github.com/anishathalye/dotbot). Run `./install` to set up a machine — the wrapper picks `install.conf.yaml` on Darwin and `install-linux.conf.yaml` on Linux automatically (no active Linux target as of 2026-05-21 — the Hetzner VPS was re-purposed away from a dotfiles tree; see retire-noted runbook in `docs/solutions/cross-machine/vps-dotfiles-target.md` if you ever want to revive a Linux target).
 
+> **Tool-neutral brief:** [`AGENTS.md`](AGENTS.md) is the canonical, tool-agnostic
+> description of the repo's layout, conventions, common tasks, and verification commands —
+> the version any agent (Codex, Cursor, …) should read. This file keeps the same
+> conventions **plus** Claude Code-specific behavior and the full gotcha write-ups, so it
+> stays self-sufficient for Claude Code loading. If the two ever drift, reconcile them.
+
 ---
 
 ## Structure
@@ -159,10 +165,13 @@ added as a shim in the NVM lazy loader block in `zshrc`, or it won't be on PATH 
 is first called. When adding a new global CLI: add its name to the `unset -f` line in `_load_nvm()`
 and add a `<tool>() { _load_nvm; <tool> "$@"; }` shim.
 
-Current shims: `nvm`, `node`, `npm`, `npx`.
+Current shims: `nvm`, `node`, `npm`, `npx`, `bb`, `browse`.
 
-Note: `claude` is installed as a native Homebrew cask (`claude-code`), not via npm, so it
-does not need an NVM shim.
+Note: `claude` does not need an NVM shim — it is not an npm global. `helpers/install_claude_code.sh`
+installs it via Anthropic's native installer (`curl -fsSL https://claude.ai/install.sh | bash`)
+to `~/.local/bin/claude` (which `zshenv` puts ahead of Homebrew on `PATH`). The Brewfile does
+not manage it; the Homebrew cask lags, so the native installer + Claude Code's auto-updater is
+preferred.
 
 ### tmux-window-namer skill (external plugin + repo-side tmux infra)
 The **tmux-window-namer skill itself now lives in an external Claude Code plugin**
