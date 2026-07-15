@@ -4,26 +4,28 @@ These instructions apply across all projects on all machines.
 
 ---
 
-## Vault lanes — one-vault standard (est. 2026-07-14)
+## Per-agent Obsidian vaults (standard rev. 2026-07-15; supersedes the one-day one-vault experiment)
 
-All durable cross-session notes live in the single Obsidian vault `~/Obsidian/hermes/`,
-one lane per project under `projects/<name>/` (convention doc: `projects/README.md` in
-the vault). Every Claude Code project keeps its harness memory *physically in its lane*:
-`~/.claude/projects/<slug>/memory` is a **symlink** to
-`~/Obsidian/hermes/projects/<name>/memory`.
+Every project/agent/harness owns a small, self-contained Obsidian vault at
+`~/Obsidian/<name>/`, managed by that agent as it sees fit. There is no shared monolith.
+Cross-vault reads are fine when useful (plain filesystem paths); write to another
+project's vault only when asked.
 
-**New-project bootstrap** — the first time you work in a Mac CC project that has no lane:
-1. `mkdir -p ~/Obsidian/hermes/projects/<name>/memory`
-2. If `~/.claude/projects/<slug>/memory` already exists as a real dir, move its contents
-   into the lane memory dir; either way replace it with a symlink to the lane memory dir.
-3. Append the standard lane declaration (template in the vault's `projects/README.md`) to
-   the project's CLAUDE.md/AGENTS.md.
-4. Add the project's row to the vault's `projects/README.md` table.
-
-**Exceptions:** projects on `/Volumes/1TB Media` (Gooner, Sizes) stay entirely OUT of the
-vault — never symlink their memory into it or create lanes for them. Repo-tracked docs
-(docs/plans, docs/solutions, CLAUDE.md, HANDOFF.md) stay in their repos — lanes are for
-notes that aren't code-adjacent; don't duplicate repo content into lanes.
+- Claude Code projects keep harness memory *physically in their vault*:
+  `~/.claude/projects/<slug>/memory` is a **symlink** to `~/Obsidian/<name>/memory`.
+- **New-project bootstrap** — first session in a Mac CC project with no vault:
+  1. `mkdir -p ~/Obsidian/<name>/memory`
+  2. If `~/.claude/projects/<slug>/memory` exists as a real dir, move its contents into
+     the vault memory dir; either way replace it with a symlink to it.
+  3. Append the "## Vault" declaration to the project's CLAUDE.md/AGENTS.md (copy the
+     shape from `~/Projects/agents/CLAUDE.md`).
+  (David registers it in Obsidian's UI via "Open folder as vault" whenever he wants it.)
+- **Synced vaults (Syncthing ↔ VPS): only `hermes`** (David+Atlas — personal/feeds/brain/
+  TaskNotes) **and `axiom`** (work), both served by the single syncthing-hermes container.
+  CC project vaults are Mac-local by design — do not add shares for them unless asked.
+- **Exceptions:** projects on `/Volumes/1TB Media` (Gooner, Sizes) get NO vault under
+  `~/Obsidian/` and never sync. Repo-tracked docs (docs/plans, docs/solutions, CLAUDE.md,
+  HANDOFF.md) stay in their repos — vaults are for notes that aren't code-adjacent.
 
 ## Reasoning
 
