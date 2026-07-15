@@ -9,11 +9,11 @@ is in **`docs/plans/2026-07-14-001-run-log.md`**. Master ends **green + clean @ 
 
 | Disposition | Count | Packets |
 |---|---|---|
-| **Merged** (CI-green, review-approved) | 16 | P0-1..P0-5, P1-3, P1-4, P2-6, P2-3, P2-4, P2-8, P2-5, P2-1, P3-2, P2-7, P3-1 |
-| **Parked** — draft PR, machine-affecting | 2 | P1-1 (#108 iTerm), P1-2 (#109 fonts) |
-| **Deferred** — blocked by parked P1-1/P1-2 | 1 | P2-2 (dotbot layered configs) |
+| **Merged** (CI-green, review-approved) | 17 | P0-1..P0-5, P1-3, P1-4, P1-1, P2-6, P2-3, P2-4, P2-8, P2-5, P2-1, P3-2, P2-7, P3-1 |
+| **Parked** — draft PR, machine-affecting | 1 | P1-2 (#109 fonts) |
+| **Deferred** — blocked by parked P1-2 | 1 | P2-2 (dotbot layered configs) |
 
-Merged PRs: #100, #102–#107, #110–#118. Highlights: bash-3.2 OMZ install fixed (P0-1); CI now
+Merged PRs: #100, #102–#108, #110–#118. Highlights: bash-3.2 OMZ install fixed (P0-1); CI now
 asserts install outcomes + a weekly cron/failure-notifier (P0-2, P2-5); tmux spinner pkill anchor
 (P0-3); Brewfile curated + read-only drift reporter (P1-3); zsh/tmux/alias dead-config sweeps
 (P2-3, P2-4, P2-8); truth-pass docs + LICENSE + solutions INDEX (P2-6); new **`dot` CLI** with a
@@ -28,18 +28,22 @@ hygiene (P2-7). Startup held under budget (237 ms median). Follow-up issue: #101
    remaining step is the one-time machine migration** to swap your live `~/.config/nvim` real dir
    for the repo symlink — it's manual + backup-first (see the checklist below); merging the PR did
    not touch your live config.
-2. **Parked draft PRs #108 (iTerm) & #109 (fonts)** — both machine-affecting, want your review +
-   the one-time manual migration on each Mac (see run-log "Morning-checklist additions").
-3. **P2-2 (dotbot layered configs) deferred** — it restructures `install.conf.yaml`, which #108/#109
-   also modify; it should run *after* those two are merged or closed.
+2. **#108 (iTerm) — MERGED** (`4df9003`, rebased post-run). One manual step left: the iTerm
+   migration (checklist below). **#109 (fonts)** remains the last parked draft — machine-affecting,
+   wants your review + a glyph check.
+3. **P2-2 (dotbot layered configs) deferred** — it restructures `install.conf.yaml`, which #109
+   also modifies; it should run *after* #109 is merged or closed.
 
 ## Morning checklist (machine-side; nothing was mutated overnight except noted)
 
 - [ ] **Apply P2-7 settings hygiene on the personal Mac** (currently INERT — see gotcha below):
       back up → remove → `./install` → verify. It's a manual step because `./install` won't clobber
       the live regular file.
-- [ ] **#108 iTerm** (if merging): iTerm2 **quit** → `helpers/restore-iterm-app-prefs.sh --migrate`
-      → relaunch → Preferences → Profiles → select **Dotfiles** → mark default.
+- [ ] **#108 iTerm migration** (MERGED — one-time per Mac). `git pull` first, then `./install`
+      (creates the Dynamic Profile link), then: **quit iTerm2** →
+      `helpers/restore-iterm-app-prefs.sh --migrate` (disables the leaky custom-prefs-folder mode,
+      backs the old plist up *outside* the repo) → relaunch iTerm2 → Preferences ▸ Profiles ▸
+      select **Dotfiles** ▸ mark default. Verify Shift+Enter + fonts still work.
 - [ ] **#109 fonts** (if merging): both Nerd Font casks were force-installed during P1-2 verification
       (`font-jetbrains-mono-nerd-font`, `font-fira-code-nerd-font` @3.4.0); old manual Nerd Font
       files remain orphaned in `~/Library/Fonts` (harmless; `migrate_legacy_fonts.sh` handles the
