@@ -9,11 +9,11 @@ is in **`docs/plans/2026-07-14-001-run-log.md`**. Master ends **green + clean @ 
 
 | Disposition | Count | Packets |
 |---|---|---|
-| **Merged** (CI-green, review-approved) | 17 | P0-1..P0-5, P1-3, P1-4, P1-1, P2-6, P2-3, P2-4, P2-8, P2-5, P2-1, P3-2, P2-7, P3-1 |
-| **Parked** — draft PR, machine-affecting | 1 | P1-2 (#109 fonts) |
-| **Deferred** — blocked by parked P1-2 | 1 | P2-2 (dotbot layered configs) |
+| **Merged** (CI-green, review-approved) | 18 | P0-1..P0-5, P1-1..P1-4, P2-1, P2-3..P2-8, P3-1, P3-2 |
+| **Ready** — unblocked, not yet started | 1 | P2-2 (dotbot layered configs) |
 
-Merged PRs: #100, #102–#108, #110–#118. Highlights: bash-3.2 OMZ install fixed (P0-1); CI now
+All 18 roadmap packets except P2-2 are merged; both parked drafts (#108 iTerm, #109 fonts) were
+rebased onto post-run master and merged. Merged PRs: #100, #102–#118. Highlights: bash-3.2 OMZ install fixed (P0-1); CI now
 asserts install outcomes + a weekly cron/failure-notifier (P0-2, P2-5); tmux spinner pkill anchor
 (P0-3); Brewfile curated + read-only drift reporter (P1-3); zsh/tmux/alias dead-config sweeps
 (P2-3, P2-4, P2-8); truth-pass docs + LICENSE + solutions INDEX (P2-6); new **`dot` CLI** with a
@@ -28,11 +28,12 @@ hygiene (P2-7). Startup held under budget (237 ms median). Follow-up issue: #101
    remaining step is the one-time machine migration** to swap your live `~/.config/nvim` real dir
    for the repo symlink — it's manual + backup-first (see the checklist below); merging the PR did
    not touch your live config.
-2. **#108 (iTerm) — MERGED** (`4df9003`, rebased post-run). One manual step left: the iTerm
-   migration (checklist below). **#109 (fonts)** remains the last parked draft — machine-affecting,
-   wants your review + a glyph check.
-3. **P2-2 (dotbot layered configs) deferred** — it restructures `install.conf.yaml`, which #109
-   also modifies; it should run *after* #109 is merged or closed.
+2. **#108 (iTerm) — MERGED** (`4df9003`). One manual step left: the iTerm migration (checklist
+   below). **#109 (fonts) — MERGED** (`4b412e1`); glyphs confirmed rendering from the casks, so
+   **no machine step pending** — the 189 MB tracked `fonts/` is gone from the working tree.
+3. **P2-2 (dotbot layered configs) — now UNBLOCKED** (its blockers #108/#109 merged). It's the
+   one remaining roadmap packet: restructure `install.conf.yaml` into layered
+   `dotbot-conf/{base,darwin,linux}.yaml` + a per-layer wrapper.
 
 ## Morning checklist (machine-side; nothing was mutated overnight except noted)
 
@@ -44,10 +45,10 @@ hygiene (P2-7). Startup held under budget (237 ms median). Follow-up issue: #101
       `helpers/restore-iterm-app-prefs.sh --migrate` (disables the leaky custom-prefs-folder mode,
       backs the old plist up *outside* the repo) → relaunch iTerm2 → Preferences ▸ Profiles ▸
       select **Dotfiles** ▸ mark default. Verify Shift+Enter + fonts still work.
-- [ ] **#109 fonts** (if merging): both Nerd Font casks were force-installed during P1-2 verification
-      (`font-jetbrains-mono-nerd-font`, `font-fira-code-nerd-font` @3.4.0); old manual Nerd Font
-      files remain orphaned in `~/Library/Fonts` (harmless; `migrate_legacy_fonts.sh` handles the
-      collision on a fresh `./install`). Visually confirm tmux pill glyphs + starship symbols.
+- [x] **#109 fonts — DONE** (merged; glyphs confirmed rendering from the casks). Both Nerd Font
+      casks (`font-jetbrains-mono-nerd-font`, `font-fira-code-nerd-font`) are installed; old manual
+      Nerd Font files remain orphaned in `~/Library/Fonts` (harmless — `migrate_legacy_fonts.sh`
+      moves them aside on a fresh `./install`; delete them by hand whenever you like).
 - [ ] **P3-1 nvim migration** (one-time per Mac; adopts the now-tracked config). Quit nvim, then:
       ```sh
       cd ~/Projects/Personal/dotfiles && git pull            # get the tracked nvim/
