@@ -1,3 +1,2 @@
-*.png diff=exif
-*.jpg diff=exif
-*.gif diff=exif
+# Global git attributes. (The image `diff=exif` textconv entries were removed —
+# exiftool isn't installed, so they only made `git diff` on images error.)
