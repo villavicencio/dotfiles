@@ -27,8 +27,9 @@ project's vault only when asked.
   - **"Apply the standard to X"** (blank/new vaults — full stamp, overwrites existing
     config): `rm -rf ~/Obsidian/X/.obsidian && cp -R <template> ~/Obsidian/X/.obsidian`.
     On first open, Obsidian asks once to enable community plugins — expected.
-  - **Theme-only apply** (vaults with bespoke settings, e.g. axiom — preserves plugins
-    and their data): copy only `appearance.json`, `themes/`, and `snippets/`.
+  - **Theme-only apply** (vaults an agent has customized — preserves plugins and their
+    data): copy only `appearance.json`, `themes/`, and `snippets/`. (All 11 vaults are
+    on the full standard as of 2026-07-16.)
   - **"Seed a new standard [from vault Y]"**: David tunes Y (usually hermes) in the
     Obsidian UI, then: copy Y's `.obsidian` over the template minus `workspace*.json`/
     `cache`, commit dotfiles with a "vault-template rev N" message, and propagate to
