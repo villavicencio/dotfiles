@@ -1,0 +1,11 @@
+# Repo-level gitleaks config — extends the default ruleset.
+# gitleaks (protect/detect) auto-loads this file from the repo root.
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Vendored third-party Obsidian plugin code in the vault-config template — minified parser/tokenizer arrays (e.g. obsidian-tasks-plugin Tokens=/VALID_TOKENS=) trip generic-api-key. Only plugin CODE files are allowlisted; plugin data.json settings files are still scanned."
+paths = [
+  '''obsidian/vault-template/\.obsidian/plugins/[^/]+/(main\.js|styles\.css)''',
+]

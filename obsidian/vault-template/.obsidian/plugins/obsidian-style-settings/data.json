@@ -1,0 +1,8 @@
+{
+  "encore-settings@@theme-dark": "encore-theme-dark-glass-royale",
+  "encore-settings@@colors": "encore-colors-custom",
+  "encore-settings@@encore-translucency": true,
+  "encore-settings@@encore-fancy-headers": false,
+  "encore-settings@@encore-translucency-background": "encore-bg-sapphire",
+  "encore-settings@@encore-highlight-border": false
+}

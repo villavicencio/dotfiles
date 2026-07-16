@@ -1,0 +1,177 @@
+{
+  "title": "Obsidian",
+  "showTitle": true,
+  "logo": "",
+  "searchPlaceholder": "Search or command",
+  "showNewNoteButton": true,
+  "newNoteButtonMode": "newNote",
+  "searchContents": true,
+  "searchEngine": "builtin",
+  "backgroundKind": "default",
+  "backgroundValue": "",
+  "backgroundOpacity": 0.35,
+  "backgroundBlur": 2,
+  "openOnStartup": true,
+  "replaceNewTabs": true,
+  "mobileSearchOnly": false,
+  "showMobileActionBar": true,
+  "mobileActionButtons": [
+    {
+      "id": "action-new-note",
+      "label": "New note",
+      "icon": "plus",
+      "type": "command",
+      "target": "hearth:new-note"
+    },
+    {
+      "id": "action-new-drawing",
+      "label": "New drawing",
+      "icon": "pen-tool",
+      "type": "command",
+      "target": "hearth:new-drawing"
+    },
+    {
+      "id": "action-record-voice",
+      "label": "Record voice",
+      "icon": "mic",
+      "type": "command",
+      "target": "hearth:record-voice"
+    },
+    {
+      "id": "action-daily-note",
+      "label": "Daily note",
+      "icon": "calendar",
+      "type": "command",
+      "target": "hearth:open-daily-note"
+    }
+  ],
+  "disableExternalCalls": false,
+  "compact": false,
+  "arrangeButtonVisibility": "always",
+  "dashboardSwitcherVisibility": "always",
+  "cardOpacity": 0.5,
+  "cardBlur": 7,
+  "hiddenFilters": [],
+  "dashboards": [
+    {
+      "id": "dash-mrl2jo7v-8709",
+      "name": "Dashboard 1",
+      "cards": [
+        {
+          "id": "card-clock",
+          "kind": "clock",
+          "title": "",
+          "x": 0,
+          "y": 0,
+          "w": 12,
+          "h": 3,
+          "fx": 0,
+          "fw": 0.2845744680851064,
+          "fy": 0,
+          "fh": 145
+        },
+        {
+          "id": "card-daily",
+          "kind": "daily",
+          "title": "Today",
+          "x": 0,
+          "y": 3,
+          "w": 7,
+          "h": 6,
+          "fx": 0.630721489526765,
+          "fw": 0.36927851047323507,
+          "fy": 0,
+          "fh": 578
+        },
+        {
+          "id": "card-calendar",
+          "kind": "calendar",
+          "title": "Calendar",
+          "x": 7,
+          "y": 3,
+          "w": 5,
+          "h": 6,
+          "fx": 0,
+          "fw": 0.28471683475562454,
+          "fy": 159,
+          "fh": 419
+        },
+        {
+          "id": "card-recent",
+          "kind": "recent",
+          "title": "Recent",
+          "x": 0,
+          "y": 9,
+          "w": 7,
+          "h": 4,
+          "count": 7,
+          "fx": 0.2948021722265322,
+          "fw": 0.32505818463925523,
+          "fy": 256,
+          "fh": 322
+        },
+        {
+          "id": "card-stats",
+          "kind": "stats",
+          "title": "Vault",
+          "x": 7,
+          "y": 9,
+          "w": 5,
+          "h": 4,
+          "fx": 0.29497098646034814,
+          "fw": 0.32495164410058025,
+          "fy": 0,
+          "fh": 235
+        },
+        {
+          "id": "card-mrl3t51u-8125",
+          "x": 0,
+          "y": 3,
+          "kind": "heatmap",
+          "title": "Activity",
+          "heatmap": {},
+          "w": 6,
+          "h": 3,
+          "fx": 0,
+          "fy": 594,
+          "fw": 1,
+          "fh": 308
+        }
+      ]
+    },
+    {
+      "id": "dash-mrl2qjhw-985",
+      "name": "Tasks",
+      "cards": [
+        {
+          "id": "card-mrl46ilt-2584",
+          "x": 0,
+          "y": 0,
+          "kind": "embed",
+          "title": "Note",
+          "target": "TaskNotes/Views/kanban-default.base",
+          "w": 6,
+          "h": 3,
+          "fx": 0,
+          "fy": 0,
+          "fw": 1,
+          "fh": 902,
+          "tasks": {},
+          "leafView": {}
+        }
+      ]
+    }
+  ],
+  "activeDashboardId": "dash-mrl2qjhw-985",
+  "pinnedCards": [],
+  "gridColumns": 12,
+  "rowHeight": 92,
+  "favorites": [],
+  "fitToPage": true,
+  "taskNotesStatusField": "status",
+  "taskNotesDueField": "due",
+  "taskNotesPriorityField": "priority",
+  "taskNotesDoneValue": "done",
+  "maxWidth": 1600,
+  "lastSeenVersion": "1.11.0"
+}
