@@ -37,9 +37,9 @@ project's vault only when asked.
 - **Synced vaults (Syncthing ↔ VPS): only `hermes`** (David+Atlas — personal/feeds/brain/
   TaskNotes) **and `axiom`** (work), both served by the single syncthing-hermes container.
   CC project vaults are Mac-local by design — do not add shares for them unless asked.
-- **Exceptions:** projects on `/Volumes/1TB Media` (Gooner, Sizes) get NO vault under
-  `~/Obsidian/` and never sync. Gooner does keep its own on-volume vault at
-  `/Volumes/1TB Media/Gooner` (standard config applied 2026-07-17) — include it in
+- **Exceptions:** projects on `/Volumes/1TB Media` (Erato, Sizes) get NO vault under
+  `~/Obsidian/` and never sync. Erato does keep its own on-volume vault at
+  `/Volumes/1TB Media/Erato` (standard config applied 2026-07-17) — include it in
   standard-config propagations when the volume is mounted, but never inspect its
   content, never relocate it, never add a share. Repo-tracked docs (docs/plans,
   docs/solutions, CLAUDE.md, HANDOFF.md) stay in their repos — vaults are for notes
