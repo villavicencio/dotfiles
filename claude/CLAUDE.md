@@ -76,6 +76,14 @@ Never delete user data (files, records, database entries, folders, notes) withou
 Even if content seems out of scope or inappropriate, ask before removing. The cost of unauthorized
 deletion is far higher than the cost of asking.
 
+## Git Discipline
+
+**Never commit directly to the default branch (main/master) — always work on a branch**
+(standing order, 2026-07-23). Branch (`feat/…`, `fix/…`, `chore/…`, `docs/…`) → commit →
+merge (PR where the repo has a remote review flow; local merge where it doesn't). Applies
+to every repo, including data vaults and doc-only commits (handoff commits ride a branch
+too). Repos with their own stricter rules (e.g. skills-private's PR-only flow) keep them.
+
 ## Research
 
 When you hit a wall — unfamiliar tool, unknown API, missing docs — always perform a web search
