@@ -84,6 +84,15 @@ merge (PR where the repo has a remote review flow; local merge where it doesn't)
 to every repo, including data vaults and doc-only commits (handoff commits ride a branch
 too). Repos with their own stricter rules (e.g. skills-private's PR-only flow) keep them.
 
+## Code Review
+
+**Adversarial code review → invoke `dv:gauntlet`** (dv suite ≥ 0.2.0, installed user-scope, so it
+resolves in every project); do **not** hand-roll `codex exec review` or Claude↔Codex review loops.
+Bare `dv:gauntlet` is the full autonomous find→refute→fix→commit loop (staged, cost-tiered,
+budgeted); `dv:gauntlet report` is a single report-only round. The skill owns the procedure —
+rounds, budgets, the fingerprint ledger, stop rules, read-only peer runs — so don't re-derive it
+per project.
+
 ## Research
 
 When you hit a wall — unfamiliar tool, unknown API, missing docs — always perform a web search
