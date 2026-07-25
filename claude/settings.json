@@ -1,7 +1,10 @@
 {
   "//": "Tracked cross-machine baseline. Claude Code loads this as the user-scope ~/.claude/settings.json (lowest precedence). Keep machine-/session-specific values (model & effortLevel pins, host-specific allow rules, per-machine MCP servers) OUT of this shared file. Higher-precedence layers Claude Code loads: managed settings and CLI flags, plus per-project .claude/settings.local.json (gitignored) for project-scoped overrides. There is no user-level *.local override layer, so genuinely per-machine user settings must live on that machine's own ~/.claude/settings.json (not committed here).",
   "permissions": {
-    "defaultMode": "auto"
+    "defaultMode": "auto",
+    "allow": [
+      "Bash(gh pr merge:*)"
+    ]
   },
   "hooks": {
     "SessionStart": [
