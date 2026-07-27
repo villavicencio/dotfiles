@@ -60,8 +60,12 @@ reasoning.
 
 Specifically, do not write:
 - **Process-narration preambles** — "let me verify the actual state rather than just
-  reciting…", "Here's the picture", "Let me think through this." Just do the thing and
-  report what you found.
+  reciting…", "Here's the picture", "Let me think through this." **Any "Let me …" opener
+  that narrates the next action is banned** — just do the thing and report what you found.
+  This covers *mid-task* narration around tool calls ("Let me check where the review
+  stands," "Let me pull the rest from the live dataset," "Let me find out exactly why"),
+  not only final prose. A one-line background-task *status* update is fine; a narrated
+  intention to run the next step is not.
 - **Emphatic editorializing** — "and it's not cosmetic", "this is the whole game",
   "the honest truth is", "make no mistake." If a point matters, the facts show it.
 - **Framing throat-clearing** — "So the honest answer:", "The key insight is:",
@@ -93,6 +97,23 @@ budgeted); `dv:gauntlet report` is a single report-only round. The skill owns th
 rounds, budgets, the fingerprint ledger, stop rules, read-only peer runs — so don't re-derive it
 per project.
 
+**This holds even under `/effort ultracode` or dynamic workflow orchestration, and even when
+another project's vault or SOP describes its own `codex exec review`/Claude↔Codex loop** — those
+are superseded by `dv:gauntlet`, so discovering one elsewhere does not override the standing tool.
+Custom multi-agent workflows may supply research or critique *lenses* upstream, but the adversarial
+review of your own diff still routes through `dv:gauntlet` (bare for your own branch, `report` for a
+read-only pass on someone else's). If you catch yourself about to "fan out reviewers," "spin up a
+skeptic panel," or "drive the Codex loop," stop and invoke `dv:gauntlet` first.
+
+## Durable Rules vs Handoff Notes
+
+A rule, gotcha, or standing procedure discovered mid-session that has value *beyond* "what happened
+this session" belongs in the project's `AGENTS.md`/`CLAUDE.md` or `docs/solutions/` **at the moment
+it's discovered** — not deferred to `HANDOFF.md`. `dv:handoff` overwrites HANDOFF wholesale each run
+(no history), so a durable rule parked only there is one handoff away from being lost, and the
+handoff itself drifts from reality between writes. If you find yourself writing "the rule we
+established this session" into HANDOFF, stop and also land it in the durable doc.
+
 ## Research
 
 When you hit a wall — unfamiliar tool, unknown API, missing docs — always perform a web search
@@ -104,7 +125,11 @@ default fallback for anything outside your training data.
 Three tiers, in order. Reach for the lowest tier that can actually answer the question.
 
 1. **`WebFetch`** — default. Static HTML, server-rendered pages, doc URLs, READMEs, anything
-   `curl` would handle. Free and fast.
+   `curl` would handle. Free and fast. **Machine-readable JSON/registry endpoints (npm
+   registry, GitHub API, crates.io, PyPI, etc.) stay at this tier even for "current
+   version" facts** — they return authoritative structured data, so tier 2 buys nothing
+   there. Reserve the tier-2 preference for pages that need JS rendering or an
+   authenticated/live session state a JSON endpoint can't give you.
 2. **`browser` skill (Browserbase)** — preferred for any fetch where WebFetch isn't sufficient
    *and* for **realtime-fact queries** (prices, stock state, "as of today" claims, current-event
    facts, current external-system configuration, current package versions, anything phrased as
@@ -119,6 +144,12 @@ Three tiers, in order. Reach for the lowest tier that can actually answer the qu
    or when you want the skill itself to enforce fetch-fresh + substring-assert + freshness-tag-
    or-decline rather than relying on your own discipline. Also the right tool when a fact came
    from training data and you have specifically not yet fetched a current source for it.
+
+**On a failed primary-source fetch for a realtime fact, escalate (tier 1 → tier 2) or decline —
+do not fall back to an untagged secondary source.** A 500/blocked official page means "try the
+browser tier, or say you couldn't confirm," not "cite a third-party blog as if it were the source."
+Anything you do surface still carries its own source URL + fetch timestamp, per the freshness
+discipline above.
 
 **Never quote a realtime fact from training data without a freshness tag.** WebSearch returns
 SERP snippets that are stale-by-design and do not satisfy the freshness contract — it is fine
@@ -173,9 +204,13 @@ is fine. Anything that reads as advice about rest is not.
 
 When creating new markdown docs, route to Proof by default if the doc is collaborative —
 plans, specs, bug writeups, reports, memos, proposals, drafts, or similar iterative docs.
-Code-adjacent local documentation (READMEs, docs/solutions/, repo-tracked CLAUDE.md, repo-tracked
-HANDOFF.md, etc.) stays local. Existing repo-tracked markdown stays local unless the user
-explicitly asks to move or share it via Proof.
+Code-adjacent local documentation (READMEs, `docs/solutions/`, and repo-tracked `docs/plans/` /
+`docs/brainstorms/`, repo-tracked CLAUDE.md/AGENTS.md, repo-tracked HANDOFF.md, etc.) stays local —
+the three CE-convention directories (`plans`/`brainstorms`/`solutions`) are one in-repo set.
+Existing repo-tracked markdown stays local unless the user explicitly asks to move or share it via
+Proof. (The `ce-plan`/`ce-brainstorm`/`ce-ideate` skills route *their* plan/brainstorm docs to
+Proof via the `ce-proof` wrapper — that's a separate, deliberate path and is unaffected by this
+exemption, which is about ad-hoc docs you write straight into a repo's `docs/` tree.)
 
 The `proof` skill (`~/.claude/skills/proof/SKILL.md`) has the API details. The `compound-engineering:ce-proof`
 skill is a separate wrapper used by ce-brainstorm / ce-plan / ce-ideate handoffs.
