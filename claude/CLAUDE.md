@@ -110,11 +110,11 @@ Three tiers, in order. Reach for the lowest tier that can actually answer the qu
    facts, current external-system configuration, current package versions, anything phrased as
    "today" / "right now" / "current" / "as of this writing"). Real browser, JS rendering, anti-bot
    bypass, residential proxies. The user has generous Browserbase usage and prefers it over the
-   stricter `/verify-cite` contract for everyday realtime fetches. **When using `browser` for a
+   stricter `dv:cite` contract for everyday realtime fetches. **When using `browser` for a
    realtime-fact query, apply the freshness discipline manually:** quote only what is literally
    in the fetched page, attach source URL + fetch timestamp to the quote, or decline with a
-   reason. Same contract as `/verify-cite` — just enforced by you, not the skill.
-3. **`/verify-cite`** — strict-contract fallback. Use when the user explicitly asks for a
+   reason. Same contract as `dv:cite` — just enforced by you, not the skill.
+3. **`dv:cite`** — strict-contract fallback. Use when the user explicitly asks for a
    verified citation, when a claim is high-stakes (financial, medical, legal, public-record),
    or when you want the skill itself to enforce fetch-fresh + substring-assert + freshness-tag-
    or-decline rather than relying on your own discipline. Also the right tool when a fact came
@@ -131,9 +131,17 @@ summarization of static reference material — those don't need a fetch at all. 
 about whether a query is realtime, prefer fetching (false-positive fetches are recoverable;
 silent confabulations from stale training data are not).
 
+**A coding task does not exempt a realtime fact.** A model ID, package version, API endpoint,
+pricing figure, or deprecation status is a realtime fact even when the surrounding work is
+writing code — and *especially* when the value is about to be committed, where a wrong one ships
+silently and fails later at runtime. "This model is stale, the current one is X" is exactly the
+claim that needs grounding, not an incidental code edit. For Anthropic model IDs, pricing, and
+capabilities specifically, load the `claude-api` skill — it carries the current tables and its own
+never-answer-from-memory rule.
+
 ## Reddit Content
 
-Use the `/reddit` command to fetch Reddit posts and comments. Never use WebFetch for Reddit URLs.
+Use the `dv:reddit` skill to fetch Reddit posts and comments. Never use WebFetch for Reddit URLs.
 
 ## Time & Session Continuity
 
@@ -142,7 +150,7 @@ The user runs in **PST/PDT**. When citing or reasoning about time:
 - Derive day-of-week from the system-provided date; never guess
 - Don't layer on "late / morning / evening" framing unless wall-clock evidence supports it (4pm is not "late")
 
-`/pickup` is often a context-hygiene move, not a new day. Sessions are routinely back-to-back —
+`dv:pickup` is often a context-hygiene move, not a new day. Sessions are routinely back-to-back —
 the user clears the window to reduce cached-context cost and avoid pollution. Before defaulting
 to "overnight" / "tomorrow" / "next morning" framing, check HANDOFF mtime, recent commit
 timestamps, and any continuation cues in the conversation. If signals say same-session,
