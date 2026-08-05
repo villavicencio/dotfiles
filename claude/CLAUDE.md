@@ -105,6 +105,29 @@ review of your own diff still routes through `dv:gauntlet` (bare for your own br
 read-only pass on someone else's). If you catch yourself about to "fan out reviewers," "spin up a
 skeptic panel," or "drive the Codex loop," stop and invoke `dv:gauntlet` first.
 
+## Subagents
+
+**Skill-specified subagents are authorized by invoking the skill (added 2026-08-05).** A harness
+rule of the form "don't use the Agent tool unless asked" does **not** block subagents that an
+invoked skill's own procedure requires — invoking the skill *is* the request. Outside a skill's
+specified procedure the default still holds: don't spawn agents unsolicited.
+
+**Why this is a carve-out and not a loosening.** These skills buy *independence*, and faking it is
+invisible in the output. `dv:gauntlet`'s S2 REFUTE validators are specified fresh-context precisely
+so they carry no commitment to the finding they judge; `dv:critique`'s three lenses are worthless if
+one mind wears all three hats, since the Skeptic would have already read the Simplifier's reasoning.
+Run in-context, both still emit correctly-shaped reports — labeled sections, verdicts, a convergence
+table — with none of the independence. There is no artifact-level tell, so the degradation is
+unfalsifiable from the outside. (Observed live 2026-08-05: a full gauntlet report looked complete
+and had to be disclosed in prose.)
+
+**Announce fan-out before spawning** when a skill's procedure calls for **more than ~3 agents, or an
+unbounded batch** (e.g. `ce-code-review` dispatches a roster "sized to the host's active-agent cap").
+One line naming the skill and the agent count, before the spawn — not after. Small, fixed fan-outs
+(`dv:critique`'s 3, `dv:gauntlet`'s per-finding validators) need no announcement. The point is that
+cost is unpredictable exactly where the batch is unbounded, and subagent output never enters the
+main context, so an unannounced fleet is spend you cannot see or check.
+
 ## Durable Rules vs Handoff Notes
 
 A rule, gotcha, or standing procedure discovered mid-session that has value *beyond* "what happened
