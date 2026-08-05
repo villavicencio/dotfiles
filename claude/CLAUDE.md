@@ -105,6 +105,14 @@ review of your own diff still routes through `dv:gauntlet` (bare for your own br
 read-only pass on someone else's). If you catch yourself about to "fan out reviewers," "spin up a
 skeptic panel," or "drive the Codex loop," stop and invoke `dv:gauntlet` first.
 
+**Subagent carve-out (added 2026-08-05).** A harness rule of the form "don't use the Agent tool
+unless asked" does **not** block subagents that an invoked skill's own procedure requires — invoking
+the skill *is* the request. This applies specifically to `dv:gauntlet`'s S2 REFUTE validators, which
+are specified as **fresh-context** precisely so they carry no commitment to the finding they judge;
+running them in the main context degrades the independence the stage exists to provide. Same for
+Tier-2 FIND when Codex is absent. Outside a skill's specified procedure the default still holds:
+don't spawn agents unsolicited.
+
 ## Durable Rules vs Handoff Notes
 
 A rule, gotcha, or standing procedure discovered mid-session that has value *beyond* "what happened
