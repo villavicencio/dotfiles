@@ -14,6 +14,14 @@
 #   dot explain <name>    → locate + print an alias / function / key-bind definition
 #   dot docs-index        → regenerate docs/solutions/INDEX.md
 #   dot help              → this text
+#
+# NO HEREDOCS IN THIS FILE — deliberate, do not "simplify" the Python helpers in
+# bin/lib/ back into inline `python3 - <<'PY'` blocks. Bash backs a small heredoc
+# with a pipe and writes the WHOLE document before spawning the reader, so if the
+# write ever blocks, it blocks forever: the reader that would drain the pipe is the
+# process bash has not forked yet. That deadlocked `dot doctor` intermittently
+# (~1 in 8 runs, hanging in the first check with no child process and no output).
+# See docs/solutions/runtime-errors/dot-doctor-heredoc-pipe-deadlock-2026-08-07.md
 set -uo pipefail
 
 # --- Resolve the repo root, even when invoked through the ~/.local/bin symlink.
@@ -100,6 +108,24 @@ cmd_check() {
     zsh -n "$REPO/zsh/$z" 2>/dev/null && echo "  $(green ok) zsh/$z" || { echo "  $(red FAIL) zsh/$z"; rc=1; }
   done
 
+  # bin/lib/*.py are the Python helpers extracted out of this script's heredocs.
+  # They are only ever run by `dot`, so a syntax error in one would surface as a
+  # confusing runtime failure of doctor/bench rather than a lint error — compile
+  # them here instead.
+  echo "python -m py_compile (bin/lib helpers):"
+  local py found=0
+  for py in "$REPO"/bin/lib/*.py; do
+    [ -f "$py" ] || continue
+    found=1
+    if python3 -m py_compile "$py" 2>/dev/null; then
+      echo "  $(green ok) bin/lib/$(basename "$py")"
+    else
+      echo "  $(red FAIL) bin/lib/$(basename "$py")"; python3 -m py_compile "$py" 2>&1 | head -3; rc=1
+    fi
+  done
+  [ "$found" = 1 ] || echo "  $(yellow skip) no bin/lib/*.py"
+  rm -rf "$REPO/bin/lib/__pycache__"
+
   echo "dotbot --dry-run parse:"
   local cfg
   for cfg in dotbot-conf/base.yaml dotbot-conf/darwin.yaml dotbot-conf/linux.yaml; do
@@ -118,21 +144,7 @@ cmd_check() {
 
 # --- bench: interactive startup distribution ------------------------------
 cmd_bench() {
-  python3 - <<'PY'
-import subprocess, time, os
-budget = 300
-env = dict(os.environ); env["TERM_PROGRAM"]="x"; env["TMUX"]=""
-ts=[]
-for _ in range(10):
-    t=time.perf_counter()
-    subprocess.run(["zsh","-i","-c","true"], env=env, capture_output=True)
-    ts.append((time.perf_counter()-t)*1000)
-ts.sort()
-med=(ts[4]+ts[5])/2; mx=ts[-1]
-print("startup (ms):", [round(x) for x in ts])
-print(f"median {med:.0f} ms  max {mx:.0f} ms  budget {budget} ms")
-raise SystemExit(0 if med <= budget else 1)
-PY
+  python3 "$REPO/bin/lib/bench.py"
 }
 
 # --- doctor: read-only health checks --------------------------------------
@@ -158,48 +170,9 @@ cmd_doctor() {
     # WRONG_TARGET — a regular file or mis-pointed symlink where a link is expected
     # is often legitimate (app-managed files like ~/.claude/settings.json) so it's
     # surfaced, not fatal. A not-yet-installed target is fine (fresh machine).
-    if ! python3 - "$REPO/$cfg" "$REPO" "$mode" >>"$out" 2>>"$out"; then
+    if ! python3 "$REPO/bin/lib/doctor-symlinks.py" "$REPO/$cfg" "$REPO" "$mode" >>"$out" 2>>"$out"; then
       perr=1
-    fi <<'PY'
-import sys, os
-cfgp, repo, mode = sys.argv[1], sys.argv[2], sys.argv[3]
-try:
-    # System python3 has no PyYAML; use dotbot's vendored copy (same as the docs
-    # index generator) so this check actually runs instead of silently passing.
-    sys.path.insert(0, os.path.join(repo, "dotbot", "lib", "pyyaml", "lib"))
-    import yaml
-    doc = yaml.safe_load(open(cfgp))
-    if not isinstance(doc, list):
-        print("PARSER_ERROR", os.path.basename(cfgp), "top-level is not a list"); sys.exit(1)
-    links = 0
-    for block in doc:
-        if not isinstance(block, dict) or "link" not in block: continue
-        entries = block["link"] or {}
-        if not isinstance(entries, dict):
-            print("PARSER_ERROR", os.path.basename(cfgp), "link block is not a mapping"); sys.exit(1)
-        for target, v in entries.items():
-            links += 1
-            src = v["path"] if isinstance(v, dict) else v
-            srcabs = os.path.join(repo, src)
-            if not os.path.exists(srcabs):
-                print("MISSING_SOURCE", src); continue
-            if mode != "full":
-                continue                      # inactive config: source integrity only
-            t = os.path.expanduser(target)
-            if not os.path.lexists(t):
-                continue                      # not installed yet — fine
-            if os.path.islink(t) and not os.path.exists(t):
-                print("DANGLING_SYMLINK", target); continue
-            if not os.path.islink(t):
-                print("CONFLICTING_FILE", target); continue   # regular file blocks relink
-            if not os.path.samefile(t, srcabs):
-                print("WRONG_TARGET", target)                 # symlink to a different source
-    print("LINKS", links)
-except SystemExit:
-    raise
-except Exception as e:
-    print("PARSER_ERROR", os.path.basename(cfgp), repr(e)[:80]); sys.exit(1)
-PY
+    fi
   done
   # Tally: FAILs are hard breakage; WARNs are surfaced drift; require ≥1 parsed link.
   local totlinks fails warns
@@ -299,9 +272,7 @@ print('\n'.join(sorted(set(out))))" "$rep" 2>/dev/null)"
         case "$rel" in docs/solutions/security/*|CLAUDE.md) continue ;; esac
         git -C "$REPO" ls-files --error-unmatch -- "$rel" >/dev/null 2>&1 || continue  # tracked only
         real=$((real+1))
-      done <<EOF
-$files
-EOF
+      done < <(printf '%s\n' "$files")
       [ "$real" = 0 ] && ok "no leaks in tracked files (git-ignored + untracked + documented examples excluded)" \
         || fail "$real tracked file(s) with a gitleaks finding (gitleaks dir '$REPO' --verbose)"
     fi
@@ -352,37 +323,7 @@ EOF
     if [ -z "$pyout" ] || [ ! -f "$pyout" ]; then
       fail "docs cross-ref: could not create temp file"
     else
-      python3 - "$REPO" AGENTS.md CLAUDE.md >"$pyout" 2>/dev/null <<'PY'
-import sys, os, re
-try:
-    repo = sys.argv[1]
-    top_entries = set(os.listdir(repo))   # every real top-level name (dirs + files)
-    bt = chr(96)                           # backtick, kept out of the source literally
-    fence = re.compile(bt * 3 + r'.*?' + bt * 3, re.DOTALL)   # strip fenced blocks first
-    pat = re.compile(bt + r'([^' + bt + r']+)' + bt)          # then inline path spans
-    missing = set()
-    for df in sys.argv[2:]:
-        p = os.path.join(repo, df)
-        if not os.path.exists(p):
-            continue
-        text = fence.sub('', open(p, encoding="utf-8", errors="replace").read())
-        for tok in pat.findall(text):
-            tok = tok.strip()
-            if "/" not in tok:
-                continue
-            if any(c in tok for c in "<>*$~ ") or "…" in tok:
-                continue
-            explicit = tok.startswith("./")   # a ./-prefix is an unambiguous path ref
-            rel = (tok[2:] if explicit else tok).rstrip("/")
-            if not explicit and rel.split("/", 1)[0] not in top_entries:
-                continue                       # first segment isn't a repo entry → prose
-            if not os.path.exists(os.path.join(repo, rel)):
-                missing.add(rel)
-    for m in sorted(missing):
-        print(m)
-except Exception as e:
-    sys.stderr.write("PARSER_ERROR %r\n" % (e,)); sys.exit(1)
-PY
+      python3 "$REPO/bin/lib/doctor-docs-xref.py" "$REPO" AGENTS.md CLAUDE.md >"$pyout" 2>/dev/null
       pyrc=$?
       if [ "$pyrc" != 0 ]; then
         fail "docs cross-ref parser failed (rc=$pyrc)"

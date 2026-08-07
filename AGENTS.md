@@ -55,6 +55,7 @@ zsh/        zshenv (env/PATH/BREW_PREFIX), zshrc, alias.sh, functions.sh, functi
 claude/     Claude Code config: CLAUDE.md, settings.json, statusline, hooks/
             (all symlinked into ~/.claude/)
 bin/        Repo CLI — bin/dot (symlinked to ~/.local/bin/dot)
+            bin/lib/*.py — Python helpers for doctor/bench, deliberately NOT heredocs
 ```
 
 ---
@@ -200,6 +201,13 @@ install via Homebrew casks in `brew/Brewfile`, not a helper.)
 
 ## Invariants & gotchas (do not "fix" these)
 
+- **No heredocs in `bin/dot` — do not inline `bin/lib/*.py` back into `python3 - <<'PY'`.**
+  Bash backs a small heredoc with a pipe and writes the *whole* document before forking the
+  reader, so a blocked write never clears: the process that would drain the pipe does not
+  exist yet. This deadlocked `dot doctor` in ~1 of 8 runs (hung in the first check, no child
+  process, no output). Counter-intuitively **small heredocs are the risky ones** — bash uses a
+  temp file for large ones. Use a real file, or `< <(printf …)` for variable payloads. Write-up:
+  `docs/solutions/runtime-errors/dot-doctor-heredoc-pipe-deadlock-2026-08-07.md`.
 - **Otty / tool-managed shell-rc blocks** — some blocks in the shell rc files are managed
   by their own tools and must not be reformatted or absorbed into repo conventions.
 - **sudo does not work from an agent shell without Touch ID.** Claude Code's `!` mode and
