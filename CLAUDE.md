@@ -249,6 +249,47 @@ boundary to the whole directory.
 Variant names must be exact (e.g., `jetbrains_idea`, not `jetbrains`). Run
 `topgrade` with an invalid name to see the full list of valid variants.
 
+**Running topgrade from an agent shell (no TTY).** Claude Code's `!` command mode and its
+Bash tool have no controlling terminal, so any step that shells out to `sudo` fails with
+`a terminal is required to read the password`. `topgrade --dry-run | grep sudo` does **not**
+predict this — it lists only topgrade's own commands, and a Homebrew *cask's* upgrade
+script can invoke sudo internally (`docker-desktop` does). Set up Touch ID (below), or use
+`topgrade --disable brew_cask`, or run it in a real terminal and `tee` the log. Failure is
+fail-fast rather than a hang, but a cask can abort *after* unloading services — check what
+it removed. Full write-up:
+`docs/solutions/security/sudo-in-no-tty-agent-shells-touch-id-2026-08-07.md`.
+
+### Touch ID for sudo
+Machine-local root config that **Dotbot cannot manage** (`/etc/pam.d/` is root-owned and
+outside `$HOME`), so it is a documented manual step. Needed on every fresh Mac; it is what
+makes `sudo` usable from a no-TTY agent shell, since `pam_tid` raises a biometric dialog
+instead of asking for a typed password.
+
+```bash
+sudo tee /etc/pam.d/sudo_local >/dev/null <<'PAMEOF'
+# sudo_local: local config file which survives system update and is included for sudo
+auth       optional       /opt/homebrew/lib/pam/pam_reattach.so
+auth       sufficient     pam_tid.so
+PAMEOF
+sudo chmod 444 /etc/pam.d/sudo_local
+```
+
+`pam_reattach` (Brewfile: `pam-reattach`) must come **first** — it is what makes Touch ID
+work inside **tmux** by reattaching PAM to the GUI session. Without it Touch ID works in a
+bare terminal but silently falls back to a password prompt under tmux. It is `optional`, so
+a missing module degrades to the password path instead of locking sudo out. `pam_tid` is
+`sufficient`, so on success the stack short-circuits before `pam_opendirectory`.
+
+Keep a second terminal with an authenticated sudo session open while editing `/etc/pam.d/` —
+a malformed file there can break sudo auth, and that session is the escape hatch.
+Undo: `sudo rm /etc/pam.d/sudo_local`. Does not work over SSH (no sensor).
+
+**Rejected alternatives** (do not reintroduce): `SUDO_ASKPASS` has no effect on plain
+`sudo` — only `sudo -A` consults it, and brew calls plain `sudo`. `sudo -v` pre-caching
+cannot help either (no TTY to authenticate from, and `tty_tickets` keys the cache to the
+originating terminal). A NOPASSWD sudoers entry broad enough to cover cask scripts is
+effectively passwordless root.
+
 ### `--dry-run` and `DOTFILES_DRY_RUN`
 `./install --dry-run` previews every Dotbot directive without applying it — zero
 mutations to your *config* (no symlinks, dirs, or shell steps). The one thing the

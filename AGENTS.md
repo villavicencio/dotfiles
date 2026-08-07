@@ -202,6 +202,17 @@ install via Homebrew casks in `brew/Brewfile`, not a helper.)
 
 - **Otty / tool-managed shell-rc blocks** — some blocks in the shell rc files are managed
   by their own tools and must not be reformatted or absorbed into repo conventions.
+- **sudo does not work from an agent shell without Touch ID.** Claude Code's `!` mode and
+  Bash tool have no controlling TTY, so any `sudo` fails with "a terminal is required."
+  The fix is a one-time root step creating `/etc/pam.d/sudo_local` with `pam_reattach`
+  (tmux) + `pam_tid` — documented in `CLAUDE.md` under "Touch ID for sudo"; it cannot be
+  Dotbot-managed because `/etc/pam.d/` is root-owned and outside `$HOME`.
+  Do **not** substitute `SUDO_ASKPASS` (plain `sudo` ignores it — only `sudo -A` consults
+  it), `sudo -v` pre-caching (`tty_tickets` keys the cache to the originating terminal), or
+  a NOPASSWD sudoers entry (cask scripts run arbitrary `sudo rm -rf`; that is passwordless
+  root). Note `topgrade --dry-run | grep sudo` does not predict which steps need root — a
+  cask's own script can invoke sudo internally. Full write-up:
+  `docs/solutions/security/sudo-in-no-tty-agent-shells-touch-id-2026-08-07.md`.
 - **`otty/` is copy-seeded, never symlinked — do not add a `link:` entry for it.**
   `otty config set` and the Settings UI write via temp-file + `rename(2)`, which replaces
   the path and destroys a symlink on the first settings change; the CLI still exits 0 and
