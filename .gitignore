@@ -4,6 +4,11 @@
 install_tmux.log
 logs/
 
+# `dot check` runs py_compile over bin/lib/*.py (and cleans up after itself), but
+# invoking those helpers directly also drops a cache here — never track it.
+__pycache__/
+*.pyc
+
 # Machine-specific / contains secrets
 mcpconfig.json
 # Note: .claude/settings.json is tracked (portable plugin config). Keep any

@@ -37,6 +37,9 @@ nvim/           Neovim config (custom/ is symlinked into ~/.config/nvim/)
 otty/           Otty terminal config + the iTerm2-imported theme. COPY-SEEDED by
                 helpers/install_otty.sh, never symlinked (see conventions below)
 starship/       Starship prompt config (command_timeout is a global top-level key)
+bin/            Repo CLI — bin/dot (symlinked to ~/.local/bin/dot)
+  lib/*.py      Python helpers for doctor/bench. Real files, NOT heredocs — see
+                "No heredocs in bin/dot" below
 tmux/           tmux config
 topgrade/       Topgrade system updater config
 vale/           Vale prose linter config
@@ -243,6 +246,33 @@ boundary to the whole directory.
 `otty config set --transient` is advertised in `--help` but errors out
 (`Transient config not yet implemented`) — every config experiment persists, so back up
 `~/.config/otty/config.toml` first.
+
+### No heredocs in `bin/dot`
+The Python that `dot doctor` and `dot bench` run lives in `bin/lib/*.py` as real files.
+**Do not "simplify" it back into inline `python3 - <<'PY'` blocks.**
+
+Bash backs a small heredoc with a **pipe** and performs redirections for a compound command
+*before* executing anything inside it — so it writes the entire document before forking the
+process that would read it. If that write ever blocks it blocks forever, because the only
+reader is a process that does not exist yet. This deadlocked `dot doctor` in **~1 of 8 runs**:
+hung in the first check, no output, and — the detail that makes it hard to diagnose — **no child
+process to blame**. `sample <pid>` parks in `do_redirections → heredoc_write → write`.
+
+Counter-intuitively, **small heredocs are the dangerous ones**; bash switches to a temp file for
+large documents, so a 250 KB heredoc is safe where a 2 KB one is not. Payload size sweeps and
+isolated pattern reproductions both come back clean — the only reliable reproduction is running
+the real command in a loop and counting hangs.
+
+For a payload already in a variable, use process substitution rather than a heredoc:
+```bash
+done < <(printf '%s\n' "$files")     # safe: writer is a separate process
+```
+This also keeps the loop in the current shell (a `printf | while` pipeline would subshell it and
+lose any counter). Full write-up:
+`docs/solutions/runtime-errors/dot-doctor-heredoc-pipe-deadlock-2026-08-07.md`.
+
+`dot check` runs `python3 -m py_compile` over `bin/lib/*.py`, since a syntax error there would
+otherwise only surface as a confusing runtime failure of doctor/bench.
 
 ### Topgrade config
 `topgrade/topgrade.toml` uses the `disable` array under `[misc]` to skip steps.
