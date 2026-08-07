@@ -1,122 +1,147 @@
-# HANDOFF — 2026-08-04 (PST), covering work done 2026-07-27
+# HANDOFF — 2026-08-07 (PDT), morning
 
-**Agent-instruction hygiene session.** Picked up from the 2026-07-22 handoff (which was already
-5 days stale on arrival), ran a `dv:review-claudemd` pass over recent sessions, and landed two
-PRs of global-CLAUDE.md corrections. Also diagnosed and fixed a terminal-rendering complaint that
-surfaced a real repo gap: Otty's config is not tracked by this repo at all. Master is green and
-clean, no open PRs.
-
-Note on dating: all commits and the Otty change happened **2026-07-27 (PDT)**; this handoff was
-written 2026-08-04 after the window sat idle. Nothing changed in between — `git status` is clean
-and `master` matches `origin/master`.
+**Machine-local-config session, then an unplanned sudo detour.** Picked up from the 2026-08-04
+handoff and closed its item 1 — the untracked Otty config — but the approach it sketched turned
+out to be unsafe and had to be redesigned. Running topgrade from Claude Code's `!` mode then
+exposed a second machine-local gap: sudo does not work from an agent shell at all, which was
+fixed durably with Touch ID. Four PRs merged (#126–#129), master is green and clean, no open PRs.
 
 ## What We Built
 
-- **PR #122 (`519fd3f`) — stale command names + realtime-fact scope gap.** Two fixes in
-  `claude/CLAUDE.md`:
-  - `/verify-cite` → `dv:cite`, `/reddit` → `dv:reddit`, `/pickup` → `dv:pickup`. These predated
-    the dv-plugin consolidation; `/verify-cite` no longer resolves at all (it now sits in
-    `~/.claude/.deprecated-skills/verify-cite`, and there is no `~/.claude/commands/` or
-    `claude/commands/` directory). Renames verified against the live 9-skill inventory. `/ops`
-    was deliberately left alone — it is a Proof API endpoint path, not a command.
-  - New **"A coding task does not exempt a realtime fact"** paragraph in the Web Tool Ladder.
-    Closes a gap a prior session fell into: a runner's default model ID was declared stale and
-    bumped to a "current" one purely from training data, then committed. Model IDs, package
-    versions, API endpoints, pricing, and deprecation status are now explicitly realtime facts
-    even mid-coding-task — especially when the value is about to be committed and will fail
-    silently later. Routes Anthropic model/pricing questions to the `claude-api` skill.
-- **PR #123 (`d81a66f`) — 5 review-claudemd findings** (David-approved), all in `claude/CLAUDE.md`:
-  - **Code Review** — `dv:gauntlet` supersedes another project's vault/SOP `codex exec review` or
-    Claude↔Codex loop, and holds under `/effort ultracode` and dynamic workflow orchestration.
-    Explicit stop-and-invoke trigger on "fan out reviewers" / "spin up a skeptic panel."
-  - **Narration** — any `"Let me …"` opener that narrates the next action is banned; scope now
-    covers *mid-task* tool-call narration, not just final prose. Background-task status lines are
-    still fine.
-  - **New "Durable Rules vs Handoff Notes" section** — a durable rule discovered mid-session lands
-    in `AGENTS.md`/`CLAUDE.md`/`docs/solutions/` **at discovery**, not parked only in HANDOFF.
-    Rationale: `dv:handoff` overwrites wholesale, so a rule living only here is one handoff from
-    being lost.
-  - **Web Tool Ladder** — machine-readable JSON/registry endpoints (npm, GitHub API, crates.io,
-    PyPI) stay at tier 1 even for "current version" facts. And on a failed primary-source fetch,
-    escalate tier 1 → tier 2 or decline — never fall back to an untagged secondary source.
-  - **Proof exemption list** — names `docs/plans/` + `docs/brainstorms/` alongside
-    `docs/solutions/` as one in-repo CE set, with the `ce-proof` carve-out spelled out.
-- **Otty ligature fix (machine-local, untracked).** Diagnosed the "weird artifact replacing `&&`"
-  as a font ligature, not corruption: `~/.config/otty/config.toml` had `font-ligatures` at its
-  `dlig` default (discretionary ligatures) with `font-family = JetBrains Mono`, which collapses
-  `&&`, `||`, and `--` into merged glyphs. Set `font-ligatures = "calt"` via
-  `otty config set font-ligatures calt --reload` — standard code ligatures (`->`, `=>`, `!=`,
-  `<=`) kept, discretionary set off. Diff was a clean two-line append; nothing else reformatted.
+- **PR #126 (`fd11ec5`) — Otty config tracked, copy-seeded not symlinked.**
+  - `otty/config.toml` — the normalized `otty config show` output plus a comment header. Not a raw
+    copy of the live file: Otty *appends* on every change, commenting out superseded values as
+    `# key = value (reset to default)`, so the live file carries a long tail of cruft.
+  - `otty/themes/com-googlecode-iterm2.ottytheme` — user-authored, imported from iTerm2 2026-07-14,
+    irreplaceable. It is the active `theme`.
+  - `helpers/install_otty.sh` — macOS-only, dry-run guarded. Copies in **only what is absent**, so
+    a live config is never clobbered. `--capture` does the reverse, regenerating the tracked file
+    from live while preserving its header.
+  - `dotbot-conf/darwin.yaml` — a `shell:` step, deliberately **not** a `link:` entry.
+  - `helpers/report_drift.sh` — Otty section comparing normalized forms on both sides, so the
+    copy gets the same drift visibility as `brew/Brewfile` and `npm/npm-requirements.txt`.
+  - `docs/solutions/integration-issues/otty-config-symlink-hostile-atomic-rename-2026-08-07.md`.
+- **PR #128 (`65ed92f`) — Touch ID for sudo.** `brew "pam-reattach"` in the Brewfile, a "Touch ID
+  for sudo" section in `CLAUDE.md`, an Invariants entry in `AGENTS.md`, a `topgrade.toml` comment
+  on why `brew_cask` can fail from an agent shell, and
+  `docs/solutions/security/sudo-in-no-tty-agent-shells-touch-id-2026-08-07.md`.
+- **PR #129 (`64dfab8`)** — `nvim/lazy-lock.json` bump, 7 plugins, generated by topgrade's headless
+  `:Lazy update` writing through the symlink. Committed rather than left dirty.
+- **PR #127 (`e309e15`)** — allowlist consolidation, authored by a *separate concurrent session*,
+  merged here as part of house-cleaning. Not this session's work; see Gotchas.
+- **Machine changes (not in any repo):** `/etc/pam.d/sudo_local` created (David ran the root step);
+  `pam-reattach` 1.3 installed; `docker-desktop` repaired 4.82.0 → 4.85.0.
 
 ## Decisions Made
 
-- **`calt` over full-off.** Kept standard code ligatures rather than killing all of them
-  (`font-ligatures = ""`), since only the `dlig` set was producing the unreadable `&&`/`||`/`--`
-  substitutions. Revert paths: `otty config unset font-ligatures --reload` restores `dlig`;
-  `otty config set font-ligatures "" --reload` disables everything.
-- **`/ops` left as-is in CLAUDE.md** — it reads like a slash command but is a Proof API endpoint
-  path. Do not "fix" it in a future rename pass.
-- **Otty config tracking not acted on unilaterally** — flagged as a gap (see What's Next) rather
-  than wiring up an `otty/` dir + Dotbot link without approval.
+- **Copy-seed Otty, never symlink — this overrides the prior handoff's plan.** The 2026-08-04
+  handoff proposed `otty/config.toml` + a `base.yaml` link. `otty config set` and the Settings UI
+  write via temp-file + `rename(2)`, which replaces the path and destroys a symlink on the first
+  settings change. Reproduced directly: the link became a regular file and the target was never
+  written. The CLI still exits 0 and prints the value it "set," and `git status` stays clean, so
+  nothing surfaces until a fresh install overwrites months of settings.
+- **Otty tracking boundary is `config.toml` + the one iTerm2 theme.** The other 24
+  `themes/*.ottytheme` are app-seeded (all stamped within the same second on first run) and Otty
+  regenerates them; `fonts/` holds only a generated README; `recipes/` is empty but for a
+  `.migrated-from-statedb` marker. The mtime spread separates authored from seeded. **Do not widen
+  this to the whole directory.**
+- **Drift compares normalized forms, not raw files.** Both sides go through
+  `otty config show --config-file`, verified lossless (every raw key appears in the output) and
+  read-only (SHA-1 unchanged after running) before being used inside a strictly read-only reporter.
+- **Touch ID over the alternatives** — see What Didn't Work for the three that were tested and
+  rejected. Chosen because `pam_tid` raises a biometric dialog rather than asking a PAM
+  conversation function for a typed password, which is the step that fails with no terminal.
+- **`brew_cask` deliberately NOT disabled in `topgrade.toml`.** Casks upgrade fine from a real
+  terminal, which is the normal path. The failure is specific to no-TTY invocation.
+- **The PAM file is intentionally untracked.** `/etc/pam.d/` is root-owned and outside `$HOME`, so
+  Dotbot cannot manage it — documented as a manual step in `CLAUDE.md` instead. Same class of gap
+  as the Otty one, handled the only way it can be.
 
 ## What Didn't Work
 
-- **`otty config set --transient` is advertised but not implemented** — returns
-  `error: Transient config not yet implemented`. The `--help` output lists the flag, so this is an
-  Otty bug, not a usage error. There is no way to preview a config change without persisting it;
-  back up `config.toml` first and use `--reload`, then revert if unwanted.
-- **`stat -f "%Sm"` does not work as expected in this shell** — `stat` resolves to GNU coreutils,
-  where `-f` means "filesystem info," so it prints filesystem stats instead of a formatted mtime.
-  Use `/usr/bin/stat -f "%Sm" <file>` for the BSD behavior.
-- **`fontTools` is not installed**, so the JetBrains Mono GSUB feature tables could not be
-  inspected to confirm exactly which tag carries the `&&` substitution. The diagnosis rests on the
-  config value + observed rendering, which was sufficient — the `calt` change confirmed it.
+- **`SUDO_ASKPASS` does not work for this.** Tested both ways with a probe helper: `sudo -A`
+  invokes it, **plain `sudo` never does**. brew's cask scripts call plain `sudo`, so the env var is
+  inert. sudo's error message points at the *sudoers* `Defaults askpass=` option, not the env var.
+- **`sudo -v` pre-caching cannot work.** No TTY to authenticate from in the first place, and
+  `tty_tickets` keys the cache to the originating terminal — authenticating in Otty does not hand
+  its ticket to a no-TTY process.
+- **NOPASSWD sudoers rejected on security grounds.** Cask scripts run arbitrary `sudo rm -rf`; a
+  grant wide enough to cover them is effectively passwordless root.
+- **A sudoers askpass helper would work but was rejected.** It applies to every no-TTY sudo
+  system-wide and lets any local process raise a legitimate-looking password dialog.
+- **`topgrade --dry-run | grep sudo` does not predict which steps need root.** It lists only
+  topgrade's own planned commands, not what those commands invoke internally. `docker-desktop`'s
+  cask script calls sudo on its own. This produced a false all-clear earlier in the session.
+- **`brew postinstall python@3.10` still warns and cannot be "fixed" — it is cosmetic.** Exits 0,
+  and every artifact is present and working: python 3.10.20 runs, `setuptools 83.0.0` and
+  `pip 26.1.2` import, all eight `libexec/bin` symlinks exist. Stop chasing it.
+- **`git branch --merged` is useless in this repo.** Every PR is squash-merged, so the original
+  branch commits never enter master's history and every merged branch reads as unmerged. Compare
+  *content* (`git diff master <branch>`) instead — that is how four stale branches were verified
+  before deletion.
 
 ## What's Next
 
-1. **Decide whether Otty config joins the repo.** `~/.config/otty/config.toml` is untracked — no
-   `otty/` dir, no `dotbot-conf/` link. Theme (`com.googlecode.iterm2` / Nord), the full custom
-   palette, `copy-on-select`, `clipboard-trim-trailing-spaces`, `macos-option-as-alt`,
-   `cursor-animation`, and the new `font-ligatures` setting are all machine-local and lost on a
-   fresh install. Given this repo is the single source of truth for two Macs, that is a real gap.
-   Either open a board ticket or wire it up (`otty/config.toml` + a `base.yaml` link). Watch out:
-   `~/.config/otty/` also holds `themes/`, `recipes/`, and `fonts/` — decide the tracking boundary
-   before symlinking the whole directory.
+1. **Launch Docker Desktop once.** Its privileged helpers (`com.docker.helper`, `com.docker.socket`,
+   `com.docker.vmnetd`) are still absent from `/Library/PrivilegedHelperTools/` — the failed cask
+   upgrade removed them and `brew upgrade --cask` does not reinstall them; first app launch does.
+   Low urgency: `docker context ls` shows **colima** is the active context, so the CLI does not
+   touch Docker Desktop at all.
 2. **Issue #101** — `helpers/install_omz.sh` staging-swap redesign for full crash-atomicity
    (P0-1 follow-up). Install into a unique staging sibling, validate completeness, atomically
-   rename into place; ends the recurring "quarantine→reinstall isn't SIGKILL-atomic" finding
-   class. Explicitly non-urgent — current implementation is production-grade for a serially
-   invoked installer.
-3. Otherwise the board is the source of work:
+   rename into place. Explicitly non-urgent — current implementation is production-grade for a
+   serially invoked installer. The only open issue on the board.
+3. **Consider Touch ID on the work Mac.** The setup is documented in `CLAUDE.md` but has only been
+   applied to the personal Mac. Corporate MDM may override `/etc/pam.d/`.
+4. Otherwise the board is the source of work:
    https://github.com/users/villavicencio/projects/2
 
 ## Gotchas & Watch-outs (durable)
 
+- **`otty/` is copy-seeded — never add a `link:` entry for it.** Full rationale in `CLAUDE.md`
+  ("Otty config — copy-seeded, never symlinked") and the solutions doc. To record live changes:
+  `dot drift`, then `bash helpers/install_otty.sh --capture`. Not `cp` — that destroys the header
+  and pastes the cruft.
+- **sudo does not work from an agent shell without Touch ID.** Now set up on the personal Mac and
+  verified: plain `sudo true` succeeds with `tty` reporting "not a tty," and
+  `brew upgrade --cask docker-desktop` completed from that shell. If it ever regresses, check
+  `/etc/pam.d/sudo_local` exists (444, root) and that `pam_reattach` comes *before* `pam_tid`.
+- **`gh pr merge --delete-branch` silently skips the remote branch if the local delete fails.**
+  Hit live: a worktree held `chore/touchid-sudo`, the local delete errored, and the remote branch
+  survived while appearing deleted. **Verify with `git ls-remote --heads origin <branch>`** after
+  merging any PR whose branch is checked out in a worktree.
+- **`dot check`'s dotbot-parse step always FAILs inside a git worktree** — worktrees do not
+  populate submodules, so `dotbot/bin/dotbot` is absent. Not a regression; re-run from the main
+  checkout to confirm.
+- **A working `docker` command says nothing about Docker Desktop.** colima is the active context on
+  this machine. Check `docker context ls` before drawing conclusions — this caused a wrong call
+  earlier in the session.
+- **A concurrent Claude session was active in this repo today** (it produced PR #127 and the
+  "Claude Code permissions: one allowlist, not two" section of `CLAUDE.md`). If the working tree
+  looks unexpectedly reverted, check `git branch --show-current` before assuming anything is lost.
+- **`otty config set --transient` is a no-op that errors out.** Any config experiment persists —
+  back up `~/.config/otty/config.toml` first.
+- **`stat -f "%Sm"` prints filesystem info here** — `stat` resolves to GNU coreutils. Use
+  `/usr/bin/stat -f "%Sm" <file>` for BSD mtime formatting.
 - **Do NOT conform/edit the Otty `# >>>`…`# <<<` block in `zsh/zshrc`** (tool-managed; #97→#99).
 - **`zsh/zshenv` must stay POSIX-safe** — `.`-sourced by `dash`/`bash` during `./install`;
   zsh-only syntax is a fatal "bad substitution" there.
 - **`~/.claude/settings.json` on this Mac is a decoupled regular file with machine-local Otty
   hooks — never symlink the repo baseline over it.** The tracked `claude/settings.json` is the
-  clean shared baseline for *fresh* machines only. A Bash-level rewrite of the live file is
-  blocked by the permission classifier; the Edit tool (via the `update-config` skill) is the
-  sanctioned path.
+  clean shared baseline for *fresh* machines only. The Edit tool (via `update-config`) is the
+  sanctioned path; a Bash-level rewrite is blocked by the permission classifier.
 - **`claude/CLAUDE.md` is symlinked to `~/.claude/CLAUDE.md`** — edits from any session write back
-  through into this repo. An `M` on that file is real intentional content, not harness noise;
-  diff and commit it.
+  through into this repo. An `M` there is real content; diff and commit it.
 - **nvim + iTerm write back into tracked files at runtime** (`:Lazy update` → `lazy-lock.json`;
-  NvChad theme picker `<leader>th` → `nvim/lua/chadrc.lua`) — expected churn now the symlink is
-  live. `nvim/README.md` has the `skip-worktree` tip for theme flips.
+  NvChad theme picker `<leader>th` → `nvim/lua/chadrc.lua`). Expected churn — commit it rather than
+  letting it accumulate. `nvim/README.md` has the `skip-worktree` tip for theme flips.
 - **Install path is layered** (`dotbot-conf/base.yaml` → platform layer); `./install --dry-run`
   must stay mutation-free — verify with the recipe in `CLAUDE.md`/`AGENTS.md` after a Dotbot bump.
-- **Verify tooling:** `dot doctor` (read-only health), `dot check` (mirrors CI static checks),
-  `dot bench` (startup vs 300 ms). `AGENTS.md` is the tool-neutral repo brief.
+- **Verify tooling:** `dot doctor` (read-only health, slow — >2 min), `dot check` (mirrors CI
+  static checks), `dot bench` (startup vs 300 ms). `AGENTS.md` is the tool-neutral repo brief.
 - **Adversarial code review routes through `dv:gauntlet`** — bare for the full autonomous
-  find→refute→fix→commit loop on your own branch, `report` for a single read-only round. The skill
-  owns rounds, budgets, and stop rules; do not hand-roll a `codex exec review` loop or re-derive
-  the procedure per project. (Supersedes the old "Codex review gate: launch on staged-uncommitted
-  changes" note carried in prior handoffs.)
-- **Otty CLI quirk:** `otty config set --transient` is a no-op that errors out. Any config
-  experiment persists to disk — back up `~/.config/otty/config.toml` first.
+  find→refute→fix→commit loop, `report` for a single read-only round. Do not hand-roll a
+  `codex exec review` loop or re-derive the procedure per project.
 
 ## External items (carried, unchanged from 2026-07-07)
 
