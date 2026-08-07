@@ -28,6 +28,10 @@
     - [bash helpers/install_nvm.sh, "Installing nvm"]
     - [bash helpers/install_node.sh, "Installing node + modules"]
     - [bash helpers/install_claude_code.sh, "Installing Claude Code (native installer)"]
+    # Otty is seeded by COPY, not linked — `otty config set` atomic-renames over
+    # the config path and would orphan a symlink. Hence a shell step here rather
+    # than an entry in the `link:` block below.
+    - [bash helpers/install_otty.sh, "Seeding Otty config (if absent)"]
 
 - link:
     ~/.claude/CLAUDE.md: claude/CLAUDE.md

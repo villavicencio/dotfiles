@@ -46,6 +46,7 @@ helpers/    Bash scripts called by the install pipeline (each independently runn
 iterm/      iTerm2 preferences
 lazygit/    lazygit config
 nvim/       Neovim config (custom/ is symlinked into ~/.config/nvim/)
+otty/       Otty terminal config + iTerm2-imported theme (copy-seeded, NOT symlinked)
 starship/   Starship prompt config (command_timeout is a global top-level key)
 tmux/       tmux config + status-bar scripts + window-meta persistence
 topgrade/   Topgrade system-updater config
@@ -201,6 +202,15 @@ install via Homebrew casks in `brew/Brewfile`, not a helper.)
 
 - **Otty / tool-managed shell-rc blocks** — some blocks in the shell rc files are managed
   by their own tools and must not be reformatted or absorbed into repo conventions.
+- **`otty/` is copy-seeded, never symlinked — do not add a `link:` entry for it.**
+  `otty config set` and the Settings UI write via temp-file + `rename(2)`, which replaces
+  the path and destroys a symlink on the first settings change; the CLI still exits 0 and
+  `git status` stays clean, so the repo copy becomes a silently-orphaned stale twin.
+  `helpers/install_otty.sh` copies it in only when absent; `dot drift` reports divergence
+  by comparing normalized `otty config show` output on both sides. Tracked scope is
+  `config.toml` + the user-authored iTerm2-imported theme only — the other 24 themes are
+  app-seeded and regenerate. Full write-up:
+  `docs/solutions/integration-issues/otty-config-symlink-hostile-atomic-rename-2026-08-07.md`.
 - **`git/gitconfig` `core.pager = vim -`** is intentional; `diff`/`show` route through
   **delta** via the `[pager]` overrides.
 - **GCM credential-helper entries** in `git/gitconfig` are auto-generated — commit them
