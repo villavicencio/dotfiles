@@ -39,6 +39,20 @@ disable = [
   "microsoft_office",
 ]
 
+# Running topgrade from a no-TTY shell (Claude Code's `!` mode / Bash tool): the
+# brew_cask step can fail even though topgrade itself never calls sudo. A cask's
+# OWN upgrade script may shell out to sudo — docker-desktop does, to remove
+# /Library/PrivilegedHelperTools/com.docker.socket — and with no controlling
+# terminal that dies on "a terminal is required to read the password".
+# `topgrade --dry-run | grep sudo` does NOT predict this: the dry run lists only
+# topgrade's planned commands, not what those commands invoke internally.
+# Fail-fast, not a hang (unlike the dns_cache case below) — but a cask can abort
+# AFTER unloading launchctl services, leaving the app degraded until re-run.
+# Fix is Touch ID for sudo (/etc/pam.d/sudo_local; see CLAUDE.md); the stopgap is
+# `topgrade --disable brew_cask`. NOT disabled here — casks upgrade fine from a
+# real terminal, which is the normal path. Diagnosed 2026-08-07; full write-up in
+# docs/solutions/security/sudo-in-no-tty-agent-shells-touch-id-2026-08-07.md
+
 # Known-benign Claude Code step failure: a private project-scoped plugin's
 # project lives on an external volume (the "vault") that is only mounted on
 # demand. When the vault is unmounted, `claude`'s plugin-update sweep shells
