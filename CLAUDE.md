@@ -301,6 +301,32 @@ this repo, not just ticket work. Avoid committing directly to `master`.
 Picking up a board ticket always gets its own branch (never work a ticket on
 `master`).
 
+### Claude Code permissions: one allowlist, not two
+
+**`permissions.allow` is the allowlist. There is no `allowedTools` key** — do not
+reintroduce one (discovered 2026-08-07).
+
+`allowedTools` is a legacy top-level key. When both exist, **the legacy key wins
+and `permissions.allow` is silently inert.** Nothing warns you: rules in
+`permissions.allow` simply never take effect, and the failure looks like "the
+rule doesn't work" rather than "the rule isn't being read."
+
+This cost a real debugging session. `Bash(gh pr merge:*)` sat in
+`permissions.allow` (added by PR #121) while every merge still prompted, because
+the live `allowedTools` list — which had 17 read-only-ish rules and no merge
+entry — was the one actually consulted. Adding the same rule to `allowedTools`
+fixed it instantly, which is what proved the precedence.
+
+Both lists are now consolidated into `permissions.allow` in
+`claude/settings.json`. If a permission rule ever appears to be ignored, check
+for a resurrected `allowedTools` **before** assuming the auto-mode classifier is
+gating the command.
+
+Related but distinct: the auto-mode classifier **does** independently block
+agent edits to `~/.claude/settings.json` itself, regardless of allow rules. That
+is intended — it stops an agent widening its own permissions — and is not the
+same mechanism. Permission-file edits are a human job.
+
 ---
 
 ## Install pipeline

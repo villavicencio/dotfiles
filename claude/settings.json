@@ -3,7 +3,24 @@
   "permissions": {
     "defaultMode": "auto",
     "allow": [
-      "Bash(gh pr merge:*)"
+      "Bash(git branch*)",
+      "Bash(git log*)",
+      "Bash(git status*)",
+      "Bash(git diff*)",
+      "Bash(gh pr list*)",
+      "Bash(gh pr view*)",
+      "Bash(gh pr merge:*)",
+      "Bash(ls*)",
+      "Bash(cat*)",
+      "Bash(which*)",
+      "Bash(brew info*)",
+      "Bash(brew list*)",
+      "Bash(brew uninstall*)",
+      "Bash(npm list*)",
+      "Bash(npm view*)",
+      "Bash(npm uninstall*)",
+      "Bash(claude *)",
+      "Bash(tmux -V*)"
     ]
   },
   "hooks": {
@@ -128,25 +145,6 @@
   "inputNeededNotifEnabled": true,
   "agentPushNotifEnabled": true,
   "skipAutoPermissionPrompt": true,
-  "allowedTools": [
-    "Bash(git branch*)",
-    "Bash(git log*)",
-    "Bash(git status*)",
-    "Bash(git diff*)",
-    "Bash(gh pr list*)",
-    "Bash(gh pr view*)",
-    "Bash(ls*)",
-    "Bash(cat*)",
-    "Bash(which*)",
-    "Bash(brew info*)",
-    "Bash(brew list*)",
-    "Bash(brew uninstall*)",
-    "Bash(npm list*)",
-    "Bash(npm view*)",
-    "Bash(npm uninstall*)",
-    "Bash(claude *)",
-    "Bash(tmux -V*)"
-  ],
   "mcpServers": {
     "eagle": {
       "type": "streamable-http",
