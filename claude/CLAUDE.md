@@ -153,15 +153,49 @@ Three tiers, in order. Reach for the lowest tier that can actually answer the qu
    version" facts** — they return authoritative structured data, so tier 2 buys nothing
    there. Reserve the tier-2 preference for pages that need JS rendering or an
    authenticated/live session state a JSON endpoint can't give you.
-2. **`browser` skill (Browserbase)** — preferred for any fetch where WebFetch isn't sufficient
+2. **Obscura (`browse-gateway` MCP)** — preferred for any fetch where WebFetch isn't sufficient
    *and* for **realtime-fact queries** (prices, stock state, "as of today" claims, current-event
    facts, current external-system configuration, current package versions, anything phrased as
    "today" / "right now" / "current" / "as of this writing"). Real browser, JS rendering, anti-bot
-   bypass, residential proxies. The user has generous Browserbase usage and prefers it over the
-   stricter `dv:cite` contract for everyday realtime fetches. **When using `browser` for a
-   realtime-fact query, apply the freshness discipline manually:** quote only what is literally
-   in the fetched page, attach source URL + fetch timestamp to the quote, or decline with a
-   reason. Same contract as `dv:cite` — just enforced by you, not the skill.
+   bypass, residential proxies. The user prefers it over the stricter `dv:cite` contract for
+   everyday realtime fetches. **When using it for a realtime-fact query, apply the freshness
+   discipline manually:** quote only what is literally in the fetched page, attach source URL +
+   fetch timestamp to the quote, or decline with a reason. Same contract as `dv:cite` — just
+   enforced by you, not the skill.
+   > ⚠️ **Obscura is David's branding. It ships as the MCP server named `browse-gateway`.**
+   > Nothing on disk is named "obscura" — no binary, no skill, no config string. Searching for
+   > the brand name will wrongly read as "not installed." Load the tools with
+   > `ToolSearch("select:mcp__browse-gateway__retrieve")` or `+browse-gateway`.
+   >
+   > - **`mcp__browse-gateway__retrieve`** — the default. Reads any URL as clean markdown
+   >   through a stealth browser that clears Cloudflare / anti-bot / CAPTCHA and rotates a
+   >   clean residential IP on hard blocks. `forceProxy: true` routes through the residential
+   >   proxy from the first request, for known-hostile hosts. **Prefer this for reading a page.**
+   > - **`browser_open` / `browser_navigate` / `browser_snapshot` / `browser_click` /
+   >   `browser_type` / `browser_select_option` / `browser_press_key` / `browser_wait_for` /
+   >   `browser_take_screenshot` / `browser_close`** — stateful drive session, for *interaction*
+   >   only (clicks, forms, multi-step flows). Snapshots are ref-annotated; pass `[ref=…]` as
+   >   `target`. A warm logged-in session is pinned to one owner host — open a separate session
+   >   per host. `browser_close` is idempotent.
+   >
+   > **Availability is per-project, not global (as of 2026-08-07).** `browse-gateway` is
+   > configured only in `~/Projects/agents` and `/Volumes/1TB Media/Erato`. In any other project
+   > the tools will not resolve. When they don't, add the server for that project rather than
+   > silently dropping to tier 1 — or tell David it isn't wired up there. The root-level MCP
+   > entry is still the retired `browserbase`; treat it as dead, not as a fallback.
+   >
+   > **Obscura has no search API.** It retrieves and drives; it does not return SERPs. For
+   > *finding* candidate URLs, WebSearch remains the only path — and a fact lifted from a SERP
+   > snippet is still not a verified fact. Fetch the candidate with `retrieve` before quoting it.
+
+   **Browserbase is retired as of 2026-08-07 — do not reinstall or suggest it.** Obscura
+   replaced it. The `browser`, `browserbase-cli`, and `browser-trace` skills were deleted on the
+   VPS; **on this Mac `browser` and `browserbase-cli` are still present and are dead weight** —
+   do not route through them. Skills still Browserbase-shaped and not yet repointed:
+   `search` (unfixable — Obscura has no search API; use WebSearch → `retrieve`),
+   `company-research`, `event-prospecting`, `ui-test`, `autobrowse`, `safe-browser`,
+   `what-antibot`, `agent-browser`. Structurally obsolete with no Obscura equivalent:
+   `functions`, `cookie-sync`. Already repointed and working: `fetch`, `dv:cite`/`verify-cite`.
 3. **`dv:cite`** — strict-contract fallback. Use when the user explicitly asks for a
    verified citation, when a claim is high-stakes (financial, medical, legal, public-record),
    or when you want the skill itself to enforce fetch-fresh + substring-assert + freshness-tag-
