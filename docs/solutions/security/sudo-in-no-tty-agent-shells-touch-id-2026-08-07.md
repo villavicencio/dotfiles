@@ -78,12 +78,18 @@ There is no way to know in advance which cask will need root.
 ## The partial-failure hazard
 
 The cask aborted **after** unloading three launchctl services and **before** restoring
-anything. Docker stayed on 4.82.0 and kept working (the daemon still answered
-`docker info`), but `/Library/PrivilegedHelperTools/` was left with no Docker helpers —
-so privileged-port binding and some vmnet networking were silently degraded until the
-upgrade was re-run from a real terminal.
+anything. Docker stayed on 4.82.0 and `/Library/PrivilegedHelperTools/` was left with no
+Docker helpers.
 
 A failed privileged step is not necessarily a no-op. Check what it removed before it died.
+
+**Do not read a working `docker` command as evidence the cask is fine.** `docker info`
+kept answering throughout, which initially read as "Docker Desktop is healthy." It wasn't —
+`docker context ls` shows **colima** is the active context on this machine, so the CLI was
+talking to the colima VM the whole time and Docker Desktop's broken state was invisible.
+Check `docker context ls` before concluding anything about Docker Desktop from CLI
+behavior. (Docker Desktop reinstalls its privileged helpers on first launch of the app,
+not during `brew upgrade --cask`.)
 
 ## `SUDO_ASKPASS` alone does NOT work
 
@@ -123,6 +129,12 @@ Touch ID does not need a TTY: `pam_tid` raises a biometric dialog instead of ask
 conversation function for a typed password, which is the step that fails without a
 terminal. macOS ships the hook already wired — `/etc/pam.d/sudo` begins with
 `auth include sudo_local`, and `/etc/pam.d/sudo_local.template` exists for exactly this.
+
+**Confirmed working from a no-TTY shell (2026-08-07).** After applying the step below,
+plain `sudo true` succeeds from Claude Code's Bash tool with `tty` reporting "not a tty" —
+the same invocation that failed beforehand. End-to-end proof: `brew upgrade --cask
+docker-desktop`, the exact privileged operation that failed during the topgrade run,
+completed from that shell and took the cask 4.82.0 → 4.85.0.
 
 One-time root step (cannot be Dotbot-managed — `/etc/pam.d/` is root-owned and outside
 `$HOME`):
