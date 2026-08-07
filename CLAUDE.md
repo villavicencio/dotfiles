@@ -34,6 +34,8 @@ iterm/          iTerm2 preferences (exported plist, includes Shift+Enter key map
 lazygit/        lazygit config
 npm/            npm global package list (npm-requirements.txt)
 nvim/           Neovim config (custom/ is symlinked into ~/.config/nvim/)
+otty/           Otty terminal config + the iTerm2-imported theme. COPY-SEEDED by
+                helpers/install_otty.sh, never symlinked (see conventions below)
 starship/       Starship prompt config (command_timeout is a global top-level key)
 tmux/           tmux config
 topgrade/       Topgrade system updater config
@@ -205,6 +207,42 @@ If a leaked loop ever shows up, kill it via `pkill -f claude-spinner-marker`.
 ### OMZ plugin sync
 When adding an Oh My Zsh plugin to the `plugins=()` list in `zshrc`, also add the corresponding
 `git clone` to `helpers/install_omz.sh` so it gets installed on fresh machines.
+
+### Otty config — copy-seeded, never symlinked
+`otty/config.toml` and `otty/themes/com-googlecode-iterm2.ottytheme` are the **only
+tracked configs delivered by copy instead of a Dotbot `link:`**. `helpers/install_otty.sh`
+(wired into `dotbot-conf/darwin.yaml` as a shell step) copies them into `~/.config/otty/`
+**only when absent**, so a live config is never clobbered.
+
+**Do not "fix" this by adding a `link:` entry.** `otty config set` and the Settings UI
+write via temp-file + `rename(2)`, which replaces the path outright — a symlink there is
+destroyed on the first settings change, and the repo copy becomes a silently-orphaned
+stale twin. The CLI still exits 0 and prints the value it "set," and `git status` stays
+clean, so nothing surfaces until a fresh install overwrites months of settings. Verified
+against otty 1.3.1; full reproduction in
+`docs/solutions/integration-issues/otty-config-symlink-hostile-atomic-rename-2026-08-07.md`.
+
+Because a copy can drift, `dot drift` reports Otty alongside Brewfile/npm. It compares
+**normalized** forms (`otty config show`) on both sides — the raw live file accumulates a
+long tail of `# key = value (reset to default)` comments that would swamp a plain diff.
+`otty config show` is verified lossless and read-only. To record live changes:
+
+```bash
+dot drift                                 # see what diverged
+bash helpers/install_otty.sh --capture    # regenerate otty/config.toml, then commit
+```
+
+`--capture` regenerates rather than `cp`s: the tracked file is the normalized form plus a
+comment header, and a raw copy would destroy both.
+
+Tracking boundary: **only** `config.toml` + the iTerm2-imported theme. The other 24
+`themes/*.ottytheme` are app-seeded reference themes Otty regenerates on first run;
+`fonts/` holds only an app-generated README and `recipes/` is empty. Do not widen the
+boundary to the whole directory.
+
+`otty config set --transient` is advertised in `--help` but errors out
+(`Transient config not yet implemented`) — every config experiment persists, so back up
+`~/.config/otty/config.toml` first.
 
 ### Topgrade config
 `topgrade/topgrade.toml` uses the `disable` array under `[misc]` to skip steps.
