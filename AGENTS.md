@@ -184,6 +184,10 @@ tickets. Avoid committing directly to `master`.
 - **One PR per logical change**; push and open with `gh pr create`. Keep `master` green.
 - **Merge, then clean up**: delete the branch, close any linked issue (`gh issue close`).
 - **Trivial exceptions** (typo, one-line doc tweak) may go straight to `master`.
+- **Docs-only PRs report "no checks reported"** — `install-matrix.yml` sets
+  `paths-ignore: ['docs/**', '**.md', 'claude/**/*.md']`, so a markdown-only change never
+  triggers the matrix. Merge on `mergeStateStatus: CLEAN`; don't wait for a run that
+  will never start.
 
 Project board: https://github.com/users/villavicencio/projects/2
 
