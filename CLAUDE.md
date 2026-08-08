@@ -372,6 +372,12 @@ this repo, not just ticket work. Avoid committing directly to `master`.
 Picking up a board ticket always gets its own branch (never work a ticket on
 `master`).
 
+**A docs-only PR reports "no checks reported" — that is correct, not a stalled CI.**
+`install-matrix.yml` declares `paths-ignore: ['docs/**', '**.md', 'claude/**/*.md']`,
+so a change touching only markdown never triggers the matrix and `gh pr checks` has
+nothing to show. `gh pr view --json mergeStateStatus` reading `CLEAN` is the signal to
+merge on; do not wait for a run that will never start.
+
 ### Claude Code permissions: one allowlist, not two
 
 **`permissions.allow` is the allowlist. There is no `allowedTools` key** — do not
