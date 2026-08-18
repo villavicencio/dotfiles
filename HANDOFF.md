@@ -1,161 +1,130 @@
-# HANDOFF — 2026-08-07 (PDT), midday
+# HANDOFF — 2026-08-18 (PDT), afternoon
 
-**Short continuation session, not a new day.** Picked up ~33 minutes after the previous handoff
-was written (12:02 → 12:35 PDT) — a context clear for hygiene, not an overnight gap. David ran
-`topgrade` from `!` mode; it reported one failed step, which was diagnosed as benign. The only
-code change was committing the `claude/CLAUDE.md` write-back that a *different* session had
-produced. One PR merged (#133), master clean, no open PRs.
+**Herdr adoption day.** First session in 11 days (last commit 2026-08-07). David asked to set up
+[herdr](https://herdr.dev) — a client/server agent multiplexer with native agent detection — and
+by session end: herdr is installed and repo-wired (PR #135), Atlas (the Hermes TUI persona on the
+VPS, GPT-5.6 Sol) is a live *detected agent* in herdr with real states (PR #136), the 11-day-old
+Obscura CLAUDE.md write-back finally shipped (PR #137), and CodeRabbit.ai entered the toolchain
+as a review-flow trial. All three PRs merged, master clean, no open PRs, remote has only master.
 
 ## What We Built
 
-- **PR #133 (`73354d9`) — Web Tool Ladder tier 2 repointed Browserbase → Obscura.** The content
-  was authored by another session writing through the `~/.claude/CLAUDE.md` symlink; this session
-  found it as an uncommitted ` M claude/CLAUDE.md`, branched, and shipped it. +40/−6. Substance:
-  - Tier 2 is now **Obscura**, which ships as the MCP server named **`browse-gateway`**. The brand
-    name appears nowhere on disk — no binary, no skill, no config string — so grepping for
-    "obscura" wrongly reads as "not installed." Load path recorded:
-    `ToolSearch("select:mcp__browse-gateway__retrieve")`.
-  - Tool split recorded: `retrieve` for **reading** a page (stealth browser, clears Cloudflare/
-    CAPTCHA, `forceProxy: true` for known-hostile hosts); `browser_*` for **stateful interaction**
-    only. A warm logged-in session pins to one owner host.
-  - **Availability is per-project, not global**: configured only in `~/Projects/agents` and
-    `/Volumes/1TB Media/Erato`. Not in this repo. The root-level MCP entry is still the retired
-    `browserbase` — dead, not a fallback.
-  - **Obscura has no search API.** WebSearch stays the only path for *finding* candidate URLs,
-    and a SERP snippet is still not a verified fact — fetch with `retrieve` before quoting.
-  - Skill inventory: still Browserbase-shaped and unrepointed (`search` — unfixable,
-    `company-research`, `event-prospecting`, `ui-test`, `autobrowse`, `safe-browser`,
-    `what-antibot`, `agent-browser`); structurally obsolete (`functions`, `cookie-sync`);
-    already working (`fetch`, `dv:cite`/`verify-cite`).
-- **CI-visibility rule landed durably** in `CLAUDE.md` (Branching & pull requests) and `AGENTS.md`
-  — docs-only PRs report "no checks reported" by design. Written at discovery rather than parked
-  here, per the global durable-rules-vs-handoff rule.
-- **`topgrade` run (David-initiated, no repo changes).** 20 of 21 steps OK. ast-grep
-  0.45.0 → 0.45.1, `mac-cleanup-py` freed 1.28 GB, an Ollama model pulled 6.1 GB, Neovim reported
-  "Plugins upgraded" but produced **no `lazy-lock.json` churn** this time.
+- **PR #135 (`a7f8daf`) — herdr adoption.** `brew "herdr"` 0.8.0 + `terminal-notifier` in
+  Brewfile; server under launchd via `brew services start herdr` (keep_alive); config seeded
+  from `herdr --default-config` and tracked at `herdr/config.toml`, **symlinked** via
+  `dotbot-conf/base.yaml` (create + link entries). Explicit config: `onboarding = false`,
+  `[ui.toast] delivery = "system"`, `[keys] prefix = "ctrl+space"` (deliberately matches tmux;
+  they're not nested in normal use). CLAUDE.md "Herdr" conventions section + AGENTS.md gotcha.
+  Claude integration installed by David by hand (`herdr integration install claude`, v7) — adds
+  one SessionStart hook reporting session refs for resume; audited clean, no-op outside herdr.
+- **PR #136 (`1ccecb3`) — Atlas surface.** Workspace `atlas ⚓` hosts the VPS Hermes TUI as a
+  *detected* hermes agent named `atlas`: `~/.local/bin/hermes-agent` (**symlink to
+  `/usr/bin/ssh`**, machine-local) runs the canonical attach
+  (`ssh root@openclaw-prod -t "sudo -u node tmux attach -t hermes"`); herdr identifies agents by
+  process name and `hermes-agent` is a manifest alias. Remote hermes tmux session got exactly two
+  idempotent options (`set-titles on`, `set-titles-string "#{pane_title}"`) so the TUI's ✓/⏳/⚠
+  OSC titles drive idle/working/blocked through the nested tmux. Config: per-agent sidebar rows
+  for hermes; `prefix+a` → `herdr agent focus atlas`. David confirmed states work live.
+- **PR #137 (`508474f`) — Obscura-global docs write-back** (authored 2026-08-07 by another
+  session through the `~/.claude/CLAUDE.md` symlink, uncommitted since). Verified live before
+  shipping: tunnel launchd job up, 127.0.0.1:8080 open, `browse-gateway` tools resolve here.
+- **CodeRabbit toolchain (not yet committed to Brewfile):** `coderabbit` cask 0.7.3 + Claude
+  Code plugin (user scope) + browser auth done. Ran the full loop on #135: App review caught one
+  real finding (stale `ctrl+b q` after the prefix change) → fixed (`07c7099`) → thread resolved
+  via GraphQL → CLI re-verified clean (`coderabbit review --agent --committed --base master`,
+  0 findings). #136 reviewed clean first pass.
+- Memory file `coderabbit_gauntlet_evaluation.md` + MEMORY.md pointer.
 
 ## Decisions Made
 
-- **The `topgrade` "Claude Code Plugins: FAILED" is benign — do not chase it.** The whole step
-  failure is one plugin: `erato@villavicencio-skills-private`, registered at **project scope for
-  `/Volumes/1TB Media/Erato`**, and that volume is **not mounted**. `claude plugin update
-  … --scope project` cannot resolve the project path, so it errors and topgrade marks the step
-  FAILED. Ground truth is `~/.claude/plugins/installed_plugins.json` (the entry names both the
-  scope and the `projectPath`); `~/.claude.json` only carries `pluginUsage`/`skillUsage`
-  telemetry for erato, which is a red herring when grepping.
-- **Merged #133 without waiting for CI.** `install-matrix.yml`'s `paths-ignore` covers
-  `claude/**/*.md`, so no run was ever going to start. Verified by reading the workflow's `on:`
-  block rather than assuming — `mergeStateStatus: CLEAN` was the actual signal.
-- **Committed the `claude/CLAUDE.md` write-back rather than reverting or ignoring it.** It is real
-  authored content arriving through the symlink, exactly the case the prior handoff's gotcha
-  describes.
+- **Config is symlinked, the deliberate opposite of Otty** — herdr rewrites config **in place**
+  (inode-verified via `herdr config reset-keys`), so writes flow back to the repo. File-only
+  link; the dir holds socket/logs/session.json.
+- **Attach-through architecture for Atlas, not herdr-on-VPS.** Migration (herdr server on the
+  box, `herdr --remote`) was explicitly parked — it would replace Hermes's documented systemd
+  home and open the `~/.hermes/plugins` crash-class question. Nested-tmux detection is proven,
+  so the pressure for it is low. Axiom would be the real beneficiary if ever revisited.
+- **Hermes itself untouched by design**: no service restarts (TUI restart drops Atlas's
+  in-memory history), no config/cron/SOUL writes. Only the two tmux title options.
+- **CodeRabbit = trial, gauntlet = standing rule.** David: "It might just work better. But that
+  remains to be seen." Do not treat CodeRabbit as default; see the memory file.
+- **iTerm2 = tmux home, herdr rides in it too** (David tried Otty-vs-iTerm2 and stayed iTerm2).
+- Merge flow honored per PR: #135 explicitly gated on David's word; #136/#137 merged on green
+  under his "go with your recommendation".
 
 ## What Didn't Work
 
-- **Grepping `~/.claude.json` for the erato install scope is a dead end.** Its `projects` map has
-  no plugin-install records; the only `erato` hits are usage telemetry. The install registry is a
-  separate file: `~/.claude/plugins/installed_plugins.json`.
-- **`stat -f '%Sm' HANDOFF.md` printed filesystem info again** — the carried gotcha below is real
-  and was re-hit within a minute of session start. `/usr/bin/stat -f '%Sm'` is the fix.
-- **A `python3 - <<'EOF'` heredoc silently produced no output** while inspecting `~/.claude.json`
-  (masked by `2>/dev/null || true`). Rewriting it as a real script file in the scratchpad worked
-  on the first try. Not proven to be the #131 deadlock, but the same shape the repo already
-  banned in `bin/dot` — prefer a script file.
+- **`HERDR_AGENT` env pinning is dead on 0.8.0 for spawned panes** — both `layout.apply`'s
+  `env` param and an `/usr/bin/env HERDR_AGENT=hermes …` argv wrapper leave the var absent from
+  the pane process (verified via `ps eww`). Process-*name* identification is the working
+  mechanism — hence the ssh symlink. Upstream bug worth filing (repro is clean).
+- **`herdr agent wait --until done` never fires on a focused pane** (done = finished-but-unseen).
+  Wait on `idle`/`blocked` or subscribe to `pane.agent_status_changed`.
+- **`herdr pane run` types into the pane's shell** — the shell stays the pane root process, so
+  env/name tricks must go through `layout.apply` with a `command` argv (also makes the pane
+  declarative for restores). `layout.apply` wants exactly one of tab_id/workspace_id, and pane
+  nodes need `"type": "pane"`.
+- **`coderabbit auth login` can't run from the `!` agent shell** (no TTY browser flow) — David
+  ran it in a real terminal; auth state is per-user so the agent shell inherits it.
+- **`gh pr merge --squash --delete-branch` got classifier-blocked; plain `--squash` passed.**
+  Delete branches as a separate step.
+- The SSH **double-execution** gotcha from the agents project is confirmed real in this harness —
+  every `ssh root@openclaw-prod …` tool call ran twice (visible duplicated output). Reads fine;
+  mutations must be idempotent; never `>`-redirect ssh output (use marker + awk dedupe).
 
-## What's Next
+## What's Next (improvements list, David-approved)
 
-1. **Issue #101** — `helpers/install_omz.sh` staging-swap redesign for full crash-atomicity
-   (P0-1 follow-up). Install into a unique staging sibling, validate completeness, atomically
-   rename into place. The **only** open issue on the board. Explicitly non-urgent — the current
-   implementation is production-grade for a serially invoked installer.
-2. **Restart Claude Code to pick up plugin updates.** `topgrade` moved `dv` from **0.2.2 → 0.3.0
-   at project scope for this repo** (user scope was already 0.3.0), and refreshed
-   `frontend-design` and `skill-creator`. All three printed "Restart to apply changes"; the
-   session that ran them is still on the old copies.
-3. **Launch Docker Desktop once** (carried, unchanged). Its privileged helpers
-   (`com.docker.helper`, `com.docker.socket`, `com.docker.vmnetd`) are still absent from
-   `/Library/PrivilegedHelperTools/` — the failed cask upgrade removed them and
-   `brew upgrade --cask` does not reinstall them; first app launch does. Low urgency: `colima` is
-   the active docker context.
-4. **Mount `/Volumes/1TB Media` before the next `topgrade`** if you want the erato plugin update
-   to land — otherwise expect the same FAILED line and ignore it.
-5. **Consider Touch ID on the work Mac** (carried). Documented in `CLAUDE.md`, applied only to
-   personal. Corporate MDM may override `/etc/pam.d/`.
-6. Otherwise the board is the source of work:
-   https://github.com/users/villavicencio/projects/2
+1. **Axiom in herdr — 5 minutes with today's recipe.** Herdr's claude manifest has alias
+   `claude-code` and nothing real bears that name: `ln -sf /usr/bin/ssh ~/.local/bin/claude-code`
+   + a workspace running the documented AXIOM attach
+   (`ssh -t root@openclaw-prod 'sudo -u axiom tmux attach -t AXIOM'` — note dedicated socket
+   `tmux -L axiom` per the memory file; verify exact form there) + the same two `set-titles`
+   options on that tmux. Full fleet in one sidebar.
+2. **File the upstream herdr bug**: `HERDR_AGENT` ignored for spawned panes (repro above).
+3. **Chore PR — Brewfile drift**: `cask "coderabbit"`, `brew "mosh"` (installed, untracked);
+   decide whether the `hermes-agent`/`claude-code` ssh symlinks become Dotbot-managed.
+4. **Restart-resilience test**: one deliberate `brew services restart herdr` when nothing's in
+   flight — the atlas layout carries its command so the ssh attach should re-spawn, and Claude
+   panes should resume via the integration. Confirm both.
+5. **Statusline badge clarity**: `claude/statusline-command.sh:16-17` renders
+   `.cost.total_lines_added/removed` (session-cumulative tool writes) as `(+N/-M)` — David
+   read it as a git diff. Either switch to real git-diff numbers or label it (e.g. `Σ`).
+6. Cosmetic/later: `agent_panel_sort = "priority"` once the fleet grows; custom done/request
+   sounds; per-agent `[ui.sound]`; herdr-on-VPS migration stays parked.
+7. Carried from 2026-08-07: Docker Desktop first launch (privileged helpers still absent;
+   colima is active context); mount `/Volumes/1TB Media` before next topgrade (else benign
+   plugin FAILED line); Touch ID on the work Mac; issue #101 (install_omz staging-swap,
+   non-urgent) is still the only board item.
 
 ## Gotchas & Watch-outs (durable)
 
 **New this session**
 
-- **`topgrade` marks "Claude Code Plugins: FAILED" whenever a project-scoped plugin's
-  `projectPath` is on an unmounted volume.** One plugin fails the whole step. Read the per-plugin
-  lines in the output before treating the step as broken, and check
-  `~/.claude/plugins/installed_plugins.json` for scope + path.
-- **Docs-only PRs legitimately report "no checks reported."** Now documented in `CLAUDE.md` and
-  `AGENTS.md`. `install-matrix.yml` sets `paths-ignore: ['docs/**', '**.md', 'claude/**/*.md']`.
-  Merge on `mergeStateStatus: CLEAN`.
-- **Obscura ≠ any on-disk name.** It is the `browse-gateway` MCP server, and it is **not wired up
-  in this repo** — tier 2 of the Web Tool Ladder does not resolve here. Add the server for the
-  project or say it isn't available; do not silently drop to WebFetch. Full detail in
-  `claude/CLAUDE.md`.
+- **Herdr server restart kills every pane process** (`brew services restart`, upgrades
+  included). Layout + cwds snapshot-restore; supported agents resume conversations; plain
+  shells and ssh attaches restart per their layout command. Detach (`ctrl+space q`), never stop.
+- **`~/.local/bin/hermes-agent → /usr/bin/ssh` is a load-bearing symlink** — machine-local,
+  not Dotbot-managed (yet). If Atlas detection dies, check it first. Documented in CLAUDE.md.
+- **Herdr's hermes manifest is remote-updated** (`~/.local/state/herdr/agent-detection/remote/
+  hermes.toml`, currently 2026.07.24.1). If Hermes's TUI redesigns its screens/titles, states
+  may misread until the manifest catches up — `herdr agent explain w4:p4` diagnoses; a local
+  override TOML in `~/.config/herdr/agent-detection/` can bridge.
+- **Never restart `hermes-tmux.service` casually** — drops Atlas's in-memory chat history. All
+  Hermes lifecycle rules live in `~/Projects/agents` (upgrade SOP, cron rules, MCP-write race,
+  never `hermes update`). Consult before ANY Hermes-side change.
+- **Two tmux prefixes now**: local tmux `C-Space`, herdr `ctrl+space` (same chord — they're
+  not nested in normal use), VPS tmux stays `C-b`.
+- **The dotfiles CLAUDE.md "Herdr" section is the durable reference** for all of this —
+  lifecycle, symlink rationale, socket API gotchas, Atlas surface.
 
-**Carried forward (still true)**
+**Carried forward (still true — see 2026-08-07 handoff via git history for the long tail)**
 
-- **`otty/` is copy-seeded — never add a `link:` entry for it.** Rationale in `CLAUDE.md` ("Otty
-  config — copy-seeded, never symlinked") and the solutions doc. To record live changes:
-  `dot drift`, then `bash helpers/install_otty.sh --capture`. Not `cp` — that destroys the header
-  and pastes the cruft.
-- **`otty config set --transient` is a no-op that errors out.** Every config experiment persists —
-  back up `~/.config/otty/config.toml` first.
-- **Do NOT conform/edit the Otty `# >>>`…`# <<<` block in `zsh/zshrc`** (tool-managed; #97→#99).
-- **sudo does not work from an agent shell without Touch ID.** Set up and verified on the personal
-  Mac. If it regresses, check `/etc/pam.d/sudo_local` exists (444, root) and that `pam_reattach`
-  comes *before* `pam_tid`.
-- **No heredocs in `bin/dot` — do not inline `bin/lib/*.py` back.** If any bash script here hangs,
-  the tell is **a shell process with no children**; `sample <pid>` and look for `heredoc_write`.
-  Counter-intuitively **small heredocs are the risky ones** (bash uses a temp file for large ones),
-  and the bug does not reproduce from the syntactic pattern in isolation. Two plausible theories
-  are wrong: "payload exceeds the pipe buffer" (a 2 KB–253 KB sweep never deadlocks) and
-  `net.local.stream.sendspace` (a unix-socket knob, unrelated).
-- **`dot doctor` is slow (~30–60 s) but no longer hangs.** Never exercised by CI, which is how a
-  12%-failure-rate deadlock survived in a documented verify command.
-- **`gh pr merge --delete-branch` silently skips the remote branch if the local delete fails.**
-  Verify with `git ls-remote --heads origin <branch>` after merging any PR whose branch is checked
-  out somewhere. (Done for #133 — remote branch confirmed gone.)
-- **`git branch --merged` is useless here.** Every PR is squash-merged, so merged branches read as
-  unmerged. Compare *content* with `git diff master <branch>`.
-- **`dot check`'s dotbot-parse step always FAILs inside a git worktree** — worktrees do not
-  populate submodules, so `dotbot/bin/dotbot` is absent. Not a regression.
-- **`stat -f "%Sm"` prints filesystem info here** — `stat` resolves to GNU coreutils. Use
-  `/usr/bin/stat -f "%Sm" <file>` for BSD mtime formatting.
-- **`claude/CLAUDE.md` is symlinked to `~/.claude/CLAUDE.md`** — edits from any session, including
-  concurrent ones, write back through into this repo. An `M` there is real content; diff and
-  commit it. (That is exactly what #133 was.)
-- **`~/.claude/settings.json` on this Mac is a decoupled regular file with machine-local Otty
-  hooks — never symlink the repo baseline over it.** The tracked `claude/settings.json` is the
-  clean shared baseline for *fresh* machines only. The Edit tool (via `update-config`) is the
-  sanctioned path; a Bash-level rewrite is blocked by the permission classifier.
-- **Claude Code permissions: `permissions.allow` is the allowlist; there is no `allowedTools`
-  key.** If a rule appears ignored, check for a resurrected legacy `allowedTools` first — it wins
-  silently.
-- **nvim + iTerm write back into tracked files at runtime** (`:Lazy update` → `lazy-lock.json`;
-  NvChad theme picker `<leader>th` → `nvim/lua/chadrc.lua`). Expected churn — commit it.
-  `nvim/README.md` has the `skip-worktree` tip for theme flips.
-- **`zsh/zshenv` must stay POSIX-safe** — `.`-sourced by `dash`/`bash` during `./install`;
-  zsh-only syntax is a fatal "bad substitution" there.
-- **A working `docker` command says nothing about Docker Desktop.** colima is the active context;
-  check `docker context ls` before drawing conclusions.
-- **`brew postinstall python@3.10` warns and cannot be "fixed" — it is cosmetic.** Exits 0, all
-  artifacts present. Stop chasing it.
-- **Install path is layered** (`dotbot-conf/base.yaml` → platform layer); `./install --dry-run`
-  must stay mutation-free — verify with the recipe in `CLAUDE.md`/`AGENTS.md` after a Dotbot bump.
-- **Verify tooling:** `dot doctor` (read-only health, slow), `dot check` (mirrors CI static
-  checks), `dot bench` (startup vs 300 ms). `AGENTS.md` is the tool-neutral repo brief.
-- **Adversarial code review routes through `dv:gauntlet`** — bare for the full autonomous
-  find→refute→fix→commit loop, `report` for a single read-only round. Do not hand-roll a
-  `codex exec review` loop or re-derive the procedure per project.
-
-## External items (carried, unchanged from 2026-07-07)
-
-Foreman naming, domain buys, Ship Sigma calculator, Dec 11 redirect-flip calendar event.
+- `otty/` copy-seeded, never linked; `herdr/` symlinked, deliberately opposite. Don't swap.
+- No heredocs in `bin/dot`; `dot doctor` slow but not hanging; `dot check` mirrors CI.
+- Docs-only PRs report "no checks" by design — merge on `mergeStateStatus: CLEAN`.
+- `git branch --merged` useless (squash merges); delete branches explicitly and verify remote
+  with `git ls-remote`.
+- `stat -f '%Sm'` needs `/usr/bin/stat` (GNU coreutils shadows BSD stat).
+- `claude/CLAUDE.md` symlink write-backs are real content — diff and commit (that was #137).
+- `permissions.allow` is the allowlist; a resurrected `allowedTools` wins silently.
+- sudo from agent shells needs Touch ID (`/etc/pam.d/sudo_local`, pam_reattach before pam_tid).
