@@ -263,7 +263,7 @@ conversations across server restarts via `claude --resume <id>`.
   `~/.config/herdr/` also holds the socket, logs, `session.json`, and
   `config.toml.bak-*` backups.
 - **Server lifecycle:** `brew services start herdr` (launchd, keep_alive; log at
-  `$BREW_PREFIX/var/log/herdr.log`). Detach with `ctrl+b q` — panes keep
+  `$BREW_PREFIX/var/log/herdr.log`). Detach with `ctrl+space q` — panes keep
   running. `herdr server stop` (and any server restart, including
   `brew services restart` after an upgrade) **kills all pane processes**; layout
   is snapshot-restored and supported agent conversations resume
