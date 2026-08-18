@@ -43,6 +43,7 @@ docs/       Compound-engineering artifacts:
                                  frontmatter (module, tags, problem_type) + INDEX.md
 git/        gitconfig, gitignore, gitattributes
 helpers/    Bash scripts called by the install pipeline (each independently runnable)
+herdr/      Herdr agent-multiplexer config (config.toml symlinked into ~/.config/herdr/)
 iterm/      iTerm2 preferences
 lazygit/    lazygit config
 nvim/       Neovim config (custom/ is symlinked into ~/.config/nvim/)
@@ -225,6 +226,13 @@ install via Homebrew casks in `brew/Brewfile`, not a helper.)
   root). Note `topgrade --dry-run | grep sudo` does not predict which steps need root — a
   cask's own script can invoke sudo internally. Full write-up:
   `docs/solutions/security/sudo-in-no-tty-agent-shells-touch-id-2026-08-07.md`.
+- **`herdr/config.toml` IS symlinked — the opposite of Otty, deliberately.** Herdr
+  rewrites its config in place (inode-preserving, verified on 0.8.0), so the symlink
+  survives and live edits surface as `M herdr/config.toml`; diff and commit them. Link
+  only the file — `~/.config/herdr/` also holds the socket, logs, and session state.
+  `herdr server stop` / restart kills all pane processes (layout restores, supported
+  agent sessions resume); detach instead. `herdr integration install claude` writes
+  into `~/.claude/` and is a human step, not an agent one.
 - **`otty/` is copy-seeded, never symlinked — do not add a `link:` entry for it.**
   `otty config set` and the Settings UI write via temp-file + `rename(2)`, which replaces
   the path and destroys a symlink on the first settings change; the CLI still exits 0 and

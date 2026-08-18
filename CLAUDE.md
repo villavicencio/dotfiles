@@ -30,6 +30,7 @@ docs/           Compound-engineering pipeline artifacts:
 ci/             CI assets (Dockerfile for install-matrix workflow)
 git/            gitconfig, gitignore, gitattributes
 helpers/        Bash scripts called by the install pipeline
+herdr/          Herdr agent-multiplexer config (config.toml symlinked into ~/.config/herdr/)
 iterm/          iTerm2 preferences (exported plist, includes Shift+Enter key mapping)
 lazygit/        lazygit config
 npm/            npm global package list (npm-requirements.txt)
@@ -246,6 +247,42 @@ boundary to the whole directory.
 `otty config set --transient` is advertised in `--help` but errors out
 (`Transient config not yet implemented`) — every config experiment persists, so back up
 `~/.config/otty/config.toml` first.
+
+### Herdr — agent multiplexer (config symlinked; writes flow back)
+`herdr` (Brewfile) is a tmux-shaped client/server multiplexer with native agent
+awareness: it detects a Claude Code pane via screen manifests, tracks
+blocked/working/done/idle state (what `claude/hooks/tmux-attention.sh` hand-rolls
+for tmux), and — with the official integration installed — resumes Claude Code
+conversations across server restarts via `claude --resume <id>`.
+
+- **Config is symlinked, not copy-seeded.** Unlike Otty, herdr rewrites
+  `~/.config/herdr/config.toml` **in place** (verified on 0.8.0: `herdr config
+  reset-keys` preserves the inode), so the Dotbot `link:` entry is safe and live
+  changes surface as `M herdr/config.toml` — diff and commit them, same as
+  `claude/CLAUDE.md`. Link the **file only**, never the directory:
+  `~/.config/herdr/` also holds the socket, logs, `session.json`, and
+  `config.toml.bak-*` backups.
+- **Server lifecycle:** `brew services start herdr` (launchd, keep_alive; log at
+  `$BREW_PREFIX/var/log/herdr.log`). Detach with `ctrl+b q` — panes keep
+  running. `herdr server stop` (and any server restart, including
+  `brew services restart` after an upgrade) **kills all pane processes**; layout
+  is snapshot-restored and supported agent conversations resume
+  (`[session] resume_agents_on_restore`), but plain shells restart fresh.
+- **Updates ride `brew upgrade`** (topgrade covers it). `herdr update` and the
+  experimental `--handoff` live-update are disabled for Homebrew installs.
+- **`herdr integration install claude` is a human step** — it writes
+  `~/.claude/hooks/herdr-agent-state.sh` and registers hooks in
+  `~/.claude/settings.json`, which the auto-mode classifier blocks agents from
+  doing. Check `herdr integration status` after major Claude Code updates.
+- **Prefix is `ctrl+space`, deliberately matching tmux** — one muscle-memory
+  "multiplexer key" across both apps, which are not nested in normal use. If you
+  do nest, tmux's `send-prefix` binding passes it through on a double-tap. Herdr
+  can host tmux in a pane or run inside tmux, but agent detection does not see
+  through a nested tmux.
+- **Scripting:** NDJSON over `~/.config/herdr/herdr.sock`; `herdr api schema`
+  emits the full machine-readable surface. Gotcha: `herdr agent wait --until
+  done` never fires on a *focused* pane (done = finished-but-unseen) — wait on
+  `idle`/`blocked` or subscribe to `pane.agent_status_changed` events.
 
 ### No heredocs in `bin/dot`
 The Python that `dot doctor` and `dot bench` run lives in `bin/lib/*.py` as real files.

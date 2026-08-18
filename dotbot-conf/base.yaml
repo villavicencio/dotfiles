@@ -28,6 +28,7 @@
     - ~/.config/zsh
     - ~/.config/btop
     - ~/.config/git
+    - ~/.config/herdr
     - ~/.config/lazygit
     - ~/.config/tmux
     - ~/.config/tmux/resurrect
@@ -80,6 +81,7 @@
     ~/.config/git/gitignore: git/gitignore
     ~/.config/git/gitattributes: git/gitattributes
     ~/.config/btop/btop.conf: btop/btop.conf
+    ~/.config/herdr/config.toml: herdr/config.toml
     ~/.config/lazygit/config.yml: lazygit/config.yml
     ~/.config/tmux/tmux.conf: tmux/tmux.conf
     ~/.config/tmux/tmux.general.conf: tmux/tmux.general.conf
