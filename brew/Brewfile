@@ -78,6 +78,8 @@ brew "curl"                 # newer curl (opt/curl/bin on PATH)
 brew "wget"
 brew "aria2"                # multi-connection downloader
 brew "yt-dlp"               # video/audio downloader
+brew "mosh"                 # roaming remote shell — VPS tmux attaches (AXIOM/hermes);
+                            # UDP rides inside the Tailscale tunnel, no firewall changes
 
 # --- System monitoring & cleanup ---
 brew "btop"                 # resource monitor
@@ -145,6 +147,8 @@ brew "util-linux"
 brew "xmlto"
 
 # --- Casks ---
+cask "coderabbit"           # CodeRabbit CLI — AI PR review, trial alongside the standing
+                            # dv:gauntlet rule; app-side review rides the GitHub app
 cask "corelocationcli"      # CLI to read macOS CoreLocation (location-based tooling)
 cask "docker-desktop"
 cask "font-fira-code-nerd-font"      # Nerd Font (replaces manual fonts/ + install_fonts.sh)
