@@ -138,8 +138,9 @@ if [ -n "$branch" ]; then
   printf "\033[0m"
 
   # Working-tree line-delta in parens next to the branch: staged + unstaged
-  # tracked changes vs HEAD — the same numbers `git diff HEAD --stat` shows
-  # (untracked files don't count until added). numstat emits "-<TAB>-" for
+  # tracked changes vs HEAD, summed from `git diff --numstat HEAD` (totals
+  # match `git diff HEAD --stat`'s insertions/deletions; untracked files
+  # don't count until added). numstat emits "-<TAB>-" for
   # binary files; awk's numeric coercion reads those as 0, so they can't skew
   # the sums. Hidden while the tree is clean (or on an unborn HEAD, where the
   # diff errors out and the pipeline yields ""). Added green, removed red.
