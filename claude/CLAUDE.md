@@ -178,11 +178,17 @@ Three tiers, in order. Reach for the lowest tier that can actually answer the qu
    >   `target`. A warm logged-in session is pinned to one owner host — open a separate session
    >   per host. `browser_close` is idempotent.
    >
-   > **Availability is per-project, not global (as of 2026-08-07).** `browse-gateway` is
-   > configured only in `~/Projects/agents` and `/Volumes/1TB Media/Erato`. In any other project
-   > the tools will not resolve. When they don't, add the server for that project rather than
-   > silently dropping to tier 1 — or tell David it isn't wired up there. The root-level MCP
-   > entry is still the retired `browserbase`; treat it as dead, not as a fallback.
+   > **Configured globally as of 2026-08-07** in the root `mcpServers` of `~/.claude.json`, as
+   > consumer `mac-global` — available in every project on this Mac. `~/Projects/agents`
+   > (consumer `argus`) and `/Volumes/1TB Media/Erato` (consumer `vault`) keep their own
+   > project-scoped entries and identities; that is deliberate, not drift.
+   >
+   > It reaches the gateway over an SSH tunnel on `127.0.0.1:8080`, held by the launchd job
+   > `com.dvillavicencio.browse-gateway-tunnel`. If the tools stop resolving, check that tunnel
+   > before assuming the server is down — and say so rather than silently dropping to tier 1.
+   >
+   > The root-level `browserbase` MCP entry is the **retired** transport and still embeds a live
+   > API key in its URL. Treat it as dead, never as a fallback.
    >
    > **Obscura has no search API.** It retrieves and drives; it does not return SERPs. For
    > *finding* candidate URLs, WebSearch remains the only path — and a fact lifted from a SERP
