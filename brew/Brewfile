@@ -91,8 +91,13 @@ brew "pam-reattach"         # Touch ID for sudo INSIDE tmux — reattaches PAM t
                             # session. Needs a one-time root step; see CLAUDE.md
                             # "Touch ID for sudo". Useless without /etc/pam.d/sudo_local.
 
-# --- Terminal multiplexer ---
+# --- Terminal multiplexers ---
 brew "tmux"
+brew "herdr"                # agent multiplexer — tracks Claude Code pane state, resumes
+                            # sessions across restarts. Server: brew services start herdr.
+                            # Config tracked at herdr/config.toml (symlinked); see CLAUDE.md "Herdr".
+brew "terminal-notifier"    # macOS notifications — herdr [ui.toast] delivery = "system"
+                            # prefers it over the osascript fallback
 
 # --- Docs, linting, prose ---
 brew "vale"                 # prose linter (vale/)
