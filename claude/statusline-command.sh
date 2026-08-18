@@ -5,16 +5,14 @@ input=$(cat)
 # joined with US (0x1F, a non-whitespace control char) so empty values survive
 # the read — a tab delimiter would collapse adjacent empties because tab is
 # IFS-whitespace. map(tostring) is null-safe here only because every selector
-# below carries a // "" or // 0 default, so the array holds no nulls.
+# below carries a // "" default, so the array holds no nulls.
 US=$(printf '\037')
-IFS="$US" read -r cwd model used effort la lr lim5 lim7 pr_num pr_state pr_url wt <<EOF
+IFS="$US" read -r cwd model used effort lim5 lim7 pr_num pr_state pr_url wt <<EOF
 $(echo "$input" | jq -r '[
   (.workspace.current_dir // .cwd // ""),
   (.model.display_name // ""),
   (.context_window.used_percentage // ""),
   (.effort.level // ""),
-  (.cost.total_lines_added // 0),
-  (.cost.total_lines_removed // 0),
   (.rate_limits.five_hour.used_percentage // ""),
   (.rate_limits.seven_day.used_percentage // ""),
   (.pr.number // ""),
@@ -95,7 +93,7 @@ if [ -n "$wt" ]; then
   printf "  ${wt_color}\357\204\246 %s\033[0m" "$wt"
 fi
 
-# Git branch (linked) + session line-delta.
+# Git branch (linked) + working-tree line-delta.
 branch=""
 if [ -n "$cwd" ]; then
   branch=$(git -C "$cwd" symbolic-ref --short -q HEAD 2>/dev/null)
@@ -139,10 +137,17 @@ if [ -n "$branch" ]; then
   fi
   printf "\033[0m"
 
-  # Session line-delta in parens next to the branch; hidden until something
-  # changes (both counts 0). Added green, removed red.
-  if [ "$la" != 0 ] || [ "$lr" != 0 ]; then
-    printf " \033[2m(\033[0m\033[32m+%s\033[0m\033[2m/\033[0m\033[31m-%s\033[0m\033[2m)\033[0m" "$la" "$lr"
+  # Working-tree line-delta in parens next to the branch: staged + unstaged
+  # tracked changes vs HEAD, summed from `git diff --numstat HEAD` (totals
+  # match `git diff HEAD --stat`'s insertions/deletions; untracked files
+  # don't count until added). numstat emits "-<TAB>-" for
+  # binary files; awk's numeric coercion reads those as 0, so they can't skew
+  # the sums. Hidden while the tree is clean (or on an unborn HEAD, where the
+  # diff errors out and the pipeline yields ""). Added green, removed red.
+  delta=$(git -C "$cwd" diff --numstat HEAD 2>/dev/null |
+    awk '{a+=$1; r+=$2} END {if (a+r > 0) printf "%d %d", a, r}')
+  if [ -n "$delta" ]; then
+    printf " \033[2m(\033[0m\033[32m+%s\033[0m\033[2m/\033[0m\033[31m-%s\033[0m\033[2m)\033[0m" "${delta% *}" "${delta#* }"
   fi
 fi
 
