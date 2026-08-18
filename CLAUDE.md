@@ -279,6 +279,17 @@ conversations across server restarts via `claude --resume <id>`.
   do nest, tmux's `send-prefix` binding passes it through on a double-tap. Herdr
   can host tmux in a pane or run inside tmux, but agent detection does not see
   through a nested tmux.
+- **Atlas surface:** workspace `atlas ⚓` hosts the Hermes TUI (Atlas, on the
+  VPS) via `~/.local/bin/hermes-agent` — a **symlink to `/usr/bin/ssh`**. Herdr
+  identifies agents by *process name*, and `hermes-agent` is an alias in its
+  hermes manifest, so the ssh attach is detected as a hermes agent; the
+  `HERDR_AGENT` env pin does not work for spawned panes on 0.8.0. Recreate with
+  `ln -sf /usr/bin/ssh ~/.local/bin/hermes-agent` (machine-local, not
+  Dotbot-managed). The remote hermes tmux session has `set-titles on` +
+  `set-titles-string "#{pane_title}"` so the TUI's ✓/⏳/⚠ OSC titles drive
+  herdr's idle/working/blocked states through the nested tmux. `ctrl+space a`
+  jumps to the atlas agent. Never restart `hermes-tmux.service` casually — it
+  drops Atlas's in-memory history (see ~/Projects/agents docs for Hermes rules).
 - **Scripting:** NDJSON over `~/.config/herdr/herdr.sock`; `herdr api schema`
   emits the full machine-readable surface. Gotcha: `herdr agent wait --until
   done` never fires on a *focused* pane (done = finished-but-unseen) — wait on

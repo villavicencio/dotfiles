@@ -127,6 +127,12 @@ prefix = "ctrl+space"
 # width = "80%"
 # height = "80%"
 
+[[keys.command]]
+key = "prefix+a"
+type = "shell"
+command = "herdr agent focus atlas"
+description = "jump to Atlas"
+
 # Legacy indexed shortcut config is still parsed for compatibility.
 # Prefer switch_tab, switch_workspace, and focus_agent for new configs.
 # [keys.indexed]
@@ -230,6 +236,8 @@ prefix = "ctrl+space"
 # Optional canonical agent IDs replace the default rows for matching agents.
 # [ui.sidebar.agents.rows_by_agent]
 # claude = [["state_icon", "workspace", "tab"], ["terminal_title_stripped"], ["agent"]]
+[ui.sidebar.agents.rows_by_agent]
+hermes = [["state_icon", "workspace"], ["terminal_title_stripped"]]
 
 # Expanded space rows. Built-ins are state_icon, state_text, workspace, branch, and git_status.
 # Custom values reported through workspace metadata use a $name token, for example $jj_status.
