@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
 # install_herdr_agents.sh — seed the ssh argv[0] shims herdr's agent
-# detection keys on.
+# detection depends on.
 #
 # Herdr identifies a pane's agent by PROCESS NAME against its detection
 # manifests. `hermes-agent` (hermes manifest) and `claude-code` (claude

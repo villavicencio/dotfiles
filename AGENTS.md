@@ -235,7 +235,7 @@ install via Homebrew casks in `brew/Brewfile`, not a helper.)
   into the agent's own config dir and is a human step, not an agent one (claude and
   codex installed, both v7). Custom `[[keys.command]]` bindings load only at server
   startup — `reload-config` reports "applied" without activating them. The ssh shims
-  herdr's remote-agent detection keys on (`~/.local/bin/{hermes-agent,claude-code}`
+  herdr's remote-agent detection depends on (`~/.local/bin/{hermes-agent,claude-code}`
   → `/usr/bin/ssh`) are seeded by `helpers/install_herdr_agents.sh` (darwin.yaml).
 - **`otty/` is copy-seeded, never symlinked — do not add a `link:` entry for it.**
   `otty config set` and the Settings UI write via temp-file + `rename(2)`, which replaces
