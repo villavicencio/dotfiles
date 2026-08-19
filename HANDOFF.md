@@ -81,10 +81,12 @@ Master clean at `1347833`, no open PRs, no uncommitted changes, board has only i
 
 ## What's Next
 
-1. **Nothing urgent is open.** Board: issue #101 (install_omz staging-swap) — agent-doable,
-   parked pending David's call (implement or close).
-2. **Human-side items** (steps given to David 2026-08-18 evening): Docker Desktop first
-   launch on this Mac (privileged helpers); Touch ID sudo_local on the **work** Mac.
+1. **Nothing is open.** Board is empty — issue #101 (install_omz staging-swap) was closed
+   as accepted risk 2026-08-18 evening (David: "I hate that sometimes we over-engineer");
+   the closing comment documents the rationale. Docker Desktop first launch: done same
+   evening.
+2. **One human-side item left**: Touch ID sudo_local on the **work** Mac (steps in
+   CLAUDE.md "Touch ID for sudo"; escape-hatch second terminal).
 3. **Passive upstream watches**: replies may arrive on herdrdev/herdr#2960 / #2961 (ssh
    non-repro question stands) / #2966. Re-test the `HERDR_AGENT` ssh case on the next herdr
    release.
