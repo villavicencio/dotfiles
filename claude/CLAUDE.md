@@ -81,7 +81,7 @@ deletion is far higher than the cost of asking.
 (standing order, 2026-07-23). Branch (`feat/…`, `fix/…`, `chore/…`, `docs/…`) → commit →
 merge (PR where the repo has a remote review flow; local merge where it doesn't). Applies
 to every repo, including data vaults and doc-only commits (handoff commits ride a branch
-too). Repos with their own stricter rules (e.g. skills-private's PR-only flow) keep them.
+too). Repos with their own stricter rules keep them.
 
 ## Code Review
 
