@@ -37,13 +37,8 @@ project's vault only when asked.
 - **Synced vaults (Syncthing ↔ VPS): only `hermes`** (David+Atlas — personal/feeds/brain/
   TaskNotes) **and `axiom`** (work), both served by the single syncthing-hermes container.
   CC project vaults are Mac-local by design — do not add shares for them unless asked.
-- **Exceptions:** projects on `/Volumes/1TB Media` (Erato, Sizes) get NO vault under
-  `~/Obsidian/` and never sync. Erato does keep its own on-volume vault at
-  `/Volumes/1TB Media/Erato` (standard config applied 2026-07-17) — include it in
-  standard-config propagations when the volume is mounted, but never inspect its
-  content, never relocate it, never add a share. Repo-tracked docs (docs/plans,
-  docs/solutions, CLAUDE.md, HANDOFF.md) stay in their repos — vaults are for notes
-  that aren't code-adjacent.
+- **Repo-tracked docs** (docs/plans, docs/solutions, CLAUDE.md, HANDOFF.md) stay in
+  their repos — vaults are for notes that aren't code-adjacent.
 
 ## Reasoning
 
@@ -180,8 +175,8 @@ Three tiers, in order. Reach for the lowest tier that can actually answer the qu
    >
    > **Configured globally as of 2026-08-07** in the root `mcpServers` of `~/.claude.json`, as
    > consumer `mac-global` — available in every project on this Mac. `~/Projects/agents`
-   > (consumer `argus`) and `/Volumes/1TB Media/Erato` (consumer `vault`) keep their own
-   > project-scoped entries and identities; that is deliberate, not drift.
+   > (consumer `argus`) keeps its own project-scoped entry and identity; that is
+   > deliberate, not drift.
    >
    > It reaches the gateway over an SSH tunnel on `127.0.0.1:8080`, held by the launchd job
    > `com.dvillavicencio.browse-gateway-tunnel`. If the tools stop resolving, check that tunnel

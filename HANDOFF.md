@@ -59,7 +59,6 @@ and remote; stale `feat/herdr` and all merged feature branches pruned), **empty 
   was ever the problem; all `[[keys.command]]` failures were launchd-PATH. Keys hot-reload fine.
 - **Hero styling adopted wholesale** (rows, accent, spacing, priority sort) after screenshot
   comparison; the reference image is herdr.dev's own hero mock, not a stock default.
-- **Eratos claude (w2) deliberately left down** after the reboot — David: leave it closed.
 - **Instrument-verification methodology** is now durable doctrine (see the new best-practices
   doc): calibrate the instrument against a known-true case; in-band probes over outside
   observers; a second reading through the same blind instrument is not corroboration; a probe
