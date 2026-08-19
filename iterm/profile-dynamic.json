@@ -288,18 +288,6 @@
       "Terminal Type": "xterm-256color",
       "Thin Strokes": 4,
       "Transparency": 0.0,
-      "Triggers": [
-        {
-          "action": "BounceTrigger",
-          "contentregex": "",
-          "disabled": 0,
-          "matchType": 0,
-          "name": "Claude Code Needs Input",
-          "parameter": "",
-          "partial": true,
-          "regex": "Do you want to proceed"
-        }
-      ],
       "Unicode Normalization": 0,
       "Unicode Version": 9,
       "Unlimited Scrollback": false,
