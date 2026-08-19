@@ -117,9 +117,13 @@ if command -v pyenv 1>/dev/null 2>&1; then
     eval "$(command pyenv init -)"
     eval "$(command pyenv init --path)"
   }
+  # pyenv stays a bare call (init defines a shell function the shim must reach);
+  # python/pip resolve to PATH shims after init, so `command` guards them against
+  # self-recursion if _load_pyenv is ever missing (e.g. harness shell snapshots
+  # that replay shims without underscore-prefixed helpers).
   pyenv()  { _load_pyenv; pyenv "$@"; }
-  python() { _load_pyenv; python "$@"; }
-  pip()    { _load_pyenv; pip "$@"; }
+  python() { _load_pyenv; command python "$@"; }
+  pip()    { _load_pyenv; command pip "$@"; }
 fi
 
 # Lazy load NVM. NVM_DIR is exported once in zshenv ($XDG_CONFIG_HOME/nvm).
@@ -153,11 +157,16 @@ if [[ -s "$HOME/.rvm/scripts/rvm" ]]; then
     unset -f _load_rvm rvm ruby gem rake bundle
     source "$HOME/.rvm/scripts/rvm"
   }
+  # rvm stays a bare call (the sourced script defines the rvm function the shim
+  # must reach); the rest are PATH binaries after load, so `command` prevents
+  # FUNCNEST self-recursion when _load_rvm is missing (observed: harness shell
+  # snapshots replay these shims without the underscore-prefixed loader, and a
+  # bare `ruby "$@"` then recursed to "maximum nested function level").
   rvm()    { _load_rvm; rvm "$@"; }
-  ruby()   { _load_rvm; ruby "$@"; }
-  gem()    { _load_rvm; gem "$@"; }
-  rake()   { _load_rvm; rake "$@"; }
-  bundle() { _load_rvm; bundle "$@"; }
+  ruby()   { _load_rvm; command ruby "$@"; }
+  gem()    { _load_rvm; command gem "$@"; }
+  rake()   { _load_rvm; command rake "$@"; }
+  bundle() { _load_rvm; command bundle "$@"; }
 fi
 
 # Initialize starship prompt
