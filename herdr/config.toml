@@ -238,7 +238,9 @@ show_agent_labels_on_pane_borders = true
 # NOTE: agent_panel_sort and accent are [ui]-level keys — they must stay
 # ABOVE the [ui.sidebar.*] headers below or they silently become subtable
 # keys (upstream herdrdev/herdr#2697 is this exact trap in --default-config).
-agent_panel_sort = "spaces"
+# "priority" = attention queue (blocked/done bubble up); "spaces" groups by
+# workspace. Priority chosen once the fleet passed four agents.
+agent_panel_sort = "priority"
 # Hero-matching lavender accent (herdr.dev reference look).
 accent = "#cba6f7"
 # Hero-style agent rows (the herdr.dev reference look): workspace line, then
