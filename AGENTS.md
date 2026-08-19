@@ -236,8 +236,11 @@ install via Homebrew casks in `brew/Brewfile`, not a helper.)
   codex installed, both v7). Custom `[[keys.command]]` shell commands run
   with the server's bare launchd PATH and fail silently — use absolute paths
   (`/opt/homebrew/bin/herdr …`); key changes themselves hot-reload fine. The ssh shims
-  herdr's remote-agent detection depends on (`~/.local/bin/{hermes-agent,claude-code}`
-  → `/usr/bin/ssh`) are seeded by `helpers/install_herdr_agents.sh` (darwin.yaml).
+  herdr's remote-agent detection depends on (`~/.local/bin/{hermes-agent,claude-code}`)
+  are repo-tracked auto-reconnect wrappers (`herdr/shims/`) seeded by
+  `helpers/install_herdr_agents.sh` (darwin.yaml); each execs a same-named raw ssh
+  alias in `~/.local/libexec/` (preserving the detected process name) in a retry
+  loop, so remote panes survive sleep/network loss and only close on clean detach.
   Local project agents (e.g. the `melos ♪` workspace, Claude Code in
   `~/Projects/melos`) need no shim — herdr detects a local claude pane natively;
   their declarative pane command is `["/bin/zsh", "-l", "-c", "exec claude"]` so

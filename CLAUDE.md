@@ -297,12 +297,21 @@ conversations across server restarts via `claude --resume <id>`.
   delivered to pane processes (verified by in-pane `printenv`); `ps eww`
   cannot read other processes' env on modern macOS and shows nothing, which
   faked the "var absent" result. Full write-up:
-  `docs/solutions/best-practices/verify-the-instrument-before-trusting-a-negative.md`. `~/.local/bin/hermes-agent → /usr/bin/ssh`
+  `docs/solutions/best-practices/verify-the-instrument-before-trusting-a-negative.md`. `~/.local/bin/hermes-agent`
   attaches the Hermes TUI (Atlas, detected as hermes);
-  `~/.local/bin/claude-code → /usr/bin/ssh` attaches AXIOM's Claude Code
+  `~/.local/bin/claude-code` attaches AXIOM's Claude Code
   (detected as claude, renamed `axiom`) via
   `sudo -u node tmux -L axiom attach -t AXIOM` — since the 2026-07-14 vault
-  fold AXIOM runs as **node** on the dedicated socket `-L axiom`. Both shims
+  fold AXIOM runs as **node** on the dedicated socket `-L axiom`. **Since
+  2026-08-19 each shim is a repo-tracked auto-reconnect wrapper**
+  (`herdr/shims/`, symlinked into `~/.local/bin`): it loops ssh via a raw
+  alias in `~/.local/libexec/<same-name>` (which preserves the detected
+  process name), retrying every 10s on any nonzero exit and closing only on
+  a clean detach (exit 0). Panes therefore survive sleep/network loss — the
+  single-pane workspaces no longer vanish overnight, agent renames persist,
+  and the #2966 restore boot-race self-heals. Client keepalives back it up:
+  `~/.ssh/config` `Host openclaw-prod` carries `ServerAliveInterval 60` +
+  `ServerAliveCountMax 120` (machine-local, untracked). Both shims
   are Dotbot-managed (`helpers/install_herdr_agents.sh`, darwin.yaml). Each
   remote tmux carries `set-titles on` + `set-titles-string "#{pane_title}"` so
   the TUIs' OSC titles drive herdr states through the nested tmux. Never
@@ -319,7 +328,12 @@ conversations across server restarts via `claude --resume <id>`.
   (`herdr agent rename`); renames don't survive pane recreation — reapply
   after a degraded restore, along with `layout.apply` if the command was
   dropped (#2966). Jump key: `prefix+m`. Use this pane-command shape as the
-  template for future local project agents.
+  template for future local project agents. Second local agent on the same
+  template: `sites ✦` (added 2026-08-19) — Claude Code in `~/Projects/sites`,
+  an umbrella dir of symlinks to the personal-website repos
+  (davidandbrittanie.com, davidv.sh, villavicencio.dev pending a repo); one
+  agent covers all the Vercel-hosted personal sites, each still its own git
+  repo and Vercel project (conventions in that dir's CLAUDE.md).
 - **`[[keys.command]]` `type = "shell"` commands run with the server's bare
   launchd environment** — no `/opt/homebrew/bin` on PATH, so a command like
   `herdr agent focus atlas` dies silently on command-not-found (detached
