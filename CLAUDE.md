@@ -268,6 +268,11 @@ conversations across server restarts via `claude --resume <id>`.
   `brew services restart` after an upgrade) **kills all pane processes**; layout
   is snapshot-restored and supported agent conversations resume
   (`[session] resume_agents_on_restore`), but plain shells restart fresh.
+  Boot-race caveat (reboot, 2026-08-18): if a declarative pane's `command`
+  fails at restore (ssh before the network is up), the pane degrades to a
+  plain shell AND the command is silently dropped from the layout — later
+  restarts restore the shell. Fix: re-run `layout.apply` with the original
+  pane node. Filed upstream: herdrdev/herdr#2966.
 - **Updates ride `brew upgrade`** (topgrade covers it). `herdr update` and the
   experimental `--handoff` live-update are disabled for Homebrew installs.
 - **`herdr integration install <agent>` is a human step** — it writes hooks into
