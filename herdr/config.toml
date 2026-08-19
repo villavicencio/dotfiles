@@ -255,9 +255,10 @@ hermes = [["state_icon", "workspace"], ["state_text", { token = "agent", fg = "#
 # Expanded space rows. Built-ins are state_icon, state_text, workspace, branch, and git_status.
 # Custom values reported through workspace metadata use a $name token, for example $jj_status.
 # Inline token styles accept strict #RGB/#RRGGBB foregrounds plus bold and dim booleans.
-# [ui.sidebar.spaces]
-# Blank rows between space entries. Set to 1 to restore the previous spacing.
-# row_gap = 0
+# Vertical spacing between workspace entries, mirroring the agents panel's
+# row_gap for the hero look.
+[ui.sidebar.spaces]
+row_gap = 1
 # rows = [["state_icon", "workspace"], ["branch", "git_status"]]
 
 # Accent color for highlights, borders, and navigation UI.
