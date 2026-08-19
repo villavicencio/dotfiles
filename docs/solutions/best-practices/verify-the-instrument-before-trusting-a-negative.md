@@ -151,6 +151,8 @@ The instrument (log absence) supported the wrong theory for a full debugging arc
 
 ## Related
 
+Companion bug-track write-up of artifacts 2–3's underlying mechanism: [launchd services execute with a bare environment](../integration-issues/launchd-service-bare-environment-silent-failures.md).
+
 Instrument-trust siblings in this repo:
 
 - [trufflehog's silent false negative](../security/2018-leaked-github-pats-and-trufflehog-verified-false-trap-2026-05-06.md) — the audit was nearly declared clean from the scanner's negative alone; a manual in-band `git log -p | rg` probe found the missed token.
