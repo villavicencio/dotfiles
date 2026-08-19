@@ -270,26 +270,40 @@ conversations across server restarts via `claude --resume <id>`.
   (`[session] resume_agents_on_restore`), but plain shells restart fresh.
 - **Updates ride `brew upgrade`** (topgrade covers it). `herdr update` and the
   experimental `--handoff` live-update are disabled for Homebrew installs.
-- **`herdr integration install claude` is a human step** — it writes
-  `~/.claude/hooks/herdr-agent-state.sh` and registers hooks in
+- **`herdr integration install <agent>` is a human step** — it writes hooks into
+  the agent's own config (for claude: `~/.claude/hooks/herdr-agent-state.sh` +
   `~/.claude/settings.json`, which the auto-mode classifier blocks agents from
-  doing. Check `herdr integration status` after major Claude Code updates.
+  editing). Installed: claude and codex, both v7; codex's hook lives in
+  `~/.codex/` and was merged alongside the pre-existing Otty hooks in
+  `hooks.json`. Check `herdr integration status` after major agent-CLI updates.
 - **Prefix is `ctrl+space`, deliberately matching tmux** — one muscle-memory
   "multiplexer key" across both apps, which are not nested in normal use. If you
   do nest, tmux's `send-prefix` binding passes it through on a double-tap. Herdr
   can host tmux in a pane or run inside tmux, but agent detection does not see
   through a nested tmux.
-- **Atlas surface:** workspace `atlas ⚓` hosts the Hermes TUI (Atlas, on the
-  VPS) via `~/.local/bin/hermes-agent` — a **symlink to `/usr/bin/ssh`**. Herdr
-  identifies agents by *process name*, and `hermes-agent` is an alias in its
-  hermes manifest, so the ssh attach is detected as a hermes agent; the
-  `HERDR_AGENT` env pin does not work for spawned panes on 0.8.0. Recreate with
-  `ln -sf /usr/bin/ssh ~/.local/bin/hermes-agent` (machine-local, not
-  Dotbot-managed). The remote hermes tmux session has `set-titles on` +
-  `set-titles-string "#{pane_title}"` so the TUI's ✓/⏳/⚠ OSC titles drive
-  herdr's idle/working/blocked states through the nested tmux. `ctrl+space a`
-  jumps to the atlas agent. Never restart `hermes-tmux.service` casually — it
-  drops Atlas's in-memory history (see ~/Projects/agents docs for Hermes rules).
+- **Remote agent surfaces (`atlas ⚓` / `axiom ∴`):** each workspace hosts a VPS
+  TUI through an ssh shim whose *name* matches a detection-manifest alias —
+  herdr identifies agents by process name, and the `HERDR_AGENT` env pin does
+  not work for spawned panes on 0.8.0. `~/.local/bin/hermes-agent → /usr/bin/ssh`
+  attaches the Hermes TUI (Atlas, detected as hermes);
+  `~/.local/bin/claude-code → /usr/bin/ssh` attaches AXIOM's Claude Code
+  (detected as claude, renamed `axiom`) via
+  `sudo -u node tmux -L axiom attach -t AXIOM` — since the 2026-07-14 vault
+  fold AXIOM runs as **node** on the dedicated socket `-L axiom`. Both shims
+  are Dotbot-managed (`helpers/install_herdr_agents.sh`, darwin.yaml). Each
+  remote tmux carries `set-titles on` + `set-titles-string "#{pane_title}"` so
+  the TUIs' OSC titles drive herdr states through the nested tmux. Never
+  restart `hermes-tmux.service` casually — it drops Atlas's in-memory history
+  (see ~/Projects/agents docs for Hermes rules).
+- **`[[keys.command]]` bindings load only at server startup.** `herdr server
+  reload-config` returns `status: "applied"` without activating new or changed
+  custom key commands (verified 2026-08-18 on 0.8.0: zero dispatches logged for
+  any post-start binding while built-in prefix keys work fine). The jump keys
+  `prefix+a` → atlas / `prefix+d` → axiom stay dead until the next server
+  start. Upstream bug candidate. Related PATH gotcha: the settings→integrations
+  panel probes agent CLIs with the server's bare launchd PATH, so `codex` reads
+  "not found" even when installed — `herdr integration status` from a shell is
+  authoritative.
 - **Scripting:** NDJSON over `~/.config/herdr/herdr.sock`; `herdr api schema`
   emits the full machine-readable surface. Gotcha: `herdr agent wait --until
   done` never fires on a *focused* pane (done = finished-but-unseen) — wait on

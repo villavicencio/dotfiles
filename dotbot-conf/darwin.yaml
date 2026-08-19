@@ -32,6 +32,7 @@
     # the config path and would orphan a symlink. Hence a shell step here rather
     # than an entry in the `link:` block below.
     - [bash helpers/install_otty.sh, "Seeding Otty config (if absent)"]
+    - [bash helpers/install_herdr_agents.sh, "Linking herdr agent ssh shims"]
 
 - link:
     ~/.claude/CLAUDE.md: claude/CLAUDE.md

@@ -231,8 +231,12 @@ install via Homebrew casks in `brew/Brewfile`, not a helper.)
   survives and live edits surface as `M herdr/config.toml`; diff and commit them. Link
   only the file — `~/.config/herdr/` also holds the socket, logs, and session state.
   `herdr server stop` / restart kills all pane processes (layout restores, supported
-  agent sessions resume); detach instead. `herdr integration install claude` writes
-  into `~/.claude/` and is a human step, not an agent one.
+  agent sessions resume); detach instead. `herdr integration install <agent>` writes
+  into the agent's own config dir and is a human step, not an agent one (claude and
+  codex installed, both v7). Custom `[[keys.command]]` bindings load only at server
+  startup — `reload-config` reports "applied" without activating them. The ssh shims
+  herdr's remote-agent detection depends on (`~/.local/bin/{hermes-agent,claude-code}`
+  → `/usr/bin/ssh`) are seeded by `helpers/install_herdr_agents.sh` (darwin.yaml).
 - **`otty/` is copy-seeded, never symlinked — do not add a `link:` entry for it.**
   `otty config set` and the Settings UI write via temp-file + `rename(2)`, which replaces
   the path and destroys a symlink on the first settings change; the CLI still exits 0 and
