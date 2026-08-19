@@ -283,12 +283,16 @@ conversations across server restarts via `claude --resume <id>`.
   through a nested tmux.
 - **Remote agent surfaces (`atlas ⚓` / `axiom ∴`):** each workspace hosts a VPS
   TUI through an ssh shim whose *name* matches a detection-manifest alias —
-  herdr identifies agents by process name **only**; 0.8.0 has no env-var
-  identity pin (feature request: herdrdev/herdr#2961). Do not re-derive the
-  2026-08-07 "HERDR_AGENT env pin is dead" finding — it was a measurement
-  artifact: `layout.apply`'s `env` IS delivered to pane processes (verified by
-  in-pane `printenv` 2026-08-18); `ps eww` cannot read other processes' env on
-  modern macOS and shows nothing, which faked the "var absent" result. `~/.local/bin/hermes-agent → /usr/bin/ssh`
+  herdr identifies these ssh panes by process name — the documented
+  `HERDR_AGENT` env hint applies to sandbox-wrapper foregrounds (`fence`/`nono`)
+  and does NOT fire for ssh foregrounds on 0.8.0 (re-verified 2026-08-18:
+  ssh + env hint → pane undetected; herdrdev/herdr#2961 has the repro). Do not
+  re-derive the "HERDR_AGENT env pin is dead" finding from the 2026-08-18
+  morning session — it was a measurement artifact: `layout.apply`'s `env` IS
+  delivered to pane processes (verified by in-pane `printenv`); `ps eww`
+  cannot read other processes' env on modern macOS and shows nothing, which
+  faked the "var absent" result. Full write-up:
+  `docs/solutions/best-practices/verify-the-instrument-before-trusting-a-negative.md`. `~/.local/bin/hermes-agent → /usr/bin/ssh`
   attaches the Hermes TUI (Atlas, detected as hermes);
   `~/.local/bin/claude-code → /usr/bin/ssh` attaches AXIOM's Claude Code
   (detected as claude, renamed `axiom`) via
