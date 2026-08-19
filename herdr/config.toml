@@ -130,13 +130,13 @@ remove_worktree = "prefix+shift+e"  # opens confirmation; removes checkout + clo
 [[keys.command]]
 key = "prefix+a"
 type = "shell"
-command = "herdr agent focus atlas"
+command = "/opt/homebrew/bin/herdr agent focus atlas"
 description = "jump to Atlas"
 
 [[keys.command]]
 key = "prefix+d"
 type = "shell"
-command = "herdr agent focus axiom"
+command = "/opt/homebrew/bin/herdr agent focus axiom"
 description = "jump to Axiom"
 
 # Legacy indexed shortcut config is still parsed for compatibility.

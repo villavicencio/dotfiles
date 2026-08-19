@@ -299,15 +299,17 @@ conversations across server restarts via `claude --resume <id>`.
   the TUIs' OSC titles drive herdr states through the nested tmux. Never
   restart `hermes-tmux.service` casually — it drops Atlas's in-memory history
   (see ~/Projects/agents docs for Hermes rules).
-- **`[[keys.command]]` bindings load only at server startup.** `herdr server
-  reload-config` returns `status: "applied"` without activating new or changed
-  custom key commands (verified 2026-08-18 on 0.8.0: zero dispatches logged for
-  any post-start binding while built-in prefix keys work fine). The jump keys
-  `prefix+a` → atlas / `prefix+d` → axiom stay dead until the next server
-  start. Filed upstream: herdrdev/herdr#2960. Related PATH gotcha: the settings→integrations
-  panel probes agent CLIs with the server's bare launchd PATH, so `codex` reads
-  "not found" even when installed — `herdr integration status` from a shell is
-  authoritative.
+- **`[[keys.command]]` `type = "shell"` commands run with the server's bare
+  launchd environment** — no `/opt/homebrew/bin` on PATH, so a command like
+  `herdr agent focus atlas` dies silently on command-not-found (detached
+  spawn, nothing logged) and the binding looks dead. **Use absolute paths**
+  (`/opt/homebrew/bin/herdr …`; both Macs are ARM so the prefix is stable).
+  Confirmed 2026-08-18: with an absolute path the binding fires immediately
+  after `reload-config` — key changes DO hot-reload; the earlier
+  "startup-only" reading was this exact silent failure (herdrdev/herdr#2960,
+  corrected upstream). Same PATH blindness: the settings→integrations panel
+  probes agent CLIs with the server env, so `codex` reads "not found" even
+  when installed — `herdr integration status` from a shell is authoritative.
 - **Scripting:** NDJSON over `~/.config/herdr/herdr.sock`; `herdr api schema`
   emits the full machine-readable surface. Gotcha: `herdr agent wait --until
   done` never fires on a *focused* pane (done = finished-but-unseen) — wait on

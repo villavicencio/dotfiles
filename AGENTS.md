@@ -233,8 +233,9 @@ install via Homebrew casks in `brew/Brewfile`, not a helper.)
   `herdr server stop` / restart kills all pane processes (layout restores, supported
   agent sessions resume); detach instead. `herdr integration install <agent>` writes
   into the agent's own config dir and is a human step, not an agent one (claude and
-  codex installed, both v7). Custom `[[keys.command]]` bindings load only at server
-  startup — `reload-config` reports "applied" without activating them. The ssh shims
+  codex installed, both v7). Custom `[[keys.command]]` shell commands run
+  with the server's bare launchd PATH and fail silently — use absolute paths
+  (`/opt/homebrew/bin/herdr …`); key changes themselves hot-reload fine. The ssh shims
   herdr's remote-agent detection depends on (`~/.local/bin/{hermes-agent,claude-code}`
   → `/usr/bin/ssh`) are seeded by `helpers/install_herdr_agents.sh` (darwin.yaml).
 - **`otty/` is copy-seeded, never symlinked — do not add a `link:` entry for it.**
