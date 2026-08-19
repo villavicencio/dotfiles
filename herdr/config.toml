@@ -73,7 +73,7 @@ prefix = "ctrl+space"
 # new_workspace = "prefix+shift+n"
 # new_worktree = "prefix+shift+g"
 # open_worktree = ""    # optional, unset by default
-# remove_worktree = ""  # optional, unset by default; opens confirmation
+remove_worktree = "prefix+shift+e"  # opens confirmation; removes checkout + closes workspace
 # rename_workspace = "prefix+shift+w"
 # close_workspace = "prefix+shift+d"
 # previous_workspace = "" # optional, unset by default
@@ -130,13 +130,13 @@ prefix = "ctrl+space"
 [[keys.command]]
 key = "prefix+a"
 type = "shell"
-command = "herdr agent focus atlas"
+command = "/opt/homebrew/bin/herdr agent focus atlas"
 description = "jump to Atlas"
 
 [[keys.command]]
 key = "prefix+d"
 type = "shell"
-command = "herdr agent focus axiom"
+command = "/opt/homebrew/bin/herdr agent focus axiom"
 description = "jump to Axiom"
 
 # Legacy indexed shortcut config is still parsed for compatibility.
@@ -217,7 +217,7 @@ description = "jump to Axiom"
 # pane_gaps = true
 
 # Show detected/reported agent labels in split pane borders when no manual pane name is set.
-# show_agent_labels_on_pane_borders = false
+show_agent_labels_on_pane_borders = true
 
 # Hide the tab row when a workspace has exactly one tab.
 # New tabs can still be created with the configured keybinding.
@@ -235,16 +235,22 @@ description = "jump to Axiom"
 # Custom values reported through pane metadata use a $name token.
 # A token occurrence may be styled with { token = "workspace", fg = "#89b4fa", bold = true, dim = false }.
 # Omitted style fields preserve the contextual default.
-# [ui.sidebar.agents]
-# Blank rows between agent entries. Set to 1 to restore the previous spacing.
-# row_gap = 0
-# rows = [["state_icon", "workspace", "tab"], ["agent"]]
-# Optional canonical agent IDs replace the default rows for matching agents.
-# [ui.sidebar.agents.rows_by_agent]
-# claude = [["state_icon", "workspace", "tab"], ["terminal_title_stripped"], ["agent"]]
+# NOTE: agent_panel_sort and accent are [ui]-level keys — they must stay
+# ABOVE the [ui.sidebar.*] headers below or they silently become subtable
+# keys (upstream herdrdev/herdr#2697 is this exact trap in --default-config).
 agent_panel_sort = "spaces"
+# Hero-matching lavender accent (herdr.dev reference look).
+accent = "#cba6f7"
+# Hero-style agent rows (the herdr.dev reference look): workspace line, then
+# "state · agent". Built-ins: state_icon, state_text, workspace, tab, pane,
+# agent, terminal_title, terminal_title_stripped.
+[ui.sidebar.agents]
+row_gap = 1
+rows = [["state_icon", "workspace"], ["state_text", { token = "agent", fg = "#cba6f7" }]]
+# Per-agent overrides replace the default rows. Atlas (hermes) keeps its
+# ✓/⏳/⚠ TUI title as a third row — that title is its real status line.
 [ui.sidebar.agents.rows_by_agent]
-hermes = [["state_icon", "workspace"], ["terminal_title_stripped"]]
+hermes = [["state_icon", "workspace"], ["state_text", { token = "agent", fg = "#cba6f7" }], ["terminal_title_stripped"]]
 
 # Expanded space rows. Built-ins are state_icon, state_text, workspace, branch, and git_status.
 # Custom values reported through workspace metadata use a $name token, for example $jj_status.
