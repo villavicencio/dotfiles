@@ -54,10 +54,12 @@ as a review-flow trial. All three PRs merged, master clean, no open PRs, remote 
 
 ## What Didn't Work
 
-- **`HERDR_AGENT` env pinning is dead on 0.8.0 for spawned panes** — both `layout.apply`'s
-  `env` param and an `/usr/bin/env HERDR_AGENT=hermes …` argv wrapper leave the var absent from
-  the pane process (verified via `ps eww`). Process-*name* identification is the working
-  mechanism — hence the ssh symlink. Upstream bug worth filing (repro is clean).
+- ~~**`HERDR_AGENT` env pinning is dead on 0.8.0 for spawned panes**~~ **CORRECTED
+  2026-08-18 (later session):** this was a `ps eww` measurement artifact — it cannot read
+  other processes' env on modern macOS. `layout.apply`'s `env` IS delivered (in-pane
+  `printenv` proof); herdr simply has no env-var identity pin at all, detection is
+  process-name only — hence the ssh symlink. See CLAUDE.md "Herdr" and upstream
+  herdrdev/herdr#2961 (feature request), #2960 (reload-config keys bug).
 - **`herdr agent wait --until done` never fires on a focused pane** (done = finished-but-unseen).
   Wait on `idle`/`blocked` or subscribe to `pane.agent_status_changed`.
 - **`herdr pane run` types into the pane's shell** — the shell stays the pane root process, so
