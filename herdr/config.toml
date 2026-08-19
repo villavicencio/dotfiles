@@ -73,7 +73,7 @@ prefix = "ctrl+space"
 # new_workspace = "prefix+shift+n"
 # new_worktree = "prefix+shift+g"
 # open_worktree = ""    # optional, unset by default
-# remove_worktree = ""  # optional, unset by default; opens confirmation
+remove_worktree = "prefix+shift+e"  # opens confirmation; removes checkout + closes workspace
 # rename_workspace = "prefix+shift+w"
 # close_workspace = "prefix+shift+d"
 # previous_workspace = "" # optional, unset by default
@@ -235,10 +235,12 @@ show_agent_labels_on_pane_borders = true
 # Custom values reported through pane metadata use a $name token.
 # A token occurrence may be styled with { token = "workspace", fg = "#89b4fa", bold = true, dim = false }.
 # Omitted style fields preserve the contextual default.
-# NOTE: agent_panel_sort is a [ui]-level key — it must stay ABOVE the
-# [ui.sidebar.*] headers below or it silently becomes a subtable key
-# (upstream herdrdev/herdr#2697 is this exact trap in --default-config).
+# NOTE: agent_panel_sort and accent are [ui]-level keys — they must stay
+# ABOVE the [ui.sidebar.*] headers below or they silently become subtable
+# keys (upstream herdrdev/herdr#2697 is this exact trap in --default-config).
 agent_panel_sort = "spaces"
+# Hero-matching lavender accent (herdr.dev reference look).
+accent = "#cba6f7"
 # Hero-style agent rows (the herdr.dev reference look): workspace line, then
 # "state · agent". Built-ins: state_icon, state_text, workspace, tab, pane,
 # agent, terminal_title, terminal_title_stripped.
