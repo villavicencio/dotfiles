@@ -9,8 +9,9 @@
 # them at ssh makes a remote attach register as that agent:
 #   hermes-agent -> the VPS Hermes TUI (workspace "atlas")
 #   claude-code  -> the VPS AXIOM Claude Code (workspace "axiom")
-# The HERDR_AGENT env pin does not work for spawned panes on herdr 0.8.0, so
-# the argv[0] trick is the working mechanism. See CLAUDE.md "Herdr".
+# Herdr 0.8.0 has no env-var identity pin (upstream feature request:
+# herdrdev/herdr#2961), so the argv[0] trick is the working mechanism.
+# See CLAUDE.md "Herdr".
 #
 # ln -sf is idempotent; a live pane keeps its already-exec'd process either way.
 set -euo pipefail
