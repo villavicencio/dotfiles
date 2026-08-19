@@ -317,23 +317,28 @@ conversations across server restarts via `claude --resume <id>`.
   the TUIs' OSC titles drive herdr states through the nested tmux. Never
   restart `hermes-tmux.service` casually — it drops Atlas's in-memory history
   (see ~/Projects/agents docs for Hermes rules).
-- **Local agent workspace (`melos ♪`, added 2026-08-18):** Claude Code running
-  in `~/Projects/melos` (the Spotify curator agent) as a declarative pane —
-  command `["/bin/zsh", "-l", "-c", "exec claude"]`, cwd `~/Projects/melos`.
-  No ssh shim: herdr's claude integration detects it natively and
-  resume-on-restore carries the conversation across server restarts. The
-  login-zsh wrapper is deliberate — the server spawns pane commands with its
-  bare launchd env, and `-l` rebuilds PATH from `zshenv` so both `claude`
-  itself and its subshells resolve tools. Agent renamed `melos`
-  (`herdr agent rename`); renames don't survive pane recreation — reapply
-  after a degraded restore, along with `layout.apply` if the command was
-  dropped (#2966). Jump key: `prefix+m`. Use this pane-command shape as the
-  template for future local project agents. Second local agent on the same
-  template: `sites ✦` (added 2026-08-19) — Claude Code in `~/Projects/sites`,
-  an umbrella dir of symlinks to the personal-website repos
-  (davidandbrittanie.com, davidv.sh, villavicencio.dev pending a repo); one
-  agent covers all the Vercel-hosted personal sites, each still its own git
-  repo and Vercel project (conventions in that dir's CLAUDE.md).
+- **Local agent pane template (fleet standard, revised 2026-08-19):** a local
+  Claude Code agent runs as a declarative pane with command
+  `["/bin/zsh", "-l", "-c", "claude; exec /bin/zsh -il"]` and its project dir as
+  cwd. Two deliberate parts: the **login zsh** (`-l`) rebuilds PATH from `zshenv`
+  because the herdr server spawns pane commands with its bare launchd env (so
+  both `claude` and its subshells resolve tools); the **`; exec /bin/zsh -il`
+  fallback** is the fleet's "a pane never self-closes" rule — when claude exits
+  (a stray `/exit`, a crash), the pane drops to an interactive shell instead of
+  vanishing and closing its tab. Type `claude` to relaunch. No ssh shim for local
+  agents — herdr's claude integration detects them natively and resume-on-restore
+  carries the conversation across server restarts. Rename with `herdr agent
+  rename`; renames don't survive pane recreation — reapply after a degraded
+  restore, along with `layout.apply` if the command was dropped (#2966). The same
+  never-self-close rule is baked into the remote shim wrappers (`herdr/shims/`),
+  so it holds fleet-wide. **When building any new agent, use this template and
+  route the change through the standard flow** (see the global CLAUDE.md
+  "Herdr fleet & agent building").
+  - Current local agents on this template: `melos ♪` (`~/Projects/melos`, Spotify
+    curator, jump `prefix+m`) and `sites ✦` (`~/Projects/sites`, umbrella of
+    symlinks to the personal-website repos — davidandbrittanie.com, davidv.sh
+    serving villavicencio.dev, ibmcconstruction.com; conventions in that dir's
+    CLAUDE.md). Each site stays its own git repo and Vercel project.
 - **`[[keys.command]]` `type = "shell"` commands run with the server's bare
   launchd environment** — no `/opt/homebrew/bin` on PATH, so a command like
   `herdr agent focus atlas` dies silently on command-not-found (detached

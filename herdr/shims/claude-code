@@ -6,14 +6,17 @@
 # name herdr's detection manifest matches — the wrapper itself is NOT the detected
 # process, its ssh child is.
 #
-# Loop semantics: a clean detach (ssh exit 0) closes the pane; any failure — network
-# drop, Mac sleep, VPS reboot — retries forever. See the hermes-agent twin for the
-# full rationale.
+# Loop semantics (fleet rule: an agent pane never self-closes): any failure — network
+# drop, Mac sleep, VPS reboot — retries forever; a clean detach (ssh exit 0) drops to
+# an interactive shell instead of closing. See the hermes-agent twin for the full
+# rationale.
 ALIAS="$HOME/.local/libexec/claude-code"
 while true; do
   "$ALIAS" -o ConnectTimeout=15 "$@"
   code=$?
-  [ "$code" -eq 0 ] && exit 0
+  [ "$code" -eq 0 ] && break
   printf '\n[claude-code] connection lost (ssh exit %s) — retrying in 10s\n' "$code"
   sleep 10
 done
+printf '\n[claude-code] detached cleanly — shell fallback (re-run the attach, or exit to close this pane)\n'
+exec /bin/zsh -il

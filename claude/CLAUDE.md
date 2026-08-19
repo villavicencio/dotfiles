@@ -132,6 +132,27 @@ it's discovered** — not deferred to `HANDOFF.md`. `dv:handoff` overwrites HAND
 handoff itself drifts from reality between writes. If you find yourself writing "the rule we
 established this session" into HANDOFF, stop and also land it in the durable doc.
 
+## Herdr fleet & agent building
+
+The **herdr agent fleet is administered consistently, not per-project-freelance** (David's
+standing designation, 2026-08-19). Whenever work touches the fleet — creating a new agent
+workspace, changing a pane command, adding/renaming an agent, editing the shims or jump
+keys — follow the one documented flow in the **dotfiles project CLAUDE.md "Herdr" section**
+rather than improvising a different shape in whatever project you're in:
+
+- **New agents use the fleet pane template** — local: `["/bin/zsh", "-l", "-c", "claude;
+  exec /bin/zsh -il"]` (login shell rebuilds PATH from the bare launchd env; the trailing
+  `exec zsh` is the "a pane never self-closes on `/exit`/crash" rule). Remote surfaces use
+  the repo-tracked auto-reconnect shims in `dotfiles/herdr/shims/`.
+- **Config, shims, and the helper are dotfiles-tracked** — herdr changes ride a dotfiles
+  branch/PR (config.toml is symlinked and writes back), never an ad-hoc edit to
+  `~/.config/herdr/`.
+- **New local project agent → also do the standard bootstrap**: per-agent Obsidian vault
+  (see the vault section above), a project CLAUDE.md, and a jump key.
+- The canonical, detailed procedure — pane templates, the launchd-PATH rule, the socket
+  NDJSON API, rename-on-recreate, restore boot-race — lives in dotfiles, not here; this is
+  the pointer that keeps every project routing through it.
+
 ## Research
 
 When you hit a wall — unfamiliar tool, unknown API, missing docs — always perform a web search
