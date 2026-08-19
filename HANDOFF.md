@@ -2,10 +2,12 @@
 
 **Herdr improvements day, part two.** Same-day continuation of the morning's herdr adoption
 (see PR #138's handoff via git history): David cleared context (`/clear herdr-improvements`)
-and we worked the approved improvements list end-to-end. Seven PRs merged (#139–#145), three
-upstream herdr issues filed, two solutions docs compounded, one machine reboot mid-session
-(which doubled as the restart-resilience test — this very session auto-resumed through it).
-Master clean at `1347833`, no open PRs, no uncommitted changes, board has only issue #101.
+and we worked the approved improvements list end-to-end. Eight PRs merged (#139–#146, the
+last being this handoff), three upstream herdr issues filed, two solutions docs compounded,
+one machine reboot mid-session (which doubled as the restart-resilience test — this very
+session auto-resumed through it). **End state: single-branch repo** (`master` only, local
+and remote; stale `feat/herdr` and all merged feature branches pruned), **empty board**
+(#101 closed as accepted risk), no open PRs, clean tree.
 
 ## What We Built
 
