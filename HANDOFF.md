@@ -1,132 +1,112 @@
-# HANDOFF — 2026-08-18 (PDT), afternoon
+# HANDOFF — 2026-08-18 (PDT), evening
 
-**Herdr adoption day.** First session in 11 days (last commit 2026-08-07). David asked to set up
-[herdr](https://herdr.dev) — a client/server agent multiplexer with native agent detection — and
-by session end: herdr is installed and repo-wired (PR #135), Atlas (the Hermes TUI persona on the
-VPS, GPT-5.6 Sol) is a live *detected agent* in herdr with real states (PR #136), the 11-day-old
-Obscura CLAUDE.md write-back finally shipped (PR #137), and CodeRabbit.ai entered the toolchain
-as a review-flow trial. All three PRs merged, master clean, no open PRs, remote has only master.
+**Herdr improvements day, part two.** Same-day continuation of the morning's herdr adoption
+(see PR #138's handoff via git history): David cleared context (`/clear herdr-improvements`)
+and we worked the approved improvements list end-to-end. Seven PRs merged (#139–#145), three
+upstream herdr issues filed, two solutions docs compounded, one machine reboot mid-session
+(which doubled as the restart-resilience test — this very session auto-resumed through it).
+Master clean at `1347833`, no open PRs, no uncommitted changes, board has only issue #101.
 
 ## What We Built
 
-- **PR #135 (`a7f8daf`) — herdr adoption.** `brew "herdr"` 0.8.0 + `terminal-notifier` in
-  Brewfile; server under launchd via `brew services start herdr` (keep_alive); config seeded
-  from `herdr --default-config` and tracked at `herdr/config.toml`, **symlinked** via
-  `dotbot-conf/base.yaml` (create + link entries). Explicit config: `onboarding = false`,
-  `[ui.toast] delivery = "system"`, `[keys] prefix = "ctrl+space"` (deliberately matches tmux;
-  they're not nested in normal use). CLAUDE.md "Herdr" conventions section + AGENTS.md gotcha.
-  Claude integration installed by David by hand (`herdr integration install claude`, v7) — adds
-  one SessionStart hook reporting session refs for resume; audited clean, no-op outside herdr.
-- **PR #136 (`1ccecb3`) — Atlas surface.** Workspace `atlas ⚓` hosts the VPS Hermes TUI as a
-  *detected* hermes agent named `atlas`: `~/.local/bin/hermes-agent` (**symlink to
-  `/usr/bin/ssh`**, machine-local) runs the canonical attach
-  (`ssh root@openclaw-prod -t "sudo -u node tmux attach -t hermes"`); herdr identifies agents by
-  process name and `hermes-agent` is a manifest alias. Remote hermes tmux session got exactly two
-  idempotent options (`set-titles on`, `set-titles-string "#{pane_title}"`) so the TUI's ✓/⏳/⚠
-  OSC titles drive idle/working/blocked through the nested tmux. Config: per-agent sidebar rows
-  for hermes; `prefix+a` → `herdr agent focus atlas`. David confirmed states work live.
-- **PR #137 (`508474f`) — Obscura-global docs write-back** (authored 2026-08-07 by another
-  session through the `~/.claude/CLAUDE.md` symlink, uncommitted since). Verified live before
-  shipping: tunnel launchd job up, 127.0.0.1:8080 open, `browse-gateway` tools resolve here.
-- **CodeRabbit toolchain (not yet committed to Brewfile):** `coderabbit` cask 0.7.3 + Claude
-  Code plugin (user scope) + browser auth done. Ran the full loop on #135: App review caught one
-  real finding (stale `ctrl+b q` after the prefix change) → fixed (`07c7099`) → thread resolved
-  via GraphQL → CLI re-verified clean (`coderabbit review --agent --committed --base master`,
-  0 findings). #136 reviewed clean first pass.
-- Memory file `coderabbit_gauntlet_evaluation.md` + MEMORY.md pointer.
+- **PR #139 — statusline git-diff badge.** The `(+N/-M)` next to the branch now sums
+  `git diff --numstat HEAD` (staged+unstaged, binary-safe, hidden on clean tree) instead of
+  the session-cumulative `.cost.total_lines_*`. Fixture-verified against `git diff --stat`.
+- **Axiom in herdr** (live config, recorded via #140): workspace `axiom ∴` runs the attach
+  `ssh -t root@openclaw-prod 'sudo -u node tmux -L axiom attach -t AXIOM'` through
+  `~/.local/bin/claude-code → /usr/bin/ssh` (claude-manifest alias); two idempotent
+  `set-titles` options on the axiom tmux socket; agent renamed `axiom`. **The old memory was
+  stale**: since the 2026-07-14 vault fold AXIOM runs as **node** on socket `-L axiom` —
+  memory files corrected.
+- **PR #140 — fleet + review-tool drift**: Brewfile gains `mosh` + `cask "coderabbit"`; the
+  ssh shims became Dotbot-managed (`helpers/install_herdr_agents.sh`, darwin.yaml); CLAUDE.md/
+  AGENTS.md herdr sections updated.
+- **PR #141 + #143-rider — the HERDR_AGENT correction arc**: the "env pin is dead" finding was
+  a `ps eww` measurement artifact (macOS hides other processes' env). Docs corrected twice as
+  understanding improved (see Decisions).
+- **PR #142 — hero-style sidebar**: agents panel rows `state · agent` with lavender agent
+  tokens, `row_gap = 1`, accent `#cba6f7`, pane-border labels, `remove_worktree =
+  "prefix+shift+e"`, and the **launchd-PATH fix** that made `prefix+a`/`prefix+d` jump keys
+  work (absolute `/opt/homebrew/bin/herdr` in `[[keys.command]]`).
+- **PR #143 — compound round**: two solutions docs —
+  `docs/solutions/best-practices/verify-the-instrument-before-trusting-a-negative.md` (the
+  session's three measurement artifacts + in-band-probe methodology) and
+  `docs/solutions/integration-issues/launchd-service-bare-environment-silent-failures.md`
+  (the bug-track companion), cross-linked; INDEX regenerated (47 active).
+- **PR #144 — `agent_panel_sort = "priority"`** (attention queue) + topgrade lazy-lock drift.
+- **PR #145 — RVM/pyenv lazy-loader `command` guards** (`ruby` recursed to FUNCNEST in
+  harness snapshot shells that replay shims without `_load_*`; NVM already had the guard) +
+  spaces-list `row_gap = 1` + the restore boot-race caveat in CLAUDE.md.
+- **Upstream filings**: herdrdev/herdr#2960 (filed, then corrected + retitled: `type="shell"`
+  key commands spawn with the launchd env, PATH failures silent), #2961 (agent-pin feature
+  request → closed "already supported" via documented wrapper-foreground `HERDR_AGENT` hint;
+  our ssh non-repro posted in-thread), #2966 (restore after reboot degrades command panes to
+  shells and drops `command` from the layout).
+- **Codex herdr integration** installed by David, audited clean (v7; merged beside Otty hooks
+  in `~/.codex/hooks.json`; codex may ask once to trust the new hook).
+- **Memory updates**: axiom lifecycle corrected (node + `-L axiom`); CodeRabbit rate-limit
+  fallback ladder recorded (David-approved) in `coderabbit_gauntlet_evaluation.md`.
 
 ## Decisions Made
 
-- **Config is symlinked, the deliberate opposite of Otty** — herdr rewrites config **in place**
-  (inode-verified via `herdr config reset-keys`), so writes flow back to the repo. File-only
-  link; the dir holds socket/logs/session.json.
-- **Attach-through architecture for Atlas, not herdr-on-VPS.** Migration (herdr server on the
-  box, `herdr --remote`) was explicitly parked — it would replace Hermes's documented systemd
-  home and open the `~/.hermes/plugins` crash-class question. Nested-tmux detection is proven,
-  so the pressure for it is low. Axiom would be the real beneficiary if ever revisited.
-- **Hermes itself untouched by design**: no service restarts (TUI restart drops Atlas's
-  in-memory history), no config/cron/SOUL writes. Only the two tmux title options.
-- **CodeRabbit = trial, gauntlet = standing rule.** David: "It might just work better. But that
-  remains to be seen." Do not treat CodeRabbit as default; see the memory file.
-- **iTerm2 = tmux home, herdr rides in it too** (David tried Otty-vs-iTerm2 and stayed iTerm2).
-- Merge flow honored per PR: #135 explicitly gated on David's word; #136/#137 merged on green
-  under his "go with your recommendation".
+- **CodeRabbit rate-limit ladder (standing, in memory)**: CodeRabbit when available → wait
+  out the window if not urgent (check reads "Review rate limited"; retrigger with
+  `@coderabbitai review`) → `dv:gauntlet report` if a review is needed now → bare gauntlet
+  only for big/risky diffs.
+- **`prefix+d` for Axiom, not `prefix+shift+a`** — but the real story: NO custom binding chord
+  was ever the problem; all `[[keys.command]]` failures were launchd-PATH. Keys hot-reload fine.
+- **Hero styling adopted wholesale** (rows, accent, spacing, priority sort) after screenshot
+  comparison; the reference image is herdr.dev's own hero mock, not a stock default.
+- **Eratos claude (w2) deliberately left down** after the reboot — David: leave it closed.
+- **Instrument-verification methodology** is now durable doctrine (see the new best-practices
+  doc): calibrate the instrument against a known-true case; in-band probes over outside
+  observers; a second reading through the same blind instrument is not corroboration; a probe
+  answers only the question it poses.
 
 ## What Didn't Work
 
-- ~~**`HERDR_AGENT` env pinning is dead on 0.8.0 for spawned panes**~~ **CORRECTED
-  2026-08-18 (later session):** this was a `ps eww` measurement artifact — it cannot read
-  other processes' env on modern macOS. `layout.apply`'s `env` IS delivered (in-pane
-  `printenv` proof); herdr simply has no env-var identity pin at all, detection is
-  process-name only — hence the ssh symlink. See CLAUDE.md "Herdr" and upstream
-  herdrdev/herdr#2961 (feature request), #2960 (reload-config keys bug).
-- **`herdr agent wait --until done` never fires on a focused pane** (done = finished-but-unseen).
-  Wait on `idle`/`blocked` or subscribe to `pane.agent_status_changed`.
-- **`herdr pane run` types into the pane's shell** — the shell stays the pane root process, so
-  env/name tricks must go through `layout.apply` with a `command` argv (also makes the pane
-  declarative for restores). `layout.apply` wants exactly one of tab_id/workspace_id, and pane
-  nodes need `"type": "pane"`.
-- **`coderabbit auth login` can't run from the `!` agent shell** (no TTY browser flow) — David
-  ran it in a real terminal; auth state is per-user so the agent shell inherits it.
-- **`gh pr merge --squash --delete-branch` got classifier-blocked; plain `--squash` passed.**
-  Delete branches as a separate step.
-- The SSH **double-execution** gotcha from the agents project is confirmed real in this harness —
-  every `ssh root@openclaw-prod …` tool call ran twice (visible duplicated output). Reads fine;
-  mutations must be idempotent; never `>`-redirect ssh output (use marker + awk dedupe).
+- **Three (nearly four) measurement artifacts in one day**, each a blind instrument: `ps eww`
+  can't read other processes' env on macOS (faked "HERDR_AGENT absent"); herdr's log never
+  records shell-spawn failures (faked "reload-config no-ops on keys" → mis-filed #2960, since
+  corrected); and the "no env-pin feature" conclusion outran the printenv probe (the wrapper
+  hint IS documented — just not firing for ssh foregrounds, repro posted to #2961). Full
+  write-up in the new best-practices doc — read it before trusting any negative.
+- **Restore after reboot dropped declarative pane commands** (atlas/axiom came back as bare
+  shells; `command` gone from `layout.export`). Re-applied via `layout.apply`; filed #2966.
+  Agent renames don't survive pane recreation either — reapply `herdr agent rename`.
+- **CodeRabbit hit its 3-per-window rate limit twice**; the check still stamps green
+  ("pass — Review rate limited"), so CLEAN ≠ last-commits-reviewed. Ladder in memory covers it.
+- **`herdr api` CLI has no generic call surface** — raw NDJSON to `~/.config/herdr/herdr.sock`
+  (scratchpad helper `herdr_call.py` pattern; schema via `herdr api schema --output`).
 
-## What's Next (improvements list, David-approved)
+## What's Next
 
-1. **Axiom in herdr — 5 minutes with today's recipe.** Herdr's claude manifest has alias
-   `claude-code` and nothing real bears that name: `ln -sf /usr/bin/ssh ~/.local/bin/claude-code`
-   + a workspace running the documented AXIOM attach
-   (`ssh -t root@openclaw-prod 'sudo -u axiom tmux attach -t AXIOM'` — note dedicated socket
-   `tmux -L axiom` per the memory file; verify exact form there) + the same two `set-titles`
-   options on that tmux. Full fleet in one sidebar.
-2. **File the upstream herdr bug**: `HERDR_AGENT` ignored for spawned panes (repro above).
-3. **Chore PR — Brewfile drift**: `cask "coderabbit"`, `brew "mosh"` (installed, untracked);
-   decide whether the `hermes-agent`/`claude-code` ssh symlinks become Dotbot-managed.
-4. **Restart-resilience test**: one deliberate `brew services restart herdr` when nothing's in
-   flight — the atlas layout carries its command so the ssh attach should re-spawn, and Claude
-   panes should resume via the integration. Confirm both.
-5. **Statusline badge clarity**: `claude/statusline-command.sh:16-17` renders
-   `.cost.total_lines_added/removed` (session-cumulative tool writes) as `(+N/-M)` — David
-   read it as a git diff. Either switch to real git-diff numbers or label it (e.g. `Σ`).
-6. Cosmetic/later: `agent_panel_sort = "priority"` once the fleet grows; custom done/request
-   sounds; per-agent `[ui.sound]`; herdr-on-VPS migration stays parked.
-7. Carried from 2026-08-07: Docker Desktop first launch (privileged helpers still absent;
-   colima is active context); mount `/Volumes/1TB Media` before next topgrade (else benign
-   plugin FAILED line); Touch ID on the work Mac; issue #101 (install_omz staging-swap,
-   non-urgent) is still the only board item.
+1. **Nothing is open.** Board is empty — issue #101 (install_omz staging-swap) was closed
+   as accepted risk 2026-08-18 evening (David: "I hate that sometimes we over-engineer");
+   the closing comment documents the rationale. Docker Desktop first launch: done same
+   evening.
+2. **One human-side item left**: Touch ID sudo_local on the **work** Mac (steps in
+   CLAUDE.md "Touch ID for sudo"; escape-hatch second terminal).
+3. **Passive upstream watches**: replies may arrive on herdrdev/herdr#2960 / #2961 (ssh
+   non-repro question stands) / #2966. Re-test the `HERDR_AGENT` ssh case on the next herdr
+   release.
+4. Cosmetic/later: custom done/request sounds, per-agent `[ui.sound]`; herdr-on-VPS migration
+   stays parked.
 
-## Gotchas & Watch-outs (durable)
+## Gotchas & Watch-outs (durable — the big ones landed in CLAUDE.md/docs this session)
 
-**New this session**
-
-- **Herdr server restart kills every pane process** (`brew services restart`, upgrades
-  included). Layout + cwds snapshot-restore; supported agents resume conversations; plain
-  shells and ssh attaches restart per their layout command. Detach (`ctrl+space q`), never stop.
-- **`~/.local/bin/hermes-agent → /usr/bin/ssh` is a load-bearing symlink** — machine-local,
-  not Dotbot-managed (yet). If Atlas detection dies, check it first. Documented in CLAUDE.md.
-- **Herdr's hermes manifest is remote-updated** (`~/.local/state/herdr/agent-detection/remote/
-  hermes.toml`, currently 2026.07.24.1). If Hermes's TUI redesigns its screens/titles, states
-  may misread until the manifest catches up — `herdr agent explain w4:p4` diagnoses; a local
-  override TOML in `~/.config/herdr/agent-detection/` can bridge.
-- **Never restart `hermes-tmux.service` casually** — drops Atlas's in-memory chat history. All
-  Hermes lifecycle rules live in `~/Projects/agents` (upgrade SOP, cron rules, MCP-write race,
-  never `hermes update`). Consult before ANY Hermes-side change.
-- **Two tmux prefixes now**: local tmux `C-Space`, herdr `ctrl+space` (same chord — they're
-  not nested in normal use), VPS tmux stays `C-b`.
-- **The dotfiles CLAUDE.md "Herdr" section is the durable reference** for all of this —
-  lifecycle, symlink rationale, socket API gotchas, Atlas surface.
-
-**Carried forward (still true — see 2026-08-07 handoff via git history for the long tail)**
-
-- `otty/` copy-seeded, never linked; `herdr/` symlinked, deliberately opposite. Don't swap.
-- No heredocs in `bin/dot`; `dot doctor` slow but not hanging; `dot check` mirrors CI.
-- Docs-only PRs report "no checks" by design — merge on `mergeStateStatus: CLEAN`.
-- `git branch --merged` useless (squash merges); delete branches explicitly and verify remote
-  with `git ls-remote`.
-- `stat -f '%Sm'` needs `/usr/bin/stat` (GNU coreutils shadows BSD stat).
-- `claude/CLAUDE.md` symlink write-backs are real content — diff and commit (that was #137).
-- `permissions.allow` is the allowlist; a resurrected `allowedTools` wins silently.
-- sudo from agent shells needs Touch ID (`/etc/pam.d/sudo_local`, pam_reattach before pam_tid).
+- **launchd services run with bare PATH** — anything a `brew services` daemon executes needs
+  absolute paths; failures are silent; server-side "not found" panels lie. See
+  `docs/solutions/integration-issues/launchd-service-bare-environment-silent-failures.md`.
+- **Verify negatives with in-band probes** — see
+  `docs/solutions/best-practices/verify-the-instrument-before-trusting-a-negative.md`.
+- **Herdr restore boot-race** (CLAUDE.md lifecycle bullet): failed pane commands degrade to
+  shells AND drop from the layout; fix = re-run `layout.apply`; upstream #2966.
+- **Herdr keys/UI hot-reload fine** (`reload-config`); the old "startup-only" claim is dead.
+- **AXIOM attach**: `sudo -u node tmux -L axiom attach -t AXIOM` (node user, dedicated
+  socket — the axiom-user form in older notes is defunct).
+- **Computer use works from Claude Code now** — TCC grants applied after the reboot; iTerm
+  resolves as app name "iTerm" (not "iTerm2"), granted at tier "click".
+- Carried: ssh double-execution in this harness (mutations idempotent, no `>`-redirects);
+  `permissions.allow` vs resurrected `allowedTools`; otty copy-seeded vs herdr symlinked;
+  docs-only PRs report "no checks" by design (but CodeRabbit still stamps).
