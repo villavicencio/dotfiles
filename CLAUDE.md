@@ -308,6 +308,18 @@ conversations across server restarts via `claude --resume <id>`.
   the TUIs' OSC titles drive herdr states through the nested tmux. Never
   restart `hermes-tmux.service` casually — it drops Atlas's in-memory history
   (see ~/Projects/agents docs for Hermes rules).
+- **Local agent workspace (`melos ♪`, added 2026-08-18):** Claude Code running
+  in `~/Projects/melos` (the Spotify curator agent) as a declarative pane —
+  command `["/bin/zsh", "-l", "-c", "exec claude"]`, cwd `~/Projects/melos`.
+  No ssh shim: herdr's claude integration detects it natively and
+  resume-on-restore carries the conversation across server restarts. The
+  login-zsh wrapper is deliberate — the server spawns pane commands with its
+  bare launchd env, and `-l` rebuilds PATH from `zshenv` so both `claude`
+  itself and its subshells resolve tools. Agent renamed `melos`
+  (`herdr agent rename`); renames don't survive pane recreation — reapply
+  after a degraded restore, along with `layout.apply` if the command was
+  dropped (#2966). Jump key: `prefix+m`. Use this pane-command shape as the
+  template for future local project agents.
 - **`[[keys.command]]` `type = "shell"` commands run with the server's bare
   launchd environment** — no `/opt/homebrew/bin` on PATH, so a command like
   `herdr agent focus atlas` dies silently on command-not-found (detached

@@ -238,6 +238,11 @@ install via Homebrew casks in `brew/Brewfile`, not a helper.)
   (`/opt/homebrew/bin/herdr …`); key changes themselves hot-reload fine. The ssh shims
   herdr's remote-agent detection depends on (`~/.local/bin/{hermes-agent,claude-code}`
   → `/usr/bin/ssh`) are seeded by `helpers/install_herdr_agents.sh` (darwin.yaml).
+  Local project agents (e.g. the `melos ♪` workspace, Claude Code in
+  `~/Projects/melos`) need no shim — herdr detects a local claude pane natively;
+  their declarative pane command is `["/bin/zsh", "-l", "-c", "exec claude"]` so
+  the login shell rebuilds PATH from `zshenv` before claude starts (the server
+  spawns pane commands with its bare launchd env).
 - **`otty/` is copy-seeded, never symlinked — do not add a `link:` entry for it.**
   `otty config set` and the Settings UI write via temp-file + `rename(2)`, which replaces
   the path and destroys a symlink on the first settings change; the CLI still exits 0 and
