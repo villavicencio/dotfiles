@@ -139,6 +139,12 @@ type = "shell"
 command = "/opt/homebrew/bin/herdr agent focus axiom"
 description = "jump to Axiom"
 
+[[keys.command]]
+key = "prefix+m"
+type = "shell"
+command = "/opt/homebrew/bin/herdr agent focus melos"
+description = "jump to Melos"
+
 # Legacy indexed shortcut config is still parsed for compatibility.
 # Prefer switch_tab, switch_workspace, and focus_agent for new configs.
 # [keys.indexed]
