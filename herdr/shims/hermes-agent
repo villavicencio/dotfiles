@@ -6,16 +6,19 @@
 # name herdr's detection manifest matches — the wrapper itself is NOT the detected
 # process, its ssh child is.
 #
-# Loop semantics: a clean detach (ssh exit 0) closes the pane; any failure — network
-# drop, Mac sleep, VPS reboot — retries forever. This is what keeps the atlas/axiom
-# workspaces alive across nights: the pane process never exits on connection loss, so
-# herdr never closes the single-pane workspace (and the #2966 restore boot-race heals
-# itself, since a restore-time ssh failure just retries once the network is up).
+# Loop semantics (fleet rule: an agent pane never self-closes): any failure — network
+# drop, Mac sleep, VPS reboot — retries forever; a clean detach (ssh exit 0) drops to
+# an interactive shell instead of closing, so the pane/workspace survives every normal
+# exit path. This keeps the atlas/axiom workspaces alive across nights (the pane
+# process never exits) and the #2966 restore boot-race heals itself, since a
+# restore-time ssh failure just retries once the network is up.
 ALIAS="$HOME/.local/libexec/hermes-agent"
 while true; do
   "$ALIAS" -o ConnectTimeout=15 "$@"
   code=$?
-  [ "$code" -eq 0 ] && exit 0
+  [ "$code" -eq 0 ] && break
   printf '\n[hermes-agent] connection lost (ssh exit %s) — retrying in 10s\n' "$code"
   sleep 10
 done
+printf '\n[hermes-agent] detached cleanly — shell fallback (re-run the attach, or exit to close this pane)\n'
+exec /bin/zsh -il

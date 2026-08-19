@@ -240,7 +240,10 @@ install via Homebrew casks in `brew/Brewfile`, not a helper.)
   are repo-tracked auto-reconnect wrappers (`herdr/shims/`) seeded by
   `helpers/install_herdr_agents.sh` (darwin.yaml); each execs a same-named raw ssh
   alias in `~/.local/libexec/` (preserving the detected process name) in a retry
-  loop, so remote panes survive sleep/network loss and only close on clean detach.
+  loop, so remote panes survive sleep/network loss and — the fleet "a pane never
+  self-closes" rule — drop to an interactive shell on clean detach rather than
+  closing. Local agents get the same rule via the pane template
+  `["/bin/zsh", "-l", "-c", "claude; exec /bin/zsh -il"]`.
   Local project agents (e.g. the `melos ♪` workspace, Claude Code in
   `~/Projects/melos`) need no shim — herdr detects a local claude pane natively;
   their declarative pane command is `["/bin/zsh", "-l", "-c", "exec claude"]` so
