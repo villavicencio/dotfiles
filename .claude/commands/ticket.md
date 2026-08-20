@@ -1,17 +1,31 @@
-# /ticket — Create a GitHub Issue on the Dotfiles Kanban Board
+# /ticket — Create a Linear Issue in the Dotfiles Project
 
-Use this command to capture bugs, improvements, cross-machine issues, or refactoring tasks as properly structured GitHub issues and add them to the project board.
+Use this command to capture bugs, improvements, cross-machine issues, or refactoring tasks as properly structured Linear issues in the Dotfiles project.
 
-## Repo & Board
-- **Repo:** `villavicencio/dotfiles`
-- **Board:** https://github.com/users/villavicencio/projects/2
-- **Project ID:** `PVT_kwHOAA0r6c4BRdxZ`
+## Workspace & Project
+- **Workspace:** Villavicencio — https://linear.app/villavicencio
+- **Team:** `Villavicencio` (key `VIL`)
+- **Project:** `Dotfiles` — https://linear.app/villavicencio/project/dotfiles-74974922348e
+- Issue tracking migrated here from the GitHub Projects board on 2026-08-20; the old
+  board (https://github.com/users/villavicencio/projects/2) is closed history only —
+  never create new GitHub issues.
+
+## Tooling
+The Linear MCP tools are deferred — load what you need in ONE ToolSearch call before
+creating anything:
+
+```
+ToolSearch("select:mcp__linear__save_issue,mcp__linear__list_issue_labels")
+```
 
 ## Labels Available
+Workspace defaults plus repo-specific area labels:
+
 | Label | Use for |
 |-------|---------|
-| `bug` | Something broken, incorrect behavior, or errors on shell startup |
-| `enhancement` | New feature, alias, function, or tool integration |
+| `Bug` | Something broken, incorrect behavior, or errors on shell startup |
+| `Feature` | New feature, alias, function, or tool integration |
+| `Improvement` | Refinement of something that already works |
 | `zsh` | Zsh shell config (zshrc, zshenv, aliases, functions, options) |
 | `brew` | Homebrew packages, casks, or Brewfile changes |
 | `git-config` | Git configuration (gitconfig, gitignore, gitattributes) |
@@ -26,7 +40,7 @@ Use this command to capture bugs, improvements, cross-machine issues, or refacto
 ### Step 1 — Understand the request
 Read the user's description carefully. Identify:
 - Which config files are affected
-- Whether this is a bug, enhancement, or cleanup
+- Whether this is a bug, feature, or cleanup
 - Whether it affects one or both machines (personal/work)
 
 ### Step 2 — Compose the issue
@@ -35,7 +49,7 @@ Write a well-structured issue with:
 ```
 Title: [Short, action-oriented. Start with a verb. E.g. "Fix duplicate PATH entries in zshenv"]
 
-Body:
+Description:
 ## Context
 [What prompted this. Reference the specific file, line, or shell behavior.]
 
@@ -50,39 +64,22 @@ Body:
 ```
 
 ### Step 3 — Pick labels
-Choose 1-3 labels from the table above. When in doubt: `zsh` for shell config, `cross-machine` if it affects work Mac parity, `cleanup` for dead code removal.
+Choose 1-3 labels from the table above. When in doubt: `zsh` for shell config,
+`cross-machine` if it affects work Mac parity, `cleanup` for dead code removal.
 
 ### Step 4 — Create the issue
-```bash
-ISSUE_URL=$(gh issue create \
-  --repo villavicencio/dotfiles \
-  --title "<title>" \
-  --label "<label1>,<label2>" \
-  --body "<body>")
+Call `mcp__linear__save_issue` (no `id` — that would be an update):
 
-echo "Created: $ISSUE_URL"
-```
+- `team`: `"Villavicencio"`
+- `project`: `"Dotfiles"`
+- `state`: `"Todo"` (actionable now) or `"Backlog"` (someday/needs decision)
+- `title` / `description`: from Step 2 — pass real newlines in markdown, not `\n` escapes
+- `labels`: from Step 3, e.g. `["Bug", "zsh"]`
 
-### Step 5 — Add to the Kanban board
-Get the issue node ID and add it to the project:
-```bash
-ISSUE_NUMBER=$(echo "$ISSUE_URL" | grep -o '[0-9]*$')
-ISSUE_ID=$(gh api repos/villavicencio/dotfiles/issues/$ISSUE_NUMBER --jq '.node_id')
-
-gh api graphql -f query='
-mutation($projectId: ID!, $contentId: ID!) {
-  addProjectV2ItemById(input: { projectId: $projectId, contentId: $contentId }) {
-    item { id }
-  }
-}' -f projectId="PVT_kwHOAA0r6c4BRdxZ" -f contentId="$ISSUE_ID"
-
-echo "Added to board"
-```
-
-### Step 6 — Confirm
+### Step 5 — Confirm
 Reply with:
-- Issue title
-- Issue URL
+- Issue identifier (e.g. `VIL-12`) and title
+- Issue URL (from the save_issue result)
 - Labels applied
 - One-line summary of what was captured
 
@@ -90,5 +87,6 @@ Reply with:
 - One issue per distinct problem — don't bundle unrelated fixes
 - Reference file paths relative to repo root: `zsh/zshenv`, `zsh/zshrc`, `helpers/install_node.sh`
 - Note which machine(s) are affected when relevant (personal, work, or both)
-- If the fix is obvious and small (< 5 min), note it in the body so the next session can blitz through it
+- If the fix is obvious and small (< 5 min), note it in the description so the next session can blitz through it
 - Use `$HOME` not `/Users/<user>/` and `$BREW_PREFIX` not `/opt/homebrew/` per CLAUDE.md conventions
+- When resolving a ticket, set its state to `Done` via `save_issue` (id + `state: "Done"`) as part of the merge workflow
