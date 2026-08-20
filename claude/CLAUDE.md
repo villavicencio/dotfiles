@@ -158,8 +158,10 @@ rather than improvising a different shape in whatever project you're in:
 **Linear is the issue tracker** (workspace `Villavicencio`, https://linear.app/villavicencio,
 single team `Villavicencio`, key `VIL`), for both personal tasks and per-project work — one
 Linear *project* per repo/area as needed. The MCP server is configured globally as `linear`
-in the root `mcpServers` of `~/.claude.json` (added 2026-08-20; machine-local, so the work
-Mac needs its own `/mcp` add + auth). Its `mcp__linear__*` tools are deferred — load via
+in the root `mcpServers` of `~/.claude.json` (added 2026-08-20; machine-local). **Personal
+Mac only — the work Mac deliberately does not use Linear** (work tracking lives in other
+tools; David, 2026-08-20 — do not set it up there; personal-project tickets from the work
+Mac go through the Linear web UI). Its `mcp__linear__*` tools are deferred — load via
 ToolSearch (e.g. `select:mcp__linear__save_issue,mcp__linear__list_issues`).
 
 - **Dotfiles issue tracking lives in the Linear project `Dotfiles`** —
