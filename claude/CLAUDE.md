@@ -153,6 +153,23 @@ rather than improvising a different shape in whatever project you're in:
   NDJSON API, rename-on-recreate, restore boot-race — lives in dotfiles, not here; this is
   the pointer that keeps every project routing through it.
 
+## Linear — issue tracking
+
+**Linear is the issue tracker** (workspace `Villavicencio`, https://linear.app/villavicencio,
+single team `Villavicencio`, key `VIL`), for both personal tasks and per-project work — one
+Linear *project* per repo/area as needed. The MCP server is configured globally as `linear`
+in the root `mcpServers` of `~/.claude.json` (added 2026-08-20; machine-local, so the work
+Mac needs its own `/mcp` add + auth). Its `mcp__linear__*` tools are deferred — load via
+ToolSearch (e.g. `select:mcp__linear__save_issue,mcp__linear__list_issues`).
+
+- **Dotfiles issue tracking lives in the Linear project `Dotfiles`** —
+  migrated off the GitHub Projects board 2026-08-20. Do not create new GitHub issues for
+  repos whose tracking has moved to Linear; the old board and closed GH issues are
+  read-only history.
+- `save_issue`/`save_project` create *or* update (pass `id` to update); mark linked issues
+  `Done` at merge time as part of the branch→PR→merge cleanup.
+- Pass real newlines in markdown content, never literal `\n` escape sequences.
+
 ## Research
 
 When you hit a wall — unfamiliar tool, unknown API, missing docs — always perform a web search

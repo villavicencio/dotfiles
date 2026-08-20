@@ -459,8 +459,16 @@ find "$FAKE" -mindepth 1 | wc -l   # must be 0 (Library/Caches/com.apple.python 
 rm -rf "$FAKE"
 ```
 
-### Project board
-GitHub Project board: https://github.com/users/villavicencio/projects/2
+### Issue tracking — Linear
+Issues live in **Linear**, project `Dotfiles`, team `Villavicencio` (key `VIL`):
+https://linear.app/villavicencio/project/dotfiles-74974922348e
+
+Migrated off the GitHub Projects board on 2026-08-20 with zero open issues — the old
+board (https://github.com/users/villavicencio/projects/2) and the repo's 44 closed
+GitHub issues remain as read-only history. **Never create new GitHub issues**; use
+`/ticket` (which drives `mcp__linear__save_issue`) or the Linear UI. The Linear MCP
+server is configured globally in `~/.claude.json` (machine-local — the work Mac needs
+its own `/mcp` add + auth); its tools are deferred, so load them via ToolSearch first.
 
 ### Branching & pull requests
 Work on a **feature branch and merge via pull request** — this is the default for
@@ -471,8 +479,9 @@ this repo, not just ticket work. Avoid committing directly to `master`.
   `style/…` (e.g. `feat/statusline-slider-bars`).
 - **One PR per logical change.** Push the branch and open a PR with `gh pr create`;
   let the PR carry the review surface. Keep `master` always-green.
-- **Merge, then clean up.** After merge, delete the branch and close any linked
-  issue (`gh issue close`) as part of the workflow.
+- **Merge, then clean up.** After merge, delete the branch and mark any linked
+  Linear issue `Done` (`mcp__linear__save_issue` with the issue id + `state: "Done"`)
+  as part of the workflow.
 - **Trivial exceptions** (typo fixes, a one-line doc tweak) may go straight to
   `master` at the author's discretion — the rule targets behavior and config
   changes, where review and a clean history matter.
