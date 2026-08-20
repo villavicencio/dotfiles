@@ -467,8 +467,9 @@ Migrated off the GitHub Projects board on 2026-08-20 with zero open issues — t
 board (https://github.com/users/villavicencio/projects/2) and the repo's 44 closed
 GitHub issues remain as read-only history. **Never create new GitHub issues**; use
 `/ticket` (which drives `mcp__linear__save_issue`) or the Linear UI. The Linear MCP
-server is configured globally in `~/.claude.json` (machine-local — the work Mac needs
-its own `/mcp` add + auth); its tools are deferred, so load them via ToolSearch first.
+server is configured globally in `~/.claude.json` (machine-local; personal Mac only —
+the work Mac deliberately does not use Linear, work tracking lives in other tools);
+its tools are deferred, so load them via ToolSearch first.
 
 ### Branching & pull requests
 Work on a **feature branch and merge via pull request** — this is the default for
