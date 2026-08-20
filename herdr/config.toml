@@ -152,6 +152,34 @@ type = "shell"
 command = "/opt/homebrew/bin/herdr agent focus borealis"
 description = "jump to Borealis"
 
+[[keys.command]]
+# plain a is the Atlas jump.
+key = "prefix+shift+a"
+type = "shell"
+command = "/opt/homebrew/bin/herdr agent focus argus"
+description = "jump to Argus"
+
+[[keys.command]]
+# plain s is the settings default.
+key = "prefix+shift+s"
+type = "shell"
+command = "/opt/homebrew/bin/herdr agent focus skills"
+description = "jump to Skills"
+
+[[keys.command]]
+# plain o is the open_notification_target default.
+key = "prefix+shift+o"
+type = "shell"
+command = "/opt/homebrew/bin/herdr agent focus obscura"
+description = "jump to Obscura"
+
+[[keys.command]]
+# e and shift+e are edit_scrollback / remove_worktree, so Eidos takes shift+i.
+key = "prefix+shift+i"
+type = "shell"
+command = "/opt/homebrew/bin/herdr agent focus eidos"
+description = "jump to Eidos"
+
 # Legacy indexed shortcut config is still parsed for compatibility.
 # Prefer switch_tab, switch_workspace, and focus_agent for new configs.
 # [keys.indexed]
