@@ -335,10 +335,14 @@ conversations across server restarts via `claude --resume <id>`.
   route the change through the standard flow** (see the global CLAUDE.md
   "Herdr fleet & agent building").
   - Current local agents on this template: `melos ♪` (`~/Projects/melos`, Spotify
-    curator, jump `prefix+m`) and `sites ✦` (`~/Projects/sites`, umbrella of
+    curator, jump `prefix+m`), `sites ✦` (`~/Projects/sites`, umbrella of
     symlinks to the personal-website repos — davidandbrittanie.com, davidv.sh
     serving villavicencio.dev, ibmcconstruction.com; conventions in that dir's
-    CLAUDE.md). Each site stays its own git repo and Vercel project.
+    CLAUDE.md; each site stays its own git repo and Vercel project), and
+    `borealis ❆` (`~/Projects/borealis`, native SwiftUI prompt-library app, jump
+    `prefix+shift+b` — plain `prefix+b` is toggle_sidebar; migrated out of
+    `~/.forge-projects/` 2026-08-20, the unused Forge web scaffold still rides in
+    the repo).
 - **`[[keys.command]]` `type = "shell"` commands run with the server's bare
   launchd environment** — no `/opt/homebrew/bin` on PATH, so a command like
   `herdr agent focus atlas` dies silently on command-not-found (detached
