@@ -334,15 +334,20 @@ conversations across server restarts via `claude --resume <id>`.
   so it holds fleet-wide. **When building any new agent, use this template and
   route the change through the standard flow** (see the global CLAUDE.md
   "Herdr fleet & agent building").
-  - Current local agents on this template: `melos ♪` (`~/Projects/melos`, Spotify
-    curator, jump `prefix+m`), `sites ✦` (`~/Projects/sites`, umbrella of
-    symlinks to the personal-website repos — davidandbrittanie.com, davidv.sh
-    serving villavicencio.dev, ibmcconstruction.com; conventions in that dir's
-    CLAUDE.md; each site stays its own git repo and Vercel project), and
-    `borealis ❆` (`~/Projects/borealis`, native SwiftUI prompt-library app, jump
-    `prefix+shift+b` — plain `prefix+b` is toggle_sidebar; migrated out of
-    `~/.forge-projects/` 2026-08-20, the unused Forge web scaffold still rides in
-    the repo).
+  - Current local agents on this template (jump keys are `[[keys.command]]`
+    entries in `herdr/config.toml`; shift-chords where the plain letter is taken
+    by a default binding or an earlier agent):
+
+    | Agent | Dir | Purpose | Jump |
+    |---|---|---|---|
+    | `melos ♪` | `~/Projects/melos` | Spotify curator | `prefix+m` |
+    | `sites ✦` | `~/Projects/sites` | umbrella of symlinks to the personal-website repos (davidandbrittanie.com, davidv.sh serving villavicencio.dev, ibmcconstruction.com); each site stays its own repo + Vercel project | — |
+    | `borealis ❆` | `~/Projects/borealis` | native SwiftUI prompt-library app (ex-Forge, migrated 2026-08-20) | `prefix+shift+b` |
+    | `argus ◉` | `~/Projects/agents` | Hermes/Atlas ops project (browse-gateway consumer `argus`) | `prefix+shift+a` |
+    | `skills ⚒` | `~/Projects/skills` | Claude Code skills workshop | `prefix+shift+s` |
+    | `obscura ✇` | `~/Projects/browse-gateway` | the Obscura browse-gateway itself | `prefix+shift+o` |
+    | `eidos ❖` | `~/Projects/eidos` | Eagle library curation | `prefix+shift+i` (`e`/`shift+e` are edit_scrollback / remove_worktree) |
+
 - **`[[keys.command]]` `type = "shell"` commands run with the server's bare
   launchd environment** — no `/opt/homebrew/bin` on PATH, so a command like
   `herdr agent focus atlas` dies silently on command-not-found (detached

@@ -247,9 +247,10 @@ install via Homebrew casks in `brew/Brewfile`, not a helper.)
   self-closes" rule — drop to an interactive shell on clean detach rather than
   closing. Local agents get the same rule via the pane template
   `["/bin/zsh", "-l", "-c", "claude; exec /bin/zsh -il"]`.
-  Local project agents (`melos ♪`, `sites ✦`, `borealis ❆`) need no shim — herdr
-  detects a local claude pane natively; they use the pane template above, whose
-  login shell rebuilds PATH from `zshenv` before claude starts (the server
+  Local project agents (`melos ♪`, `sites ✦`, `borealis ❆`, `argus ◉`,
+  `skills ⚒`, `obscura ✇`, `eidos ❖` — roster table in CLAUDE.md) need no shim —
+  herdr detects a local claude pane natively; they use the pane template above,
+  whose login shell rebuilds PATH from `zshenv` before claude starts (the server
   spawns pane commands with its bare launchd env).
 - **`otty/` is copy-seeded, never symlinked — do not add a `link:` entry for it.**
   `otty config set` and the Settings UI write via temp-file + `rename(2)`, which replaces
