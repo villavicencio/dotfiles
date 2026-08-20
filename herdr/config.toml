@@ -145,6 +145,13 @@ type = "shell"
 command = "/opt/homebrew/bin/herdr agent focus melos"
 description = "jump to Melos"
 
+[[keys.command]]
+# prefix+b is toggle_sidebar's default binding, so Borealis takes shift+b.
+key = "prefix+shift+b"
+type = "shell"
+command = "/opt/homebrew/bin/herdr agent focus borealis"
+description = "jump to Borealis"
+
 # Legacy indexed shortcut config is still parsed for compatibility.
 # Prefer switch_tab, switch_workspace, and focus_agent for new configs.
 # [keys.indexed]
