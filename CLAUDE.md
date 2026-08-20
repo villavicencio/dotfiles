@@ -347,6 +347,7 @@ conversations across server restarts via `claude --resume <id>`.
     | `skills ⚒` | `~/Projects/skills` | Claude Code skills workshop | `prefix+shift+s` |
     | `obscura ✇` | `~/Projects/browse-gateway` | the Obscura browse-gateway itself | `prefix+shift+o` |
     | `eidos ❖` | `~/Projects/eidos` | Eagle library curation | `prefix+shift+i` (`e`/`shift+e` are edit_scrollback / remove_worktree) |
+
 - **`[[keys.command]]` `type = "shell"` commands run with the server's bare
   launchd environment** — no `/opt/homebrew/bin` on PATH, so a command like
   `herdr agent focus atlas` dies silently on command-not-found (detached
