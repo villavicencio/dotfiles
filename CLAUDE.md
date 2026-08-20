@@ -468,8 +468,9 @@ board (https://github.com/users/villavicencio/projects/2) and the repo's 44 clos
 GitHub issues remain as read-only history. **Never create new GitHub issues**; use
 `/ticket` (which drives `mcp__linear__save_issue`) or the Linear UI. The Linear MCP
 server is configured globally in `~/.claude.json` (machine-local; personal Mac only —
-the work Mac deliberately does not use Linear, work tracking lives in other tools);
-its tools are deferred, so load them via ToolSearch first.
+the work Mac deliberately does not use Linear MCP, work tracking lives in other tools);
+its tools are deferred, so load them via ToolSearch first. On the work Mac, `/ticket`'s
+MCP path is unavailable — capture dotfiles tickets via the Linear web UI instead.
 
 ### Branching & pull requests
 Work on a **feature branch and merge via pull request** — this is the default for
