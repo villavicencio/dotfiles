@@ -386,6 +386,18 @@ conversations across server restarts via `claude --resume <id>`.
     Renaming is Forge's job; moving out entirely is a deliberate de-Forge
     migration (borealis, 2026-08-20: mv + new-slug memory symlink + doc/Linear
     repoints — old-slug transcripts stay behind).
+- **Phone access is Moshi (SSH/mosh), not a gateway app** (since 2026-08-21;
+  replaced Conduit). Moshi (getmoshi.app) connects straight to this Mac —
+  `zs-macbook-pro.tail31dc0a.ts.net`:22, user `dvillavicencio`, Key File auth
+  (the `moshi`-comment line in `~/.ssh/authorized_keys`), Connection "Auto" →
+  Mosh — then `herdr` in the session attaches the whole fleet. Requires
+  Tailscale active on the phone; `mosh-server` rides the Brewfile and zshenv's
+  PATH. **No server-side infrastructure exists for mobile access** — Conduit's
+  pieces (the `conduit_push` Hermes plugin + a tailnet-only `tailscale serve`
+  HTTPS proxy to the Hermes gateway on openclaw-prod) were torn down
+  2026-08-21 (reversal tarball:
+  `/home/node/.hermes/backups/conduit-teardown-20260821-144904.tgz`); don't
+  reintroduce a gateway/relay for phone use.
 - **`[[keys.command]]` `type = "shell"` commands run with the server's bare
   launchd environment** — no `/opt/homebrew/bin` on PATH, so a command like
   `herdr agent focus atlas` dies silently on command-not-found (detached
