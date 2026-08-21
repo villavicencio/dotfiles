@@ -347,7 +347,39 @@ conversations across server restarts via `claude --resume <id>`.
     | `skills ⚒` | `~/Projects/skills` | Claude Code skills workshop | `prefix+shift+s` |
     | `obscura ✇` | `~/Projects/browse-gateway` | the Obscura browse-gateway itself | `prefix+shift+o` |
     | `eidos ❖` | `~/Projects/eidos` | Eagle library curation | `prefix+shift+i` (`e`/`shift+e` are edit_scrollback / remove_worktree) |
+    | `orrery ☉` | `~/.forge-projects/tranquil-dune` (aka `~/Projects/orrery`) | Forge-resident jobs dashboard (orrery.ui8.dev) — see "Forge-resident hybrid agents" below | `prefix+y` (`o`/`shift+o` are open_notification_target / obscura; `y` as in orrer**y**) |
 
+- **Forge-resident hybrid agents** (SOP, established 2026-08-20 with `orrery ☉`).
+  For a project that legitimately *stays* in Forge — UI-heavy, actually using
+  Forge's stories canvas / dev server / publishing — but wants plain Claude Code
+  in herdr for non-UI lanes, herdr-ize it **in place**:
+  - **Pane cwd = the physical `~/.forge-projects/<codename>` path.** Herdr spawns
+    pane processes via `chdir`, and the kernel resolves symlinks there, so Claude
+    Code's project identity is always the physical path — pointing the pane at a
+    symlink buys nothing and hides the mechanism. Otherwise it's the standard
+    fleet pane template.
+  - **Add a convenience symlink `~/Projects/<name>` → the codename dir.** Pure
+    ergonomics: it gives the project its human name (Forge dirs carry codenames
+    like `tranquil-dune`) and keeps the one-projects-dir view complete. It does
+    not affect harness identity (see above).
+  - **One slug, two harnesses — that's the payoff.** Forge's embedded ACP
+    sessions and the herdr pane share the same project slug, so they share the
+    memory symlink → vault AND the transcript history: `--resume`/`--continue`
+    in the herdr pane lists the Forge sessions' conversations. Continuity is
+    free; don't "fix" the shared slug.
+  - **Standard bootstrap still applies — verify, don't redo.** The Forge
+    sessions have usually already done vault + CLAUDE.md Vault declaration +
+    memory symlink; the herdr-side additions are just workspace, rename, jump
+    key, roster row.
+  - **One working tree, one writer at a time.** Don't run the Forge ACP agent
+    and the herdr pane on overlapping edits — split lanes (UI in Forge, non-UI
+    in the pane) and let HANDOFF/vault memory carry the seam. Interactive-only
+    flows (MCP OAuth, `/mcp` auth) can't run in Forge's non-interactive ACP
+    sessions — do them in the herdr pane.
+  - **Never move or rename the Forge dir from outside** — Forge manages it.
+    Renaming is Forge's job; moving out entirely is a deliberate de-Forge
+    migration (borealis, 2026-08-20: mv + new-slug memory symlink + doc/Linear
+    repoints — old-slug transcripts stay behind).
 - **`[[keys.command]]` `type = "shell"` commands run with the server's bare
   launchd environment** — no `/opt/homebrew/bin` on PATH, so a command like
   `herdr agent focus atlas` dies silently on command-not-found (detached

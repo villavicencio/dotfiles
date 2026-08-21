@@ -248,10 +248,16 @@ install via Homebrew casks in `brew/Brewfile`, not a helper.)
   closing. Local agents get the same rule via the pane template
   `["/bin/zsh", "-l", "-c", "claude; exec /bin/zsh -il"]`.
   Local project agents (`melos ♪`, `sites ✦`, `borealis ❆`, `argus ◉`,
-  `skills ⚒`, `obscura ✇`, `eidos ❖` — roster table in CLAUDE.md) need no shim —
-  herdr detects a local claude pane natively; they use the pane template above,
-  whose login shell rebuilds PATH from `zshenv` before claude starts (the server
-  spawns pane commands with its bare launchd env).
+  `skills ⚒`, `obscura ✇`, `eidos ❖`, `orrery ☉` — roster table in CLAUDE.md)
+  need no shim — herdr detects a local claude pane natively; they use the pane
+  template above, whose login shell rebuilds PATH from `zshenv` before claude
+  starts (the server spawns pane commands with its bare launchd env).
+  `orrery ☉` is the **Forge-resident hybrid** pattern (full SOP in CLAUDE.md):
+  the project stays Forge-managed, the pane targets the physical
+  `~/.forge-projects/<codename>` path (herdr `chdir` resolves symlinks, so
+  identity always lands there), `~/Projects/<name>` is an ergonomics-only
+  symlink, and both harnesses share one project slug — shared vault memory and
+  `--resume` continuity across Forge ACP sessions and the pane.
 - **`otty/` is copy-seeded, never symlinked — do not add a `link:` entry for it.**
   `otty config set` and the Settings UI write via temp-file + `rename(2)`, which replaces
   the path and destroys a symlink on the first settings change; the CLI still exits 0 and
