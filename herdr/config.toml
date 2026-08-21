@@ -180,6 +180,13 @@ type = "shell"
 command = "/opt/homebrew/bin/herdr agent focus eidos"
 description = "jump to Eidos"
 
+[[keys.command]]
+# o and shift+o are open_notification_target / Obscura; y as in orrerY.
+key = "prefix+y"
+type = "shell"
+command = "/opt/homebrew/bin/herdr agent focus orrery"
+description = "jump to Orrery"
+
 # Legacy indexed shortcut config is still parsed for compatibility.
 # Prefer switch_tab, switch_workspace, and focus_agent for new configs.
 # [keys.indexed]
