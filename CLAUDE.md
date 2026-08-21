@@ -376,6 +376,12 @@ conversations across server restarts via `claude --resume <id>`.
     in the pane) and let HANDOFF/vault memory carry the seam. Interactive-only
     flows (MCP OAuth, `/mcp` auth) can't run in Forge's non-interactive ACP
     sessions — do them in the herdr pane.
+  - **Hybrid repos get a remote, and the PR is the seam** (instituted 2026-08-21
+    after orrery's git init). Give the project a GitHub remote (private by
+    default — collector-style code maps David's infra) and route BOTH harnesses
+    through branch → PR, never local merges or shared uncommitted work on the
+    default branch. Each lane's work lands as a reviewed unit the other harness
+    pulls cleanly; two agents never meet in a dirty tree.
   - **Never move or rename the Forge dir from outside** — Forge manages it.
     Renaming is Forge's job; moving out entirely is a deliberate de-Forge
     migration (borealis, 2026-08-20: mv + new-slug memory symlink + doc/Linear
