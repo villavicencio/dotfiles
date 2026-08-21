@@ -395,7 +395,8 @@ conversations across server restarts via `claude --resume <id>`.
   PATH. **No server-side infrastructure exists for mobile access** — Conduit's
   pieces (the `conduit_push` Hermes plugin + a tailnet-only `tailscale serve`
   HTTPS proxy to the Hermes gateway on openclaw-prod) were torn down
-  2026-08-21 (reversal tarball in `/home/node/.hermes/backups/`); don't
+  2026-08-21 (reversal tarball:
+  `/home/node/.hermes/backups/conduit-teardown-20260821-144904.tgz`); don't
   reintroduce a gateway/relay for phone use.
 - **`[[keys.command]]` `type = "shell"` commands run with the server's bare
   launchd environment** — no `/opt/homebrew/bin` on PATH, so a command like
