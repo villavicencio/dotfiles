@@ -581,11 +581,13 @@ this repo, not just ticket work. Avoid committing directly to `master`.
 Picking up a board ticket always gets its own branch (never work a ticket on
 `master`).
 
-**A docs-only PR reports "no checks reported" — that is correct, not a stalled CI.**
+**A docs-only PR skips the install matrix — but not the review.**
 `install-matrix.yml` declares `paths-ignore: ['docs/**', '**.md', 'claude/**/*.md']`,
-so a change touching only markdown never triggers the matrix and `gh pr checks` has
-nothing to show. `gh pr view --json mergeStateStatus` reading `CLEAN` is the signal to
-merge on; do not wait for a run that will never start.
+so a markdown-only change never triggers `linux`/`macos`; do not wait for a run that
+will never start. **CodeRabbit still reviews it** (it has findings on markdown, and did
+on #171), so `mergeStateStatus: CLEAN` is not by itself the merge signal — wait for the
+CodeRabbit check to leave `pending` and triage its findings first. `CLEAN` only tells you
+nothing is *blocking*; a throttled or still-running review also reads clean.
 
 ### Claude Code permissions: one allowlist, not two
 

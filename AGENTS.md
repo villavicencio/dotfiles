@@ -185,10 +185,11 @@ tickets. Avoid committing directly to `master`.
 - **One PR per logical change**; push and open with `gh pr create`. Keep `master` green.
 - **Merge, then clean up**: delete the branch, mark any linked Linear issue `Done`.
 - **Trivial exceptions** (typo, one-line doc tweak) may go straight to `master`.
-- **Docs-only PRs report "no checks reported"** — `install-matrix.yml` sets
+- **Docs-only PRs skip the install matrix, not the review** — `install-matrix.yml` sets
   `paths-ignore: ['docs/**', '**.md', 'claude/**/*.md']`, so a markdown-only change never
-  triggers the matrix. Merge on `mergeStateStatus: CLEAN`; don't wait for a run that
-  will never start.
+  triggers `linux`/`macos`; don't wait for a run that will never start. CodeRabbit still
+  reviews markdown, so wait for its check to leave `pending` and triage the findings —
+  `mergeStateStatus: CLEAN` also reads clean while a review is pending or throttled.
 
 Issue tracking: Linear, project `Dotfiles`, team `Villavicencio` (key `VIL`) —
 https://linear.app/villavicencio/project/dotfiles-74974922348e (migrated off the

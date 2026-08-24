@@ -107,12 +107,15 @@ the diff itself routes through one of the two tools above.
 
 - **Wait for the review, and wait for each re-review** (David, 2026-08-24). Do not merge while its
   verdict is `CHANGES_REQUESTED`, even after pushing a fix that you believe resolves the finding —
-  the stale verdict is not permission. If the re-review is throttled, wait for the window.
+  the stale verdict is not permission. If the re-review is throttled, wait for the window; the one
+  exception is the docs/config carve-out under "Rate limits" below, and it requires recording the
+  throttle in the PR body.
 - **Poll the check line, not the reviews API**: `gh pr checks <N> | grep -i '^CodeRabbit'` until it
   stops saying `pending`. The bot posts as `coderabbitai` on some PRs and `coderabbitai[bot]` on
   others, and its replies to your thread replies register as `COMMENTED` reviews — both make a
   reviews-API poll fire early or never. `gh api .../comments/<id>` 404s for review comments; use
-  the list endpoint `.../pulls/<N>/comments?per_page=100` and filter by id.
+  the list endpoint with `gh api --paginate .../pulls/<N>/comments` and filter by id — `per_page`
+  alone caps at one page and silently drops findings past it.
 - **Triage every finding**: fix it on the branch, or decline it with the reason recorded both on
   the thread and in the PR body. A finding you disagree with is a standoff you document, not one
   you merge past silently.
@@ -126,8 +129,10 @@ Limits are **per developer on a rolling hour**, so every repo and every parallel
 draws from one shared pool: a quiet repo can hit the ceiling it never spent. Per
 [docs.coderabbit.ai/faq](https://docs.coderabbit.ai/faq) (fetched 2026-08-24): **Trial 3/hr, Pro
 5/hr, Pro+ 10/hr**, with fair-usage spacing above the 95th percentile of recent usage and an
-optional usage-based add-on. `@coderabbitai rate limit` reports remaining capacity **without
-consuming a review**; use it before assuming you have headroom.
+optional usage-based add-on. **Which tier this account is on is not recorded here** — a 14-day
+trial started 2026-08-18, so don't assume a number. `@coderabbitai rate limit` reports the real
+remaining capacity **without consuming a review**; use it rather than doing arithmetic from the
+table above.
 
 **A throttled CodeRabbit is unavailable, not clean.** A throttled PR shows a *passing* check
 reading `Review rate limited` and no review runs — passing by design so it never blocks merging,
@@ -139,8 +144,8 @@ anything beyond docs and config, wait for capacity.
 
 Set `reviews.auto_review.auto_incremental_review: false`. By default **every push re-reviews**,
 spending the shared per-developer allowance on intermediate commits; with it false the first
-review is still automatic and each later round is requested deliberately with an
-`@coderabbitai review` comment. This matches the fix → push → request → re-review loop above.
+*eligible* review is still automatic — `ignore_title_keywords` (WIP / DO NOT MERGE) and drafts are
+excluded — and each later round is requested deliberately with an `@coderabbitai review` comment. This matches the fix → push → request → re-review loop above.
 Repos carrying this config: `skills`, `dotfiles`. Repos still on push-triggered re-review:
 `borealis`.
 
