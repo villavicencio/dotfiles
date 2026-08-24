@@ -50,7 +50,13 @@ meter_color() {
 # \342\226\221). $2 is raw escape bytes (e.g. from meter_color). Playhead rounds
 # to nearest cell: (pct * BAR_CELLS + 50) / 100; at 100% the bar is fully filled
 # with no cursor. Each cell is one character, so the slider stays compact.
-BAR_CELLS=10
+# 20 cells = 5pp per cell; three meters render ~105 columns, which fits a
+# full-width pane but would wrap in a split one — that width is the ceiling,
+# not a starting point. Note nearest-cell rounding means any two values inside
+# one cell's band still collapse, so more cells buys resolution in the MIDDLE
+# of the range (12% vs 15% separate at 20, not at 10), never at the very low
+# end — 3% and 7% differ at 10 cells and collide at 20. See VIL-82.
+BAR_CELLS=20
 bar() {
   _bf=$(( ($1 * BAR_CELLS + 50) / 100 )); [ "$_bf" -gt "$BAR_CELLS" ] && _bf=$BAR_CELLS
   _bi=0
