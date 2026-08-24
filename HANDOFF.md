@@ -1,8 +1,8 @@
 ---
-created_at: "2026-08-24T12:00:00-07:00"
+created_at: "2026-08-24T13:05:00-07:00"
 branch: "master"
-head: "039b3e1"
-resume_focus: "Rebuild the dotfiles pane at this boundary, then seed the Linear backlog with carried items"
+head: "2b96e3a"
+resume_focus: "Seed the Linear Dotfiles backlog with the carried items (pane rebuild is done)"
 ---
 
 # HANDOFF — 2026-08-24 (PDT)
@@ -36,11 +36,14 @@ deliberate model-switch boundary: David is clearing to move Fable 5 → Opus 5).
 
 ## What's Next (recommended order for the fresh session)
 
-1. **Rebuild the `dotfiles ~` pane (w1) — at this boundary, not later.** Carried
-   since #153: it's still on the old `exec claude` shape. A rebuild kills the live
-   session — which costs nothing right now because David is clearing anyway.
-   Recreate per the fleet template (CLAUDE.md Herdr section), reapply the
-   workspace label, verify detection, then `/pickup` in the new pane.
+1. ~~Rebuild the `dotfiles ~` pane (w1)~~ — **done 2026-08-24 (#165).** The real
+   state was worse than "old `exec claude` shape": the exported pane node had no
+   `command` at all (bare shell with claude started inside), so it detected fine
+   but a server restart would have returned an empty shell. Rebuilt via
+   `layout.apply` onto the existing tab; diagnosis + exact invocation are now in
+   CLAUDE.md's Herdr section. **Verify after this pickup:** `layout.export` for
+   w1 should show the template `command`, and the workspace label should still
+   read `dotfiles ~`.
 2. **Seed the Linear "Dotfiles" project backlog** — the backlog is empty while
    carryovers live in handoff prose, which is exactly what Linear was adopted to
    fix. Ticket the known items: statusline `BAR_CELLS` 10→20 (+ optional
