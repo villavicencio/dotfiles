@@ -182,6 +182,14 @@ ToolSearch (e.g. `select:mcp__linear__save_issue,mcp__linear__list_issues`).
 - `save_issue`/`save_project` create *or* update (pass `id` to update); mark linked issues
   `Done` at merge time as part of the branch→PR→merge cleanup.
 - Pass real newlines in markdown content, never literal `\n` escape sequences.
+- **Naming a `VIL-…` id in a PR body can auto-close that issue on merge.** Linear's GitHub
+  integration scans PR text, attaches the PR, and moves the issue to Done when it merges —
+  including when the PR merely *mentions* the ticket in passing rather than completing it.
+  Observed 2026-08-24: a handoff PR recapping which tickets had been filed closed VIL-82
+  thirteen seconds after merge and auto-assigned it, while VIL-83 — named in the same body —
+  was untouched, so the trigger is narrower than "any id in the text" but not predictable
+  from the outside. Treat it as: after merging any PR that names ticket ids, re-check their
+  states and reopen what you didn't actually finish.
 
 ## Research
 
