@@ -52,10 +52,12 @@ meter_color() {
 # with no cursor. Each cell is one character, so the slider stays compact.
 # 20 cells = 5pp per cell; three meters render ~105 columns, which fits a
 # full-width pane but would wrap in a split one — that width is the ceiling,
-# not a starting point. Note nearest-cell rounding means any two values inside
-# one cell's band still collapse, so more cells buys resolution in the MIDDLE
-# of the range (12% vs 15% separate at 20, not at 10), never at the very low
-# end — 3% and 7% differ at 10 cells and collide at 20. See VIL-82.
+# not a starting point. Halving the step separates most pairs that used to
+# share a cell (1%/4%, 5%/9%, 17%/22% all collide at 10 and split at 20), but
+# nearest-cell rounding still collapses anything inside one band, and a pair
+# straddling the new boundaries can regress: 3% and 7% differ at 10 cells and
+# collide at 20. Net gain across the range, not a guarantee for any one pair.
+# See VIL-82.
 BAR_CELLS=20
 bar() {
   _bf=$(( ($1 * BAR_CELLS + 50) / 100 )); [ "$_bf" -gt "$BAR_CELLS" ] && _bf=$BAR_CELLS
