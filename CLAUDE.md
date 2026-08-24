@@ -334,6 +334,28 @@ conversations across server restarts via `claude --resume <id>`.
   so it holds fleet-wide. **When building any new agent, use this template and
   route the change through the standard flow** (see the global CLAUDE.md
   "Herdr fleet & agent building").
+  - **Diagnosing and rebuilding a degraded pane.** `layout.export` is the test:
+    a pane node with **no `command`** key is degraded — it came back as a bare
+    shell (the #2966 boot-race, or a pane made by hand) and someone started
+    `claude` inside it, so it *looks* fine and is detected normally, but the next
+    server restart returns an empty shell. `ps` confirms it: a healthy pane's
+    claude is a child of `herdr server` or of `/bin/zsh -l -c …`, a degraded
+    one's is a child of plain `-zsh`. Rebuild by applying the template to the
+    **existing tab** — workspace and tab survive, so the workspace label and jump
+    key are untouched — and **omit `pane_id`** so herdr replaces the pane instead
+    of re-tagging the running one. NDJSON over the socket; `nc -U` works on macOS
+    and returns immediately:
+
+    ```bash
+    S=~/.config/herdr/herdr.sock
+    echo '{"id":"1","method":"layout.export","params":{"workspace_id":"w1"}}' | nc -U $S
+    echo '{"id":"1","method":"layout.apply","params":{"workspace_id":"w1","tab_id":"w1:t1","root":{"type":"pane","cwd":"'"$HOME"'/Projects/Personal/dotfiles","command":["/bin/zsh","-l","-c","claude; exec /bin/zsh -il"]}}}' | nc -U $S
+    ```
+
+    Every request needs a `params` key — even the list calls, which take `{}`;
+    omitting it errors with `missing field params`. This kills the pane's live
+    agent session, so do it at a boundary (a `/clear` or model switch), not
+    mid-task, and reapply `herdr agent rename` afterward if that pane had one.
   - Current local agents on this template (jump keys are `[[keys.command]]`
     entries in `herdr/config.toml`; shift-chords where the plain letter is taken
     by a default binding or an earlier agent):

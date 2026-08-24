@@ -252,6 +252,9 @@ install via Homebrew casks in `brew/Brewfile`, not a helper.)
   need no shim — herdr detects a local claude pane natively; they use the pane
   template above, whose login shell rebuilds PATH from `zshenv` before claude
   starts (the server spawns pane commands with its bare launchd env).
+  A pane whose `layout.export` node has no `command` is degraded even though it
+  still detects as an agent; rebuild it with `layout.apply` over the socket
+  (recipe in CLAUDE.md).
   `orrery ☉` is the **Forge-resident hybrid** pattern (full SOP in CLAUDE.md):
   the project stays Forge-managed, the pane targets the physical
   `~/.forge-projects/<codename>` path (herdr `chdir` resolves symlinks, so
