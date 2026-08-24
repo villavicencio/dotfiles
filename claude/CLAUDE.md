@@ -292,8 +292,8 @@ The user runs in **PST/PDT**. When citing or reasoning about time:
 
 `dv:pickup` is often a context-hygiene move, not a new day. Sessions are routinely back-to-back —
 the user clears the window to reduce cached-context cost and avoid pollution. Before defaulting
-to "overnight" / "tomorrow" / "next morning" framing, check HANDOFF mtime, recent commit
-timestamps, and any continuation cues in the conversation. If signals say same-session,
+to "overnight" / "tomorrow" / "next morning" framing, check recent commit timestamps, HANDOFF
+mtime, and any continuation cues in the conversation. If signals say same-session,
 say so explicitly instead of pretending it's been hours.
 
 ## Personal Boundaries
