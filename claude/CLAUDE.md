@@ -132,6 +132,17 @@ it's discovered** — not deferred to `HANDOFF.md`. `dv:handoff` overwrites HAND
 handoff itself drifts from reality between writes. If you find yourself writing "the rule we
 established this session" into HANDOFF, stop and also land it in the durable doc.
 
+**End-of-turn sweep (standing, 2026-08-23).** Before closing any turn that did real work, re-read
+your own recap for durable content that exists only in prose: a "worth doing next time," a "gotcha:",
+an exact invocation that worked after others failed, a convention you followed but never wrote down,
+a "note that X writes to Y." Each one either lands in the durable home *in that same turn*
+(project `AGENTS.md`/`CLAUDE.md`, `docs/solutions/`, or memory for user preferences) or is
+explicitly not a rule — but it is never left as advice in chat. The trigger phrases to catch in
+your own text: "worth doing reflexively," "going forward," "next time," "keep in mind," "for the
+record," "the one that works is." Observed 2026-08-23: three such rules (xcodegen at session start,
+live-check mechanics, exact review/merge commands) were narrated in recaps and only landed when
+David asked "did we make this a standing rule?" — twice in a row.
+
 ## Herdr fleet & agent building
 
 The **herdr agent fleet is administered consistently, not per-project-freelance** (David's
