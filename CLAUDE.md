@@ -571,6 +571,12 @@ this repo, not just ticket work. Avoid committing directly to `master`.
 - **Trivial exceptions** (typo fixes, a one-line doc tweak) may go straight to
   `master` at the author's discretion — the rule targets behavior and config
   changes, where review and a clean history matter.
+- **PR review is CodeRabbit** (`.coderabbit.yaml` at repo root sets
+  `auto_incremental_review: false`, so re-review is requested with an `@coderabbitai review`
+  comment rather than fired by every push). Wait for its verdict and for each re-review before
+  merging — a stale `CHANGES_REQUESTED` is not permission, and a `Review rate limited` check
+  passes by design without any review having run. Full procedure, rate-limit mechanics, and when
+  to escalate to `dv:gauntlet` instead: the **Code Review** section of the global CLAUDE.md.
 
 Picking up a board ticket always gets its own branch (never work a ticket on
 `master`).

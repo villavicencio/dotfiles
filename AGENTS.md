@@ -195,6 +195,13 @@ https://linear.app/villavicencio/project/dotfiles-74974922348e (migrated off the
 GitHub Projects board 2026-08-20; the board and closed GitHub issues are read-only
 history — never create new GitHub issues).
 
+- **PR review is CodeRabbit** (`.coderabbit.yaml` at repo root sets
+  `auto_incremental_review: false`, so re-review is requested with an `@coderabbitai review`
+  comment rather than fired by every push). Wait for its verdict and for each re-review before
+  merging — a stale `CHANGES_REQUESTED` is not permission, and a `Review rate limited` check
+  passes by design without any review having run. Full procedure, rate-limit mechanics, and when
+  to escalate to `dv:gauntlet` instead: the **Code Review** section of the global CLAUDE.md.
+
 ---
 
 ## Install pipeline (what `./install` does)

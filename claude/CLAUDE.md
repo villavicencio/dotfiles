@@ -85,20 +85,66 @@ too). Repos with their own stricter rules keep them.
 
 ## Code Review
 
-**Adversarial code review → invoke `dv:gauntlet`** (dv suite ≥ 0.2.0, installed user-scope, so it
-resolves in every project); do **not** hand-roll `codex exec review` or Claude↔Codex review loops.
-Bare `dv:gauntlet` is the full autonomous find→refute→fix→commit loop (staged, cost-tiered,
-budgeted); `dv:gauntlet report` is a single report-only round. The skill owns the procedure —
-rounds, budgets, the fingerprint ledger, stop rules, read-only peer runs — so don't re-derive it
-per project.
+**PR review runs through CodeRabbit; `dv:gauntlet` is the escalation, not the default**
+(reconciled across dotfiles / borealis / skills, 2026-08-24). Before this, the global rule named
+gauntlet as the blanket default while two repos had already overridden it per-project — this
+section is the single source of truth, and per-repo `AGENTS.md` files should point here rather
+than restate it.
 
-**This holds even under `/effort ultracode` or dynamic workflow orchestration, and even when
-another project's vault or SOP describes its own `codex exec review`/Claude↔Codex loop** — those
-are superseded by `dv:gauntlet`, so discovering one elsewhere does not override the standing tool.
-Custom multi-agent workflows may supply research or critique *lenses* upstream, but the adversarial
-review of your own diff still routes through `dv:gauntlet` (bare for your own branch, `report` for a
-read-only pass on someone else's). If you catch yourself about to "fan out reviewers," "spin up a
-skeptic panel," or "drive the Codex loop," stop and invoke `dv:gauntlet` first.
+**Reach for CodeRabbit** for review of a PR diff. **Reach for `dv:gauntlet`** when the diff is
+large or risky enough to warrant a convergent find→refute→fix loop, when CodeRabbit is throttled
+and the review genuinely cannot wait, or when reviewing something that is not a PR. Bare
+`dv:gauntlet` is the full autonomous loop (it fixes and commits); `dv:gauntlet report` is a single
+report-only round and is the right rate-limit fallback. The skill owns its own procedure — rounds,
+budgets, the fingerprint ledger, stop rules — so don't re-derive it per project.
+
+Either way, **don't hand-roll a review**: no `codex exec review`, no Claude↔Codex loops, no
+"fan out reviewers" or "spin up a skeptic panel," including under `/effort ultracode` or workflow
+orchestration. Custom workflows may supply research or critique *lenses* upstream; the review of
+the diff itself routes through one of the two tools above.
+
+### Merging on a CodeRabbit review
+
+- **Wait for the review, and wait for each re-review** (David, 2026-08-24). Do not merge while its
+  verdict is `CHANGES_REQUESTED`, even after pushing a fix that you believe resolves the finding —
+  the stale verdict is not permission. If the re-review is throttled, wait for the window.
+- **Poll the check line, not the reviews API**: `gh pr checks <N> | grep -i '^CodeRabbit'` until it
+  stops saying `pending`. The bot posts as `coderabbitai` on some PRs and `coderabbitai[bot]` on
+  others, and its replies to your thread replies register as `COMMENTED` reviews — both make a
+  reviews-API poll fire early or never. `gh api .../comments/<id>` 404s for review comments; use
+  the list endpoint `.../pulls/<N>/comments?per_page=100` and filter by id.
+- **Triage every finding**: fix it on the branch, or decline it with the reason recorded both on
+  the thread and in the PR body. A finding you disagree with is a standoff you document, not one
+  you merge past silently.
+- **A trivial diff may skip review**, but the skip and its reason must be stated when reporting
+  the merge. The skip is fine; the silence isn't.
+- **`mergeStateStatus: CLEAN` does not mean reviewed.** See throttling below.
+
+### Rate limits — per developer, not per repository
+
+Limits are **per developer on a rolling hour**, so every repo and every parallel agent session
+draws from one shared pool: a quiet repo can hit the ceiling it never spent. Per
+[docs.coderabbit.ai/faq](https://docs.coderabbit.ai/faq) (fetched 2026-08-24): **Trial 3/hr, Pro
+5/hr, Pro+ 10/hr**, with fair-usage spacing above the 95th percentile of recent usage and an
+optional usage-based add-on. `@coderabbitai rate limit` reports remaining capacity **without
+consuming a review**; use it before assuming you have headroom.
+
+**A throttled CodeRabbit is unavailable, not clean.** A throttled PR shows a *passing* check
+reading `Review rate limited` and no review runs — passing by design so it never blocks merging,
+which makes it easy to misread as approval. Merging anyway is allowed only when every other gate
+is green **and** the PR body records that CodeRabbit was throttled rather than silent. For
+anything beyond docs and config, wait for capacity.
+
+### `.coderabbit.yaml` — every repo under review should have one
+
+Set `reviews.auto_review.auto_incremental_review: false`. By default **every push re-reviews**,
+spending the shared per-developer allowance on intermediate commits; with it false the first
+review is still automatic and each later round is requested deliberately with an
+`@coderabbitai review` comment. This matches the fix → push → request → re-review loop above.
+Repos carrying this config: `skills`, `dotfiles`. Repos still on push-triggered re-review:
+`borealis`.
+
+**Naming a ticket id in a PR body can auto-close that issue on merge** — see the Linear section.
 
 ## Subagents
 
