@@ -129,10 +129,11 @@ Limits are **per developer on a rolling hour**, so every repo and every parallel
 draws from one shared pool: a quiet repo can hit the ceiling it never spent. Per
 [docs.coderabbit.ai/faq](https://docs.coderabbit.ai/faq) (fetched 2026-08-24): **Trial 3/hr, Pro
 5/hr, Pro+ 10/hr**, with fair-usage spacing above the 95th percentile of recent usage and an
-optional usage-based add-on. **Which tier this account is on is not recorded here** — a 14-day
-trial started 2026-08-18, so don't assume a number. `@coderabbitai rate limit` reports the real
-remaining capacity **without consuming a review**; use it rather than doing arithmetic from the
-table above.
+optional usage-based add-on. **This account is Pro+ — 10/hr** (CodeRabbit's own review footer on
+dotfiles #171, 2026-08-24: "Your plan provides up to 10 included reviews per hour"). Ten is not
+much when a single ticket spans several PRs across repos and parallel agents, so treat it as a
+budget: `@coderabbitai rate limit` reports real remaining capacity **without consuming a review**,
+and the review footer prints what is left after each run.
 
 **A throttled CodeRabbit is unavailable, not clean.** A throttled PR shows a *passing* check
 reading `Review rate limited` and no review runs — passing by design so it never blocks merging,

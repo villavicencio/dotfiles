@@ -584,8 +584,9 @@ Picking up a board ticket always gets its own branch (never work a ticket on
 **A docs-only PR skips the install matrix — but not the review.**
 `install-matrix.yml` declares `paths-ignore: ['docs/**', '**.md', 'claude/**/*.md']`,
 so a markdown-only change never triggers `linux`/`macos`; do not wait for a run that
-will never start. **CodeRabbit still reviews it** (it has findings on markdown, and did
-on #171), so `mergeStateStatus: CLEAN` is not by itself the merge signal — wait for the
+will never start. **CodeRabbit still reviews it** if the PR is review-eligible — drafts and
+`WIP` / `DO NOT MERGE` titles are excluded — and it does have findings on markdown, as it did
+on #171. So `mergeStateStatus: CLEAN` is not by itself the merge signal — wait for the
 CodeRabbit check to leave `pending` and triage its findings first. `CLEAN` only tells you
 nothing is *blocking*; a throttled or still-running review also reads clean.
 

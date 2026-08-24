@@ -188,7 +188,8 @@ tickets. Avoid committing directly to `master`.
 - **Docs-only PRs skip the install matrix, not the review** — `install-matrix.yml` sets
   `paths-ignore: ['docs/**', '**.md', 'claude/**/*.md']`, so a markdown-only change never
   triggers `linux`/`macos`; don't wait for a run that will never start. CodeRabbit still
-  reviews markdown, so wait for its check to leave `pending` and triage the findings —
+  reviews markdown on any review-eligible PR (drafts and `WIP` / `DO NOT MERGE` titles are
+  excluded), so wait for its check to leave `pending` and triage the findings —
   `mergeStateStatus: CLEAN` also reads clean while a review is pending or throttled.
 
 Issue tracking: Linear, project `Dotfiles`, team `Villavicencio` (key `VIL`) —

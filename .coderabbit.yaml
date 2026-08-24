@@ -1,10 +1,9 @@
 # yaml-language-server: $schema=https://www.coderabbit.ai/integrations/schema.v2.json
 #
 # Why this file exists: CodeRabbit reviews are rate-limited PER DEVELOPER on a rolling
-# hourly window (Trial 3/hr, Pro 5/hr, Pro+ 10/hr — docs.coderabbit.ai/faq; which tier
-# this account is on is not recorded, so check with `@coderabbitai rate limit` rather
-# than assuming). The limit is per developer regardless of tier, so every repo and every
-# parallel agent session draws from one shared pool. By default each push
+# hourly window — this account is Pro+ at 10/hr (confirmed by CodeRabbit's own review
+# footer on PR #171, 2026-08-24). The limit is per developer, not per repo, so every
+# repo and every parallel agent session draws from that same 10. By default each push
 # triggers a re-review and spends from that pool on intermediate commits.
 #
 # auto_incremental_review: false makes re-review a deliberate act. The first review of a
