@@ -349,13 +349,16 @@ conversations across server restarts via `claude --resume <id>`.
     ```bash
     S=~/.config/herdr/herdr.sock
     echo '{"id":"1","method":"layout.export","params":{"workspace_id":"w1"}}' | nc -U $S
-    echo '{"id":"1","method":"layout.apply","params":{"workspace_id":"w1","tab_id":"w1:t1","root":{"type":"pane","cwd":"'"$HOME"'/Projects/Personal/dotfiles","command":["/bin/zsh","-l","-c","claude; exec /bin/zsh -il"]}}}' | nc -U $S
+    echo '{"id":"1","method":"layout.apply","params":{"tab_id":"w1:t1","focus":true,"root":{"type":"pane","cwd":"'"$HOME"'/Projects/Personal/dotfiles","command":["/bin/zsh","-l","-c","claude; exec /bin/zsh -il"]}}}' | nc -U $S
     ```
 
-    Every request needs a `params` key — even the list calls, which take `{}`;
-    omitting it errors with `missing field params`. This kills the pane's live
-    agent session, so do it at a boundary (a `/clear` or model switch), not
-    mid-task, and reapply `herdr agent rename` afterward if that pane had one.
+    Two API gotchas, both fail-fast: `layout.apply` takes **`tab_id` or
+    `workspace_id`, never both** (`invalid_target`) — pass `tab_id` alone when
+    rebuilding one pane in place; and every request needs a `params` key, even
+    the list calls, which take `{}` (`missing field params`). This kills the
+    pane's live agent session, so do it at a boundary (a `/clear` or model
+    switch), not mid-task, and reapply `herdr agent rename` afterward if that
+    pane had one.
   - Current local agents on this template (jump keys are `[[keys.command]]`
     entries in `herdr/config.toml`; shift-chords where the plain letter is taken
     by a default binding or an earlier agent):
