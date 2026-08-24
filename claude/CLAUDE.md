@@ -149,6 +149,12 @@ excluded — and each later round is requested deliberately with an `@coderabbit
 Repos carrying this config: `skills`, `dotfiles`. Repos still on push-triggered re-review:
 `borealis`.
 
+The config is read from the **PR head branch, not the base** — verified on dotfiles #171, the PR
+that added the file: its own later push was skipped rather than auto-reviewed. So a PR introducing
+`.coderabbit.yaml` governs itself immediately, and a suppressed round shows up as a *passing*
+check reading `Review skipped: incremental reviews are disabled` — another clean-looking check
+that means no review ran.
+
 **Naming a ticket id in a PR body can auto-close that issue on merge** — see the Linear section.
 
 ## Subagents
