@@ -373,6 +373,16 @@ conversations across server restarts via `claude --resume <id>`.
     | `obscura ✇` | `~/Projects/browse-gateway` | the Obscura browse-gateway itself | `prefix+shift+o` |
     | `eidos ❖` | `~/Projects/eidos` | Eagle library curation | `prefix+shift+i` (`e`/`shift+e` are edit_scrollback / remove_worktree) |
     | `orrery ☉` | `~/.forge-projects/tranquil-dune` (aka `~/Projects/orrery`) | Forge-resident jobs dashboard (orrery.ui8.dev) — see "Forge-resident hybrid agents" below | `prefix+y` (`o`/`shift+o` are open_notification_target / obscura; `y` as in orrer**y**) |
+    | `vice ♠` | `~/Obsidian/vice` | Vice Gage — native local **Hermes** agent (personal media curation; Obscura + Eagle MCPs). Pane command is the template with `hermes chat` in place of `claude`; herdr's hermes detection manifest identifies the venv process natively, no shim (verified 2026-08-25). Setup brief: `~/Projects/agents/docs/plans/2026-08-25-001-…` | `prefix+shift+v` (plain `v` is split-vertical's default) |
+
+    Rebuilding the `vice ♠` pane after a degraded restore (#2966) follows the
+    standard recipe above with this pane node, then `herdr agent rename` (renames
+    don't survive pane recreation, and the jump key targets the agent name):
+
+    ```bash
+    echo '{"id":"1","method":"layout.apply","params":{"tab_id":"<wN:tN>","focus":true,"root":{"type":"pane","cwd":"'"$HOME"'/Obsidian/vice","command":["/bin/zsh","-l","-c","hermes chat; exec /bin/zsh -il"]}}}' | nc -U ~/.config/herdr/herdr.sock
+    /opt/homebrew/bin/herdr agent rename <pane-id> vice
+    ```
 
 - **Forge-resident hybrid agents** (SOP, established 2026-08-20 with `orrery ☉`).
   For a project that legitimately *stays* in Forge — UI-heavy, actually using

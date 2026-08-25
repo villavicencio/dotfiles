@@ -261,6 +261,9 @@ install via Homebrew casks in `brew/Brewfile`, not a helper.)
   need no shim — herdr detects a local claude pane natively; they use the pane
   template above, whose login shell rebuilds PATH from `zshenv` before claude
   starts (the server spawns pane commands with its bare launchd env).
+  `vice ♠` is the first local **hermes** pane — the same template with
+  `hermes chat` in place of `claude`; herdr's hermes manifest detects the
+  venv process natively, so it needs no shim either.
   A pane whose `layout.export` node has no `command` is degraded even though it
   still detects as an agent; rebuild it with `layout.apply` over the socket
   (recipe in CLAUDE.md).
