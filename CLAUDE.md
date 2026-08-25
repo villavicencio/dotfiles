@@ -480,6 +480,28 @@ conversations across server restarts via `claude --resume <id>`.
   corrected upstream). Same PATH blindness: the settings→integrations panel
   probes agent CLIs with the server env, so `codex` reads "not found" even
   when installed — `herdr integration status` from a shell is authoritative.
+- **Display-only pane metadata is a supported channel** (`pane.report_metadata`,
+  CLI `herdr pane report-metadata`). It overlays presentation without touching
+  agent identity or lifecycle: `--display-agent`, `--title`, `--state-label
+  STATUS=TEXT` (retitles a state in the `state_text` row), and `--token
+  NAME=VALUE` (max 16, `[A-Za-z0-9_-]{1,32}`, rendered as `$name` if the
+  `[ui.sidebar.agents] rows` config references it). Every field has a matching
+  `--clear-*`, and `--ttl-ms` (max 24h) makes an entry self-expiring, so a
+  missed clear can't pin a pane forever. `--state-label` is the cheap one: it
+  reuses a row this repo's config already renders, so it needs no config.toml
+  change. Verified rendering live 2026-08-25.
+  - **Claude Code's `SessionStart` hook reports how a session began** — `startup`
+    / `clear` / `resume` / `compact` — which is what makes a *context-free* pane
+    detectable. `claude/hooks/herdr-blank-state.sh` maps `startup`+`clear` to a
+    `state_labels` override reading "blank", and clears it on `UserPromptSubmit`.
+    Two traps: `SessionStart` and `UserPromptSubmit` both **inject hook stdout
+    into the model's context**, so such a hook must stay silent on stdout; and
+    subagent events carry `agent_id` and must be ignored or they clear the label
+    spuriously.
+  - **herdr already receives `session_start_source`** — its own integration hook
+    sends it on `pane.report_agent_session` — but does not surface it in the
+    session snapshot or display it anywhere. The signal is flowing and unused;
+    a native "blank" indicator is a reasonable upstream request.
 - **Scripting:** NDJSON over `~/.config/herdr/herdr.sock`; `herdr api schema`
   emits the full machine-readable surface. Gotcha: `herdr agent wait --until
   done` never fires on a *focused* pane (done = finished-but-unseen) — wait on
