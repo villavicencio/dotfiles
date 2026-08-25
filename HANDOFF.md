@@ -2,7 +2,7 @@
 created_at: "2026-08-25T09:08:30-07:00"
 branch: "master"
 head: "289225d"
-resume_focus: "Paste the skills changelist (scratchpad, or regenerate), then the borealis one — both repos still carry pre-reconciliation CodeRabbit rules"
+resume_focus: "Paste the skills changelist, then the borealis one (both in ~/Obsidian/dotfiles/) — those repos still carry pre-reconciliation CodeRabbit rules"
 ---
 
 # HANDOFF — 2026-08-25, morning (PDT)
