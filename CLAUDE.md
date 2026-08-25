@@ -166,7 +166,7 @@ logic across multiple wrapper functions. Use `command <tool>` (not bare `<tool>`
 
 ### NVM lazy loader shims — globals do NOT need one
 NVM is lazy-loaded for startup speed. **A globally-installed npm CLI does not need a shim.**
-The block prepends the default node version's `bin` dir to `PATH` at shell startup, and these
+The block prepends the highest installed node version's `bin` dir to `PATH` at shell startup, and these
 CLIs are `#!/usr/bin/env node` shebangs that resolve through that same prepend — so they work
 in a fresh shell with nvm still unloaded. Verified 2026-08-25: in `zsh -i`, `obscura` resolves
 to its real path while `_load_nvm` is still defined (i.e. nvm was never sourced).
@@ -178,7 +178,13 @@ first call. Both were removed 2026-08-25 along with their retired Browserbase pa
 
 Current shims: `nvm`, `node`, `npm`, `npx` — nvm's own management commands, which genuinely
 need `nvm.sh` sourced. **The one case that does need a shim** is a global installed under a
-NON-default node version, which the prepend does not cover.
+version other than the highest installed one, which the prepend does not cover.
+
+**The prepend picks the highest installed version, not nvm's `alias/default`** (`sort -V |
+tail -1`). Both resolve to v24.13.0 on this Mac, but seven versions are installed and nothing
+keeps them aligned: point the alias at an older version and PATH still carries the highest,
+while `_load_nvm` — once anything triggers it — sources `nvm.sh`, applies the alias, and
+switches `node` mid-shell. Worth knowing before trusting either as "the" node version.
 
 Note: `claude` does not need an NVM shim — it is not an npm global. `helpers/install_claude_code.sh`
 installs it via Anthropic's native installer (`curl -fsSL https://claude.ai/install.sh | bash`)

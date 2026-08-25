@@ -116,8 +116,10 @@ POSIX `. ` sourcing → the `[[ -f … ]] &&` guard pattern before committing.
 
 ### Add a global npm CLI
 Add it to `npm/npm-requirements.txt` (registry-installable packages only — an `npm link`ed
-local package like `browse-gateway`/`obscura` cannot be installed from that manifest). It is
-already on `PATH` in a fresh shell via the lazy-loader's node-bin prepend; no shim needed.
+local package like `browse-gateway`/`obscura` cannot be installed from that manifest). If it
+was installed under the **highest installed** node version — the usual case — it is already on
+`PATH` in a fresh shell via the lazy-loader's node-bin prepend and needs no shim. See the
+shim section below for the exception.
 
 ### Add an Oh My Zsh plugin
 Add it to the `plugins=()` list in `zshrc` **and** add the matching `git clone` to
@@ -132,7 +134,9 @@ Use `command <tool>` (not bare `<tool>`) after `_load_*` to avoid infinite shim 
 A globally-installed npm CLI needs **no** NVM shim — the lazy-loader block prepends the default
 node version's `bin` dir to `PATH` at startup, and `#!/usr/bin/env node` shebangs resolve through
 it, so the CLI works in a fresh shell with nvm unloaded. Only add a shim for a global installed
-under a NON-default node version. Current shims: `nvm node npm npx` (nvm's own commands).
+under a node version other than the highest installed one — the prepend resolves
+`sort -V | tail -1`, NOT nvm's `alias/default`, and the two can diverge.
+Current shims: `nvm node npm npx` (nvm's own commands).
 (`claude` needs no shim — it is not an npm global; `helpers/install_claude_code.sh`
 installs it via Anthropic's native installer to `~/.local/bin/claude`, which `zshenv`
 puts ahead of Homebrew on `PATH`. The Brewfile does not manage it — the Homebrew cask

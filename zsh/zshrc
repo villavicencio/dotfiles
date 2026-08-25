@@ -139,11 +139,17 @@ if [[ -s "$NVM_DIR/nvm.sh" ]]; then
   unset DEFAULT_NODE_PATH
 
   # Only nvm's own management commands get shims. A globally-installed CLI does
-  # NOT need one: the PATH prepend above already puts the default node version's
-  # bin dir on PATH, and these CLIs are `#!/usr/bin/env node` shebangs that
-  # resolve through that same prepend. A shim would only force a needless
-  # nvm.sh source (200-400ms) on first call. The exception is a global installed
-  # under a NON-default node version, which the prepend does not cover.
+  # NOT need one: the PATH prepend above already puts the HIGHEST INSTALLED node
+  # version's bin dir on PATH, and these CLIs are `#!/usr/bin/env node` shebangs
+  # that resolve through that same prepend. A shim would only force a needless
+  # nvm.sh source (200-400ms) on first call.
+  #
+  # Note the prepend selects the highest installed version (`sort -V | tail -1`),
+  # NOT nvm's `alias/default`. They agree on both Macs today, but if the alias is
+  # ever pointed at an older version they diverge, and a global installed under
+  # that version is off PATH until nvm loads (at which point sourcing nvm.sh
+  # applies the alias and switches node mid-shell). A global under any
+  # non-highest version is the one case that does need a shim.
   _load_nvm() {
     unset -f _load_nvm nvm node npm npx
     source "$NVM_DIR/nvm.sh"
