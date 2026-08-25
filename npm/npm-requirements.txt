@@ -1,5 +1,14 @@
-@browserbasehq/browse-cli
-@browserbasehq/cli
+# Global npm packages installed by helpers/install_node.sh (comments are stripped).
+# Only registry-installable packages belong here.
+#
+# NOT listed, deliberately:
+#   browse-gateway (the `obscura` CLI) — an `npm link` from ~/Projects/browse-gateway,
+#   not a registry package, so it cannot be installed from this manifest. It comes
+#   from that repo; `npm ls -g` shows it as a symlink.
+#
+# Removed 2026-08-25: @browserbasehq/cli + @browserbasehq/browse-cli (the `bb` and
+# `browse` CLIs). Browserbase was retired 2026-08-07 in favour of Obscura; a fresh
+# machine should not reinstall them.
 bash-language-server
 corepack
 npm

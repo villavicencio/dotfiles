@@ -164,13 +164,21 @@ When adding a new lazy loader, copy an existing one as a template. Never duplica
 logic across multiple wrapper functions. Use `command <tool>` (not bare `<tool>`) after
 `_load_*` to prevent infinite recursion when the shim name matches the binary name.
 
-### NVM lazy loader shims
-NVM is lazy-loaded for startup speed. Any npm-globally-installed CLI (e.g., `claude`) must be
-added as a shim in the NVM lazy loader block in `zshrc`, or it won't be on PATH until `node`
-is first called. When adding a new global CLI: add its name to the `unset -f` line in `_load_nvm()`
-and add a `<tool>() { _load_nvm; <tool> "$@"; }` shim.
+### NVM lazy loader shims — globals do NOT need one
+NVM is lazy-loaded for startup speed. **A globally-installed npm CLI does not need a shim.**
+The block prepends the default node version's `bin` dir to `PATH` at shell startup, and these
+CLIs are `#!/usr/bin/env node` shebangs that resolve through that same prepend — so they work
+in a fresh shell with nvm still unloaded. Verified 2026-08-25: in `zsh -i`, `obscura` resolves
+to its real path while `_load_nvm` is still defined (i.e. nvm was never sourced).
 
-Current shims: `nvm`, `node`, `npm`, `npx`, `bb`, `browse`.
+An earlier version of this section claimed the opposite, and that error outlived the fact:
+the PATH prepend landed 2026-03-11 (`83968b9`), but `bb`/`browse` shims were still added
+2026-05-07 (`5ed5c28`) and bought nothing except a needless 200–400 ms `nvm.sh` source on
+first call. Both were removed 2026-08-25 along with their retired Browserbase packages.
+
+Current shims: `nvm`, `node`, `npm`, `npx` — nvm's own management commands, which genuinely
+need `nvm.sh` sourced. **The one case that does need a shim** is a global installed under a
+NON-default node version, which the prepend does not cover.
 
 Note: `claude` does not need an NVM shim — it is not an npm global. `helpers/install_claude_code.sh`
 installs it via Anthropic's native installer (`curl -fsSL https://claude.ai/install.sh | bash`)

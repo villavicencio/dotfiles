@@ -115,9 +115,9 @@ POSIX `. ` sourcing → the `[[ -f … ]] &&` guard pattern before committing.
 4. `dot doctor` also reports unmet Brewfile entries. Commit `brew/Brewfile`.
 
 ### Add a global npm CLI
-Add it to `npm/npm-requirements.txt`. If the CLI must be on `PATH` before `node` is first
-called, add an NVM lazy-loader shim in `zshrc` (see below) — otherwise it won't resolve
-until the loader fires.
+Add it to `npm/npm-requirements.txt` (registry-installable packages only — an `npm link`ed
+local package like `browse-gateway`/`obscura` cannot be installed from that manifest). It is
+already on `PATH` in a fresh shell via the lazy-loader's node-bin prepend; no shim needed.
 
 ### Add an Oh My Zsh plugin
 Add it to the `plugins=()` list in `zshrc` **and** add the matching `git clone` to
@@ -128,9 +128,11 @@ Copy an existing `_load_X` block. Direct-sourcing heavy tools (NVM alone is +200
 blows the shell-startup budget — the lazy pattern keeps `zsh -i -c exit` under 300 ms.
 Use `command <tool>` (not bare `<tool>`) after `_load_*` to avoid infinite shim recursion.
 
-### Add a global CLI behind the NVM shim
-NVM is lazy-loaded. Add the CLI's name to the `unset -f` line in `_load_nvm()` and add a
-`<tool>() { _load_nvm; <tool> "$@"; }` shim. Current shims: `nvm node npm npx bb browse`.
+### NVM lazy-loader shims
+A globally-installed npm CLI needs **no** NVM shim — the lazy-loader block prepends the default
+node version's `bin` dir to `PATH` at startup, and `#!/usr/bin/env node` shebangs resolve through
+it, so the CLI works in a fresh shell with nvm unloaded. Only add a shim for a global installed
+under a NON-default node version. Current shims: `nvm node npm npx` (nvm's own commands).
 (`claude` needs no shim — it is not an npm global; `helpers/install_claude_code.sh`
 installs it via Anthropic's native installer to `~/.local/bin/claude`, which `zshenv`
 puts ahead of Homebrew on `PATH`. The Brewfile does not manage it — the Homebrew cask
