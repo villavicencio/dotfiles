@@ -262,6 +262,31 @@ boundary to the whole directory.
 (`Transient config not yet implemented`) — every config experiment persists, so back up
 `~/.config/otty/config.toml` first.
 
+### A hook symlinked into the repo is branch-fragile — land the file before wiring it
+`~/.claude/hooks/*.sh` are Dotbot symlinks **into this working tree**, so they resolve against
+whatever branch is checked out. A hook whose file exists only on a *feature* branch goes
+dangling the moment you switch away, and Claude Code then prints a non-blocking error on
+**every** `SessionStart` and `UserPromptSubmit`, in every session, across every project:
+
+```
+SessionStart:startup hook error
+Failed with non-blocking status code: /bin/sh: ~/.claude/hooks/<hook>.sh: No such file or directory
+```
+
+Observed 2026-08-25 with `herdr-blank-state.sh`: registered in `settings.json` and symlinked
+while on its feature branch, then broken by a routine `git checkout` of an unrelated branch.
+`tmux-attention.sh` never hit this only because it has been on `master` for months.
+
+**So: do not register a hook in `settings.json` until its file is on `master`.** If you need it
+live before the PR merges, install a *copy* rather than a symlink — a copy is branch-independent:
+
+```bash
+git show <branch>:claude/hooks/<hook>.sh > ~/.claude/hooks/<hook>.sh && chmod +x ~/.claude/hooks/<hook>.sh
+```
+
+Re-run `./install` after the merge to restore the tracked symlink, which is safe once the file
+is on the default branch and therefore present on every branch cut from it.
+
 ### Claude Code `settings.json` — copy-seeded, never symlinked
 `claude/settings.json` is the **second** tracked config delivered by copy rather than a
 Dotbot `link:` (Otty is the first, above). `helpers/install_claude_settings.sh` seeds
