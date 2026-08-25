@@ -375,7 +375,7 @@ conversations across server restarts via `claude --resume <id>`.
   do nest, tmux's `send-prefix` binding passes it through on a double-tap. Herdr
   can host tmux in a pane or run inside tmux, but agent detection does not see
   through a nested tmux.
-- **Remote agent surfaces (`atlas ⚓` / `axiom ∴`):** each workspace hosts a VPS
+- **Remote agent surfaces (`atlas ⚓` / `axiom ∴` / `atlas-tools ⚙`):** each workspace hosts a VPS
   TUI through an ssh shim whose *name* matches a detection-manifest alias —
   herdr identifies these ssh panes by process name. **The name trick is for ssh
   panes only** — a *local* TUI needs none of it: claude and hermes panes are
@@ -425,6 +425,40 @@ conversations across server restarts via `claude --resume <id>`.
   the TUIs' OSC titles drive herdr states through the nested tmux. Never
   restart `hermes-tmux.service` casually — it drops Atlas's in-memory history
   (see ~/Projects/agents docs for Hermes rules).
+- **`atlas-tools ⚙` — a remote CLAUDE CODE surface, not a TUI attach** (added
+  2026-08-25, `prefix+t`). It reuses the existing `claude-code` ssh alias rather
+  than adding a third shim: detection keys on the ssh child's *process name*, and
+  two panes may share one alias since the pane command supplies different args.
+  `herdr agent rename` is what tells them apart (`axiom` vs `atlas-tools`).
+
+  ```
+  cwd:     $HOME                        # local placeholder — herdr's cwd is ALWAYS local
+  command: ~/.local/bin/claude-code root@openclaw-prod -t \
+           "sudo -u node tmux -L atlas-tools -f /home/node/.config/tmux/atlas-tools.conf \
+            new-session -A -s ATLAS-TOOLS -c /home/node/Projects/atlas-tools"
+  ```
+
+  **A remote project needs no Mac-side checkout.** herdr's pane `cwd` is where the
+  local ssh process starts and nothing more; the working directory is established
+  remotely by the ssh command. The repo lives only at
+  `/home/node/Projects/atlas-tools` on openclaw-prod, owned by `node`, and every
+  git/uv/test/lint/Claude Code command runs there.
+
+  `new-session -A` makes the pane **self-healing**: it attaches if the session
+  exists and creates it otherwise, so a VPS reboot needs no systemd unit — the
+  auto-reconnect shim retries, and the first successful attach rebuilds the
+  session. This is why `atlas-tools` has no `*-tmux.service` twin.
+
+  **`-f <conf>` is load-bearing.** tmux's `set-titles` default is `off`, and that
+  option is what forwards the inner TUI's OSC title outward for herdr to read
+  state through a nested tmux. node has no `~/.tmux.conf`, and options set at
+  runtime die with the tmux server — so the socket gets its own conf file,
+  scoped with `-L`/`-f` so it cannot disturb the `axiom` or `default` sockets.
+  > ⚠ The `axiom` socket currently runs with `set-titles off` (tmux's default),
+  > despite this file previously claiming every remote tmux carries it on. That
+  > is likely why `axiom ∴` reports `agent_status: unknown`. Unfixed as of
+  > 2026-08-25 — fixing it means giving that socket a conf file too.
+
 - **Local agent pane template (fleet standard, revised 2026-08-19):** a local
   Claude Code agent runs as a declarative pane with command
   `["/bin/zsh", "-l", "-c", "claude; exec /bin/zsh -il"]` and its project dir as

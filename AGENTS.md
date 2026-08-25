@@ -271,6 +271,19 @@ install via Homebrew casks in `brew/Brewfile`, not a helper.)
   `vice ♠` is the first local **hermes** pane — the same template with
   `hermes chat` in place of `claude`; herdr's hermes manifest detects the
   venv process natively, so it needs no shim either.
+  `atlas-tools ⚙` (`prefix+t`) is a remote **Claude Code** surface, not a TUI
+  attach: the repo lives only at `/home/node/Projects/atlas-tools` on
+  openclaw-prod as user `node`, and **no Mac-side checkout exists**. herdr's pane
+  `cwd` is always local — it is where the ssh process starts — so a remote working
+  directory needs no local clone; the pane command establishes it remotely. It
+  reuses the existing `claude-code` ssh alias (detection keys on the ssh child's
+  process name, so two panes may share one alias with different args) and is told
+  apart from `axiom` by `herdr agent rename`. The remote tmux is addressed with
+  `-L atlas-tools -f ~/.config/tmux/atlas-tools.conf` and `new-session -A`, which
+  makes it self-healing across VPS reboots without a systemd unit. The conf file
+  is required because tmux defaults `set-titles` to `off` and that option is what
+  carries agent state out through a nested tmux; the `axiom` socket still runs
+  with it off, which likely explains its `unknown` status.
   A pane whose `layout.export` node has no `command` is degraded even though it
   still detects as an agent; rebuild it with `layout.apply` over the socket
   (recipe in CLAUDE.md).
