@@ -77,11 +77,16 @@ deletion is far higher than the cost of asking.
 
 ## Git Discipline
 
-**Never commit directly to the default branch (main/master) — always work on a branch**
-(standing order, 2026-07-23). Branch (`feat/…`, `fix/…`, `chore/…`, `docs/…`) → commit →
-merge (PR where the repo has a remote review flow; local merge where it doesn't). Applies
-to every repo, including data vaults and doc-only commits (handoff commits ride a branch
-too). Repos with their own stricter rules keep them.
+**Behavior and config changes ride a branch; documentation and small changes may go straight
+to the default branch** (relaxed by David 2026-08-25, superseding the blanket
+never-commit-to-master order of 2026-07-23). Branch (`feat/…`, `fix/…`, `chore/…`, `docs/…`)
+→ commit → merge (PR where the repo has a remote review flow; local merge where it doesn't)
+for anything that changes runtime behavior, configuration, or dependencies.
+
+Documentation edits, typo fixes, handoff commits, and comparably small changes may be
+committed directly to main/master — including in data vaults. The branch rule exists to get
+review on things that can break; prose has nothing to break, and the ceremony was pure
+friction there. **When in doubt, branch.** Repos with their own stricter rules keep them.
 
 ## Code Review
 

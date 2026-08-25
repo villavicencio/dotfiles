@@ -568,9 +568,10 @@ this repo, not just ticket work. Avoid committing directly to `master`.
 - **Merge, then clean up.** After merge, delete the branch and mark any linked
   Linear issue `Done` (`mcp__linear__save_issue` with the issue id + `state: "Done"`)
   as part of the workflow.
-- **Trivial exceptions** (typo fixes, a one-line doc tweak) may go straight to
-  `master` at the author's discretion — the rule targets behavior and config
-  changes, where review and a clean history matter.
+- **Documentation and small changes may go straight to `master`** (relaxed
+  2026-08-25) — doc edits, typo fixes, and handoff commits included. The rule
+  targets behavior and config changes, where review and a clean history matter.
+  When in doubt, branch.
 - **PR review is CodeRabbit** (`.coderabbit.yaml` at repo root sets
   `auto_incremental_review: false`, so re-review is requested with an `@coderabbitai review`
   comment rather than fired by every push). Wait for its verdict and for each re-review before
