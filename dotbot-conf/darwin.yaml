@@ -39,6 +39,7 @@
     ~/.claude/settings.json: claude/settings.json
     ~/.claude/statusline-command.sh: claude/statusline-command.sh
     ~/.claude/hooks/tmux-attention.sh: claude/hooks/tmux-attention.sh
+    ~/.claude/hooks/herdr-blank-state.sh: claude/hooks/herdr-blank-state.sh
     # iTerm2 Dynamic Profile. `create: true` makes the DynamicProfiles parent dir
     # if iTerm hasn't yet. Replaces the live-synced full prefs plist (which leaked
     # usernames/hostname/window arrangements).
