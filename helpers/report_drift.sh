@@ -249,5 +249,65 @@ else
   fi
 fi
 
+# ---------------------------------------------------------------------------
+# Claude Code settings.json
+# ---------------------------------------------------------------------------
+# Seeded by COPY, not symlinked: Claude Code itself, `herdr integration install`,
+# and Otty's agent-integration installer all rewrite the file in place, so a
+# symlink there is orphaned on the first write (see helpers/install_claude_settings.sh).
+#
+# Compare the CAPTURE-NORMALIZED forms, not the raw files — the live file carries
+# machine-local keys (effortLevel, autoMode, mcpServers) that are deliberately
+# untracked, so a plain diff would report permanent, un-actionable drift.
+CLAUDE_TRACKED="$REPO_ROOT/claude/settings.json"
+CLAUDE_LIVE="$HOME/.claude/settings.json"
+
+hr "Claude Code: tracked settings.json vs live ~/.claude/settings.json"
+if [ ! -f "$CLAUDE_TRACKED" ]; then
+  echo "ERROR: tracked Claude settings missing at $CLAUDE_TRACKED" >&2
+  status=1
+elif [ ! -f "$CLAUDE_LIVE" ]; then
+  echo "  (not seeded on this machine yet — ./install will copy it in)"
+elif ! command -v python3 >/dev/null 2>&1; then
+  echo "  (python3 not on PATH — cannot normalize; skipping)"
+else
+  # Emits the live file reduced to what capture would track, so the diff shows
+  # only real, actionable drift.
+  claude_norm() {
+    CLAUDE_FILE="$1" python3 - <<'PYEOF'
+import collections, json, os, sys
+strip = {"effortLevel", "autoMode", "mcpServers", "allowedTools"}
+try:
+    d = json.load(open(os.environ["CLAUDE_FILE"]), object_pairs_hook=collections.OrderedDict)
+except Exception as exc:
+    print("UNPARSEABLE: %s" % exc); sys.exit(0)
+for k in list(d):
+    if k in strip or k == "//":
+        d.pop(k)
+blob = json.dumps(d, indent=2, sort_keys=True)
+print(blob.replace(os.path.expanduser("~") + "/", "~/"))
+PYEOF
+  }
+  claude_live_norm="$(claude_norm "$CLAUDE_LIVE")"
+  claude_tracked_norm="$(claude_norm "$CLAUDE_TRACKED")"
+  if printf '%s' "$claude_live_norm" | grep -q '^UNPARSEABLE'; then
+    echo "ERROR: live settings is not valid JSON — cannot compute drift" >&2
+    status=1
+  elif [ "$claude_live_norm" = "$claude_tracked_norm" ]; then
+    echo "  (in sync)"
+  else
+    echo "  live differs from tracked ('<' = live, '>' = repo):"
+    diff <(printf '%s\n' "$claude_live_norm") <(printf '%s\n' "$claude_tracked_norm") | indent
+    echo "  to record: bash helpers/install_claude_settings.sh --capture"
+  fi
+  # The legacy key silently overrides permissions.allow — always worth shouting about.
+  if grep -q '"allowedTools"' "$CLAUDE_LIVE"; then
+    echo "  WARNING: live settings has a legacy top-level 'allowedTools' key."
+    echo "           It OVERRIDES permissions.allow, which is then silently inert."
+    echo "           Repair with: python3 helpers/migrate_claude_settings.py"
+    status=1
+  fi
+fi
+
 hr "Done (read-only — no manifests were modified)"
 exit "$status"

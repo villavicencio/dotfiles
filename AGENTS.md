@@ -53,7 +53,8 @@ tmux/       tmux config + status-bar scripts + window-meta persistence
 topgrade/   Topgrade system-updater config
 vale/       Vale prose linter config
 zsh/        zshenv (env/PATH/BREW_PREFIX), zshrc, alias.sh, functions.sh, functions/
-claude/     Claude Code config: CLAUDE.md, settings.json, statusline, hooks/
+claude/     Claude Code config: CLAUDE.md, statusline, hooks/ (symlinked) +
+            settings.json (COPY-SEEDED, not symlinked — see gotchas)
             (all symlinked into ~/.claude/)
 bin/        Repo CLI — bin/dot (symlinked to ~/.local/bin/dot)
             bin/lib/*.py — Python helpers for doctor/bench, deliberately NOT heredocs
@@ -288,6 +289,19 @@ install via Homebrew casks in `brew/Brewfile`, not a helper.)
   `config.toml` + the user-authored iTerm2-imported theme only — the other 24 themes are
   app-seeded and regenerate. Full write-up:
   `docs/solutions/integration-issues/otty-config-symlink-hostile-atomic-rename-2026-08-07.md`.
+- **`claude/settings.json` is copy-seeded too — do not add a `link:` entry for it.**
+  Three writers besides this repo rewrite `~/.claude/settings.json` in place: Claude Code
+  itself, `herdr integration install`, and Otty's agent-integration installer. A symlink is
+  orphaned on the first write, exactly like Otty. This already bit once — the repo copy sat
+  stale from 2026-08-07 to 2026-08-25 while the live file regrew a legacy top-level
+  `allowedTools` key (18 rules) against a `permissions.allow` of 1, silently re-arming the
+  precedence trap PR #127 had removed: when both keys exist the legacy one WINS and
+  `permissions.allow` is inert. `helpers/install_claude_settings.sh` seeds when absent and
+  `--capture` records live changes back (dropping the machine-local keys `effortLevel`,
+  `autoMode`, `mcpServers`, `allowedTools`, and normalizing `$HOME` paths to `~/`).
+  `dot drift` compares capture-normalized forms and warns if `allowedTools` reappears.
+  Agents cannot write this file — the auto-mode classifier blocks it by design; run
+  `helpers/migrate_claude_settings.py` yourself on a machine that predates the scheme.
 - **`git/gitconfig` `core.pager = vim -`** is intentional; `diff`/`show` route through
   **delta** via the `[pager]` overrides.
 - **GCM credential-helper entries** in `git/gitconfig` are auto-generated — commit them

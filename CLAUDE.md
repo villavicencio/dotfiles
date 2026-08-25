@@ -262,6 +262,47 @@ boundary to the whole directory.
 (`Transient config not yet implemented`) — every config experiment persists, so back up
 `~/.config/otty/config.toml` first.
 
+### Claude Code `settings.json` — copy-seeded, never symlinked
+`claude/settings.json` is the **second** tracked config delivered by copy rather than a
+Dotbot `link:` (Otty is the first, above). `helpers/install_claude_settings.sh` seeds
+`~/.claude/settings.json` **only when absent**, so a live config is never clobbered.
+
+**Do not "fix" this by restoring a `link:` entry.** The file has three independent writers
+besides this repo — Claude Code itself (`effortLevel`, `tui`, notification prefs, `autoMode`),
+`herdr integration install`, and Otty's agent-integration installer — each rewriting it in
+place. A symlink there survives until the first write, after which the live file is a regular
+file and the repo copy is a silently-orphaned stale twin.
+
+That already happened. The link was replaced at some point before 2026-08-25 and the repo copy
+went stale from **2026-08-07** — its last commit — while the live file drifted for eighteen days.
+Nothing surfaced it: `git status` stayed clean, because from git's side nothing had changed.
+
+**The damage was not cosmetic.** In that window the live file regrew a legacy top-level
+`allowedTools` key holding 18 rules while `permissions.allow` fell to 1 — silently re-arming the
+precedence trap PR #127 removed (see "one allowlist, not two" below). It also accumulated an
+`autoMode.environment` block naming a *different project's* trusted repo and services, in the
+cross-machine user-scope file whose own `"//"` header forbids machine- or project-specific values.
+
+Because a copy can drift, `dot drift` reports Claude settings alongside Brewfile/npm/Otty, and
+**warns loudly if `allowedTools` ever reappears**. It compares **capture-normalized** forms —
+the live file legitimately carries machine-local keys that are deliberately untracked, so a raw
+diff would report permanent un-actionable drift. To record live changes:
+
+```bash
+dot drift                                            # see what diverged
+bash helpers/install_claude_settings.sh --capture    # regenerate claude/settings.json, then commit
+```
+
+`--capture` regenerates rather than `cp`s: it drops the machine-local keys
+(`effortLevel`, `autoMode`, `mcpServers`, and `allowedTools` — which must never be tracked),
+re-prepends the tracked `"//"` header, and rewrites absolute `$HOME` paths back to `~/`
+(installers write literal `/Users/<you>/...`; Claude Code expands `~` in hook commands).
+
+**Agents cannot write this file** — the auto-mode classifier blocks it by design, so it stops an
+agent widening its own permissions. `helpers/migrate_claude_settings.py` exists for a machine
+whose settings predate this scheme (folds `allowedTools` back, registers the blank-state hook);
+it is idempotent, backs up first, and **you run it yourself**, not an agent.
+
 ### Herdr — agent multiplexer (config symlinked; writes flow back)
 `herdr` (Brewfile) is a tmux-shaped client/server multiplexer with native agent
 awareness: it detects a Claude Code pane via screen manifests, tracks
@@ -679,6 +720,15 @@ Both lists are now consolidated into `permissions.allow` in
 `claude/settings.json`. If a permission rule ever appears to be ignored, check
 for a resurrected `allowedTools` **before** assuming the auto-mode classifier is
 gating the command.
+
+**This regressed once already, and will again.** On 2026-08-25 the live
+`~/.claude/settings.json` was found with `allowedTools` back at 18 rules and
+`permissions.allow` down to 1 — #127 silently undone, because the repo copy had
+been orphaned from its symlink and nobody was comparing (see "copy-seeded, never
+symlinked" above). The consolidation lives in a file three other installers
+rewrite, so treat it as a **recurring** hazard, not a closed one: `dot drift` now
+warns whenever the legacy key reappears, and
+`helpers/migrate_claude_settings.py` folds it back.
 
 Related but distinct: the auto-mode classifier **does** independently block
 agent edits to `~/.claude/settings.json` itself, regardless of allow rules. That

@@ -1,15 +1,14 @@
 {
   "//": "Tracked cross-machine baseline. Claude Code loads this as the user-scope ~/.claude/settings.json (lowest precedence). Keep machine-/session-specific values (model & effortLevel pins, host-specific allow rules, per-machine MCP servers) OUT of this shared file. Higher-precedence layers Claude Code loads: managed settings and CLI flags, plus per-project .claude/settings.local.json (gitignored) for project-scoped overrides. There is no user-level *.local override layer, so genuinely per-machine user settings must live on that machine's own ~/.claude/settings.json (not committed here).",
   "permissions": {
-    "defaultMode": "auto",
     "allow": [
+      "Bash(gh pr merge:*)",
       "Bash(git branch*)",
       "Bash(git log*)",
       "Bash(git status*)",
       "Bash(git diff*)",
       "Bash(gh pr list*)",
       "Bash(gh pr view*)",
-      "Bash(gh pr merge:*)",
       "Bash(ls*)",
       "Bash(cat*)",
       "Bash(which*)",
@@ -21,41 +20,26 @@
       "Bash(npm uninstall*)",
       "Bash(claude *)",
       "Bash(tmux -V*)"
-    ]
+    ],
+    "defaultMode": "auto"
   },
   "hooks": {
-    "SessionStart": [
+    "PermissionRequest": [
       {
         "matcher": "*",
         "hooks": [
           {
             "type": "command",
-            "command": "~/.claude/hooks/tmux-attention.sh clear",
+            "command": "~/.claude/hooks/tmux-attention.sh waiting",
             "timeout": 5
           }
         ]
-      }
-    ],
-    "UserPromptSubmit": [
+      },
       {
-        "matcher": "*",
         "hooks": [
           {
             "type": "command",
-            "command": "~/.claude/hooks/tmux-attention.sh spinner",
-            "timeout": 5
-          }
-        ]
-      }
-    ],
-    "PreToolUse": [
-      {
-        "matcher": "*",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "~/.claude/hooks/tmux-attention.sh spinner",
-            "timeout": 5
+            "command": "OTTY_CLI='/Applications/Otty.app/Contents/MacOS/otty-cli' '/Applications/Otty.app/Contents/Resources/agent-integration/claude/otty-hook.sh' awaiting \"$PPID\" ctx"
           }
         ]
       }
@@ -70,15 +54,71 @@
             "timeout": 5
           }
         ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "OTTY_CLI='/Applications/Otty.app/Contents/MacOS/otty-cli' '/Applications/Otty.app/Contents/Resources/agent-integration/claude/otty-hook.sh' processing \"$PPID\""
+          }
+        ]
       }
     ],
-    "PermissionRequest": [
+    "PreToolUse": [
       {
         "matcher": "*",
         "hooks": [
           {
             "type": "command",
-            "command": "~/.claude/hooks/tmux-attention.sh waiting",
+            "command": "~/.claude/hooks/tmux-attention.sh spinner",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "OTTY_CLI='/Applications/Otty.app/Contents/MacOS/otty-cli' '/Applications/Otty.app/Contents/Resources/agent-integration/claude/otty-hook.sh' processing \"$PPID\""
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/tmux-attention.sh clear",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "OTTY_CLI='/Applications/Otty.app/Contents/MacOS/otty-cli' '/Applications/Otty.app/Contents/Resources/agent-integration/claude/otty-hook.sh' idle \"$PPID\""
+          }
+        ]
+      },
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash '~/.claude/hooks/herdr-agent-state.sh' session",
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/herdr-blank-state.sh start",
             "timeout": 5
           }
         ]
@@ -94,6 +134,44 @@
             "timeout": 5
           }
         ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "OTTY_CLI='/Applications/Otty.app/Contents/MacOS/otty-cli' '/Applications/Otty.app/Contents/Resources/agent-integration/claude/otty-hook.sh' idle \"$PPID\""
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/tmux-attention.sh spinner",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "OTTY_CLI='/Applications/Otty.app/Contents/MacOS/otty-cli' '/Applications/Otty.app/Contents/Resources/agent-integration/claude/otty-hook.sh' processing \"$PPID\""
+          }
+        ]
+      },
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/herdr-blank-state.sh clear",
+            "timeout": 5
+          }
+        ]
       }
     ]
   },
@@ -102,20 +180,19 @@
     "command": "sh \"$HOME/.claude/statusline-command.sh\""
   },
   "enabledPlugins": {
-    "frontend-design@claude-plugins-official": true,
     "compound-engineering@compound-engineering-plugin": true,
-    "vercel@claude-plugins-official": true,
     "dv@villavicencio-skills": true,
+    "frontend-design@claude-plugins-official": true,
     "skill-creator@claude-plugins-official": true,
-    "codex@openai-codex": true
+    "vercel@claude-plugins-official": true,
+    "coderabbit@claude-plugins-official": true
   },
   "extraKnownMarketplaces": {
-    "compound-engineering-plugin": {
+    "claude-code-plugins": {
       "source": {
         "source": "github",
-        "repo": "EveryInc/compound-engineering-plugin"
-      },
-      "autoUpdate": true
+        "repo": "anthropics/claude-code"
+      }
     },
     "claude-plugins-official": {
       "source": {
@@ -123,16 +200,17 @@
         "repo": "anthropics/claude-plugins-official"
       }
     },
+    "compound-engineering-plugin": {
+      "source": {
+        "source": "github",
+        "repo": "EveryInc/compound-engineering-plugin"
+      },
+      "autoUpdate": true
+    },
     "villavicencio-skills": {
       "source": {
         "source": "github",
         "repo": "villavicencio/skills"
-      }
-    },
-    "openai-codex": {
-      "source": {
-        "source": "github",
-        "repo": "openai/codex-plugin-cc"
       }
     }
   },
@@ -144,11 +222,5 @@
   "remoteControlAtStartup": true,
   "inputNeededNotifEnabled": true,
   "agentPushNotifEnabled": true,
-  "skipAutoPermissionPrompt": true,
-  "mcpServers": {
-    "eagle": {
-      "type": "streamable-http",
-      "url": "http://127.0.0.1:41596/mcp"
-    }
-  }
+  "skipAutoPermissionPrompt": true
 }
