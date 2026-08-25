@@ -1,7 +1,5 @@
 {
-  "enabledPlugins": {
-    "dv@villavicencio-skills": true
-  },
+  "enabledPlugins": {},
   "extraKnownMarketplaces": {
     "villavicencio-skills": {
       "source": {
