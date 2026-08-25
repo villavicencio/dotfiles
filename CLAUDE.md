@@ -571,15 +571,24 @@ this repo, not just ticket work. Avoid committing directly to `master`.
 - **Trivial exceptions** (typo fixes, a one-line doc tweak) may go straight to
   `master` at the author's discretion — the rule targets behavior and config
   changes, where review and a clean history matter.
+- **PR review is CodeRabbit** (`.coderabbit.yaml` at repo root sets
+  `auto_incremental_review: false`, so re-review is requested with an `@coderabbitai review`
+  comment rather than fired by every push). Wait for its verdict and for each re-review before
+  merging — a stale `CHANGES_REQUESTED` is not permission, and a `Review rate limited` check
+  passes by design without any review having run. Full procedure, rate-limit mechanics, and when
+  to escalate to `dv:gauntlet` instead: the **Code Review** section of the global CLAUDE.md.
 
 Picking up a board ticket always gets its own branch (never work a ticket on
 `master`).
 
-**A docs-only PR reports "no checks reported" — that is correct, not a stalled CI.**
+**A docs-only PR skips the install matrix — but not the review.**
 `install-matrix.yml` declares `paths-ignore: ['docs/**', '**.md', 'claude/**/*.md']`,
-so a change touching only markdown never triggers the matrix and `gh pr checks` has
-nothing to show. `gh pr view --json mergeStateStatus` reading `CLEAN` is the signal to
-merge on; do not wait for a run that will never start.
+so a markdown-only change never triggers `linux`/`macos`; do not wait for a run that
+will never start. **CodeRabbit still reviews it** if the PR is review-eligible — drafts and
+`WIP` / `DO NOT MERGE` titles are excluded — and it does have findings on markdown, as it did
+on #171. So `mergeStateStatus: CLEAN` is not by itself the merge signal — wait for the
+CodeRabbit check to leave `pending` and triage its findings first. `CLEAN` only tells you
+nothing is *blocking*; a throttled or still-running review also reads clean.
 
 ### Claude Code permissions: one allowlist, not two
 

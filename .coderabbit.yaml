@@ -1,0 +1,23 @@
+# yaml-language-server: $schema=https://www.coderabbit.ai/integrations/schema.v2.json
+#
+# Why this file exists: CodeRabbit reviews are rate-limited PER DEVELOPER on a rolling
+# hourly window — this account is Pro+ at 10/hr (confirmed by CodeRabbit's own review
+# footer on PR #171, 2026-08-24). The limit is per developer, not per repo, so every
+# repo and every parallel agent session draws from that same 10. By default each push
+# triggers a re-review and spends from that pool on intermediate commits.
+#
+# auto_incremental_review: false makes re-review a deliberate act. The first review of a
+# PR is still automatic; each later round is requested with `@coderabbitai review`. That
+# matches the fix -> push -> request -> re-review loop in the global CLAUDE.md "Code
+# Review" section without spending a review on every commit. `@coderabbitai rate limit`
+# reports remaining capacity and does not consume a review.
+#
+# Observed 2026-08-24 (PR #170): a one-line comment fix was pushed, the automatic
+# re-review it triggered came back rate-limited, and the PR was left showing a stale
+# CHANGES_REQUESTED it could not clear. This file is the fix for that loop.
+reviews:
+  auto_review:
+    auto_incremental_review: false
+    ignore_title_keywords:
+      - "WIP"
+      - "DO NOT MERGE"
