@@ -36,10 +36,11 @@ fleet, Moshi, ShipSigma) is now fully closed out.
   it carries a 30-second recheck procedure for the next Claude Code version bump.
   ShipSigma KPI: VIL-17→20 **Canceled**, project Canceled with a note, VIL-21 left
   Done because it shipped.
-- **Two handoff changelists** at
-  `/private/tmp/claude-505/-Users-dvillavicencio-Projects-Personal-dotfiles/0cfd7da4-.../scratchpad/`
-  — `changelist-skills.md` and `changelist-borealis.md`. Scratchpad is session-scoped
-  and may be swept; both are reproducible from #171's diff if gone.
+- **Two handoff changelists**, durable in the vault:
+  `~/Obsidian/dotfiles/coderabbit-changelist-skills.md` and
+  `coderabbit-changelist-borealis.md`. Paste with
+  `pbcopy < ~/Obsidian/dotfiles/coderabbit-changelist-skills.md`. Each is
+  self-contained — the receiving agent needs no context from this session.
 
 ## Decisions Made
 
@@ -76,10 +77,10 @@ fleet, Moshi, ShipSigma) is now fully closed out.
 
 ## What's Next
 
-1. **Paste the skills changelist, then the borealis one.** Skills first: it ships PRs
-   actively, so the new rules bite there soonest. Borealis has the one functional gap
-   — no `.coderabbit.yaml`, so every push there still auto-re-reviews off the shared
-   pool.
+1. **Paste the skills changelist, then the borealis one** (vault paths above). Skills
+   first: it ships PRs actively, so the new rules bite there soonest. Borealis has the
+   one functional gap — no `.coderabbit.yaml`, so every push there still
+   auto-re-reviews off the shared pool.
 2. **Restart sessions to pick up dv 0.4.0.** Every project inherits it from user scope
    now. This is what makes `dv:pickup` report "N commits since `<head>`" instead of
    guessing from file age.
@@ -108,9 +109,10 @@ fleet, Moshi, ShipSigma) is now fully closed out.
   SHA still returns a *believable* commit count (verified: reported 3 when the true
   distance was 5) — it fails silently. dv 0.4.0's pickup already guards this with
   `cat-file -e` + `merge-base --is-ancestor`; don't hand-roll a count without both.
-- **`HANDOFF.md` is tracked in this repo, so the handoff commit rides a branch** per
-  the standing never-commit-to-master rule. The `dv:handoff` skill's auto-commit block
-  assumes committing on the current branch — on `master` that would violate the rule,
-  so branch first.
+- **Docs and small changes may now go straight to `master`** (David, 2026-08-25),
+  relaxing the previous never-commit-to-master standing order. Behavior and config
+  changes still ride a branch and PR. This handoff was PR'd (#174) because it was
+  written before the relaxation; the next one can commit directly, which also means
+  the `dv:handoff` skill's own auto-commit block is now fine to let run.
 - Fleet roster, jump keys, and the herdr pane template: CLAUDE.md's Herdr section.
   Passive upstream: herdr #2960/#2961/#2966.
