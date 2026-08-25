@@ -38,7 +38,7 @@ fleet, Moshi, ShipSigma) is now fully closed out.
   Done because it shipped.
 - **Two handoff changelists**, durable in the vault:
   `~/Obsidian/dotfiles/coderabbit-changelist-skills.md` and
-  `coderabbit-changelist-borealis.md`. Paste with
+  `~/Obsidian/dotfiles/coderabbit-changelist-borealis.md`. Paste either with
   `pbcopy < ~/Obsidian/dotfiles/coderabbit-changelist-skills.md`. Each is
   self-contained — the receiving agent needs no context from this session.
 
