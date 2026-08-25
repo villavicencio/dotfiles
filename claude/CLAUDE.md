@@ -110,6 +110,12 @@ the diff itself routes through one of the two tools above.
   the stale verdict is not permission. If the re-review is throttled, wait for the window; the one
   exception is the docs/config carve-out under "Rate limits" below, and it requires recording the
   throttle in the PR body.
+- **Never push while a review is in flight.** A push that lands mid-review *aborts* it —
+  CodeRabbit posts "Review failed — the head commit changed during the review" — and the spent
+  review is gone with nothing to show for it, still charged against the hourly allowance. Land
+  every edit first, *then* request the round. This matters most when addressing findings: batch
+  the fixes, push once, then comment `@coderabbitai review`. (Observed on skills#36, in the very
+  commit documenting the throttle rules.)
 - **Poll the check line, not the reviews API**: `gh pr checks <N> | grep -i '^CodeRabbit'` until it
   stops saying `pending`. The bot posts as `coderabbitai` on some PRs and `coderabbitai[bot]` on
   others, and its replies to your thread replies register as `COMMENTED` reviews — both make a
@@ -358,9 +364,19 @@ The user runs in **PST/PDT**. When citing or reasoning about time:
 
 `dv:pickup` is often a context-hygiene move, not a new day. Sessions are routinely back-to-back —
 the user clears the window to reduce cached-context cost and avoid pollution. Before defaulting
-to "overnight" / "tomorrow" / "next morning" framing, check recent commit timestamps, HANDOFF
-mtime, and any continuation cues in the conversation. If signals say same-session,
-say so explicitly instead of pretending it's been hours.
+to "overnight" / "tomorrow" / "next morning" framing, **check the handoff's own frontmatter
+first**. `dv:handoff` (dv 0.4.0+) writes `created_at`, `branch`, and `head` above the header,
+stamped from the shell rather than authored by the model, and `dv:pickup` reports `git log
+<head>..HEAD` — so staleness is "N commits since `<head>`", which is a fact, not an inference
+from file age. `head` is the anchor that matters: it survives clone/rebase/checkout, all of which
+rewrite mtime, and it pins the handoff to a tree state rather than a moment.
+
+Fall back to HANDOFF mtime only when there is no frontmatter, and say so when you do. A
+**pre-0.4.0** handoff's `created_at` was model-written and can be wrong — one was observed nine
+minutes *ahead* of both its own mtime and the commit it described, i.e. less accurate than the
+mtime it was meant to replace. Also weigh recent commit timestamps and any continuation cues in
+the conversation. If signals say same-session, say so explicitly instead of pretending it's been
+hours.
 
 ## Personal Boundaries
 
