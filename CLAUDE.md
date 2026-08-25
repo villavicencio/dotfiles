@@ -373,6 +373,7 @@ conversations across server restarts via `claude --resume <id>`.
     | `obscura ✇` | `~/Projects/browse-gateway` | the Obscura browse-gateway itself | `prefix+shift+o` |
     | `eidos ❖` | `~/Projects/eidos` | Eagle library curation | `prefix+shift+i` (`e`/`shift+e` are edit_scrollback / remove_worktree) |
     | `orrery ☉` | `~/.forge-projects/tranquil-dune` (aka `~/Projects/orrery`) | Forge-resident jobs dashboard (orrery.ui8.dev) — see "Forge-resident hybrid agents" below | `prefix+y` (`o`/`shift+o` are open_notification_target / obscura; `y` as in orrer**y**) |
+    | `vice ♠` | `~/Obsidian/vice` | Vice Gage — native local **Hermes** agent (personal media curation; Obscura + Eagle MCPs). Pane command is the template with `hermes chat` in place of `claude`; herdr's hermes detection manifest identifies the venv process natively, no shim (verified 2026-08-25). Setup brief: `~/Projects/agents/docs/plans/2026-08-25-001-…` | `prefix+shift+v` (plain `v` is split-vertical's default) |
 
 - **Forge-resident hybrid agents** (SOP, established 2026-08-20 with `orrery ☉`).
   For a project that legitimately *stays* in Forge — UI-heavy, actually using

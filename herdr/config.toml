@@ -187,6 +187,13 @@ type = "shell"
 command = "/opt/homebrew/bin/herdr agent focus orrery"
 description = "jump to Orrery"
 
+[[keys.command]]
+# plain v is split-vertical's default, so Vice takes shift+v.
+key = "prefix+shift+v"
+type = "shell"
+command = "/opt/homebrew/bin/herdr agent focus vice"
+description = "jump to Vice"
+
 # Legacy indexed shortcut config is still parsed for compatibility.
 # Prefer switch_tab, switch_workspace, and focus_agent for new configs.
 # [keys.indexed]
