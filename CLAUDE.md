@@ -288,7 +288,10 @@ conversations across server restarts via `claude --resume <id>`.
   through a nested tmux.
 - **Remote agent surfaces (`atlas ⚓` / `axiom ∴`):** each workspace hosts a VPS
   TUI through an ssh shim whose *name* matches a detection-manifest alias —
-  herdr identifies these ssh panes by process name — the documented
+  herdr identifies these ssh panes by process name. **The name trick is for ssh
+  panes only** — a *local* TUI needs none of it: claude and hermes panes are
+  detected natively regardless of process name (`vice ♠`'s `hermes chat` runs as
+  venv python and detects as `hermes`; verified 2026-08-25) — the documented
   `HERDR_AGENT` env hint applies to sandbox-wrapper foregrounds (`fence`/`nono`)
   and does NOT fire for ssh foregrounds on 0.8.0 (re-verified 2026-08-18:
   ssh + env hint → pane undetected; herdrdev/herdr#2961 has the repro). Do not
@@ -312,8 +315,24 @@ conversations across server restarts via `claude --resume <id>`.
   and the #2966 restore boot-race self-heals. Client keepalives back it up:
   `~/.ssh/config` `Host openclaw-prod` carries `ServerAliveInterval 60` +
   `ServerAliveCountMax 120` (machine-local, untracked). Both shims
-  are Dotbot-managed (`helpers/install_herdr_agents.sh`, darwin.yaml). Each
-  remote tmux carries `set-titles on` + `set-titles-string "#{pane_title}"` so
+  are Dotbot-managed (`helpers/install_herdr_agents.sh`, darwin.yaml).
+  > ⚠ **A Hermes install on this Mac clobbers `~/.local/bin/hermes-agent`.**
+  > Upstream's `install.sh` writes three entrypoints (`hermes`, `hermes-acp`,
+  > `hermes-agent`) and the third overwrites the Dotbot symlink to
+  > `herdr/shims/hermes-agent` — Atlas's auto-reconnect wrapper, whose *name*
+  > is what herdr's hermes detection manifest matches. The break is **latent**:
+  > a running pane keeps its already-exec'd process and looks healthy until the
+  > next restart, then launches a *local* Hermes agent instead of ssh-ing to
+  > the VPS. **Re-run `helpers/install_herdr_agents.sh` after any Hermes
+  > install or reinstall** (idempotent). Detect with
+  > `ls -la ~/.local/bin/hermes-agent` — healthy is a *symlink*; a regular file
+  > dated at your last install is the bug. `claude-code` is unaffected
+  > (different name), and so is `vice ♠` (its pane runs `hermes chat` →
+  > `~/.local/bin/hermes`). Full write-up: `~/Projects/agents/docs/solutions/`
+  > `integration-issues/hermes-installer-clobbers-herdr-shim-hermes-agent-Mac-20260825.md`
+  > (observed + fixed 2026-08-25).
+
+  Each remote tmux carries `set-titles on` + `set-titles-string "#{pane_title}"` so
   the TUIs' OSC titles drive herdr states through the nested tmux. Never
   restart `hermes-tmux.service` casually — it drops Atlas's in-memory history
   (see ~/Projects/agents docs for Hermes rules).
@@ -348,17 +367,20 @@ conversations across server restarts via `claude --resume <id>`.
 
     ```bash
     S=~/.config/herdr/herdr.sock
-    echo '{"id":"1","method":"layout.export","params":{"workspace_id":"w1"}}' | nc -U $S
+    echo '{"id":"1","method":"layout.export","params":{"tab_id":"w1:t1"}}' | nc -U $S
     echo '{"id":"1","method":"layout.apply","params":{"tab_id":"w1:t1","focus":true,"root":{"type":"pane","cwd":"'"$HOME"'/Projects/Personal/dotfiles","command":["/bin/zsh","-l","-c","claude; exec /bin/zsh -il"]}}}' | nc -U $S
     ```
 
     Two API gotchas, both fail-fast: `layout.apply` takes **`tab_id` or
     `workspace_id`, never both** (`invalid_target`) — pass `tab_id` alone when
     rebuilding one pane in place; and every request needs a `params` key, even
-    the list calls, which take `{}` (`missing field params`). This kills the
-    pane's live agent session, so do it at a boundary (a `/clear` or model
-    switch), not mid-task, and reapply `herdr agent rename` afterward if that
-    pane had one.
+    the list calls, which take `{}` (`missing field params`). A third is
+    **silent**: `layout.export` *ignores* `workspace_id` and returns the
+    **focused** workspace's layout — believable data for the wrong target
+    (reproduced 2026-08-25) — so always address it by `tab_id`. `layout.apply`
+    kills the pane's live agent session, so do it at a boundary (a `/clear` or
+    model switch), not mid-task, and reapply `herdr agent rename` afterward if
+    that pane had one.
   - Current local agents on this template (jump keys are `[[keys.command]]`
     entries in `herdr/config.toml`; shift-chords where the plain letter is taken
     by a default binding or an earlier agent):
