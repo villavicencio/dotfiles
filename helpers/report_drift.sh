@@ -293,6 +293,9 @@ PYEOF
   if printf '%s' "$claude_live_norm" | grep -q '^UNPARSEABLE'; then
     echo "ERROR: live settings is not valid JSON — cannot compute drift" >&2
     status=1
+  elif printf '%s' "$claude_tracked_norm" | grep -q '^UNPARSEABLE'; then
+    echo "ERROR: tracked claude/settings.json is not valid JSON — cannot compute drift" >&2
+    status=1
   elif [ "$claude_live_norm" = "$claude_tracked_norm" ]; then
     echo "  (in sync)"
   else

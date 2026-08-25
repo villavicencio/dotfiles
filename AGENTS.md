@@ -53,9 +53,9 @@ tmux/       tmux config + status-bar scripts + window-meta persistence
 topgrade/   Topgrade system-updater config
 vale/       Vale prose linter config
 zsh/        zshenv (env/PATH/BREW_PREFIX), zshrc, alias.sh, functions.sh, functions/
-claude/     Claude Code config: CLAUDE.md, statusline, hooks/ (symlinked) +
-            settings.json (COPY-SEEDED, not symlinked — see gotchas)
-            (all symlinked into ~/.claude/)
+claude/     Claude Code config, delivered into ~/.claude/ two different ways:
+            CLAUDE.md, statusline, hooks/  → symlinked
+            settings.json                  → COPY-SEEDED, never symlinked (see gotchas)
 bin/        Repo CLI — bin/dot (symlinked to ~/.local/bin/dot)
             bin/lib/*.py — Python helpers for doctor/bench, deliberately NOT heredocs
 ```

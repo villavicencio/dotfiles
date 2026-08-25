@@ -39,6 +39,17 @@ DEST="$HOME/.claude/settings.json"
 #                it; capture drops it so a stale live file cannot reintroduce it.
 STRIP_KEYS="effortLevel autoMode mcpServers allowedTools"
 
+# Dry-run guard comes FIRST so it covers --capture too: capture writes to the
+# repo, and `DOTFILES_DRY_RUN=1 ... --capture` must not mutate anything.
+if [ "${DOTFILES_DRY_RUN:-0}" = "1" ]; then
+  if [ "${1:-}" = "--capture" ]; then
+    echo "[dry-run] would capture ~/.claude/settings.json into claude/settings.json"
+  else
+    echo "[dry-run] would seed ~/.claude/settings.json from claude/settings.json if absent"
+  fi
+  exit 0
+fi
+
 if [ "${1:-}" = "--capture" ]; then
   [ -f "$DEST" ] || { echo "Error: no live settings at $DEST" >&2; exit 1; }
   [ -f "$SRC" ]  || { echo "Error: tracked settings missing at $SRC" >&2; exit 1; }
@@ -56,6 +67,24 @@ except Exception as e:
     print("Error: live settings is not valid JSON (%s) — nothing captured" % e, file=sys.stderr)
     raise SystemExit(1)
 tracked = json.load(open(src), object_pairs_hook=collections.OrderedDict)
+
+# `allowedTools` is dropped rather than tracked — but dropping it while it still
+# holds rules absent from permissions.allow would SILENTLY DELETE them from the
+# tracked baseline, and the legacy key is the one Claude Code actually enforces.
+# Refuse, and point at the migration that folds them back.
+legacy = live.get("allowedTools") or []
+allow_now = (live.get("permissions") or {}).get("allow") or []
+unmerged = [r for r in legacy if r not in allow_now]
+if unmerged:
+    print(
+        "Error: live settings still has a legacy 'allowedTools' key with %d rule(s)\n"
+        "       not present in permissions.allow. Capturing now would silently drop\n"
+        "       them. Run this first, then re-capture:\n"
+        "           python3 helpers/migrate_claude_settings.py\n"
+        "       Unmerged: %s" % (len(unmerged), ", ".join(unmerged[:5])),
+        file=sys.stderr,
+    )
+    raise SystemExit(1)
 
 dropped = [k for k in strip if k in live]
 for k in dropped:
@@ -98,11 +127,6 @@ if normalized:
     print("  normalized absolute $HOME paths to ~/")
 print("  review with: git diff claude/settings.json")
 PY
-  exit 0
-fi
-
-if [ "${DOTFILES_DRY_RUN:-0}" = "1" ]; then
-  echo "[dry-run] would seed ~/.claude/settings.json from claude/settings.json if absent"
   exit 0
 fi
 
