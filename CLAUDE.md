@@ -490,9 +490,32 @@ conversations across server restarts via `claude --resume <id>`.
   > the pane sat at a shell. No agent process, so nothing to detect. The remote
   > side was healthy the whole time (`claude --continue` alive, session intact).
   > **A workspace reading `unknown` means look at the pane's foreground process
-  > first** (`pane.process_info`) — a fallback `zsh` is the tell. Recovery is
-  > `layout.apply` over the existing tab, then `herdr agent rename`, since a
-  > recreated pane loses its name.
+  > first** (`pane.process_info`) — a fallback `zsh` is the tell.
+  >
+  > **`layout.export` then splits it into two cases, and they want different
+  > repairs** (established 2026-08-26, reconnecting `axiom ∴` again):
+  >
+  > | Export shows | Cause | Repair |
+  > |---|---|---|
+  > | **no `command`** key | the #2966 restore boot-race — the command was dropped | `layout.apply` to rebuild the pane |
+  > | `command` **present** | clean detach — ssh exited 0, shim broke its retry loop by design | `herdr pane run <pane-id> 'exec <the command>'` |
+  >
+  > Reach for `layout.apply` only in the first case. In the second the layout is
+  > already correct and only the *process* fell back, so rebuilding is destructive
+  > overkill: it kills the pane and mints a new `pane_id`. `herdr pane run
+  > <PANE_ID> <COMMAND>` sends text plus Enter in one call and reuses the existing
+  > pane, so the id survives. Prefix the command with `exec` so the shim replaces
+  > the fallback shell rather than nesting inside it — the shim re-execs its own
+  > `/bin/zsh -il` on the next clean detach, so never-self-close still holds.
+  >
+  > **Re-run `herdr agent rename` either way.** The name binding is released when
+  > the agent *process* dies, not only when the pane is recreated — verified
+  > 2026-08-26: the pane id was reused and `name` still came back `null`, breaking
+  > the jump key, which targets the name. An earlier version of this note said
+  > "since a recreated pane loses its name," which is narrower than the truth.
+  >
+  > Check the remote before repairing anything local: the VPS session usually
+  > outlives the disconnect, so reattaching restores the conversation intact.
 
 - **Local agent pane template (fleet standard, revised 2026-08-19):** a local
   Claude Code agent runs as a declarative pane with command
