@@ -838,6 +838,24 @@ agent edits to `~/.claude/settings.json` itself, regardless of allow rules. That
 is intended — it stops an agent widening its own permissions — and is not the
 same mechanism. Permission-file edits are a human job.
 
+**A `*` belongs after the subcommand, never mid-command.** In a `Bash(...)` allow
+rule the wildcard matches *anything* at that position — including flags and extra
+arguments you never intended to pre-approve — and it approves them with no prompt.
+`Bash(mv ~/path/_parked/* ~/path/)` reads like "move the parked versions back," but
+the `*` also matches inserted options and additional operands, so the rule blesses a
+whole family of `mv` invocations rather than the one it was written for. Write the
+exact operands (`Bash(mv ~/path/_parked/2.1.112 ~/path/_parked/2.1.113 ~/path/)`),
+or use the trailing prefix form `Bash(cmd:*)` after the subcommand. Corrected in
+`.claude/settings.local.json` 2026-08-26 after David flagged it.
+
+The same shape hides in the `Bash(cmd *)` space-star form, which is **not** the
+`:*` prefix-match idiom and is broad in exactly this way. `.claude/settings.local.json`
+still carries ~35 of them accreted from prompt-time approvals — `Bash(bash *)`,
+`Bash(curl *)`, `Bash(git reset *)`, `Bash(brew uninstall *)`, and two
+`Bash(ssh … root@openclaw-prod ' *)` entries that pre-approve arbitrary remote
+commands on the VPS. Prune on sight; that file is gitignored, so nothing but a
+manual pass keeps it honest.
+
 ---
 
 ## Install pipeline
