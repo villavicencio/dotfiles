@@ -121,18 +121,58 @@ the diff itself routes through one of the two tools above.
   every edit first, *then* request the round. This matters most when addressing findings: batch
   the fixes, push once, then comment `@coderabbitai review`. (Observed on skills#36, in the very
   commit documenting the throttle rules.)
-- **Poll the check line, not the reviews API**: `gh pr checks <N> | grep -i '^CodeRabbit'` until it
-  stops saying `pending`. The bot posts as `coderabbitai` on some PRs and `coderabbitai[bot]` on
-  others, and its replies to your thread replies register as `COMMENTED` reviews — both make a
-  reviews-API poll fire early or never. `gh api .../comments/<id>` 404s for review comments; use
-  the list endpoint with `gh api --paginate .../pulls/<N>/comments` and filter by id — `per_page`
-  alone caps at one page and silently drops findings past it.
+- **Read the check DESCRIPTION, not its state** — this is the one that has bitten repeatedly.
+  Poll the check line rather than the reviews API (`gh pr checks <N> | grep -i '^CodeRabbit'`),
+  but **"not `pending`" is not a completion test**: three different descriptions sit on a
+  *passing* check, and only one of them means a review ran.
+
+  ```bash
+  gh pr checks <N> --json name,state,description \
+    -q '.[] | select(.name|test("CodeRabbit";"i")) | "\(.state)\t\(.description)"'
+  ```
+
+  | Description | State | Review ran? |
+  |---|---|---|
+  | `Review completed` | pass | **yes** |
+  | `Review skipped: incremental reviews are disabled` | pass | **no** — request one with `@coderabbitai review` |
+  | `Review rate limited` | pass | **no** — throttled |
+  | `Review failed — the head commit changed during the review` | — | **no** — a push aborted it |
+  | `Review in progress` / `pending` | pending | unfinished |
+
+  Poll the reviews API instead and it fires early or never: the bot posts as `coderabbitai` on
+  some PRs and `coderabbitai[bot]` on others, and its replies to your thread replies register as
+  `COMMENTED` reviews.
+- **Enumerate unresolved threads before every merge decision** — a completed review is not a
+  triaged one, and findings arrive as `COMMENTED` reviews that never block. GraphQL is the only
+  surface exposing `isResolved`:
+
+  ```bash
+  gh api graphql -F owner=<owner> -F repo=<repo> -F pr=<N> -f query='
+  query($owner:String!,$repo:String!,$pr:Int!){ repository(owner:$owner,name:$repo){
+    pullRequest(number:$pr){ reviewThreads(first:100){ nodes{ isResolved path line originalLine
+      comments(last:1){ nodes{ author{login} } } } } } } }' \
+   -q '.data.repository.pullRequest.reviewThreads.nodes[] | select(.isResolved|not)
+       | "UNRESOLVED \(.path):\(.line // .originalLine)"'
+  ```
+
+  **Empty output is the merge signal; any line is a blocker.** Use `.line // .originalLine` —
+  bare `.line` is `null` on stale-position threads and renders real findings as `path:null`.
+  Re-run it **after every re-review**, not once per PR: a re-review can add findings after the
+  previous round was fully resolved and confirmed. On the REST fallback
+  (`gh api --paginate .../pulls/<N>/comments`, which has no resolution state) `--paginate` is
+  mandatory — `per_page` alone caps at one page and silently drops findings past it, and
+  `gh api .../comments/<id>` 404s for review comments.
 - **Triage every finding**: fix it on the branch, or decline it with the reason recorded both on
   the thread and in the PR body. A finding you disagree with is a standoff you document, not one
   you merge past silently.
 - **A trivial diff may skip review**, but the skip and its reason must be stated when reporting
   the merge. The skip is fine; the silence isn't.
-- **`mergeStateStatus: CLEAN` does not mean reviewed.** See throttling below.
+- **`mergeStateStatus: CLEAN` does not mean reviewed.** It means nothing is *blocking* the
+  button. There are at least three ways a PR reads clean with findings outstanding: the review
+  was **throttled** (below), it was **skipped** because `auto_incremental_review: false` (below),
+  or it **completed and found things** — `COMMENTED` reviews never block, so a PR carrying
+  unresolved findings reads `CLEAN` by construction. Full write-up, with the incident that
+  produced this rule: `dotfiles/docs/solutions/best-practices/pr-check-pass-state-is-not-a-review-verdict.md`.
 
 ### Rate limits — per developer, not per repository
 
