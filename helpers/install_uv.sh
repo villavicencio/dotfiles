@@ -17,9 +17,11 @@
 # ~/.local/bin on PATH, so there is nothing for the installer to add.
 #
 # Who needs uv: the Hermes runtime, and any project pinning its own Python
-# (`uv python install`). uv manages its own interpreters under
-# ~/.local/share/uv/python — do not add a Homebrew python@3.x for those; it would
-# be dead weight nothing resolves.
+# (`uv python install`). uv prefers the interpreters it manages under
+# ~/.local/share/uv/python and provisions one on demand, so no Homebrew python@3.x
+# has to be installed for it. uv will still discover and use a suitable system
+# interpreter when no managed one fits, so a brewed Python is redundant here rather
+# than unusable.
 set -uo pipefail
 
 INSTALL_DIR="$HOME/.local/bin"
@@ -36,9 +38,14 @@ if [ "$(uname)" != "Darwin" ]; then
   exit 0
 fi
 
+# Present AND runnable — a binary that will not report its version is not a working
+# install, and skipping on mere existence would strand a corrupt one forever.
 if [ -x "$UV_BIN" ]; then
-  echo "uv already installed at $UV_BIN ($("$UV_BIN" --version 2>/dev/null || echo 'version unknown')) — skipping (self-updates via 'uv self update')"
-  exit 0
+  if uv_version="$("$UV_BIN" --version 2>/dev/null)" && [ -n "$uv_version" ]; then
+    echo "uv already installed at $UV_BIN ($uv_version) — skipping (self-updates via 'uv self update')"
+    exit 0
+  fi
+  echo "Found $UV_BIN but it does not run ('--version' failed) — reinstalling over it." >&2
 fi
 
 if ! command -v curl >/dev/null 2>&1; then
@@ -60,4 +67,9 @@ if [ ! -x "$UV_BIN" ]; then
   exit 1
 fi
 
-echo "Installed uv -> $UV_BIN ($("$UV_BIN" --version 2>/dev/null || echo 'version unknown'))"
+if ! uv_version="$("$UV_BIN" --version 2>/dev/null)" || [ -z "$uv_version" ]; then
+  echo "Error: $UV_BIN installed but does not run ('--version' failed)" >&2
+  exit 1
+fi
+
+echo "Installed uv -> $UV_BIN ($uv_version)"

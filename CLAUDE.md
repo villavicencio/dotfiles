@@ -178,10 +178,16 @@ hazard, avoidable in advance rather than cleaned up after. `zshenv` already puts
 `~/.local/bin` on PATH, so there is nothing for the installer to add. The helper also pins
 `UV_INSTALL_DIR` so the destination never depends on the installer's own defaults.
 
-**Do not add a Homebrew `python@3.x` for uv's benefit.** uv provisions and manages its own
-interpreters under `~/.local/share/uv/python/` (`uv python install`); a brewed Python would
-be dead weight nothing resolves. The Hermes runtime's venv, for instance, is backed by a
-uv-managed CPython, not by any system or Homebrew Python.
+**No Homebrew `python@3.x` is needed for uv's benefit.** uv prefers the interpreters it
+manages under `~/.local/share/uv/python/` and provisions one on demand (`uv python install`),
+so nothing has to be installed ahead of it. The Hermes runtime's venv is backed by a
+uv-managed CPython rather than a system or Homebrew one.
+
+uv *will* discover and use a suitable system interpreter when no managed one satisfies the
+request — `uv python list` on this Mac shows the Homebrew 3.12/3.14 builds as usable
+candidates — so a brewed Python is redundant here, not unusable. `--managed-python` /
+`UV_MANAGED_PYTHON=1` forces the managed path when a project needs that guarantee;
+`--no-managed-python` does the opposite.
 
 ### NVM lazy loader shims — globals do NOT need one
 NVM is lazy-loaded for startup speed. **A globally-installed npm CLI does not need a shim.**
