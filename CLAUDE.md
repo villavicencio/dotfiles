@@ -454,10 +454,20 @@ conversations across server restarts via `claude --resume <id>`.
   state through a nested tmux. node has no `~/.tmux.conf`, and options set at
   runtime die with the tmux server — so the socket gets its own conf file,
   scoped with `-L`/`-f` so it cannot disturb the `axiom` or `default` sockets.
-  > ⚠ The `axiom` socket currently runs with `set-titles off` (tmux's default),
-  > despite this file previously claiming every remote tmux carries it on. That
-  > is likely why `axiom ∴` reports `agent_status: unknown`. Unfixed as of
-  > 2026-08-25 — fixing it means giving that socket a conf file too.
+  > The `axiom` socket ran with `set-titles off` (tmux's default) until
+  > 2026-08-25, despite this file claiming every remote tmux carried it on. It
+  > now has its own `~/.config/tmux/axiom.conf`, applied at runtime without a
+  > server restart.
+  >
+  > **That was NOT why `axiom ∴` read `agent_status: unknown`** — a first guess
+  > that the evidence killed. The pane was running `/bin/zsh -il`, the shim's
+  > clean-detach fallback: something detached the ssh, the wrapper exited 0, and
+  > the pane sat at a shell. No agent process, so nothing to detect. The remote
+  > side was healthy the whole time (`claude --continue` alive, session intact).
+  > **A workspace reading `unknown` means look at the pane's foreground process
+  > first** (`pane.process_info`) — a fallback `zsh` is the tell. Recovery is
+  > `layout.apply` over the existing tab, then `herdr agent rename`, since a
+  > recreated pane loses its name.
 
 - **Local agent pane template (fleet standard, revised 2026-08-19):** a local
   Claude Code agent runs as a declarative pane with command

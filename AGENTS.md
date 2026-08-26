@@ -282,8 +282,11 @@ install via Homebrew casks in `brew/Brewfile`, not a helper.)
   `-L atlas-tools -f ~/.config/tmux/atlas-tools.conf` and `new-session -A`, which
   makes it self-healing across VPS reboots without a systemd unit. The conf file
   is required because tmux defaults `set-titles` to `off` and that option is what
-  carries agent state out through a nested tmux; the `axiom` socket still runs
-  with it off, which likely explains its `unknown` status.
+  carries agent state out through a nested tmux. The `axiom` socket was given the
+  same treatment on 2026-08-25. Note its `unknown` status turned out to have a
+  different cause: the pane had fallen through to the shim's clean-detach `zsh`
+  fallback, so no agent process existed to detect. Check `pane.process_info`
+  before blaming detection config.
   A pane whose `layout.export` node has no `command` is degraded even though it
   still detects as an agent; rebuild it with `layout.apply` over the socket
   (recipe in CLAUDE.md).
