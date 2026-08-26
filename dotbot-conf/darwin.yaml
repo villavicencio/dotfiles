@@ -32,13 +32,18 @@
     # the config path and would orphan a symlink. Hence a shell step here rather
     # than an entry in the `link:` block below.
     - [bash helpers/install_otty.sh, "Seeding Otty config (if absent)"]
+    # Claude Code's settings.json is likewise seeded by COPY, not linked: Claude
+    # Code itself, `herdr integration install`, and Otty's agent-integration
+    # installer all rewrite it in place, so a symlink there is orphaned on the
+    # first write. Capture live changes with --capture; `dot drift` shows the gap.
+    - [bash helpers/install_claude_settings.sh, "Seeding Claude Code settings (if absent)"]
     - [bash helpers/install_herdr_agents.sh, "Linking herdr agent ssh shims"]
 
 - link:
     ~/.claude/CLAUDE.md: claude/CLAUDE.md
-    ~/.claude/settings.json: claude/settings.json
     ~/.claude/statusline-command.sh: claude/statusline-command.sh
     ~/.claude/hooks/tmux-attention.sh: claude/hooks/tmux-attention.sh
+    ~/.claude/hooks/herdr-blank-state.sh: claude/hooks/herdr-blank-state.sh
     # iTerm2 Dynamic Profile. `create: true` makes the DynamicProfiles parent dir
     # if iTerm hasn't yet. Replaces the live-synced full prefs plist (which leaked
     # usernames/hostname/window arrangements).
