@@ -28,6 +28,11 @@
     - [bash helpers/install_nvm.sh, "Installing nvm"]
     - [bash helpers/install_node.sh, "Installing node + modules"]
     - [bash helpers/install_claude_code.sh, "Installing Claude Code (native installer)"]
+    # uv likewise ships via its vendor installer rather than the Brewfile: zshenv puts
+    # ~/.local/bin ahead of Homebrew, so a brewed uv would be permanently shadowed, and
+    # uv self-updates. The helper sets UV_NO_MODIFY_PATH=1 — without it the installer
+    # appends PATH lines to .zshrc/.zshenv, which are Dotbot symlinks into this repo.
+    - [bash helpers/install_uv.sh, "Installing uv (native installer)"]
     # Otty is seeded by COPY, not linked — `otty config set` atomic-renames over
     # the config path and would orphan a symlink. Hence a shell step here rather
     # than an entry in the `link:` block below.
