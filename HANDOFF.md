@@ -1,95 +1,109 @@
 ---
-created_at: "2026-08-25T12:00:13-07:00"
+created_at: "2026-08-25T21:11:31-07:00"
 branch: "master"
-head: "8d0e5a1"
+head: "61d21a2"
 ---
-# HANDOFF — 2026-08-25, midday (PDT)
+# HANDOFF — 2026-08-25, evening (PDT)
 
-Same-day continuation of the morning session (previous handoff at `289225d`). The morning's
-resume focus was already done on pickup — both CodeRabbit changelists (skills `6837f5d`/#37,
-borealis `45a91c4`/#13) had landed, closing that arc entirely. The session's real work was new:
-the strategy brief for **Vice Gage**, a second Hermes agent running natively on this Mac, plus
-the herdr fleet entry for it and the fallout fixes from the build. Model switched to Fable 5
-mid-session; the build itself is executing in `argus ◉`, not here.
+Third same-day session (previous handoff at `8d0e5a1`, midday). Started as a small pickup —
+two leftover follow-ups — and turned into a run on one theme: **things that report success
+while being wrong**. Four PRs merged, two learnings compounded, one falsified rule in the
+global instructions replaced, and `atlas-tools` built from scratch on the VPS. The Vice Gage
+arc from the midday session is complete (David confirmed); nothing there is outstanding.
 
 ## What We Built
 
-- **The Vice Gage strategy brief** —
-  `~/Projects/agents/docs/plans/2026-08-25-001-feat-vice-gage-local-hermes-plan.md`
-  (agents repo, commit `65b7c4d`). Written for an Opus executor in argus; 7 phases, 3 ▶ human
-  stops, 5-prompt blind gate. What the doc doesn't say: every command in it was verified live
-  this session (VPS reads of Atlas's runtime, Mac reads, upstream docs fetched), and the
-  detail level is deliberate — the executor should never need the VPS. Full persona charter and
-  scope decisions live there, not here (this repo is public; the agents repo is private).
-- **dotfiles PR #175 (merged, squash `5824601`)** — the `vice ♠` fleet entry: jump key
-  `prefix+shift+v` in `herdr/config.toml`, roster rows in CLAUDE.md/AGENTS.md. The workspace
-  itself was created live over the socket (wG, pane template with `hermes chat`, agent renamed
-  `vice`); the PR tracks config+docs so a rebuild reproduces it. CodeRabbit: 2 findings, 1
-  partially applied (the vice rebuild one-liner now in CLAUDE.md), `$BREW_PREFIX` declined on
-  both threads — see the PR body for the triage record.
-- **`8d0e5a1` (docs, straight to master)** — three durable Herdr-section updates from the argus
-  session's handoff, each independently verified here before writing: the ⚠ Hermes-installer-
-  clobbers-`~/.local/bin/hermes-agent` warning (latent break of Atlas's shim; re-run
-  `helpers/install_herdr_agents.sh` after any Hermes (re)install), the "argv[0] trick is for ssh
-  panes only" correction, and the `layout.export`-ignores-`workspace_id` gotcha (reproduced
-  live: returns the *focused* workspace with believable data — address by `tab_id`).
-- **Live fleet state**: workspace `vice ♠` up and detected natively as `hermes` (venv python,
-  no shim needed — the brief's detection-risk fallback was never used), key binding
-  hot-reloaded (`herdr server reload-config` → applied).
+- **`atlas-tools` on openclaw-prod** — `/home/node/Projects/atlas-tools`, VPS-side, 3 commits
+  on `main`, **no remote** (Task 19, gated). 30/30 acceptance criteria pass. What the repo
+  doesn't tell you: Tasks 1 and 2 were done as *separate* commits with the plan's own commit
+  messages, because the plan mandates RED→GREEN per task and the brief's single-commit framing
+  would have skipped that. Task 2's RED was verified as 8 FAILED / **0 ERROR** — assertion
+  failures from missing docs, not collection errors.
+- **PR #178 — `atlas-tools ⚙` herdr surface**, jump key `prefix+t`. The load-bearing detail is
+  in CLAUDE.md's Herdr section: herdr's pane `cwd` is *always local*, so a remote project needs
+  no Mac-side checkout — the working dir comes from the pane command. Reuses the existing
+  `claude-code` ssh alias rather than a third shim.
+- **PR #177 — blank-pane indicator + `settings.json` copy-seed.** Two unrelated things in one
+  PR because the second was discovered while wiring the first. `helpers/install_claude_settings.sh`
+  and `migrate_claude_settings.py` are the durable pieces.
+- **PR #176 — NVM shim cleanup.** *Closed* the follow-up rather than implementing it: the
+  premise was wrong, no shim was ever needed.
+- **PR #179 — `helpers/install_uv.sh`.** Took three review rounds; see Gotchas.
+- **`docs/solutions/best-practices/pr-check-pass-state-is-not-a-review-verdict.md`** — the
+  two-step merge check. Read this before merging anything.
+- **`docs/solutions/best-practices/displayed-commands-must-be-runnable-verbatim.md`** — never
+  display a command elided; the clipboard is a second channel.
+- **`claude/CLAUDE.md` "Code Review"** — the *"poll until it stops saying `pending`"* rule was
+  falsified and replaced. That rule caused this session's failure; it is not a doc improvement.
 
 ## Decisions Made
 
-- **Vice is pinned to Atlas's Hermes tag (v0.20.0), not `main`** — one upgrade SOP covers both.
-  David can reverse at Phase 1; the argus session installed matching v0.20.0.
-- **No OpenRouter fallback for Vice** — Atlas's is dead anyway (402); the block is in the brief
-  commented out.
-- **Public-repo discretion**: dotfiles is PUBLIC, so the roster row and this handoff describe
-  Vice as "personal media curation (Obscura + Eagle MCPs)" and point at the private agents-repo
-  brief for the rest. Keep that split when touching either file.
-- **Declined CodeRabbit's `$BREW_PREFIX` finding on #175, on the record** — `[[keys.command]]`
-  runs in herdr's bare launchd env where `BREW_PREFIX` doesn't exist; absolute paths are this
-  repo's documented rule for exactly that context (herdr#2960). Thread replies + PR body carry
-  the reasoning; don't relitigate.
-- **No re-review requested for #175's second commit** — docs-only delta on a COMMENTED (not
-  CHANGES_REQUESTED) verdict, declines recorded. Deliberate, per the Code Review SOP.
+- **`settings.json` is copy-seeded, never symlinked** — three installers rewrite it in place
+  (Claude Code, `herdr integration install`, Otty). Same class as Otty; do not restore a `link:`.
+- **uv ships via its vendor installer, not the Brewfile** — `~/.local/bin` precedes Homebrew on
+  PATH, so a brewed copy would be permanently shadowed, and uv self-updates. **Ruled out:**
+  adding a Homebrew `python@3.x` — uv provisions its own interpreters.
+- **atlas-tools git identity is repo-local**, not global — user `node` had none, and setting a
+  global would affect unrelated repos on that host.
+- **No `[project.scripts]` in atlas-tools' pyproject yet** — the console script arrives with
+  `cli.py` at Task 11; declaring it early installs a script pointing at a missing module.
+- **Declined a CodeRabbit finding on #179** (`$HOME` vs `~` in a comment) — five other helpers
+  use `~`, and the repo rule targets literal usernames in code paths. Recorded on the thread and
+  in the PR body. CodeRabbit accepted and resolved it. Do not relitigate.
+- **The compound runs were kept separate** — overlap scored Low (1/5). "An agent hands a human
+  something that looks right and isn't" is a genre, not a cause.
 
 ## What Didn't Work
 
-- **A classifier-blocked SSH read**: pulling Atlas's `mcp_servers` block with sed-masking of
-  auth values was denied. Worked around by deriving the shape from upstream docs + the agents
-  repo SOPs instead; the brief flags the two spots (auth syntax, fallback key shape) for the
-  executor to verify on the box rather than trusting either source.
-- **`workspace.create` spawns a default pane** before `layout.apply` adds the templated one —
-  left a stray plain-shell tab (wG:t1) that had to be `tab.close`d. If you script workspace
-  creation again, expect the extra tab.
+- **Guessing at axiom's `unknown` status.** First hypothesis was `set-titles off`. Wrong — the
+  pane was running `/bin/zsh -il`, the shim's clean-detach fallback, so no agent process
+  existed. `set-titles` *was* separately wrong and is also fixed, but it was not the cause. The
+  wrong diagnosis had already been committed to #178 and needed correcting.
+- **Three attempts to edit `~/.claude/settings.json` as the agent** — classifier-blocked each
+  time (inline python, the `update-config` skill, an `eval`-wrapped test). That block is
+  working as designed; David ran the migration.
+- **Two commands handed over elided with `...`** — both failed when pasted; the second
+  partially executed. See the second compounded doc.
+- **A `pbcopy`-only handoff.** Monologue replaces the clipboard between copy and paste.
 
 ## What's Next
 
-1. **The Vice build continues in `argus ◉`**, not here — remaining phases: SOUL authoring
-   (▶ David reads it), MCP registration (▶ `obscura keys new vice` — restarts the gateway,
-   pick a quiet moment for Atlas), blind gate. Nothing for this session to do unless another
-   handoff arrives.
-2. **Two dotfiles follow-ups spotted but not started** (config changes → branch/PR):
-   add `obscura` to the NVM lazy-loader shims in `zsh/zshrc` (invisible in fresh shells until
-   `node` runs), and decide whether `uv` + a Python 3.11 join the Brewfile (both currently
-   installed out-of-band and untracked; the Hermes runtime now depends on uv).
-3. **VIL-82 unchanged** — still Backlog, blocked upstream; recheck rides the next Claude Code
-   version bump. (Note: its Linear *state* is Backlog; "blocked" lives only in the title.)
+1. **`atlas-tools` Task 3** — `ctrl+space` `t` → `claude` → `/dv:pickup`. Resumes from the
+   committed `HANDOFF.md` there. Stops before credentials, live providers, plugin install, or
+   a remote.
+2. **Re-run `./install`** at some point so Dotbot picks up the new `install_uv.sh` and
+   `install_claude_settings.sh` steps. Nothing is broken without it — both are seed-if-absent.
+3. **The work Mac needs `python3 helpers/migrate_claude_settings.py`** if its `settings.json`
+   predates today. It is idempotent and backs up first.
+4. **Optional:** give the `axiom` tmux socket the same treatment `atlas-tools` got — its conf
+   is wired now, but the runtime `set-titles` only survives until that server restarts, at
+   which point the launcher patch takes over. Nothing to do unless it misbehaves.
 
 ## Gotchas & Watch-outs
 
-- **⚠ Hermes's installer clobbers `~/.local/bin/hermes-agent`** — Atlas's auto-reconnect shim,
-  and the break is *latent* (a running pane looks healthy until its next restart). Already
-  fixed today by re-running `helpers/install_herdr_agents.sh`; the standing rule + detection
-  check are now in CLAUDE.md's Herdr section. Recurs on every Hermes (re)install.
-- **`layout.export` silently ignores `workspace_id`** and returns the focused workspace —
-  believable data for the wrong target. `tab_id` only. Now documented next to the other two
-  (fail-fast) API gotchas.
-- **CodeRabbit's check on #175 read "Review completed"** — that's the string that means a
-  review actually ran; `pending` / `Review rate limited` / `Review skipped` all pass without
-  one. The check-description, not the pass state, is the signal.
-- The `vice ♠` pane survives herdr restarts only as a shell (resume-on-restore is
-  claude/codex-only); relaunch is typing `hermes chat`. Rebuild-after-#2966 recipe is in the
-  roster now.
-- Fleet roster and pane template: CLAUDE.md Herdr section, freshly corrected — trust it over
-  older session notes.
+- **A green PR check is not a review.** `Review skipped: incremental reviews are disabled` and
+  `Review rate limited` both *pass* with no review run, and `mergeStateStatus: CLEAN` only means
+  nothing is blocking. Read the check **description**, then enumerate unresolved threads via the
+  GraphQL `reviewThreads` connection (the only surface exposing `isResolved`). Empty output is
+  the merge signal. **Re-run after every re-review** — #179 added new findings in rounds 2 and 3
+  after earlier ones were resolved and confirmed.
+- **Verify the review ran against the current head** — `gh pr view --json headRefOid` vs the
+  newest review's `commit_id`. "Review completed" can be a stale verdict from two pushes ago.
+- **A hook symlinked into this repo is branch-fragile.** `~/.claude/hooks/*.sh` resolve against
+  the checked-out branch; a hook whose file exists only on a feature branch goes dangling on any
+  `git checkout` and errors on every SessionStart in *every* project. Land the file on master
+  before registering it in `settings.json`.
+- **`>` on a dangling symlink succeeds silently** and writes to the symlink's *target* — it does
+  not fail. Use `mktemp` + `mv -f`.
+- **Never display a command with `...`** — Monologue replaces the clipboard, so David copies the
+  displayed text. Long or nested-quoting command → stage a script, hand over a short invocation.
+  `cat <<'PASTE' | tee /dev/stderr | pbcopy` makes display and clipboard identical by
+  construction. Keep using `pbcopy`; just never as the only channel.
+- **`layout.apply` loses the agent name** — re-run `herdr agent rename` after any pane rebuild,
+  or the jump key (which targets the name) breaks.
+- **A herdr workspace reading `unknown` means check the pane's foreground process first.** A
+  fallback `zsh` is the tell, not a detection-config problem.
+- **The `atlas-tools` tmux pane sits at a bash prompt** — type `claude` to start. Its
+  `new-session -A` makes it self-healing across VPS reboots; no systemd unit exists or is needed.
+- **atlas-tools' `docs/IMPLEMENTATION_PLAN.md` is hash-pinned** to the source in the Hermes
+  plans dir. Do not rewrite, summarize, or reformat it.
