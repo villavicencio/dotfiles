@@ -131,6 +131,15 @@ Copy an existing `_load_X` block. Direct-sourcing heavy tools (NVM alone is +200
 blows the shell-startup budget — the lazy pattern keeps `zsh -i -c exit` under 300 ms.
 Use `command <tool>` (not bare `<tool>`) after `_load_*` to avoid infinite shim recursion.
 
+### Add a vendor-installed CLI (uv, Claude Code)
+Some tools ship via their vendor's installer into `~/.local/bin` rather than the Brewfile,
+because `zshenv` puts that dir ahead of Homebrew — a brewed copy would be permanently
+shadowed — and because they self-update. `helpers/install_uv.sh` and
+`helpers/install_claude_code.sh` are the two; both skip when already present.
+When adding another, check whether its installer edits shell rc files and suppress that
+(uv needs `UV_NO_MODIFY_PATH=1`): `.zshrc`/`.zshenv` are Dotbot symlinks into this repo, so
+an unguarded installer dirties tracked files.
+
 ### NVM lazy-loader shims
 A globally-installed npm CLI needs **no** NVM shim — the lazy-loader block prepends the default
 node version's `bin` dir to `PATH` at startup, and `#!/usr/bin/env node` shebangs resolve through

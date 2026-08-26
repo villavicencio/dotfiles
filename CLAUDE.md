@@ -164,6 +164,25 @@ When adding a new lazy loader, copy an existing one as a template. Never duplica
 logic across multiple wrapper functions. Use `command <tool>` (not bare `<tool>`) after
 `_load_*` to prevent infinite recursion when the shim name matches the binary name.
 
+### uv — native installer, deliberately not the Brewfile
+`helpers/install_uv.sh` installs uv from Astral's own installer to `~/.local/bin/uv`
+(and `uvx`), skipping if already present. Same reasoning as `install_claude_code.sh`:
+`zshenv` puts `~/.local/bin` **ahead of** Homebrew, so a `brew install uv` would sit at a
+lower-precedence path and never be the copy that runs — two uvs, the tracked one permanently
+shadowed. uv also self-updates (`uv self update`), so a Homebrew copy would drift behind.
+
+**`UV_NO_MODIFY_PATH=1` is required, not cosmetic.** Left unset, the installer appends PATH
+lines to `.zshrc` **and** `.zshenv` — both Dotbot symlinks into this repo — so an unguarded
+run edits tracked files and dirties the working tree. That is the "Post-installer audit"
+hazard, avoidable in advance rather than cleaned up after. `zshenv` already puts
+`~/.local/bin` on PATH, so there is nothing for the installer to add. The helper also pins
+`UV_INSTALL_DIR` so the destination never depends on the installer's own defaults.
+
+**Do not add a Homebrew `python@3.x` for uv's benefit.** uv provisions and manages its own
+interpreters under `~/.local/share/uv/python/` (`uv python install`); a brewed Python would
+be dead weight nothing resolves. The Hermes runtime's venv, for instance, is backed by a
+uv-managed CPython, not by any system or Homebrew Python.
+
 ### NVM lazy loader shims — globals do NOT need one
 NVM is lazy-loaded for startup speed. **A globally-installed npm CLI does not need a shim.**
 The block prepends the highest installed node version's `bin` dir to `PATH` at shell startup, and these
