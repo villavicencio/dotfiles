@@ -279,7 +279,7 @@ install via Homebrew casks in `brew/Brewfile`, not a helper.)
   reuses the existing `claude-code` ssh alias (detection keys on the ssh child's
   process name, so two panes may share one alias with different args) and is told
   apart from `axiom` by `herdr agent rename`. The remote tmux is addressed with
-  `-L atlas-tools -f ~/.config/tmux/atlas-tools.conf` and `new-session -A`, which
+  `-L atlas-tools -f /home/node/.config/tmux/atlas-tools.conf` and `new-session -A`, which
   makes it self-healing across VPS reboots without a systemd unit. The conf file
   is required because tmux defaults `set-titles` to `off` and that option is what
   carries agent state out through a nested tmux. The `axiom` socket was given the

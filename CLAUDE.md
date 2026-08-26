@@ -431,7 +431,7 @@ conversations across server restarts via `claude --resume <id>`.
   two panes may share one alias since the pane command supplies different args.
   `herdr agent rename` is what tells them apart (`axiom` vs `atlas-tools`).
 
-  ```
+  ```text
   cwd:     $HOME                        # local placeholder — herdr's cwd is ALWAYS local
   command: ~/.local/bin/claude-code root@openclaw-prod -t \
            "sudo -u node tmux -L atlas-tools -f /home/node/.config/tmux/atlas-tools.conf \
