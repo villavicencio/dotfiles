@@ -268,7 +268,7 @@ whatever branch is checked out. A hook whose file exists only on a *feature* bra
 dangling the moment you switch away, and Claude Code then prints a non-blocking error on
 **every** `SessionStart` and `UserPromptSubmit`, in every session, across every project:
 
-```
+```text
 SessionStart:startup hook error
 Failed with non-blocking status code: /bin/sh: ~/.claude/hooks/<hook>.sh: No such file or directory
 ```
@@ -281,8 +281,17 @@ while on its feature branch, then broken by a routine `git checkout` of an unrel
 live before the PR merges, install a *copy* rather than a symlink — a copy is branch-independent:
 
 ```bash
-git show <branch>:claude/hooks/<hook>.sh > ~/.claude/hooks/<hook>.sh && chmod +x ~/.claude/hooks/<hook>.sh
+tmp="$(mktemp)"
+git show <branch>:claude/hooks/<hook>.sh > "$tmp" && chmod +x "$tmp" &&
+  mv -f "$tmp" ~/.claude/hooks/<hook>.sh
 ```
+
+Write to a temp file and `mv` over the destination — **do not redirect straight at the hook
+path.** When that path is still the dangling symlink, `>` follows the link and creates its
+*target*: verified 2026-08-25, the redirect **succeeds silently**, the symlink stays a
+symlink, and the content lands at the target path inside the repo working tree. So the hook
+still does not exist where Claude Code looks for it, and you have also dropped an untracked
+file into the repo. `mv -f` replaces the link itself, atomically.
 
 Re-run `./install` after the merge to restore the tracked symlink, which is safe once the file
 is on the default branch and therefore present on every branch cut from it.
