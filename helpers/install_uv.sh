@@ -26,6 +26,7 @@ set -uo pipefail
 
 INSTALL_DIR="$HOME/.local/bin"
 UV_BIN="$INSTALL_DIR/uv"
+UVX_BIN="$INSTALL_DIR/uvx"
 INSTALLER_URL="https://astral.sh/uv/install.sh"
 
 if [ "${DOTFILES_DRY_RUN:-0}" = "1" ]; then
@@ -38,14 +39,17 @@ if [ "$(uname)" != "Darwin" ]; then
   exit 0
 fi
 
-# Present AND runnable — a binary that will not report its version is not a working
-# install, and skipping on mere existence would strand a corrupt one forever.
-if [ -x "$UV_BIN" ]; then
-  if uv_version="$("$UV_BIN" --version 2>/dev/null)" && [ -n "$uv_version" ]; then
-    echo "uv already installed at $UV_BIN ($uv_version) — skipping (self-updates via 'uv self update')"
+# Both binaries must be present AND runnable. The installer places uv and uvx
+# together, so a working uv beside a missing or broken uvx is still a half install —
+# and skipping on mere existence would strand it forever.
+runnable() { [ -x "$1" ] && out="$("$1" --version 2>/dev/null)" && [ -n "$out" ]; }
+
+if [ -e "$UV_BIN" ] || [ -e "$UVX_BIN" ]; then
+  if runnable "$UV_BIN" && runnable "$UVX_BIN"; then
+    echo "uv already installed at $UV_BIN ($("$UV_BIN" --version)) — skipping (self-updates via 'uv self update')"
     exit 0
   fi
-  echo "Found $UV_BIN but it does not run ('--version' failed) — reinstalling over it." >&2
+  echo "Found an incomplete uv install at $INSTALL_DIR (uv or uvx missing / not runnable) — reinstalling over it." >&2
 fi
 
 if ! command -v curl >/dev/null 2>&1; then
@@ -62,14 +66,11 @@ if ! curl -LsSf "$INSTALLER_URL" \
   exit 1
 fi
 
-if [ ! -x "$UV_BIN" ]; then
-  echo "Error: installer reported success but $UV_BIN is not executable" >&2
-  exit 1
-fi
+for bin in "$UV_BIN" "$UVX_BIN"; do
+  if ! runnable "$bin"; then
+    echo "Error: installer reported success but $bin is missing or does not run ('--version' failed)" >&2
+    exit 1
+  fi
+done
 
-if ! uv_version="$("$UV_BIN" --version 2>/dev/null)" || [ -z "$uv_version" ]; then
-  echo "Error: $UV_BIN installed but does not run ('--version' failed)" >&2
-  exit 1
-fi
-
-echo "Installed uv -> $UV_BIN ($uv_version)"
+echo "Installed uv -> $UV_BIN ($("$UV_BIN" --version)), uvx -> $UVX_BIN"
