@@ -14,6 +14,7 @@ own, but two do not, and both fail *quietly*:
 Usage:
     fleet-check.py snapshot    # before `brew services restart herdr`
     fleet-check.py verify      # after reattaching
+    fleet-check.py repair      # rebuild lost panes that have no live agent
     fleet-check.py             # verify if a snapshot exists, else snapshot
 
 Read-only: it never mutates herdr state. Repairs are printed for you to run.
@@ -139,6 +140,58 @@ def do_snapshot(rows):
     print("  3. python3 ~/Projects/Personal/dotfiles/herdr/fleet-check.py verify")
 
 
+def do_repair(rows, force=False):
+    """Rebuild panes whose command was lost — but never one with a live agent.
+
+    After a restart the two populations look identical in `layout.export` (both
+    lost their command) and could not be more different in practice: a pane whose
+    agent resumed is holding a live conversation, and `layout.apply` would destroy
+    it to fix metadata that only matters at the *next* restart. A bare shell has
+    nothing to lose. Repair the second group; leave the first for a boundary.
+    """
+    if not os.path.exists(SNAP):
+        sys.exit(f"no snapshot at {SNAP} — nothing to repair from")
+    by_key = {key(r): r for r in json.load(open(SNAP))}
+
+    todo, holding, unknown = [], [], []
+    for r in rows:
+        if r["has_command"]:
+            continue
+        cmd = by_key.get(key(r), {}).get("command")
+        if not cmd:
+            unknown.append(r)
+        elif r["agent"] and not force:
+            holding.append(r)
+        else:
+            todo.append((r, cmd))
+
+    if holding:
+        print(f"HOLDING ({len(holding)}) — live agent, would lose the conversation. "
+              "Rebuild at a boundary, or re-run with --force:")
+        for r in holding:
+            print(f"  {r['label']:16} pane={r['pane']} status={r['status']}")
+        print()
+    if unknown:
+        print(f"NO RECORD ({len(unknown)}) — not in the snapshot, rebuild by hand:")
+        for r in unknown:
+            print(f"  {r['label']:16} tab={r['tab']}")
+        print()
+    if not todo:
+        print("nothing to repair")
+        return 0
+
+    print(f"REBUILDING {len(todo)} pane(s) with no live agent:")
+    for r, cmd in todo:
+        prev = by_key[key(r)]
+        node = {"type": "pane", "cwd": prev.get("cwd"), "command": cmd}
+        res = call("layout.apply", {"tab_id": r["tab"], "focus": False, "root": node})
+        new = res.get("layout", {}).get("root", {}).get("pane_id")
+        print(f"  ✓ {r['label']:16} {r['pane']} -> {new}")
+
+    print("\nRe-run `fleet-check.py verify` once they settle, then reapply names.")
+    return 0
+
+
 def do_verify(rows):
     if not os.path.exists(SNAP):
         sys.exit(f"no snapshot at {SNAP} — run `fleet-check.py snapshot` first")
@@ -211,7 +264,9 @@ def main():
         return 0
     if cmd == "verify":
         return do_verify(rows)
-    sys.exit(f"unknown command: {cmd} (expected snapshot|verify)")
+    if cmd == "repair":
+        return do_repair(rows, force="--force" in sys.argv)
+    sys.exit(f"unknown command: {cmd} (expected snapshot|verify|repair)")
 
 
 if __name__ == "__main__":
