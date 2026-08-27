@@ -534,6 +534,13 @@ conversations across server restarts via `claude --resume <id>`.
   so it holds fleet-wide. **When building any new agent, use this template and
   route the change through the standard flow** (see the global CLAUDE.md
   "Herdr fleet & agent building").
+  - **Before/after a server restart, use `herdr/fleet-check.py`.** `snapshot`
+    before `brew services restart herdr`, `verify` after reattaching. It walks
+    every tab's `layout.export`, flags panes whose `command` is missing (#2966),
+    names that were lost, and agents that came back undetected — then prints the
+    exact `layout.apply` and `herdr agent rename` repairs. Read-only; it never
+    mutates herdr state. It caught three already-degraded `sites ✦` panes on its
+    first run, all of which had been reading as healthy for weeks.
   - **Diagnosing and rebuilding a degraded pane.** `layout.export` is the test:
     a pane node with **no `command`** key is degraded — it came back as a bare
     shell (the #2966 boot-race, or a pane made by hand) and someone started
