@@ -129,8 +129,14 @@ def do_snapshot(rows):
         print("    Rebuild these before restarting, or they come back as bare shells:")
         for r in degraded:
             print(f"      {r['label']}  tab={r['tab']}  pane={r['pane']}")
-    print("\nNow: brew services restart herdr   (from a terminal OUTSIDE herdr)")
-    print("Then: fleet-check.py verify")
+    print("\nNext — all of this from a terminal OUTSIDE herdr:")
+    print("  1. UPGRADING? first:  brew bundle install --file="
+          "~/Projects/Personal/dotfiles/brew/Brewfile")
+    print("     (installs the new binary; does NOT restart, panes keep running)")
+    print("  2. brew services restart herdr")
+    print("     (RESTART ONLY — it never upgrades. Kills every pane, including")
+    print("      the shell you type it into if that shell is a herdr pane.)")
+    print("  3. python3 ~/Projects/Personal/dotfiles/herdr/fleet-check.py verify")
 
 
 def do_verify(rows):
