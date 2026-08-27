@@ -538,9 +538,22 @@ conversations across server restarts via `claude --resume <id>`.
     before `brew services restart herdr`, `verify` after reattaching. It walks
     every tab's `layout.export`, flags panes whose `command` is missing (#2966),
     names that were lost, and agents that came back undetected — then prints the
-    exact `layout.apply` and `herdr agent rename` repairs. Read-only; it never
-    mutates herdr state. It caught three already-degraded `sites ✦` panes on its
-    first run, all of which had been reading as healthy for weeks.
+    exact `layout.apply` and `herdr agent rename` repairs. It caught three
+    already-degraded `sites ✦` panes on its first run, all of which had been
+    reading as healthy for weeks.
+    - **`repair` rebuilds only panes with no live agent**, and holds the rest —
+      after a restart a resumed pane and a bare shell are indistinguishable in
+      `layout.export` (both lost their command), so a blind rebuild destroys live
+      conversations to fix metadata that only matters at the *next* restart.
+    - **`repair --resume` relaunches the agent into its conversation** rather than
+      a blank session, rewriting `claude;` → `claude --continue || claude;` (and
+      the `hermes chat` equivalent). The `||` fallback is load-bearing:
+      `--continue` exits 1 in a directory with no prior session, and without it
+      the pane would land at a shell. Remote shim commands are deliberately not
+      rewritten — their agent lives in tmux on the VPS and was never killed.
+      **Caveat:** `--continue` resumes the *most recent* session in that cwd, so
+      run it before typing into a blank pane; a new session would otherwise become
+      the most recent one.
   - **Diagnosing and rebuilding a degraded pane.** `layout.export` is the test:
     a pane node with **no `command`** key is degraded — it came back as a bare
     shell (the #2966 boot-race, or a pane made by hand) and someone started
