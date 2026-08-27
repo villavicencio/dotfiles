@@ -118,8 +118,27 @@ def key(r):
 
 
 def do_snapshot(rows):
+    # Merge, never clobber. A pane whose command was already lost reads as
+    # command-less in live state, so a plain overwrite would DESTROY the only
+    # record of how to rebuild it — losing recovery data every time you snapshot
+    # after a bad restart, which is exactly when you need it most.
+    carried = 0
+    if os.path.exists(SNAP):
+        try:
+            prev = {key(r): r for r in json.load(open(SNAP))}
+        except (json.JSONDecodeError, OSError):
+            prev = {}
+        for r in rows:
+            if not r.get("command"):
+                old_cmd = prev.get(key(r), {}).get("command")
+                if old_cmd:
+                    r["command"] = old_cmd
+                    r["command_carried"] = True
+                    carried += 1
     with open(SNAP, "w") as f:
         json.dump(rows, f, indent=2)
+    if carried:
+        print(f"  (carried {carried} command(s) forward from the previous snapshot)")
     named = [r for r in rows if r["name"]]
     degraded = [r for r in rows if not r["has_command"]]
     print(f"snapshot written: {SNAP}")
