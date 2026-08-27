@@ -548,9 +548,13 @@ conversations across server restarts via `claude --resume <id>`.
     server restart returns an empty shell. `ps` confirms it: a healthy pane's
     claude is a child of `herdr server` or of `/bin/zsh -l -c …`, a degraded
     one's is a child of plain `-zsh`. Rebuild by applying the template to the
-    **existing tab** — workspace and tab survive, so the workspace label and jump
-    key are untouched — and **omit `pane_id`** so herdr replaces the pane instead
-    of re-tagging the running one. NDJSON over the socket; `nc -U` works on macOS
+    **existing tab** — the workspace survives, so its label and the jump key are
+    untouched — and **omit `pane_id`** so herdr replaces the pane instead
+    of re-tagging the running one. **The tab does not keep its id**: `layout.apply`
+    mints a new one rather than reusing the id you addressed (verified 2026-08-26 —
+    `w9:t3` came back as `w9:t9`, with no duplicate tab created). Nothing breaks,
+    but anything that recorded a `tab_id` earlier is now pointing at a tab that no
+    longer exists, so re-read ids after any rebuild rather than reusing them. NDJSON over the socket; `nc -U` works on macOS
     and returns immediately:
 
     ```bash

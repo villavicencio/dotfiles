@@ -111,6 +111,11 @@ def walk(node):
         yield from walk(child)
 
 
+def key(r):
+    """Identity that survives a rebuild. See the comment in do_verify()."""
+    return f"{r.get('label')}\x00{r.get('cwd') or r.get('tab')}"
+
+
 def do_snapshot(rows):
     with open(SNAP, "w") as f:
         json.dump(rows, f, indent=2)
@@ -133,13 +138,16 @@ def do_verify(rows):
         sys.exit(f"no snapshot at {SNAP} — run `fleet-check.py snapshot` first")
     snap = json.load(open(SNAP))
     before = {r["pane"]: r for r in snap}
-    # Key by tab_id, not label: a workspace can hold several panes under one
-    # label (sites has four), and pane ids change when a pane is rebuilt.
-    by_tab = {r["tab"]: r for r in snap}
+    # Key by (workspace label, cwd). None of the ids are stable: pane ids change
+    # when a pane is rebuilt, and `layout.apply` MINTS A NEW TAB ID rather than
+    # reusing the one you addressed (verified 2026-08-26: w9:t3 -> w9:t9). A
+    # workspace label alone collides — sites holds four panes — but the pane's
+    # working directory is the project it belongs to and does not move.
+    by_key = {key(r): r for r in snap}
 
     degraded = [r for r in rows if not r["has_command"]]
     lost_name = [r for r in rows
-                 if not r["name"] and by_tab.get(r["tab"], {}).get("name")]
+                 if not r["name"] and by_key.get(key(r), {}).get("name")]
     undetected = [r for r in rows if r["has_command"] and not r["agent"]]
 
     ok = True
@@ -149,7 +157,7 @@ def do_verify(rows):
         ok = False
         print(f"⚠ DEGRADED — command dropped from the layout ({len(degraded)}):")
         for r in degraded:
-            prev = by_tab.get(r["tab"], {})
+            prev = by_key.get(key(r), {})
             cmd = prev.get("command")
             print(f"\n  {r['label']}  tab={r['tab']}")
             if cmd:
@@ -167,7 +175,7 @@ def do_verify(rows):
         ok = False
         print(f"\n⚠ NAMES LOST — jump keys target these ({len(lost_name)}):")
         for r in lost_name:
-            want = by_tab[r["tab"]]["name"]
+            want = by_key[key(r)]["name"]
             print(f"      /opt/homebrew/bin/herdr agent rename {r['pane']} {want}")
     else:
         print("✓ all agent names intact")
