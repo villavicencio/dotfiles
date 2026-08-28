@@ -945,6 +945,21 @@ still carries ~35 of them accreted from prompt-time approvals — `Bash(bash *)`
 commands on the VPS. Prune on sight; that file is gitignored, so nothing but a
 manual pass keeps it honest.
 
+**Check for a subsuming prefix rule before rewriting a flagged one.** A finding of
+the mid-command-`*` shape is worth acting on, but rewriting the operands is often
+the wrong repair: if a broad `Bash(cmd:*)` for the same command sits elsewhere in
+the list, the narrow rule grants nothing the broad one has not already granted, and
+tightening it narrows the real surface by zero. **Delete the subsumed rule instead**,
+and make the decision about the broad one — that is where the actual grant lives.
+Observed 2026-08-27 on `~/Projects/agents/.claude/settings.local.json`: a flagged
+`Bash(ls <path>/discord_*.md <path>/…)` rule sat four entries above a plain
+`Bash(ls:*)`, and its target directory
+(`~/.claude/projects/-Users-dvillavicencio-Projects-openclaw/memory`) no longer
+existed — dead *and* redundant, across three narrow `ls` rules in a 224-rule file.
+The generalisation: these files accrete rules at prompt-approval time and never
+garbage-collect, so audit by command (group every rule for one binary and look for
+the broadest) rather than one flagged line at a time.
+
 ---
 
 ## Install pipeline
