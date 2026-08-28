@@ -262,9 +262,11 @@ rather than improvising a different shape in whatever project you're in:
 
 - **New agents use the fleet pane template** — local: `["/bin/zsh", "-l", "-c", "claude
   --continue || claude; exec /bin/zsh -il"]` (login shell rebuilds PATH from the bare
-  launchd env; `--continue || claude` resumes the pane's last conversation, falling back
-  to a fresh one where none exists; the trailing `exec zsh` is the "a pane never
-  self-closes on `/exit`/crash" rule). Remote surfaces use the repo-tracked
+  launchd env; `--continue || claude` resumes the most recent session for that working
+  directory — not necessarily the pane's own, where a slug is shared with another
+  surface — falling back to a fresh one where none exists; the trailing `exec zsh` is
+  the "a pane never self-closes on `/exit`/crash" rule; canonical caveats live in the
+  dotfiles CLAUDE.md pane-template section). Remote surfaces use the repo-tracked
   auto-reconnect shims in `dotfiles/herdr/shims/`.
 - **Config, shims, and the helper are dotfiles-tracked** — herdr changes ride a dotfiles
   branch/PR (config.toml is symlinked and writes back), never an ad-hoc edit to

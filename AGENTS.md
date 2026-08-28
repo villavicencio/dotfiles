@@ -272,9 +272,12 @@ install via Homebrew casks in `brew/Brewfile`, not a helper.)
   self-closes" rule — drop to an interactive shell on clean detach rather than
   closing. Local agents get the same rule via the pane template
   `["/bin/zsh", "-l", "-c", "claude --continue || claude; exec /bin/zsh -il"]`,
-  whose `--continue || claude` pair also relaunches the agent into its previous
-  conversation (the bare fallback catches a directory with no prior session,
-  where `--continue` exits 1).
+  whose `--continue || claude` pair also relaunches the agent into the **most
+  recent session for that working directory** — usually, but not always, the
+  pane's own last conversation: where a Claude Code slug is shared with another
+  surface, the thread handed back may be that surface's. The bare fallback
+  catches a directory with no prior session, where `--continue` exits 1. Full
+  caveats: the pane-template section of CLAUDE.md.
   Local project agents (`melos ♪`, `sites ✦`, `borealis ❆`, `argus ◉`,
   `skills ⚒`, `obscura ✇`, `eidos ❖`, `orrery ☉` — roster table in CLAUDE.md)
   need no shim — herdr detects a local claude pane natively; they use the pane

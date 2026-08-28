@@ -164,36 +164,65 @@ def do_snapshot(rows):
     print("  3. python3 ~/Projects/Personal/dotfiles/herdr/fleet-check.py verify")
 
 
-# The fleet pane template carries `--continue || <bare>` since 2026-08-27, so a
-# pane built from it already resumes. These rewrites upgrade the ones that do not:
-# a snapshot taken before the flip records the bare form, and restoring it verbatim
-# would launch the agent FRESH — the pane looks blank while the previous
-# conversation sits unloaded on disk. The patterns anchor on the bare form, so a
-# command that already resumes is left untouched rather than rewritten twice.
-# `|| <bare>` is load-bearing: `--continue` exits 1 when the directory has no prior
-# session, and without the fallback the pane would land at a shell.
-RESUME_REWRITES = [
-    (re.compile(r"^claude;"), "claude --continue || claude;"),
-    (re.compile(r"^hermes chat;"), "hermes chat --continue || hermes chat;"),
-]
+# The two forms a local agent launch can take, from one source of truth so the
+# resume and blank directions can never drift apart. The fleet pane template
+# carries the resuming form since 2026-08-27; a snapshot taken before that flip
+# records the bare one, and restoring it verbatim would launch the agent FRESH —
+# the pane looks blank while the previous conversation sits unloaded on disk.
+# `|| <bare>` is load-bearing: `--continue` exits 1 when the directory has no
+# prior session, and without the fallback the pane would land at a shell.
+AGENT_LAUNCHERS = ["claude", "hermes chat"]
 
 
-def resume_variant(cmd):
-    """Rewrite a LOCAL agent launch to resume. Returns (command, rewritten?).
+def _bare(agent):
+    return f"{agent};"
 
-    Remote shim commands are deliberately untouched: their agent lives in tmux on
-    the VPS and was never killed, so the shim reattaches to a live session and
-    there is nothing local to resume.
+
+def _resuming(agent):
+    return f"{agent} --continue || {agent};"
+
+
+# Each table anchors on the form it converts FROM, so applying either to a command
+# already in the target form is a no-op — the rewrites are idempotent, and a
+# remote shim command matches neither.
+RESUME_REWRITES = [(re.compile("^" + re.escape(_bare(a))), _resuming(a))
+                   for a in AGENT_LAUNCHERS]
+BLANK_REWRITES = [(re.compile("^" + re.escape(_resuming(a))), _bare(a))
+                  for a in AGENT_LAUNCHERS]
+
+
+def _rewrite(cmd, table):
+    """Swap the launcher in a pane command's final shell string.
+
+    Remote shim commands are deliberately untouched by both tables: their agent
+    lives in tmux on the VPS and was never killed, so the shim reattaches to a
+    live session and there is nothing local to resume or blank.
     """
     if not cmd or len(cmd) < 2:
         return cmd, False
     shell = cmd[-1]
     if not isinstance(shell, str):
         return cmd, False
-    for pat, repl in RESUME_REWRITES:
+    for pat, repl in table:
         if pat.match(shell):
-            return cmd[:-1] + [pat.sub(repl, shell, count=1)], True
+            # A lambda replacement so a backslash in `repl` is never read as a
+            # backreference.
+            return cmd[:-1] + [pat.sub(lambda m, r=repl: r, shell, count=1)], True
     return cmd, False
+
+
+def resume_variant(cmd):
+    """Upgrade a bare LOCAL agent launch to resume. Returns (command, changed?)."""
+    return _rewrite(cmd, RESUME_REWRITES)
+
+
+def blank_variant(cmd):
+    """Strip the resume wrapper from a LOCAL agent launch, for `--no-resume`.
+
+    Needed because the pane template now records the resuming form: without this
+    the opt-out would restore that form verbatim and silently resume anyway.
+    """
+    return _rewrite(cmd, BLANK_REWRITES)
 
 
 def do_repair(rows, force=False, resume=True):
@@ -240,7 +269,9 @@ def do_repair(rows, force=False, resume=True):
     for r, cmd in todo:
         prev = by_key[key(r)]
         if not resume:
-            tag = "  [--no-resume: blank session]"
+            cmd, stripped = blank_variant(cmd)
+            tag = ("  [--no-resume: resume wrapper stripped, blank session]" if stripped
+                   else "  [--no-resume: blank session]")
         else:
             cmd, rewritten = resume_variant(cmd)
             shell = cmd[-1] if cmd and isinstance(cmd[-1], str) else ""

@@ -529,8 +529,9 @@ conversations across server restarts via `claude --resume <id>`.
   and its project dir as cwd. Three deliberate parts: the **login zsh** (`-l`)
   rebuilds PATH from `zshenv` because the herdr server spawns pane commands with
   its bare launchd env (so both `claude` and its subshells resolve tools); the
-  **`--continue || claude` pair** relaunches the agent into its previous
-  conversation instead of a blank session, and the bare fallback is load-bearing
+  **`--continue || claude` pair** relaunches the agent into the most recent
+  session for that cwd instead of a blank one (see the caveats below — that is
+  not always the pane's own thread), and the bare fallback is load-bearing
   because `--continue` exits 1 in a directory with no prior session — without it
   a first-run pane would land at a shell; the **`; exec /bin/zsh -il` fallback**
   is the fleet's "a pane never self-closes" rule — when claude exits (a stray
