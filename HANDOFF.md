@@ -1,125 +1,118 @@
 ---
-created_at: "2026-08-26T06:59:42-07:00"
+created_at: "2026-08-27T14:58:02-07:00"
 branch: "master"
-head: "423e41c"
-resume_focus: "Nothing is pending in dotfiles — it is clean with zero open PRs. Before doing anything else, read the two new docs/solutions/best-practices/ entries: the two-step merge check gates every future merge, and atlas-tools work belongs in its own pane on the VPS, not here."
+head: "c19807e"
+resume_focus: "Two uncommitted files are sitting in the tree and one is a defect: zsh/zshrc line 248 has a cua-driver-rs installer edit with a hardcoded /Users/dvillavicencio path, and it is redundant because zshenv already puts ~/.local/bin on PATH. Delete those three lines, then decide on nvim/lazy-lock.json. Nothing else is pending here."
 ---
-# HANDOFF — 2026-08-26, early morning (PDT)
+# HANDOFF — 2026-08-27, afternoon (PDT)
 
-Refresh of the 21:11 handoff from the same working stretch, written because that one carried
-an instruction that is now known to be wrong (see *What Didn't Work*). No new commits since —
-`HEAD` is still the handoff commit itself. The session's arc was one theme: **things that
-report success while being wrong**. Four PRs merged, two learnings compounded, one falsified
-rule replaced in the global instructions, and `atlas-tools` built on the VPS. Everything in
-this repo is closed; the only live work has moved to its own pane.
+A herdr fleet-operations session that started as a routine pickup and turned into building the
+tooling the fleet never had. The arc: a documented recovery procedure was found to be wrong,
+rewriting it exposed a bug that had been silently degrading panes for weeks, and proving that bug
+required two full server restarts — which produced a verified upstream report and a
+recovery tool that now handles the whole cycle. Nine commits to master, one new ops SOP, one
+GitHub issue filed. Zero PRs — everything here was docs, a new read-only tool, or config hygiene.
 
 ## What We Built
 
-- **`atlas-tools` on openclaw-prod** — `/home/node/Projects/atlas-tools`, VPS-side, **no
-  remote** (Task 19, gated). 30/30 creation-acceptance criteria passed. What the repo doesn't
-  tell you: Tasks 1 and 2 were committed *separately* with the plan's own messages, because the
-  plan mandates RED→GREEN per task and the brief's single-commit framing would have skipped it.
-  Task 2's RED was verified as 8 FAILED / **0 ERROR** — assertion failures from missing docs,
-  not collection errors, which is the distinction the protocol actually requires.
-- **PR #178 — `atlas-tools ⚙` herdr surface**, jump key `prefix+t`. The load-bearing fact is in
-  CLAUDE.md's Herdr section: herdr's pane `cwd` is *always local*, so a remote project needs no
-  Mac-side checkout. Reuses the existing `claude-code` ssh alias rather than a third shim.
-- **PR #177 — blank-pane indicator + `settings.json` copy-seed.** Two unrelated changes in one
-  PR because the second was found while wiring the first. `helpers/install_claude_settings.sh`
-  and `migrate_claude_settings.py` are the durable pieces.
-- **PR #176 — NVM shim cleanup.** *Closed* the follow-up instead of implementing it; the premise
-  was wrong and no shim was ever needed.
-- **PR #179 — `helpers/install_uv.sh`.** Three review rounds. See Gotchas.
-- **`docs/solutions/best-practices/pr-check-pass-state-is-not-a-review-verdict.md`** — the
-  two-step merge check. Read before merging anything.
-- **`docs/solutions/best-practices/displayed-commands-must-be-runnable-verbatim.md`** — never
-  display a command elided; the clipboard is a second channel, not the delivery channel.
-- **`claude/CLAUDE.md` "Code Review"** — the *"poll until it stops saying `pending`"* rule was
-  falsified and replaced. That rule caused the near-miss; replacing it mattered more than the
-  docs describing it.
+- **`herdr/fleet-check.py`** — snapshot/verify/repair for the fleet across a server restart.
+  `repair` is the load-bearing part: it rebuilds only panes with **no live agent** and holds the
+  rest. The reason is not obvious from the code — after a restart a resumed pane and a bare shell
+  are byte-identical in `layout.export` (both lost their command), so the naive "rebuild
+  everything the verifier lists" destroys live conversations to fix metadata that only matters at
+  the *next* restart.
+- **`repair --resume`** (`c19807e`) — rewrites the launch to `claude --continue || claude`. The
+  `||` fallback is required, not defensive: verified that `--continue` exits 1 in a directory with
+  no prior session, so without it the pane lands at a bare shell instead of an agent.
+- **`docs/solutions/`-adjacent: `/ops/herdr-restart`** on davidv.sh — the self-serve restart SOP,
+  written to be followed with no agent driving. Corrected twice during the session as evidence
+  contradicted it.
+- **`/ops/email`** on davidv.sh — Google Workspace setup for `david@davidv.sh`. The load-bearing
+  fact is the January 2027 deadline, not the pricing: Gmail removes "Send as" for third-party
+  addresses, and Q3–Q4 2026 is already the window where new configurations get restricted.
+- **[herdrdev/herdr#3306](https://github.com/herdrdev/herdr/issues/3306)** — the command-loss bug,
+  filed with a two-restart reproduction. **Closed `NOT_PLANNED` 17 minutes after filing** by
+  `akbash-bot` (same bot that closed #2966): "arbitrary process panes return as new shells" after a
+  cold restart is documented behaviour, and keeping declarative commands across restarts is a
+  restart-model change → Ideas discussion, not a bug. `fleet-check repair --resume` is the local
+  answer; no re-file.
+- **`.claude/settings.local.json`** pruned 174 → 91 rules; `CLAUDE.md:841` records why.
 
 ## Decisions Made
 
-- **`settings.json` is copy-seeded, never symlinked** — three installers rewrite it in place.
-  Do not restore a `link:` entry.
-- **uv ships via its vendor installer, not the Brewfile** — `~/.local/bin` precedes Homebrew on
-  PATH so a brewed copy is permanently shadowed, and uv self-updates. **Ruled out:** a Homebrew
-  `python@3.x`; uv provisions its own interpreters.
-- **atlas-tools git identity is repo-local** — user `node` had no global identity and setting
-  one would affect unrelated repos on that host.
-- **Declined a CodeRabbit finding on #179** (`$HOME` vs `~` in a comment) — five other helpers
-  use `~`, and CLAUDE.md:94 targets literal usernames in code paths. Recorded on the thread and
-  in the PR body; CodeRabbit accepted and resolved it. Do not relitigate.
-- **The two compound runs were kept separate** — overlap scored Low (1/5). "An agent hands a
-  human something that looks right and isn't" is a genre, not a cause.
-- **The hook-before-master lesson gets no `docs/solutions/` entry** — it is already in CLAUDE.md
-  as a gotcha, and unlike the other two it is a repo-specific operational trap rather than
-  transferable methodology. Closed deliberately, not forgotten.
+- **A `*` in a `Bash(...)` permission rule belongs after the subcommand, never mid-command** —
+  `CLAUDE.md:841`. David flagged one rule; the audit found ~35 more in the `Bash(cmd *)` space-star
+  form, including two that pre-approved arbitrary commands on the VPS.
+- **`fleet-check` keys its snapshot diff by `(workspace label, cwd)`, not by any id.** Pane ids
+  change on rebuild and — discovered mid-session — `layout.apply` **mints a new tab id** rather
+  than reusing the one addressed. Label alone collides (`sites` holds four panes); cwd is the
+  project and does not move.
+- **`snapshot` merges, never overwrites** (`aad605b`). A pane whose command was already lost reads
+  as command-less live, so a plain write destroyed the only record of how to rebuild it — at
+  exactly the moment it was needed.
+- **No PR to herdr, ever.** Their `CONTRIBUTING.md` auto-closes unsolicited PRs regardless of
+  quality or authorship, and has an explicit "Instructions for coding agents" section requiring
+  refusal. Bug reports are welcome; analysis and proposed fixes in them are not.
+- **The restart SOP lives on davidv.sh/ops, not as a second artifact** — a duplicate SOP is the
+  stale twin the shelf exists to prevent.
+- **Ruled out:** rebuilding this pane (`w1:t7`) to restore its layout command. Unnecessary —
+  `snapshot` carries its command forward, so the next restart makes it a bare shell that `repair`
+  fixes automatically.
 
 ## What Didn't Work
 
-- **The previous handoff said "re-run `./install` at some point." Do not do that from an agent
-  shell.** Verified 2026-08-26: `brew bundle` has 16 unmet entries, two of which are hazards
-  this repo already documents — **`herdr` 0.8.0 → 0.8.2**, where CLAUDE.md:382 notes a service
-  restart *kills every pane process* (including the agent running the command), and
-  **`docker-desktop`**, whose upgrade script invokes `sudo` internally and fails without a TTY,
-  per CLAUDE.md:690, potentially aborting *after* unloading services. The config half of
-  `./install` has nothing left to do anyway: all 22 symlinks are correct and both new seed steps
-  are no-ops on this Mac. Run `brew bundle install` from a **real terminal**, deliberately.
-- **Guessing at axiom's `unknown` status.** First hypothesis was `set-titles off`. Wrong — the
-  pane was running `/bin/zsh -il`, the shim's clean-detach fallback, so no agent process existed
-  to detect. `set-titles` *was* separately wrong and is also fixed, but it was not the cause. The
-  wrong diagnosis had already been committed and needed correcting.
-- **Three attempts to edit `~/.claude/settings.json` as the agent** — classifier-blocked each
-  time. Working as designed; David ran the migration himself.
-- **Two commands handed over elided with `...`** — both failed when pasted, and the second
-  *partially executed*. Compounded as its own doc.
-- **The work Mac is unreachable** from here (`ssh work` times out). David has taken it.
+- **The documented pane-recovery recipe was too blunt.** `CLAUDE.md` said to rebuild a degraded
+  pane with `layout.apply`. That is right only when `layout.export` shows *no* `command`; when the
+  command is present and only the process fell back (clean ssh detach), `herdr pane run <pane-id>
+  'exec <command>'` reattaches without destroying the pane. Split into two cases at `CLAUDE.md:492`.
+- **"Names are lost when a pane is recreated" was too narrow.** The binding releases when the agent
+  *process* dies — verified by reusing pane `w8:p6` and still getting `name: null`.
+- **#2966 was never a rare boot-race.** Both restarts dropped the command from **all 16 panes**,
+  local and remote alike. The original issue was closed `not_planned` by a rate-limit bot that
+  never triaged it.
+- **Following the SOP left every rebuilt pane blank**, which reads exactly like lost context. It
+  is not — transcripts were intact on disk the whole time (skills 1,998 messages, borealis 1,404).
+  This was the gap `--resume` closes, and it should have been flagged before rebuilding six panes.
+- **A guess that the browse-gateway tunnel had self-disabled was wrong** — the keeper script
+  explicitly never does that any more. The tunnel dropped and recovered on its own; what did not
+  recover was the MCP client, which connects once at session start and never retries.
+- **A guess that `herdr-blank-state.sh` was dangling was wrong** — the hook runs fine. The error
+  seen in a pane was replayed scrollback from an old session that started while it *was* broken.
 
 ## What's Next
 
-1. **Nothing in this repo.** Clean tree, 0 uncommitted, 0 open PRs, 0 stray branches, in sync
-   with origin. Do not invent work here.
-2. **`atlas-tools` has moved on without this session** — as of 06:51 PDT it is at **8 commits,
-   through Tasks 3 and 4**, with its pane actively `working`. Its own committed `HANDOFF.md`
-   names **Task 5 (bounded HTTP transport)** as next. That work belongs in the `prefix+t` pane;
-   one writer per tree, so do not touch that repo from here.
-3. **`brew bundle install` from a real terminal** when David wants the fleet restarted — see
-   *What Didn't Work* for why it is not an agent-shell task.
-4. **Work Mac** — `python3 helpers/migrate_claude_settings.py` if its `settings.json` predates
-   2026-08-25. David's, explicitly. Idempotent, backs up first; `dot drift` there will say
-   whether it is needed.
-5. **Worth a look, no urgency:** `obscura` now appears in homebrew/core ("Headless browser for
-   AI agents and web scraping"), spotted during the brew check. Relevant because the local
-   `obscura` CLI is currently an `npm link` from `~/Projects/browse-gateway` and therefore
-   cannot be tracked in `npm-requirements.txt`.
+1. **`zsh/zshrc` has an uncommitted installer edit that needs deleting** — three lines at the end
+   added by the cua-driver-rs installer, with a hardcoded `/Users/dvillavicencio` path. It is also
+   redundant: `zshenv` already puts `~/.local/bin` on PATH. This is precisely the "Post-installer
+   audit" case in `CLAUDE.md`.
+2. **`nvim/lazy-lock.json`** is also uncommitted (3 plugin bumps) — commit or revert deliberately.
+3. **[#3306](https://github.com/herdrdev/herdr/issues/3306) is closed `NOT_PLANNED`** (bot triage,
+   2026-08-27 15:15Z). If the ask is ever pursued upstream it is an [Ideas discussion](https://github.com/herdrdev/herdr/discussions/new?category=ideas);
+   do not re-file, do not open a PR. Decide instead whether `claude --continue || claude` becomes
+   the fleet pane-template default (item 5).
+4. **The email setup has not been started** — `davidv.sh` still has no MX/SPF/DKIM/DMARC. The
+   runbook is at `/ops/email`; it is a human job (Workspace signup, DKIM console toggle).
+5. **Optional:** adopt `claude --continue || claude` as the fleet pane template default rather than
+   a `--resume` flag. It would make every restart self-restoring, but it deviates from the
+   documented standard, so it is David's call.
 
 ## Gotchas & Watch-outs
 
-- **A green PR check is not a review.** `Review skipped: incremental reviews are disabled` and
-  `Review rate limited` both *pass* with no review run; `mergeStateStatus: CLEAN` only means
-  nothing is blocking. Read the check **description**, then enumerate unresolved threads via the
-  GraphQL `reviewThreads` connection — the only surface exposing `isResolved`. Empty output is
-  the merge signal. **Re-run after every re-review:** #179 added new findings in rounds 2 *and*
-  3 after earlier ones were resolved and confirmed.
-- **Verify the review ran against the current head** — compare `gh pr view --json headRefOid`
-  against the newest review's `commit_id`. "Review completed" can be a stale verdict from two
-  pushes ago. This was the final gate before merging #179.
-- **A hook symlinked into this repo is branch-fragile.** `~/.claude/hooks/*.sh` resolve against
-  the checked-out branch; one whose file exists only on a feature branch goes dangling on any
-  `git checkout` and errors on every SessionStart in *every* project. Land the file on master
-  before registering it in `settings.json`.
-- **`>` on a dangling symlink succeeds silently** and writes to the symlink's *target* — it does
-  not fail. Use `mktemp` + `mv -f`.
-- **Never display a command with `...`** — Monologue replaces the clipboard, so David copies the
-  displayed text. Long or nested-quoting command → stage a script, hand over a short invocation.
-  `cat <<'PASTE' | tee /dev/stderr | pbcopy` makes display and clipboard identical by
-  construction. Keep using `pbcopy`; never as the only channel.
-- **`layout.apply` loses the agent name** — re-run `herdr agent rename` after any pane rebuild,
-  or the jump key (which targets the name) breaks.
-- **A herdr workspace reading `unknown` means check the pane's foreground process first.** A
-  fallback `zsh` is the tell, not a detection-config problem.
-- **atlas-tools' `docs/IMPLEMENTATION_PLAN.md` is hash-pinned** to the source in the Hermes
-  plans dir. Do not rewrite, summarize, or reformat it.
-- **Dotbot prints only undescribed directives at default verbosity** — `./install --dry-run`
-  showing one line is not a broken preview. Use `-v` to see all 19 steps.
+- **`brew services restart herdr` never upgrades** — it restarts the installed version. Upgrade
+  and restart are separate steps, which is useful: `brew bundle install` leaves panes running.
+- **Run the restart from a terminal outside herdr**, or it kills the shell mid-command.
+- **`--continue` takes the most recent session in a directory** — revive a blank pane *before*
+  typing into it, or the new session becomes the most recent one. A pane never typed into has
+  written no transcript at all, which is why this worked cleanly here.
+- **Every id churns on rebuild.** Pane ids and tab ids both change, so a rename list printed
+  before `repair` is stale — re-run `verify` after.
+- **Large sessions show a "Resume full session as-is" dialog** on resume. A keypress, not a hang;
+  do not rebuild the pane.
+- **`layout.export` ignores `workspace_id`** and returns the focused workspace — address by
+  `tab_id` or you get believable data for the wrong target.
+- **The MCP client does not retry.** If `browse-gateway` tools are missing, the tunnel may already
+  be healthy; check `lsof -nP -iTCP:8080 -sTCP:LISTEN` before touching launchd, and start a new
+  session rather than restarting anything.
+- **Five jump keys had been dead for weeks** (`argus`, `borealis`, `melos`, `obscura`, `skills`) —
+  they resolve via `herdr agent focus <name>` and those agents were unnamed. All 11 resolve now;
+  `fleet-check verify` catches this going forward.
