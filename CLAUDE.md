@@ -499,8 +499,14 @@ conversations across server restarts via `claude --resume <id>`.
   > |---|---|---|
   > | **no `command`** key | the #2966 restore boot-race — the command was dropped | `layout.apply` to rebuild the pane |
   > | `command` **present** | clean detach — ssh exited 0, shim broke its retry loop by design | `herdr pane run <pane-id> 'exec <the command>'` |
+  > | `command` present, foreground is `ssh` (not `claude-code`) | someone re-attached **by hand** from the fallback shell — `ssh -t root@…`, then `su - node` + `claude` outside tmux. The agent is live remotely but herdr can't see it: detection keys on the process *name*, and a bare `ssh` isn't the alias | in-pane: `/exit` the remote claude (transcript persists), `exit` each shell until the local zsh is back, then the case-2 `exec`, then `claude --continue` inside the new tmux |
   >
-  > Reach for `layout.apply` only in the first case. In the second the layout is
+  > Reach for `layout.apply` only in the first case. The third case (added 2026-08-27,
+  > `atlas-tools ⚙`) looks like the second in `layout.export` and like a healthy pane on
+  > screen — a full Claude Code TUI, correct cwd — and only `pane.process_info` gives it
+  > away. `claude --continue` in the tmux'd shell resumed the same session (`ctx` unchanged),
+  > so nothing is lost; the cost of leaving it is that the un-tmux'd claude dies with the
+  > next disconnect. In the second the layout is
   > already correct and only the *process* fell back, so rebuilding is destructive
   > overkill: it kills the pane and mints a new `pane_id`. `herdr pane run
   > <PANE_ID> <COMMAND>` sends text plus Enter in one call and reuses the existing
