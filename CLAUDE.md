@@ -938,12 +938,22 @@ or use the trailing prefix form `Bash(cmd:*)` after the subcommand. Corrected in
 `.claude/settings.local.json` 2026-08-26 after David flagged it.
 
 The same shape hides in the `Bash(cmd *)` space-star form, which is **not** the
-`:*` prefix-match idiom and is broad in exactly this way. `.claude/settings.local.json`
-still carries ~35 of them accreted from prompt-time approvals — `Bash(bash *)`,
-`Bash(curl *)`, `Bash(git reset *)`, `Bash(brew uninstall *)`, and two
-`Bash(ssh … root@openclaw-prod ' *)` entries that pre-approve arbitrary remote
-commands on the VPS. Prune on sight; that file is gitignored, so nothing but a
-manual pass keeps it honest.
+`:*` prefix-match idiom and is broad in exactly this way. Prune on sight; these
+files are gitignored, so nothing but a manual pass keeps them honest.
+
+**Which file, measured 2026-08-27** — an earlier version of this paragraph attributed
+another project's rules to this repo's file, so state the counts rather than the
+impression:
+
+| File | Rules | Space-star | ssh grant |
+|---|---|---|---|
+| `dotfiles/.claude/settings.local.json` | 91 | **0** | scoped: `Bash(ssh root@openclaw-prod:*)` and three narrower |
+| `~/Projects/agents/.claude/settings.local.json` | 221 | 6 | **`Bash(ssh:*)`** — any host, any command |
+
+This repo's file is clean of the space-star shape and its ssh grants name the VPS
+explicitly. The unscoped `Bash(ssh:*)` is Argus's, and is the broadest grant in
+either file — worth knowing before repeating "we have ~35 of these," which was true
+of neither file when checked.
 
 **Check for a subsuming prefix rule before rewriting a flagged one.** A finding of
 the mid-command-`*` shape is worth acting on, but rewriting the operands is often
