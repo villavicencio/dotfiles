@@ -14,11 +14,14 @@ own, but two do not, and both fail *quietly*:
 Usage:
     fleet-check.py snapshot    # before `brew services restart herdr`
     fleet-check.py verify      # after reattaching
-    fleet-check.py repair      # rebuild lost panes that have no live agent
-    fleet-check.py repair --resume   # ...and relaunch their agent into its conversation
+    fleet-check.py repair      # rebuild lost panes that have no live agent,
+                               #   relaunching each into its conversation
+    fleet-check.py repair --no-resume   # ...into a blank session instead
     fleet-check.py             # verify if a snapshot exists, else snapshot
 
-Read-only: it never mutates herdr state. Repairs are printed for you to run.
+`snapshot` and `verify` are read-only — `verify` prints the repairs rather than
+running them. `repair` is the one subcommand that mutates: it calls `layout.apply`,
+which kills and replaces the pane it rebuilds.
 """
 import json
 import os
@@ -161,36 +164,68 @@ def do_snapshot(rows):
     print("  3. python3 ~/Projects/Personal/dotfiles/herdr/fleet-check.py verify")
 
 
-# A rebuilt pane runs its recorded command, which launches the agent FRESH — the
-# pane looks blank and the previous conversation sits unloaded on disk. These
-# rewrites make it resume instead. `|| <bare>` matters: `--continue` exits 1 when
-# the directory has no prior session, and without the fallback the pane would land
-# at a shell instead of a usable agent.
-RESUME_REWRITES = [
-    (re.compile(r"^claude;"), "claude --continue || claude;"),
-    (re.compile(r"^hermes chat;"), "hermes chat --continue || hermes chat;"),
-]
+# The two forms a local agent launch can take, from one source of truth so the
+# resume and blank directions can never drift apart. The fleet pane template
+# carries the resuming form since 2026-08-27; a snapshot taken before that flip
+# records the bare one, and restoring it verbatim would launch the agent FRESH —
+# the pane looks blank while the previous conversation sits unloaded on disk.
+# `|| <bare>` is load-bearing: `--continue` exits 1 when the directory has no
+# prior session, and without the fallback the pane would land at a shell.
+AGENT_LAUNCHERS = ["claude", "hermes chat"]
 
 
-def resume_variant(cmd):
-    """Rewrite a LOCAL agent launch to resume. Returns (command, rewritten?).
+def _bare(agent):
+    return f"{agent};"
 
-    Remote shim commands are deliberately untouched: their agent lives in tmux on
-    the VPS and was never killed, so the shim reattaches to a live session and
-    there is nothing local to resume.
+
+def _resuming(agent):
+    return f"{agent} --continue || {agent};"
+
+
+# Each table anchors on the form it converts FROM, so applying either to a command
+# already in the target form is a no-op — the rewrites are idempotent, and a
+# remote shim command matches neither.
+RESUME_REWRITES = [(re.compile("^" + re.escape(_bare(a))), _resuming(a))
+                   for a in AGENT_LAUNCHERS]
+BLANK_REWRITES = [(re.compile("^" + re.escape(_resuming(a))), _bare(a))
+                  for a in AGENT_LAUNCHERS]
+
+
+def _rewrite(cmd, table):
+    """Swap the launcher in a pane command's final shell string.
+
+    Remote shim commands are deliberately untouched by both tables: their agent
+    lives in tmux on the VPS and was never killed, so the shim reattaches to a
+    live session and there is nothing local to resume or blank.
     """
     if not cmd or len(cmd) < 2:
         return cmd, False
     shell = cmd[-1]
     if not isinstance(shell, str):
         return cmd, False
-    for pat, repl in RESUME_REWRITES:
+    for pat, repl in table:
         if pat.match(shell):
-            return cmd[:-1] + [pat.sub(repl, shell, count=1)], True
+            # A lambda replacement so a backslash in `repl` is never read as a
+            # backreference.
+            return cmd[:-1] + [pat.sub(lambda m, r=repl: r, shell, count=1)], True
     return cmd, False
 
 
-def do_repair(rows, force=False, resume=False):
+def resume_variant(cmd):
+    """Upgrade a bare LOCAL agent launch to resume. Returns (command, changed?)."""
+    return _rewrite(cmd, RESUME_REWRITES)
+
+
+def blank_variant(cmd):
+    """Strip the resume wrapper from a LOCAL agent launch, for `--no-resume`.
+
+    Needed because the pane template now records the resuming form: without this
+    the opt-out would restore that form verbatim and silently resume anyway.
+    """
+    return _rewrite(cmd, BLANK_REWRITES)
+
+
+def do_repair(rows, force=False, resume=True):
     """Rebuild panes whose command was lost — but never one with a live agent.
 
     After a restart the two populations look identical in `layout.export` (both
@@ -233,10 +268,19 @@ def do_repair(rows, force=False, resume=False):
     print(f"REBUILDING {len(todo)} pane(s) with no live agent:")
     for r, cmd in todo:
         prev = by_key[key(r)]
-        tag = ""
-        if resume:
+        if not resume:
+            cmd, stripped = blank_variant(cmd)
+            tag = ("  [--no-resume: resume wrapper stripped, blank session]" if stripped
+                   else "  [--no-resume: blank session]")
+        else:
             cmd, rewritten = resume_variant(cmd)
-            tag = "  [resume]" if rewritten else "  [no local agent to resume]"
+            shell = cmd[-1] if cmd and isinstance(cmd[-1], str) else ""
+            if rewritten:
+                tag = "  [resume: rewritten from a pre-2026-08-27 snapshot]"
+            elif "--continue" in shell:
+                tag = "  [resume: already in the recorded command]"
+            else:
+                tag = "  [no local agent to resume]"
         node = {"type": "pane", "cwd": prev.get("cwd"), "command": cmd}
         res = call("layout.apply", {"tab_id": r["tab"], "focus": False, "root": node})
         new = res.get("layout", {}).get("root", {}).get("pane_id")
@@ -319,8 +363,9 @@ def main():
     if cmd == "verify":
         return do_verify(rows)
     if cmd == "repair":
+        # --resume is accepted as a no-op so older muscle memory still works.
         return do_repair(rows, force="--force" in sys.argv,
-                         resume="--resume" in sys.argv)
+                         resume="--no-resume" not in sys.argv)
     sys.exit(f"unknown command: {cmd} (expected snapshot|verify|repair)")
 
 
