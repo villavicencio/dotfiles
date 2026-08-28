@@ -523,23 +523,48 @@ conversations across server restarts via `claude --resume <id>`.
   > Check the remote before repairing anything local: the VPS session usually
   > outlives the disconnect, so reattaching restores the conversation intact.
 
-- **Local agent pane template (fleet standard, revised 2026-08-19):** a local
+- **Local agent pane template (fleet standard, revised 2026-08-27):** a local
   Claude Code agent runs as a declarative pane with command
-  `["/bin/zsh", "-l", "-c", "claude; exec /bin/zsh -il"]` and its project dir as
-  cwd. Two deliberate parts: the **login zsh** (`-l`) rebuilds PATH from `zshenv`
-  because the herdr server spawns pane commands with its bare launchd env (so
-  both `claude` and its subshells resolve tools); the **`; exec /bin/zsh -il`
-  fallback** is the fleet's "a pane never self-closes" rule — when claude exits
-  (a stray `/exit`, a crash), the pane drops to an interactive shell instead of
-  vanishing and closing its tab. Type `claude` to relaunch. No ssh shim for local
-  agents — herdr's claude integration detects them natively and resume-on-restore
-  carries the conversation across server restarts. Rename with `herdr agent
-  rename`; renames don't survive pane recreation — reapply after a degraded
-  restore, along with `layout.apply` if the command was dropped (#2966). The same
-  never-self-close rule is baked into the remote shim wrappers (`herdr/shims/`),
-  so it holds fleet-wide. **When building any new agent, use this template and
-  route the change through the standard flow** (see the global CLAUDE.md
-  "Herdr fleet & agent building").
+  `["/bin/zsh", "-l", "-c", "claude --continue || claude; exec /bin/zsh -il"]`
+  and its project dir as cwd. Three deliberate parts: the **login zsh** (`-l`)
+  rebuilds PATH from `zshenv` because the herdr server spawns pane commands with
+  its bare launchd env (so both `claude` and its subshells resolve tools); the
+  **`--continue || claude` pair** relaunches the agent into its previous
+  conversation instead of a blank session, and the bare fallback is load-bearing
+  because `--continue` exits 1 in a directory with no prior session — without it
+  a first-run pane would land at a shell; the **`; exec /bin/zsh -il` fallback**
+  is the fleet's "a pane never self-closes" rule — when claude exits (a stray
+  `/exit`, a crash), the pane drops to an interactive shell instead of vanishing
+  and closing its tab. Type `claude` to relaunch. No ssh shim for local agents —
+  herdr's claude integration detects them natively, and `resume_agents_on_restore`
+  carries the conversation across a clean server restart. Rename with `herdr
+  agent rename`; the binding releases when the agent *process* dies, so reapply
+  after a degraded restore, along with `layout.apply` if the command was dropped
+  (#2966). The same never-self-close rule is baked into the remote shim wrappers
+  (`herdr/shims/`), so it holds fleet-wide. **When building any new agent, use
+  this template and route the change through the standard flow** (see the global
+  CLAUDE.md "Herdr fleet & agent building").
+  - **Why `--continue` is the template default and not a repair-time opt-in**
+    (2026-08-27). herdr's `resume_agents_on_restore` covers the clean path, but
+    it cannot help a pane whose *command* was dropped — and upstream closed
+    herdrdev/herdr#3306 `NOT_PLANNED`, ruling that post-restart panes returning
+    as fresh shells is documented behaviour. The rebuild is therefore the fleet's
+    job permanently, so the template does the resuming rather than every repair
+    remembering a flag. The live fleet had already been fully converted by
+    `repair --resume` before the docs said so; this change reconciles them, and
+    needs no pane rebuilt.
+  - **Two caveats, both flowing from "the most recent session in that cwd".**
+    `--continue` picks by recency, not by which conversation the pane held.
+    Rebuild a pane wanting a fresh start and the old thread comes back (`/clear`
+    after). And in a **shared-slug project the thread may not be the pane's own**:
+    `orrery ☉` shares its Claude Code slug with Forge's embedded ACP sessions, so
+    a rebuild there can resume whichever surface spoke last. List them by mtime
+    before relying on it — note `/bin/ls`, because `ls` is aliased to `eza`, whose
+    `-t` takes a field name instead of sorting:
+
+    ```bash
+    /bin/ls -t ~/.claude/projects/-Users-dvillavicencio--forge-projects-tranquil-dune/*.jsonl | head -3
+    ```
   - **Before/after a server restart, use `herdr/fleet-check.py`.** `snapshot`
     before `brew services restart herdr`, `verify` after reattaching. It walks
     every tab's `layout.export`, flags panes whose `command` is missing (#2966),
@@ -551,14 +576,17 @@ conversations across server restarts via `claude --resume <id>`.
       after a restart a resumed pane and a bare shell are indistinguishable in
       `layout.export` (both lost their command), so a blind rebuild destroys live
       conversations to fix metadata that only matters at the *next* restart.
-    - **`repair --resume` relaunches the agent into its conversation** rather than
-      a blank session, rewriting `claude;` → `claude --continue || claude;` (and
-      the `hermes chat` equivalent). The `||` fallback is load-bearing:
-      `--continue` exits 1 in a directory with no prior session, and without it
-      the pane would land at a shell. Remote shim commands are deliberately not
-      rewritten — their agent lives in tmux on the VPS and was never killed.
+    - **`repair` relaunches the agent into its conversation by default** (since
+      2026-08-27, matching the pane template; `--no-resume` opts out for a
+      deliberately blank pane). The rewrite still matters because a snapshot
+      taken before the template flip records the bare `claude;` form, so repair
+      upgrades it to `claude --continue || claude;` (and the `hermes chat`
+      equivalent) on the way back in — a pane already built from the current
+      template is left alone, since the pattern anchors on `claude;` and does not
+      match `claude --continue`. Remote shim commands are never rewritten — their
+      agent lives in tmux on the VPS and was never killed.
       **Caveat:** `--continue` resumes the *most recent* session in that cwd, so
-      run it before typing into a blank pane; a new session would otherwise become
+      repair before typing into a blank pane; a new session would otherwise become
       the most recent one.
   - **Diagnosing and rebuilding a degraded pane.** `layout.export` is the test:
     a pane node with **no `command`** key is degraded — it came back as a bare
@@ -579,7 +607,7 @@ conversations across server restarts via `claude --resume <id>`.
     ```bash
     S=~/.config/herdr/herdr.sock
     echo '{"id":"1","method":"layout.export","params":{"tab_id":"w1:t1"}}' | nc -U $S
-    echo '{"id":"1","method":"layout.apply","params":{"tab_id":"w1:t1","focus":true,"root":{"type":"pane","cwd":"'"$HOME"'/Projects/Personal/dotfiles","command":["/bin/zsh","-l","-c","claude; exec /bin/zsh -il"]}}}' | nc -U $S
+    echo '{"id":"1","method":"layout.apply","params":{"tab_id":"w1:t1","focus":true,"root":{"type":"pane","cwd":"'"$HOME"'/Projects/Personal/dotfiles","command":["/bin/zsh","-l","-c","claude --continue || claude; exec /bin/zsh -il"]}}}' | nc -U $S
     ```
 
     Two API gotchas, both fail-fast: `layout.apply` takes **`tab_id` or
@@ -613,7 +641,7 @@ conversations across server restarts via `claude --resume <id>`.
     don't survive pane recreation, and the jump key targets the agent name):
 
     ```bash
-    echo '{"id":"1","method":"layout.apply","params":{"tab_id":"<wN:tN>","focus":true,"root":{"type":"pane","cwd":"'"$HOME"'/Obsidian/vice","command":["/bin/zsh","-l","-c","hermes chat; exec /bin/zsh -il"]}}}' | nc -U ~/.config/herdr/herdr.sock
+    echo '{"id":"1","method":"layout.apply","params":{"tab_id":"<wN:tN>","focus":true,"root":{"type":"pane","cwd":"'"$HOME"'/Obsidian/vice","command":["/bin/zsh","-l","-c","hermes chat --continue || hermes chat; exec /bin/zsh -il"]}}}' | nc -U ~/.config/herdr/herdr.sock
     /opt/homebrew/bin/herdr agent rename <pane-id> vice
     ```
 

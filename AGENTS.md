@@ -271,7 +271,10 @@ install via Homebrew casks in `brew/Brewfile`, not a helper.)
   loop, so remote panes survive sleep/network loss and — the fleet "a pane never
   self-closes" rule — drop to an interactive shell on clean detach rather than
   closing. Local agents get the same rule via the pane template
-  `["/bin/zsh", "-l", "-c", "claude; exec /bin/zsh -il"]`.
+  `["/bin/zsh", "-l", "-c", "claude --continue || claude; exec /bin/zsh -il"]`,
+  whose `--continue || claude` pair also relaunches the agent into its previous
+  conversation (the bare fallback catches a directory with no prior session,
+  where `--continue` exits 1).
   Local project agents (`melos ♪`, `sites ✦`, `borealis ❆`, `argus ◉`,
   `skills ⚒`, `obscura ✇`, `eidos ❖`, `orrery ☉` — roster table in CLAUDE.md)
   need no shim — herdr detects a local claude pane natively; they use the pane

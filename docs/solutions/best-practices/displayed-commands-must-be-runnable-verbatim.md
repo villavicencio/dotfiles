@@ -12,12 +12,15 @@ applies_when:
   - "The user dictates with speech-to-text, or runs any tool that writes to the pasteboard, so the clipboard is clobbered between copy and paste"
   - "Handing over a remote command with nested quoting, e.g. `ssh host` wrapping a quoted `cp && sed -i && bash -n` chain"
   - "The command mutates state, so a partially-executed prefix leaves a half-applied result"
+  - "A displayed command uses a bare tool name that `zsh/alias.sh` aliases to a different binary — `ls` is `eza`"
 symptoms:
   - "`python3: can't open file '...': [Errno 2] No such file or directory` — the literal ellipsis from the displayed text was pasted and run"
   - "`sed: -e expression #1, char 1: unknown command: '.'` — an elided remote one-liner ran with the ellipsis inside the quoted payload"
   - "The user reports the command failed even though what the agent put on the clipboard was correct"
   - "A multi-step `&&` chain ran only its first stage: the `cp -n` backup exists but the edit never applied"
   - "The user says \"I lost my clipboard\" or asks for a payload to be re-copied"
+  - "`error: invalid value '<filename>' for '--time <FIELD>'` — `ls -t` hit the eza alias instead of ls"
+  - "A listing written with `2>/dev/null` prints nothing and is misread as an empty directory"
 root_cause: design_limitation
 resolution_type: workflow_improvement
 related_components:
@@ -29,6 +32,8 @@ tags:
   - pbcopy
   - agent-output
   - shell-pitfalls
+  - aliases
+  - eza
   - quoting
   - ssh
   - macos
@@ -175,6 +180,40 @@ keep run-now blocks free of anything angle-bracketed.
 The clipboard holds exactly one thing. When staging several handoffs, do them one at a time,
 say which target the current contents belong to, and do not stage the next until the first is
 consumed — a convention the user asked for directly on 2026-08-24 *(session history)*.
+
+### 4. A verbatim command still lands in *this* machine's alias layer
+
+Runnability is not a property of the command text alone — it is the text plus the shell it
+arrives in, and this repo's shell is not a stock one. Three different `ls` resolve here:
+
+```
+ls is an alias for eza --group-directories-first     <- wins in command position
+ls is /opt/homebrew/opt/coreutils/libexec/gnubin/ls  <- GNU ls, first on PATH
+ls is /bin/ls                                        <- BSD ls
+```
+
+The alias wins, and **eza reads `-t` as `--time <FIELD>`, not "sort by mtime"**. So a line
+that looks portable and correct everywhere:
+
+```bash
+ls -t ~/.claude/projects/<slug>/*.jsonl | head -3
+```
+
+dies with `error: invalid value '<first filename>' for '--time <FIELD>'`. Worse, a listing
+that may legitimately be empty is usually written with `2>/dev/null` — which suppresses that
+error and prints **nothing**, so the result reads as "this project has no transcripts"
+rather than "wrong tool." Observed 2026-08-27 while documenting the `--continue` pane
+template: an empty result was briefly taken as evidence that `orrery ☉` had no session
+history, when it had three transcripts.
+
+**Fix: name the binary, not the alias.** `/bin/ls -t …` in anything displayed — it is
+unambiguous, and unlike `command ls` it does not silently depend on which `ls` PATH resolves
+to first. `command ls` does bypass the alias and is fine interactively; it just lands on GNU
+`ls` here rather than BSD `ls`, so it is the weaker guarantee for a written-down command.
+
+This generalizes past `ls`: before displaying a command built from a bare tool name, ask
+whether the name is aliased in `zsh/alias.sh`. Most aliases only change *defaults* and stay
+compatible. `ls` bites because its alias changes flag **semantics**.
 
 ### The self-check before you display
 

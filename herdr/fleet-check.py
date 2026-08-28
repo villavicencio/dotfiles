@@ -14,11 +14,14 @@ own, but two do not, and both fail *quietly*:
 Usage:
     fleet-check.py snapshot    # before `brew services restart herdr`
     fleet-check.py verify      # after reattaching
-    fleet-check.py repair      # rebuild lost panes that have no live agent
-    fleet-check.py repair --resume   # ...and relaunch their agent into its conversation
+    fleet-check.py repair      # rebuild lost panes that have no live agent,
+                               #   relaunching each into its conversation
+    fleet-check.py repair --no-resume   # ...into a blank session instead
     fleet-check.py             # verify if a snapshot exists, else snapshot
 
-Read-only: it never mutates herdr state. Repairs are printed for you to run.
+`snapshot` and `verify` are read-only — `verify` prints the repairs rather than
+running them. `repair` is the one subcommand that mutates: it calls `layout.apply`,
+which kills and replaces the pane it rebuilds.
 """
 import json
 import os
@@ -161,11 +164,14 @@ def do_snapshot(rows):
     print("  3. python3 ~/Projects/Personal/dotfiles/herdr/fleet-check.py verify")
 
 
-# A rebuilt pane runs its recorded command, which launches the agent FRESH — the
-# pane looks blank and the previous conversation sits unloaded on disk. These
-# rewrites make it resume instead. `|| <bare>` matters: `--continue` exits 1 when
-# the directory has no prior session, and without the fallback the pane would land
-# at a shell instead of a usable agent.
+# The fleet pane template carries `--continue || <bare>` since 2026-08-27, so a
+# pane built from it already resumes. These rewrites upgrade the ones that do not:
+# a snapshot taken before the flip records the bare form, and restoring it verbatim
+# would launch the agent FRESH — the pane looks blank while the previous
+# conversation sits unloaded on disk. The patterns anchor on the bare form, so a
+# command that already resumes is left untouched rather than rewritten twice.
+# `|| <bare>` is load-bearing: `--continue` exits 1 when the directory has no prior
+# session, and without the fallback the pane would land at a shell.
 RESUME_REWRITES = [
     (re.compile(r"^claude;"), "claude --continue || claude;"),
     (re.compile(r"^hermes chat;"), "hermes chat --continue || hermes chat;"),
@@ -190,7 +196,7 @@ def resume_variant(cmd):
     return cmd, False
 
 
-def do_repair(rows, force=False, resume=False):
+def do_repair(rows, force=False, resume=True):
     """Rebuild panes whose command was lost — but never one with a live agent.
 
     After a restart the two populations look identical in `layout.export` (both
@@ -233,10 +239,17 @@ def do_repair(rows, force=False, resume=False):
     print(f"REBUILDING {len(todo)} pane(s) with no live agent:")
     for r, cmd in todo:
         prev = by_key[key(r)]
-        tag = ""
-        if resume:
+        if not resume:
+            tag = "  [--no-resume: blank session]"
+        else:
             cmd, rewritten = resume_variant(cmd)
-            tag = "  [resume]" if rewritten else "  [no local agent to resume]"
+            shell = cmd[-1] if cmd and isinstance(cmd[-1], str) else ""
+            if rewritten:
+                tag = "  [resume: rewritten from a pre-2026-08-27 snapshot]"
+            elif "--continue" in shell:
+                tag = "  [resume: already in the recorded command]"
+            else:
+                tag = "  [no local agent to resume]"
         node = {"type": "pane", "cwd": prev.get("cwd"), "command": cmd}
         res = call("layout.apply", {"tab_id": r["tab"], "focus": False, "root": node})
         new = res.get("layout", {}).get("root", {}).get("pane_id")
@@ -319,8 +332,9 @@ def main():
     if cmd == "verify":
         return do_verify(rows)
     if cmd == "repair":
+        # --resume is accepted as a no-op so older muscle memory still works.
         return do_repair(rows, force="--force" in sys.argv,
-                         resume="--resume" in sys.argv)
+                         resume="--no-resume" not in sys.argv)
     sys.exit(f"unknown command: {cmd} (expected snapshot|verify|repair)")
 
 
