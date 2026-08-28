@@ -891,6 +891,13 @@ agent edits to `~/.claude/settings.json` itself, regardless of allow rules. That
 is intended — it stops an agent widening its own permissions — and is not the
 same mechanism. Permission-file edits are a human job.
 
+**`Write(path)` rules are inert — file-permission checks match `Edit(path)` only**, and an
+`Edit(…)` rule covers every file-editing tool (Write, Edit, NotebookEdit). Claude Code warns at
+startup: `Permission deny rule … Write(<glob>) is not matched by file permission checks — only
+Edit(path) rules are.` Seen 2026-08-27 in borealis's `.claude/settings.local.json`, which carried
+both `Edit(//…/Containers/com.dvillavicencio.borealis/**)` and a `Write(…)` twin; the `Write`
+entry was dropped. A deny written only as `Write(…)` protects nothing.
+
 **A `*` belongs after the subcommand, never mid-command.** In a `Bash(...)` allow
 rule the wildcard matches *anything* at that position — including flags and extra
 arguments you never intended to pre-approve — and it approves them with no prompt.
