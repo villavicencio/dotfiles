@@ -318,11 +318,20 @@ def do_verify(rows):
             cmd = prev.get("command")
             print(f"\n  {r['label']}  tab={r['tab']}")
             if cmd:
+                # Print what `repair` would actually run, not the raw snapshot. A
+                # snapshot older than the 2026-08-27 template flip records the bare
+                # form, so pasting it verbatim rebuilds the pane into a BLANK
+                # session while `repair` would have resumed it — the two repair
+                # paths must not disagree.
+                cmd, upgraded = resume_variant(cmd)
                 node = {"type": "pane", "cwd": prev.get("cwd"), "command": cmd}
                 req = {"id": "1", "method": "layout.apply",
                        "params": {"tab_id": r["tab"], "focus": True, "root": node}}
                 print("    rebuild (omit pane_id so herdr replaces the pane):")
                 print(f"      echo '{json.dumps(req)}' | nc -U {SOCK}")
+                if upgraded:
+                    print("      (resume wrapper added — this snapshot predates the "
+                          "template flip; use `repair --no-resume` for a blank pane)")
             else:
                 print("    no command recorded in the snapshot — rebuild by hand")
     else:
