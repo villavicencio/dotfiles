@@ -4,11 +4,18 @@
 # detection depends on.
 #
 # Herdr identifies a pane's agent by PROCESS NAME against its detection
-# manifests. `hermes-agent` (hermes manifest) and `claude-code` (claude
-# manifest) are alias names no real binary uses on this machine, so pointing
-# them at ssh makes a remote attach register as that agent:
-#   hermes-agent -> the VPS Hermes TUI (workspace "atlas")
-#   claude-code  -> the VPS AXIOM Claude Code (workspace "axiom")
+# manifests. `claude-code` (claude manifest) is an alias name no real binary
+# uses on this machine, so pointing it at ssh makes a remote attach register
+# as that agent. Two panes share the alias and are told apart by
+# `herdr agent rename`:
+#   claude-code -> the VPS AXIOM Claude Code (workspace "axiom")
+#              and the VPS atlas-tools Claude Code (workspace "atlas-tools")
+#
+# The `hermes-agent` shim was retired 2026-09-01 with the `atlas` workspace,
+# when Atlas moved to the official Hermes Desktop app. It was the only consumer.
+# Historical note: a Hermes install used to clobber that shim (it ships its own
+# `hermes-agent` entrypoint) — with the shim gone that collision is harmless.
+# Write-up kept at ~/Projects/agents/docs/solutions/integration-issues/.
 # Herdr 0.8.0 has no env-var identity pin (upstream feature request:
 # herdrdev/herdr#2961), so the argv[0] trick is the working mechanism.
 # See CLAUDE.md "Herdr".
@@ -20,20 +27,19 @@
 # survive sleep/network loss instead of closing their workspaces.
 #
 # ln -sf is idempotent; a live pane keeps its already-exec'd process either way.
+# This helper does NOT remove a retired shim — clean those up by hand.
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 if [ "${DOTFILES_DRY_RUN:-0}" = "1" ]; then
-  echo "[dry-run] would symlink ~/.local/bin/{hermes-agent,claude-code} -> herdr/shims/ wrappers"
-  echo "[dry-run] would symlink ~/.local/libexec/{hermes-agent,claude-code} -> /usr/bin/ssh"
+  echo "[dry-run] would symlink ~/.local/bin/claude-code -> herdr/shims/claude-code"
+  echo "[dry-run] would symlink ~/.local/libexec/claude-code -> /usr/bin/ssh"
   exit 0
 fi
 
 mkdir -p "$HOME/.local/bin" "$HOME/.local/libexec"
-chmod +x "$REPO_ROOT/herdr/shims/hermes-agent" "$REPO_ROOT/herdr/shims/claude-code"
-ln -sf "$REPO_ROOT/herdr/shims/hermes-agent" "$HOME/.local/bin/hermes-agent"
+chmod +x "$REPO_ROOT/herdr/shims/claude-code"
 ln -sf "$REPO_ROOT/herdr/shims/claude-code" "$HOME/.local/bin/claude-code"
-ln -sf /usr/bin/ssh "$HOME/.local/libexec/hermes-agent"
 ln -sf /usr/bin/ssh "$HOME/.local/libexec/claude-code"
-echo "herdr agent shims installed: wrappers in ~/.local/bin, ssh aliases in ~/.local/libexec"
+echo "herdr agent shim installed: wrapper in ~/.local/bin, ssh alias in ~/.local/libexec"

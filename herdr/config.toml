@@ -128,12 +128,6 @@ remove_worktree = "prefix+shift+e"  # opens confirmation; removes checkout + clo
 # height = "80%"
 
 [[keys.command]]
-key = "prefix+a"
-type = "shell"
-command = "/opt/homebrew/bin/herdr agent focus atlas"
-description = "jump to Atlas"
-
-[[keys.command]]
 key = "prefix+d"
 type = "shell"
 command = "/opt/homebrew/bin/herdr agent focus axiom"
@@ -153,7 +147,8 @@ command = "/opt/homebrew/bin/herdr agent focus borealis"
 description = "jump to Borealis"
 
 [[keys.command]]
-# plain a is the Atlas jump.
+# shift+a dates from when plain a was the Atlas jump; Atlas retired 2026-09-01
+# and prefix+a is now free. Kept on shift+a so the muscle memory still works.
 key = "prefix+shift+a"
 type = "shell"
 command = "/opt/homebrew/bin/herdr agent focus argus"
@@ -186,13 +181,6 @@ key = "prefix+y"
 type = "shell"
 command = "/opt/homebrew/bin/herdr agent focus orrery"
 description = "jump to Orrery"
-
-[[keys.command]]
-# plain v is split-vertical's default, so Vice takes shift+v.
-key = "prefix+shift+v"
-type = "shell"
-command = "/opt/homebrew/bin/herdr agent focus vice"
-description = "jump to Vice"
 
 [[keys.command]]
 # t as in a**t**las-**t**ools; free in herdr's defaults and unclaimed here.
