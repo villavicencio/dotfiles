@@ -263,10 +263,11 @@ install via Homebrew casks in `brew/Brewfile`, not a helper.)
   into the agent's own config dir and is a human step, not an agent one (claude and
   codex installed, both v7). Custom `[[keys.command]]` shell commands run
   with the server's bare launchd PATH and fail silently — use absolute paths
-  (`/opt/homebrew/bin/herdr …`); key changes themselves hot-reload fine. The ssh shims
-  herdr's remote-agent detection depends on (`~/.local/bin/{hermes-agent,claude-code}`)
-  are repo-tracked auto-reconnect wrappers (`herdr/shims/`) seeded by
-  `helpers/install_herdr_agents.sh` (darwin.yaml); each execs a same-named raw ssh
+  (`/opt/homebrew/bin/herdr …`); key changes themselves hot-reload fine. The ssh shim
+  herdr's remote-agent detection depends on (`~/.local/bin/claude-code`, backing both
+  `axiom ∴` and `atlas-tools ⚙`) is a repo-tracked auto-reconnect wrapper
+  (`herdr/shims/`) seeded by
+  `helpers/install_herdr_agents.sh` (darwin.yaml); it execs a same-named raw ssh
   alias in `~/.local/libexec/` (preserving the detected process name) in a retry
   loop, so remote panes survive sleep/network loss and — the fleet "a pane never
   self-closes" rule — drop to an interactive shell on clean detach rather than
@@ -283,9 +284,11 @@ install via Homebrew casks in `brew/Brewfile`, not a helper.)
   need no shim — herdr detects a local claude pane natively; they use the pane
   template above, whose login shell rebuilds PATH from `zshenv` before claude
   starts (the server spawns pane commands with its bare launchd env).
-  `vice ♠` is the first local **hermes** pane — the same template with
-  `hermes chat` in place of `claude`; herdr's hermes manifest detects the
-  venv process natively, so it needs no shim either.
+  A local **hermes** pane works the same way — the template with `hermes chat` in
+  place of `claude`; herdr's hermes manifest detects the venv process natively, so
+  it needs no shim either. (No hermes pane is in the fleet as of 2026-09-01: `atlas`
+  and `vice` moved to the official Hermes Desktop app and were retired, along with
+  the `hermes-agent` shim they were the only consumers of.)
   `atlas-tools ⚙` (`prefix+t`) is a remote **Claude Code** surface, not a TUI
   attach: the repo lives only at `/home/node/Projects/atlas-tools` on
   openclaw-prod as user `node`, and **no Mac-side checkout exists**. herdr's pane

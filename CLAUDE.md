@@ -400,12 +400,12 @@ conversations across server restarts via `claude --resume <id>`.
   do nest, tmux's `send-prefix` binding passes it through on a double-tap. Herdr
   can host tmux in a pane or run inside tmux, but agent detection does not see
   through a nested tmux.
-- **Remote agent surfaces (`atlas ⚓` / `axiom ∴` / `atlas-tools ⚙`):** each workspace hosts a VPS
-  TUI through an ssh shim whose *name* matches a detection-manifest alias —
+- **Remote agent surfaces (`axiom ∴` / `atlas-tools ⚙`):** each workspace hosts a VPS
+  surface through an ssh shim whose *name* matches a detection-manifest alias —
   herdr identifies these ssh panes by process name. **The name trick is for ssh
   panes only** — a *local* TUI needs none of it: claude and hermes panes are
-  detected natively regardless of process name (`vice ♠`'s `hermes chat` runs as
-  venv python and detects as `hermes`; verified 2026-08-25) — the documented
+  detected natively regardless of process name (verified 2026-08-25 with a local
+  `hermes chat` running as venv python, which detected as `hermes`) — the documented
   `HERDR_AGENT` env hint applies to sandbox-wrapper foregrounds (`fence`/`nono`)
   and does NOT fire for ssh foregrounds on 0.8.0 (re-verified 2026-08-18:
   ssh + env hint → pane undetected; herdrdev/herdr#2961 has the repro). Do not
@@ -414,13 +414,12 @@ conversations across server restarts via `claude --resume <id>`.
   delivered to pane processes (verified by in-pane `printenv`); `ps eww`
   cannot read other processes' env on modern macOS and shows nothing, which
   faked the "var absent" result. Full write-up:
-  `docs/solutions/best-practices/verify-the-instrument-before-trusting-a-negative.md`. `~/.local/bin/hermes-agent`
-  attaches the Hermes TUI (Atlas, detected as hermes);
-  `~/.local/bin/claude-code` attaches AXIOM's Claude Code
-  (detected as claude, renamed `axiom`) via
+  `docs/solutions/best-practices/verify-the-instrument-before-trusting-a-negative.md`. `~/.local/bin/claude-code`
+  attaches AXIOM's Claude Code (detected as claude, renamed `axiom`) via
   `sudo -u node tmux -L axiom attach -t AXIOM` — since the 2026-07-14 vault
-  fold AXIOM runs as **node** on the dedicated socket `-L axiom`. **Since
-  2026-08-19 each shim is a repo-tracked auto-reconnect wrapper**
+  fold AXIOM runs as **node** on the dedicated socket `-L axiom` — and also
+  backs `atlas-tools ⚙` with different args. **Since
+  2026-08-19 the shim is a repo-tracked auto-reconnect wrapper**
   (`herdr/shims/`, symlinked into `~/.local/bin`): it loops ssh via a raw
   alias in `~/.local/libexec/<same-name>` (which preserves the detected
   process name), retrying every 10s on any nonzero exit and closing only on
@@ -428,23 +427,18 @@ conversations across server restarts via `claude --resume <id>`.
   single-pane workspaces no longer vanish overnight, agent renames persist,
   and the #2966 restore boot-race self-heals. Client keepalives back it up:
   `~/.ssh/config` `Host openclaw-prod` carries `ServerAliveInterval 60` +
-  `ServerAliveCountMax 120` (machine-local, untracked). Both shims
-  are Dotbot-managed (`helpers/install_herdr_agents.sh`, darwin.yaml).
-  > ⚠ **A Hermes install on this Mac clobbers `~/.local/bin/hermes-agent`.**
-  > Upstream's `install.sh` writes three entrypoints (`hermes`, `hermes-acp`,
-  > `hermes-agent`) and the third overwrites the Dotbot symlink to
-  > `herdr/shims/hermes-agent` — Atlas's auto-reconnect wrapper, whose *name*
-  > is what herdr's hermes detection manifest matches. The break is **latent**:
-  > a running pane keeps its already-exec'd process and looks healthy until the
-  > next restart, then launches a *local* Hermes agent instead of ssh-ing to
-  > the VPS. **Re-run `helpers/install_herdr_agents.sh` after any Hermes
-  > install or reinstall** (idempotent). Detect with
-  > `ls -la ~/.local/bin/hermes-agent` — healthy is a *symlink*; a regular file
-  > dated at your last install is the bug. `claude-code` is unaffected
-  > (different name), and so is `vice ♠` (its pane runs `hermes chat` →
-  > `~/.local/bin/hermes`). Full write-up: `~/Projects/agents/docs/solutions/`
-  > `integration-issues/hermes-installer-clobbers-herdr-shim-hermes-agent-Mac-20260825.md`
-  > (observed + fixed 2026-08-25).
+  `ServerAliveCountMax 120` (machine-local, untracked). The shim is
+  Dotbot-managed (`helpers/install_herdr_agents.sh`, darwin.yaml).
+  > **Retired 2026-09-01: `atlas ⚓`, `vice ♠`, and the `hermes-agent` shim.**
+  > Atlas and Vice moved to the official **Hermes Desktop** app, so neither needs
+  > a herdr pane. Both workspaces are closed, both jump keys (`prefix+a`,
+  > `prefix+shift+v`) are removed and free, and the `hermes-agent` wrapper is
+  > deleted from `herdr/shims/` — `atlas ⚓` was its only consumer. The VPS side is untouched: the
+  > `hermes` tmux session and the gateway keep running, and Hermes Desktop is
+  > simply a different client to them. The old "a Hermes install clobbers
+  > `~/.local/bin/hermes-agent`" hazard no longer applies now that no shim owns
+  > that name; history is at `~/Projects/agents/docs/solutions/`
+  > `integration-issues/hermes-installer-clobbers-herdr-shim-hermes-agent-Mac-20260825.md`.
 
   Each remote tmux carries `set-titles on` + `set-titles-string "#{pane_title}"` so
   the TUIs' OSC titles drive herdr states through the nested tmux. Never
@@ -635,16 +629,6 @@ conversations across server restarts via `claude --resume <id>`.
     | `obscura ✇` | `~/Projects/browse-gateway` | the Obscura browse-gateway itself | `prefix+shift+o` |
     | `eidos ❖` | `~/Projects/eidos` | Eagle library curation | `prefix+shift+i` (`e`/`shift+e` are edit_scrollback / remove_worktree) |
     | `orrery ☉` | `~/.forge-projects/tranquil-dune` (aka `~/Projects/orrery`) | Forge-resident jobs dashboard (orrery.ui8.dev) — see "Forge-resident hybrid agents" below | `prefix+y` (`o`/`shift+o` are open_notification_target / obscura; `y` as in orrer**y**) |
-    | `vice ♠` | `~/Obsidian/vice` | Vice Gage — native local **Hermes** agent (personal media curation; Obscura + Eagle MCPs). Pane command is the template with `hermes chat` in place of `claude`; herdr's hermes detection manifest identifies the venv process natively, no shim (verified 2026-08-25). Setup brief: `~/Projects/agents/docs/plans/2026-08-25-001-…` | `prefix+shift+v` (plain `v` is split-vertical's default) |
-
-    Rebuilding the `vice ♠` pane after a degraded restore (#2966) follows the
-    standard recipe above with this pane node, then `herdr agent rename` (renames
-    don't survive pane recreation, and the jump key targets the agent name):
-
-    ```bash
-    echo '{"id":"1","method":"layout.apply","params":{"tab_id":"<wN:tN>","focus":true,"root":{"type":"pane","cwd":"'"$HOME"'/Obsidian/vice","command":["/bin/zsh","-l","-c","hermes chat --continue || hermes chat; exec /bin/zsh -il"]}}}' | nc -U ~/.config/herdr/herdr.sock
-    /opt/homebrew/bin/herdr agent rename <pane-id> vice
-    ```
 
 - **Forge-resident hybrid agents** (SOP, established 2026-08-20 with `orrery ☉`).
   For a project that legitimately *stays* in Forge — UI-heavy, actually using
