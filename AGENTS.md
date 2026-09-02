@@ -265,7 +265,7 @@ install via Homebrew casks in `brew/Brewfile`, not a helper.)
   with the server's bare launchd PATH and fail silently — use absolute paths
   (`/opt/homebrew/bin/herdr …`); key changes themselves hot-reload fine. The ssh shim
   herdr's remote-agent detection depends on (`~/.local/bin/claude-code`, backing both
-  `axiom ∴` and `atlas-tools ⚙`) is a repo-tracked auto-reconnect wrapper
+  `atlas-tools ⚙`; it also served the retired `axiom ∴`) is a repo-tracked auto-reconnect wrapper
   (`herdr/shims/`) seeded by
   `helpers/install_herdr_agents.sh` (darwin.yaml); it execs a same-named raw ssh
   alias in `~/.local/libexec/` (preserving the detected process name) in a retry
@@ -295,16 +295,18 @@ install via Homebrew casks in `brew/Brewfile`, not a helper.)
   `cwd` is always local — it is where the ssh process starts — so a remote working
   directory needs no local clone; the pane command establishes it remotely. It
   reuses the existing `claude-code` ssh alias (detection keys on the ssh child's
-  process name, so two panes may share one alias with different args) and is told
-  apart from `axiom` by `herdr agent rename`. The remote tmux is addressed with
+  process name, so several panes may share one alias with different args, told
+  apart by `herdr agent rename`; it shared the alias with `axiom ∴` until that
+  surface retired 2026-09-02). The remote tmux is addressed with
   `-L atlas-tools -f /home/node/.config/tmux/atlas-tools.conf` and `new-session -A`, which
   makes it self-healing across VPS reboots without a systemd unit. The conf file
   is required because tmux defaults `set-titles` to `off` and that option is what
-  carries agent state out through a nested tmux. The `axiom` socket was given the
-  same treatment on 2026-08-25. Note its `unknown` status turned out to have a
-  different cause: the pane had fallen through to the shim's clean-detach `zsh`
-  fallback, so no agent process existed to detect. Check `pane.process_info`
-  before blaming detection config.
+  carries agent state out through a nested tmux — assume it is off on any socket
+  until checked, since this repo documented it as on for months while it was not.
+  A pane reading `agent_status: unknown` usually has a different cause entirely:
+  it has fallen through to the shim's clean-detach `zsh` fallback, so no agent
+  process exists to detect. Check `pane.process_info` before blaming detection
+  config.
   A pane whose `layout.export` node has no `command` is degraded even though it
   still detects as an agent; rebuild it with `layout.apply` over the socket
   (recipe in CLAUDE.md).

@@ -400,7 +400,7 @@ conversations across server restarts via `claude --resume <id>`.
   do nest, tmux's `send-prefix` binding passes it through on a double-tap. Herdr
   can host tmux in a pane or run inside tmux, but agent detection does not see
   through a nested tmux.
-- **Remote agent surfaces (`axiom ∴` / `atlas-tools ⚙`):** each workspace hosts a VPS
+- **Remote agent surface (`atlas-tools ⚙`):** the workspace hosts a VPS
   surface through an ssh shim whose *name* matches a detection-manifest alias —
   herdr identifies these ssh panes by process name. **The name trick is for ssh
   panes only** — a *local* TUI needs none of it: claude and hermes panes are
@@ -415,10 +415,11 @@ conversations across server restarts via `claude --resume <id>`.
   cannot read other processes' env on modern macOS and shows nothing, which
   faked the "var absent" result. Full write-up:
   `docs/solutions/best-practices/verify-the-instrument-before-trusting-a-negative.md`. `~/.local/bin/claude-code`
-  attaches AXIOM's Claude Code (detected as claude, renamed `axiom`) via
-  `sudo -u node tmux -L axiom attach -t AXIOM` — since the 2026-07-14 vault
-  fold AXIOM runs as **node** on the dedicated socket `-L axiom` — and also
-  backs `atlas-tools ⚙` with different args. **Since
+  attaches `atlas-tools ⚙`'s Claude Code (detected as claude, renamed
+  `atlas-tools`) as user **node** on the dedicated socket `-L atlas-tools`.
+  It is built to be shared by several panes — detection keys on the process
+  *name*, and the pane command supplies the differing args — which is how it
+  also served the retired `axiom ∴`. **Since
   2026-08-19 the shim is a repo-tracked auto-reconnect wrapper**
   (`herdr/shims/`, symlinked into `~/.local/bin`): it loops ssh via a raw
   alias in `~/.local/libexec/<same-name>` (which preserves the detected
@@ -429,6 +430,14 @@ conversations across server restarts via `claude --resume <id>`.
   `~/.ssh/config` `Host openclaw-prod` carries `ServerAliveInterval 60` +
   `ServerAliveCountMax 120` (machine-local, untracked). The shim is
   Dotbot-managed (`helpers/install_herdr_agents.sh`, darwin.yaml).
+  > **Retired 2026-09-02: `axiom ∴`.** Axiom migrated to Hermes, so the surface is
+  > gone: workspace closed, `prefix+d` removed and free, and `axiom-tmux.service`
+  > stopped on the VPS (by David, not this repo). **The `claude-code` shim stays** —
+  > unlike `hermes-agent`, it had a second consumer in `atlas-tools ⚙`, which is now
+  > the only remote surface. The diagnostic knowledge discovered while debugging this
+  > pane — the `unknown`-status tell and the recovery table below — is deliberately
+  > kept and re-anchored, since it applies to any remote pane.
+
   > **Retired 2026-09-01: `atlas ⚓`, `vice ♠`, and the `hermes-agent` shim.**
   > Atlas and Vice moved to the official **Hermes Desktop** app, so neither needs
   > a herdr pane. Both workspaces are closed, both jump keys (`prefix+a`,
@@ -446,9 +455,11 @@ conversations across server restarts via `claude --resume <id>`.
   (see ~/Projects/agents docs for Hermes rules).
 - **`atlas-tools ⚙` — a remote CLAUDE CODE surface, not a TUI attach** (added
   2026-08-25, `prefix+t`). It reuses the existing `claude-code` ssh alias rather
-  than adding a third shim: detection keys on the ssh child's *process name*, and
-  two panes may share one alias since the pane command supplies different args.
-  `herdr agent rename` is what tells them apart (`axiom` vs `atlas-tools`).
+  than adding its own shim: detection keys on the ssh child's *process name*, and
+  several panes may share one alias since the pane command supplies different args
+  — `herdr agent rename` is what tells them apart. It shared the alias with
+  `axiom ∴` until that surface was retired 2026-09-02; the sharing mechanism is
+  still the reason a new remote pane needs no new shim.
 
   ```text
   cwd:     $HOME                        # local placeholder — herdr's cwd is ALWAYS local
@@ -472,13 +483,14 @@ conversations across server restarts via `claude --resume <id>`.
   option is what forwards the inner TUI's OSC title outward for herdr to read
   state through a nested tmux. node has no `~/.tmux.conf`, and options set at
   runtime die with the tmux server — so the socket gets its own conf file,
-  scoped with `-L`/`-f` so it cannot disturb the `axiom` or `default` sockets.
-  > The `axiom` socket ran with `set-titles off` (tmux's default) until
-  > 2026-08-25, despite this file claiming every remote tmux carried it on. It
-  > now has its own `~/.config/tmux/axiom.conf`, applied at runtime without a
-  > server restart.
+  scoped with `-L`/`-f` so it cannot disturb the `default` socket.
+  > **Assume `set-titles` is off until you check.** The retired `axiom` socket ran
+  > with tmux's `off` default until 2026-08-25 while this file claimed every remote
+  > tmux carried it on — the doc was wrong for months and nothing surfaced it.
+  > Verify per socket rather than trusting this section.
   >
-  > **That was NOT why `axiom ∴` read `agent_status: unknown`** — a first guess
+  > **A missing `set-titles` was NOT why `axiom ∴` once read `agent_status:
+  > unknown`** — a first guess
   > that the evidence killed. The pane was running `/bin/zsh -il`, the shim's
   > clean-detach fallback: something detached the ssh, the wrapper exited 0, and
   > the pane sat at a shell. No agent process, so nothing to detect. The remote
@@ -487,7 +499,8 @@ conversations across server restarts via `claude --resume <id>`.
   > first** (`pane.process_info`) — a fallback `zsh` is the tell.
   >
   > **`layout.export` then splits it into two cases, and they want different
-  > repairs** (established 2026-08-26, reconnecting `axiom ∴` again):
+  > repairs** (established 2026-08-26 and re-confirmed 2026-09-02, both times
+  > reconnecting a remote pane; the table applies to any of them):
   >
   > | Export shows | Cause | Repair |
   > |---|---|---|
