@@ -437,7 +437,7 @@ conversations across server restarts via `claude --resume <id>`.
   > the only remote surface. The diagnostic knowledge discovered while debugging this
   > pane — the `unknown`-status tell and the recovery table below — is deliberately
   > kept and re-anchored, since it applies to any remote pane.
-
+  >
   > **Retired 2026-09-01: `atlas ⚓`, `vice ♠`, and the `hermes-agent` shim.**
   > Atlas and Vice moved to the official **Hermes Desktop** app, so neither needs
   > a herdr pane. Both workspaces are closed, both jump keys (`prefix+a`,

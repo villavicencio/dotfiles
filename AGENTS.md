@@ -264,9 +264,9 @@ install via Homebrew casks in `brew/Brewfile`, not a helper.)
   codex installed, both v7). Custom `[[keys.command]]` shell commands run
   with the server's bare launchd PATH and fail silently — use absolute paths
   (`/opt/homebrew/bin/herdr …`); key changes themselves hot-reload fine. The ssh shim
-  herdr's remote-agent detection depends on (`~/.local/bin/claude-code`, backing both
-  `atlas-tools ⚙`; it also served the retired `axiom ∴`) is a repo-tracked auto-reconnect wrapper
-  (`herdr/shims/`) seeded by
+  herdr's remote-agent detection depends on — `~/.local/bin/claude-code`, which backs
+  `atlas-tools ⚙` and formerly the retired `axiom ∴` — is a repo-tracked auto-reconnect
+  wrapper (`herdr/shims/`) seeded by
   `helpers/install_herdr_agents.sh` (darwin.yaml); it execs a same-named raw ssh
   alias in `~/.local/libexec/` (preserving the detected process name) in a retry
   loop, so remote panes survive sleep/network loss and — the fleet "a pane never
