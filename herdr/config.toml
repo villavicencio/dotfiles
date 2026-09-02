@@ -128,12 +128,6 @@ remove_worktree = "prefix+shift+e"  # opens confirmation; removes checkout + clo
 # height = "80%"
 
 [[keys.command]]
-key = "prefix+d"
-type = "shell"
-command = "/opt/homebrew/bin/herdr agent focus axiom"
-description = "jump to Axiom"
-
-[[keys.command]]
 key = "prefix+m"
 type = "shell"
 command = "/opt/homebrew/bin/herdr agent focus melos"
