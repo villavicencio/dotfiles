@@ -34,9 +34,9 @@
     # appends PATH lines to .zshrc/.zshenv, which are Dotbot symlinks into this repo.
     - [bash helpers/install_uv.sh, "Installing uv (native installer)"]
     # Claude Code's settings.json is likewise seeded by COPY, not linked: Claude
-    # Code itself, `herdr integration install`, and Otty's agent-integration
-    # installer all rewrite it in place, so a symlink there is orphaned on the
-    # first write. Capture live changes with --capture; `dot drift` shows the gap.
+    # Code itself and `herdr integration install` both rewrite it in place, so a
+    # symlink there is orphaned on the first write. Capture live changes with
+    # --capture; `dot drift` shows the gap.
     - [bash helpers/install_claude_settings.sh, "Seeding Claude Code settings (if absent)"]
     - [bash helpers/install_herdr_agents.sh, "Linking herdr agent ssh shims"]
 
