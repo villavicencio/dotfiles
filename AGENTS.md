@@ -47,7 +47,6 @@ herdr/      Herdr agent-multiplexer config (config.toml symlinked into ~/.config
 iterm/      iTerm2 preferences
 lazygit/    lazygit config
 nvim/       Neovim config (custom/ is symlinked into ~/.config/nvim/)
-otty/       Otty terminal config + iTerm2-imported theme (copy-seeded, NOT symlinked)
 starship/   Starship prompt config (command_timeout is a global top-level key)
 tmux/       tmux config + status-bar scripts + window-meta persistence
 topgrade/   Topgrade system-updater config
@@ -241,7 +240,7 @@ install via Homebrew casks in `brew/Brewfile`, not a helper.)
   process, no output). Counter-intuitively **small heredocs are the risky ones** — bash uses a
   temp file for large ones. Use a real file, or `< <(printf …)` for variable payloads. Write-up:
   `docs/solutions/runtime-errors/dot-doctor-heredoc-pipe-deadlock-2026-08-07.md`.
-- **Otty / tool-managed shell-rc blocks** — some blocks in the shell rc files are managed
+- **Tool-managed shell-rc blocks** — some blocks in the shell rc files are managed
   by their own tools and must not be reformatted or absorbed into repo conventions.
 - **sudo does not work from an agent shell without Touch ID.** Claude Code's `!` mode and
   Bash tool have no controlling TTY, so any `sudo` fails with "a terminal is required."
@@ -254,7 +253,7 @@ install via Homebrew casks in `brew/Brewfile`, not a helper.)
   root). Note `topgrade --dry-run | grep sudo` does not predict which steps need root — a
   cask's own script can invoke sudo internally. Full write-up:
   `docs/solutions/security/sudo-in-no-tty-agent-shells-touch-id-2026-08-07.md`.
-- **`herdr/config.toml` IS symlinked — the opposite of Otty, deliberately.** Herdr
+- **`herdr/config.toml` IS symlinked — the opposite of `claude/settings.json`, deliberately.** Herdr
   rewrites its config in place (inode-preserving, verified on 0.8.0), so the symlink
   survives and live edits surface as `M herdr/config.toml`; diff and commit them. Link
   only the file — `~/.config/herdr/` also holds the socket, logs, and session state.
@@ -314,19 +313,8 @@ install via Homebrew casks in `brew/Brewfile`, not a helper.)
   identity always lands there), `~/Projects/<name>` is an ergonomics-only
   symlink, and both harnesses share one project slug — shared vault memory and
   `--resume` continuity across Forge ACP sessions and the pane.
-- **`otty/` is copy-seeded, never symlinked — do not add a `link:` entry for it.**
-  `otty config set` and the Settings UI write via temp-file + `rename(2)`, which replaces
-  the path and destroys a symlink on the first settings change; the CLI still exits 0 and
-  `git status` stays clean, so the repo copy becomes a silently-orphaned stale twin.
-  `helpers/install_otty.sh` copies it in only when absent; `dot drift` reports divergence
-  by comparing normalized `otty config show` output on both sides. Tracked scope is
-  `config.toml` + the user-authored iTerm2-imported theme only — the other 24 themes are
-  app-seeded and regenerate. Full write-up:
-  `docs/solutions/integration-issues/otty-config-symlink-hostile-atomic-rename-2026-08-07.md`.
-- **`claude/settings.json` is copy-seeded too — do not add a `link:` entry for it.**
-  Three writers besides this repo rewrite `~/.claude/settings.json` in place: Claude Code
-  itself, `herdr integration install`, and Otty's agent-integration installer. A symlink is
-  orphaned on the first write, exactly like Otty. This already bit once — the repo copy sat
+  itself and `herdr integration install` (plus Otty's agent-integration installer until
+  Otty was removed 2026-09-03). A symlink is orphaned on the first write. This already bit once — the repo copy sat
   stale from 2026-08-07 to 2026-08-25 while the live file regrew a legacy top-level
   `allowedTools` key (18 rules) against a `permissions.allow` of 1, silently re-arming the
   precedence trap PR #127 had removed: when both keys exist the legacy one WINS and

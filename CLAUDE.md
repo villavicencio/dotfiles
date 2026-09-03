@@ -35,8 +35,6 @@ iterm/          iTerm2 preferences (exported plist, includes Shift+Enter key map
 lazygit/        lazygit config
 npm/            npm global package list (npm-requirements.txt)
 nvim/           Neovim config (custom/ is symlinked into ~/.config/nvim/)
-otty/           Otty terminal config + the iTerm2-imported theme. COPY-SEEDED by
-                helpers/install_otty.sh, never symlinked (see conventions below)
 starship/       Starship prompt config (command_timeout is a global top-level key)
 bin/            Repo CLI — bin/dot (symlinked to ~/.local/bin/dot)
   lib/*.py      Python helpers for doctor/bench. Real files, NOT heredocs — see
@@ -251,42 +249,6 @@ If a leaked loop ever shows up, kill it via `pkill -f claude-spinner-marker`.
 When adding an Oh My Zsh plugin to the `plugins=()` list in `zshrc`, also add the corresponding
 `git clone` to `helpers/install_omz.sh` so it gets installed on fresh machines.
 
-### Otty config — copy-seeded, never symlinked
-`otty/config.toml` and `otty/themes/com-googlecode-iterm2.ottytheme` are the **only
-tracked configs delivered by copy instead of a Dotbot `link:`**. `helpers/install_otty.sh`
-(wired into `dotbot-conf/darwin.yaml` as a shell step) copies them into `~/.config/otty/`
-**only when absent**, so a live config is never clobbered.
-
-**Do not "fix" this by adding a `link:` entry.** `otty config set` and the Settings UI
-write via temp-file + `rename(2)`, which replaces the path outright — a symlink there is
-destroyed on the first settings change, and the repo copy becomes a silently-orphaned
-stale twin. The CLI still exits 0 and prints the value it "set," and `git status` stays
-clean, so nothing surfaces until a fresh install overwrites months of settings. Verified
-against otty 1.3.1; full reproduction in
-`docs/solutions/integration-issues/otty-config-symlink-hostile-atomic-rename-2026-08-07.md`.
-
-Because a copy can drift, `dot drift` reports Otty alongside Brewfile/npm. It compares
-**normalized** forms (`otty config show`) on both sides — the raw live file accumulates a
-long tail of `# key = value (reset to default)` comments that would swamp a plain diff.
-`otty config show` is verified lossless and read-only. To record live changes:
-
-```bash
-dot drift                                 # see what diverged
-bash helpers/install_otty.sh --capture    # regenerate otty/config.toml, then commit
-```
-
-`--capture` regenerates rather than `cp`s: the tracked file is the normalized form plus a
-comment header, and a raw copy would destroy both.
-
-Tracking boundary: **only** `config.toml` + the iTerm2-imported theme. The other 24
-`themes/*.ottytheme` are app-seeded reference themes Otty regenerates on first run;
-`fonts/` holds only an app-generated README and `recipes/` is empty. Do not widen the
-boundary to the whole directory.
-
-`otty config set --transient` is advertised in `--help` but errors out
-(`Transient config not yet implemented`) — every config experiment persists, so back up
-`~/.config/otty/config.toml` first.
-
 ### A hook symlinked into the repo is branch-fragile — land the file before wiring it
 `~/.claude/hooks/*.sh` are Dotbot symlinks **into this working tree**, so they resolve against
 whatever branch is checked out. A hook whose file exists only on a *feature* branch goes
@@ -322,14 +284,19 @@ Re-run `./install` after the merge to restore the tracked symlink, which is safe
 is on the default branch and therefore present on every branch cut from it.
 
 ### Claude Code `settings.json` — copy-seeded, never symlinked
-`claude/settings.json` is the **second** tracked config delivered by copy rather than a
-Dotbot `link:` (Otty is the first, above). `helpers/install_claude_settings.sh` seeds
+`claude/settings.json` is the **only** tracked config delivered by copy rather than a
+Dotbot `link:`. The Otty config was the other one until Otty was uninstalled and its
+tracking removed (2026-09-03); the reasoning below is the same one that governed it, and
+the mechanism is written up in
+`docs/solutions/integration-issues/otty-config-symlink-hostile-atomic-rename-2026-08-07.md`
+— still worth reading, because the trap is about `rename(2)` and not about Otty.
+`helpers/install_claude_settings.sh` seeds
 `~/.claude/settings.json` **only when absent**, so a live config is never clobbered.
 
-**Do not "fix" this by restoring a `link:` entry.** The file has three independent writers
-besides this repo — Claude Code itself (`effortLevel`, `tui`, notification prefs, `autoMode`),
-`herdr integration install`, and Otty's agent-integration installer — each rewriting it in
-place. A symlink there survives until the first write, after which the live file is a regular
+**Do not "fix" this by restoring a `link:` entry.** The file has independent writers
+besides this repo — Claude Code itself (`effortLevel`, `tui`, notification prefs, `autoMode`)
+and `herdr integration install`, plus Otty's agent-integration installer until its
+2026-09-03 removal — each rewriting it in place. A symlink there survives until the first write, after which the live file is a regular
 file and the repo copy is a silently-orphaned stale twin.
 
 That already happened. The link was replaced at some point before 2026-08-25 and the repo copy
@@ -342,7 +309,7 @@ precedence trap PR #127 removed (see "one allowlist, not two" below). It also ac
 `autoMode.environment` block naming a *different project's* trusted repo and services, in the
 cross-machine user-scope file whose own `"//"` header forbids machine- or project-specific values.
 
-Because a copy can drift, `dot drift` reports Claude settings alongside Brewfile/npm/Otty, and
+Because a copy can drift, `dot drift` reports Claude settings alongside Brewfile and npm, and
 **warns loudly if `allowedTools` ever reappears**. It compares **capture-normalized** forms —
 the live file legitimately carries machine-local keys that are deliberately untracked, so a raw
 diff would report permanent un-actionable drift. To record live changes:
@@ -369,7 +336,7 @@ blocked/working/done/idle state (what `claude/hooks/tmux-attention.sh` hand-roll
 for tmux), and — with the official integration installed — resumes Claude Code
 conversations across server restarts via `claude --resume <id>`.
 
-- **Config is symlinked, not copy-seeded.** Unlike Otty, herdr rewrites
+- **Config is symlinked, not copy-seeded.** Unlike `claude/settings.json`, herdr rewrites
   `~/.config/herdr/config.toml` **in place** (verified on 0.8.0: `herdr config
   reset-keys` preserves the inode), so the Dotbot `link:` entry is safe and live
   changes surface as `M herdr/config.toml` — diff and commit them, same as
@@ -393,7 +360,7 @@ conversations across server restarts via `claude --resume <id>`.
   the agent's own config (for claude: `~/.claude/hooks/herdr-agent-state.sh` +
   `~/.claude/settings.json`, which the auto-mode classifier blocks agents from
   editing). Installed: claude and codex, both v7; codex's hook lives in
-  `~/.codex/` and was merged alongside the pre-existing Otty hooks in
+  `~/.codex/` and was merged alongside the then-present Otty hooks in
   `hooks.json`. Check `herdr integration status` after major agent-CLI updates.
 - **Prefix is `ctrl+space`, deliberately matching tmux** — one muscle-memory
   "multiplexer key" across both apps, which are not nested in normal use. If you

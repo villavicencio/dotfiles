@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 #
 # report_drift.sh — READ-ONLY report of drift between this machine and the
-# tracked manifests (brew/Brewfile, npm/npm-requirements.txt, otty/).
+# tracked manifests (brew/Brewfile, npm/npm-requirements.txt) and tracked configs
+# delivered by copy (claude/settings.json).
 #
 # It NEVER modifies any manifest. It replaces the old regenerate-from-machine
 # habit (`brew bundle dump` / `ls $(npm root -g)`), which (a) recorded
@@ -190,70 +191,13 @@ else
   status=1
 fi
 
-# ---------------------------------------------------------------------------
-# Otty terminal config
-#
-# Otty is seeded by COPY, not symlinked (`otty config set` atomic-renames over
-# the path and would orphan a link — see helpers/install_otty.sh). A copy can
-# drift silently, so it gets a drift report like any other manifest.
-#
-# Compare the NORMALIZED forms (`otty config show`), not the raw files: the live
-# config accumulates a tail of `# key = value (reset to default)` comments that
-# would swamp a plain diff with non-differences. `config show` is verified
-# read-only and lossless (every live key appears in its output).
-# ---------------------------------------------------------------------------
-if [ "$(uname)" != "Darwin" ]; then
-  : # Otty is a macOS app; nothing to compare
-elif ! command -v otty >/dev/null 2>&1; then
-  : # Otty not installed on this machine; nothing to compare
-else
-  OTTY_TRACKED="$REPO_ROOT/otty/config.toml"
-  OTTY_LIVE="$HOME/.config/otty/config.toml"
-  OTTY_THEME_REL="themes/com-googlecode-iterm2.ottytheme"
-
-  hr "Otty: tracked config vs live ~/.config/otty/config.toml"
-  if [ ! -f "$OTTY_TRACKED" ]; then
-    echo "ERROR: tracked Otty config missing at $OTTY_TRACKED" >&2
-    status=1
-  elif [ ! -f "$OTTY_LIVE" ]; then
-    echo "  (not seeded on this machine yet — ./install will copy it in)"
-  # Normalize both sides. A `config show` failure must not read as "no drift",
-  # so capture each into a variable and error out if either command fails.
-  elif ! otty_live_norm="$(otty config show --config-file "$OTTY_LIVE" 2>/dev/null)"; then
-    echo "ERROR: 'otty config show' failed on $OTTY_LIVE — cannot compute Otty drift" >&2
-    status=1
-  elif ! otty_tracked_norm="$(otty config show --config-file "$OTTY_TRACKED" 2>/dev/null)"; then
-    echo "ERROR: 'otty config show' failed on $OTTY_TRACKED — cannot compute Otty drift" >&2
-    status=1
-  elif [ "$otty_live_norm" = "$otty_tracked_norm" ]; then
-    echo "  (in sync)"
-  else
-    echo "  live differs from tracked ('<' = live, '>' = repo):"
-    diff <(printf '%s\n' "$otty_live_norm") <(printf '%s\n' "$otty_tracked_norm") | indent
-    # Not a plain `cp`: the tracked file is the normalized form plus a comment
-    # header, both of which a raw copy would destroy. --capture regenerates it.
-    echo "  to record: bash helpers/install_otty.sh --capture"
-  fi
-
-  hr "Otty: tracked iTerm2-imported theme vs live"
-  if [ ! -f "$REPO_ROOT/otty/$OTTY_THEME_REL" ]; then
-    echo "ERROR: tracked Otty theme missing at $REPO_ROOT/otty/$OTTY_THEME_REL" >&2
-    status=1
-  elif [ ! -f "$HOME/.config/otty/$OTTY_THEME_REL" ]; then
-    echo "  (not seeded on this machine yet — ./install will copy it in)"
-  elif cmp -s "$REPO_ROOT/otty/$OTTY_THEME_REL" "$HOME/.config/otty/$OTTY_THEME_REL"; then
-    echo "  (in sync)"
-  else
-    echo "  live differs from tracked ('<' = live, '>' = repo):"
-    diff "$HOME/.config/otty/$OTTY_THEME_REL" "$REPO_ROOT/otty/$OTTY_THEME_REL" | indent
-  fi
-fi
 
 # ---------------------------------------------------------------------------
 # Claude Code settings.json
 # ---------------------------------------------------------------------------
 # Seeded by COPY, not symlinked: Claude Code itself, `herdr integration install`,
-# and Otty's agent-integration installer all rewrite the file in place, so a
+# and (until its 2026-09-03 removal) Otty's agent-integration installer rewrite the
+# file in place, so a
 # symlink there is orphaned on the first write (see helpers/install_claude_settings.sh).
 #
 # Compare the CAPTURE-NORMALIZED forms, not the raw files — the live file carries
