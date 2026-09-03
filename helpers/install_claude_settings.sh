@@ -2,10 +2,11 @@
 #
 # install_claude_settings.sh — seed Claude Code's user-scope settings.json.
 #
-# SEED-ONLY BY DESIGN, for the same reason as Otty (see install_otty.sh):
+# SEED-ONLY BY DESIGN, for the same reason the retired Otty config was (git history):
 # ~/.claude/settings.json has THREE independent writers besides this repo —
 # Claude Code itself (effortLevel, tui, notification prefs, autoMode),
-# `herdr integration install`, and Otty's agent-integration installer. Each
+# `herdr integration install`, and — until it was retired 2026-09-03 — Otty's
+# agent-integration installer. Each
 # rewrites the file in place, so a Dotbot `link:` there survives only until the
 # next write, after which the live file is a regular file and the repo copy is a
 # silently-orphaned stale twin.

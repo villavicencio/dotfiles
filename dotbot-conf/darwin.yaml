@@ -33,10 +33,6 @@
     # uv self-updates. The helper sets UV_NO_MODIFY_PATH=1 — without it the installer
     # appends PATH lines to .zshrc/.zshenv, which are Dotbot symlinks into this repo.
     - [bash helpers/install_uv.sh, "Installing uv (native installer)"]
-    # Otty is seeded by COPY, not linked — `otty config set` atomic-renames over
-    # the config path and would orphan a symlink. Hence a shell step here rather
-    # than an entry in the `link:` block below.
-    - [bash helpers/install_otty.sh, "Seeding Otty config (if absent)"]
     # Claude Code's settings.json is likewise seeded by COPY, not linked: Claude
     # Code itself, `herdr integration install`, and Otty's agent-integration
     # installer all rewrite it in place, so a symlink there is orphaned on the
