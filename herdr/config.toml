@@ -176,15 +176,6 @@ type = "shell"
 command = "/opt/homebrew/bin/herdr agent focus orrery"
 description = "jump to Orrery"
 
-[[keys.command]]
-# t as in a**t**las-**t**ools; free in herdr's defaults and unclaimed here.
-# Absolute path: [[keys.command]] shell commands run with the server's bare
-# launchd env, where /opt/homebrew/bin is not on PATH.
-key = "prefix+t"
-type = "shell"
-command = "/opt/homebrew/bin/herdr agent focus atlas-tools"
-description = "jump to Atlas Tools"
-
 # Legacy indexed shortcut config is still parsed for compatibility.
 # Prefer switch_tab, switch_workspace, and focus_agent for new configs.
 # [keys.indexed]

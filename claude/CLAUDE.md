@@ -266,8 +266,10 @@ rather than improvising a different shape in whatever project you're in:
   directory — not necessarily the pane's own, where a slug is shared with another
   surface — falling back to a fresh one where none exists; the trailing `exec zsh` is
   the "a pane never self-closes on `/exit`/crash" rule; canonical caveats live in the
-  dotfiles CLAUDE.md pane-template section). Remote surfaces use the repo-tracked
-  auto-reconnect shims in `dotfiles/herdr/shims/`.
+  dotfiles CLAUDE.md pane-template section). **The fleet is all-local since
+  2026-09-03** — the ssh shims that made remote panes detectable were removed with the
+  last remote surface; the dotfiles CLAUDE.md "Herdr" section records the mechanism if
+  one ever needs rebuilding.
 - **Config, shims, and the helper are dotfiles-tracked** — herdr changes ride a dotfiles
   branch/PR (config.toml is symlinked and writes back), never an ad-hoc edit to
   `~/.config/herdr/`.
