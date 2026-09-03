@@ -263,15 +263,13 @@ install via Homebrew casks in `brew/Brewfile`, not a helper.)
   into the agent's own config dir and is a human step, not an agent one (claude and
   codex installed, both v7). Custom `[[keys.command]]` shell commands run
   with the server's bare launchd PATH and fail silently — use absolute paths
-  (`/opt/homebrew/bin/herdr …`); key changes themselves hot-reload fine. The ssh shim
-  herdr's remote-agent detection depends on — `~/.local/bin/claude-code`, which backs
-  `atlas-tools ⚙` and formerly the retired `axiom ∴` — is a repo-tracked auto-reconnect
-  wrapper (`herdr/shims/`) seeded by
-  `helpers/install_herdr_agents.sh` (darwin.yaml); it execs a same-named raw ssh
-  alias in `~/.local/libexec/` (preserving the detected process name) in a retry
-  loop, so remote panes survive sleep/network loss and — the fleet "a pane never
-  self-closes" rule — drop to an interactive shell on clean detach rather than
-  closing. Local agents get the same rule via the pane template
+  (`/opt/homebrew/bin/herdr …`); key changes themselves hot-reload fine.
+  **The fleet is all-local as of 2026-09-03** — the ssh shims that made remote panes
+  detectable (the repo's shims directory, the `install_herdr_agents.sh` helper, its darwin.yaml step)
+  were removed when `atlas-tools ⚙`, the last remote surface, migrated to the Claude
+  Code desktop app. The mechanism, and the retirement order, are recorded in CLAUDE.md
+  and in git history. Local agents get the "a pane never self-closes" rule from the pane
+  template
   `["/bin/zsh", "-l", "-c", "claude --continue || claude; exec /bin/zsh -il"]`,
   whose `--continue || claude` pair also relaunches the agent into the **most
   recent session for that working directory** — usually, but not always, the
@@ -289,24 +287,13 @@ install via Homebrew casks in `brew/Brewfile`, not a helper.)
   it needs no shim either. (No hermes pane is in the fleet as of 2026-09-01: `atlas`
   and `vice` moved to the official Hermes Desktop app and were retired, along with
   the `hermes-agent` shim they were the only consumers of.)
-  `atlas-tools ⚙` (`prefix+t`) is a remote **Claude Code** surface, not a TUI
-  attach: the repo lives only at `/home/node/Projects/atlas-tools` on
-  openclaw-prod as user `node`, and **no Mac-side checkout exists**. herdr's pane
-  `cwd` is always local — it is where the ssh process starts — so a remote working
-  directory needs no local clone; the pane command establishes it remotely. It
-  reuses the existing `claude-code` ssh alias (detection keys on the ssh child's
-  process name, so several panes may share one alias with different args, told
-  apart by `herdr agent rename`; it shared the alias with `axiom ∴` until that
-  surface retired 2026-09-02). The remote tmux is addressed with
-  `-L atlas-tools -f /home/node/.config/tmux/atlas-tools.conf` and `new-session -A`, which
-  makes it self-healing across VPS reboots without a systemd unit. The conf file
-  is required because tmux defaults `set-titles` to `off` and that option is what
-  carries agent state out through a nested tmux — assume it is off on any socket
-  until checked, since this repo documented it as on for months while it was not.
-  A pane reading `agent_status: unknown` usually has a different cause entirely:
-  it has fallen through to the shim's clean-detach `zsh` fallback, so no agent
-  process exists to detect. Check `pane.process_info` before blaming detection
-  config.
+  `atlas-tools ⚙` was the fleet's last remote surface until 2026-09-03, when it
+  migrated to the Claude Code desktop app. Two of its findings generalize and are
+  kept: **a pane reading `agent_status: unknown` usually has no agent process at
+  all** — it fell through to the pane command's `exec /bin/zsh -il` fallback, which
+  local panes do too, so check `pane.process_info` before blaming detection config;
+  and **`set-titles` should be assumed off on any tmux socket until checked**, since
+  this repo documented it as on for months while a socket ran with tmux's default.
   A pane whose `layout.export` node has no `command` is degraded even though it
   still detects as an agent; rebuild it with `layout.apply` over the socket
   (recipe in CLAUDE.md).

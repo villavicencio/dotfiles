@@ -400,135 +400,67 @@ conversations across server restarts via `claude --resume <id>`.
   do nest, tmux's `send-prefix` binding passes it through on a double-tap. Herdr
   can host tmux in a pane or run inside tmux, but agent detection does not see
   through a nested tmux.
-- **Remote agent surface (`atlas-tools ⚙`):** the workspace hosts a VPS
-  surface through an ssh shim whose *name* matches a detection-manifest alias —
-  herdr identifies these ssh panes by process name. **The name trick is for ssh
-  panes only** — a *local* TUI needs none of it: claude and hermes panes are
-  detected natively regardless of process name (verified 2026-08-25 with a local
-  `hermes chat` running as venv python, which detected as `hermes`) — the documented
-  `HERDR_AGENT` env hint applies to sandbox-wrapper foregrounds (`fence`/`nono`)
-  and does NOT fire for ssh foregrounds on 0.8.0 (re-verified 2026-08-18:
-  ssh + env hint → pane undetected; herdrdev/herdr#2961 has the repro). Do not
-  re-derive the "HERDR_AGENT env pin is dead" finding from the 2026-08-18
-  morning session — it was a measurement artifact: `layout.apply`'s `env` IS
-  delivered to pane processes (verified by in-pane `printenv`); `ps eww`
-  cannot read other processes' env on modern macOS and shows nothing, which
-  faked the "var absent" result. Full write-up:
-  `docs/solutions/best-practices/verify-the-instrument-before-trusting-a-negative.md`. `~/.local/bin/claude-code`
-  attaches `atlas-tools ⚙`'s Claude Code (detected as claude, renamed
-  `atlas-tools`) as user **node** on the dedicated socket `-L atlas-tools`.
-  It is built to be shared by several panes — detection keys on the process
-  *name*, and the pane command supplies the differing args — which is how it
-  also served the retired `axiom ∴`. **Since
-  2026-08-19 the shim is a repo-tracked auto-reconnect wrapper**
-  (`herdr/shims/`, symlinked into `~/.local/bin`): it loops ssh via a raw
-  alias in `~/.local/libexec/<same-name>` (which preserves the detected
-  process name), retrying every 10s on any nonzero exit and closing only on
-  a clean detach (exit 0). Panes therefore survive sleep/network loss — the
-  single-pane workspaces no longer vanish overnight, agent renames persist,
-  and the #2966 restore boot-race self-heals. Client keepalives back it up:
-  `~/.ssh/config` `Host openclaw-prod` carries `ServerAliveInterval 60` +
-  `ServerAliveCountMax 120` (machine-local, untracked). The shim is
-  Dotbot-managed (`helpers/install_herdr_agents.sh`, darwin.yaml).
-  > **Retired 2026-09-02: `axiom ∴`.** Axiom migrated to Hermes, so the surface is
-  > gone: workspace closed, `prefix+d` removed and free, and `axiom-tmux.service`
-  > stopped on the VPS (by David, not this repo). **The `claude-code` shim stays** —
-  > unlike `hermes-agent`, it had a second consumer in `atlas-tools ⚙`, which is now
-  > the only remote surface. The diagnostic knowledge discovered while debugging this
-  > pane — the `unknown`-status tell and the recovery table below — is deliberately
-  > kept and re-anchored, since it applies to any remote pane.
+- **The fleet is all-local as of 2026-09-03.** `atlas-tools ⚙` was the last remote
+  surface; it migrated to the Claude Code desktop app, and with it the entire ssh-shim
+  apparatus lost its final consumer. Removed in the same change: the repo's shims directory (both wrappers), the `install_herdr_agents.sh` helper, its
+  `dotbot-conf/darwin.yaml` step, and the `~/.local/{bin,libexec}` symlinks they
+  seeded. Every pane in the fleet
+  is now a local Claude Code process using the pane template below, and nothing needs
+  the process-name detection trick.
+  > **Retirement order, for anyone reading the git history:** `atlas ⚓` + `vice ♠`
+  > (2026-09-01, to Hermes Desktop — took the `hermes-agent` shim with them),
+  > `axiom ∴` (2026-09-02, to Hermes — the `claude-code` shim survived because
+  > `atlas-tools` still used it), then `atlas-tools ⚙` (2026-09-03, to the Claude Code
+  > desktop app — which retired the shim and the whole apparatus). Jump keys
+  > `prefix+a`, `prefix+d`, `prefix+t`, and `prefix+shift+v` are all free again.
   >
-  > **Retired 2026-09-01: `atlas ⚓`, `vice ♠`, and the `hermes-agent` shim.**
-  > Atlas and Vice moved to the official **Hermes Desktop** app, so neither needs
-  > a herdr pane. Both workspaces are closed, both jump keys (`prefix+a`,
-  > `prefix+shift+v`) are removed and free, and the `hermes-agent` wrapper is
-  > deleted from `herdr/shims/` — `atlas ⚓` was its only consumer. The VPS side is untouched: the
-  > `hermes` tmux session and the gateway keep running, and Hermes Desktop is
-  > simply a different client to them. The old "a Hermes install clobbers
-  > `~/.local/bin/hermes-agent`" hazard no longer applies now that no shim owns
-  > that name; history is at `~/Projects/agents/docs/solutions/`
-  > `integration-issues/hermes-installer-clobbers-herdr-shim-hermes-agent-Mac-20260825.md`.
+  > **How the remote surfaces worked, if one ever returns.** herdr identifies a pane's
+  > agent by *process name* against its detection manifests, so an ssh pane was made
+  > detectable by invoking ssh through an alias named after the manifest entry
+  > (`claude-code`, `hermes-agent`). Each alias was a repo-tracked auto-reconnect
+  > wrapper that exec'd a same-named raw ssh alias in `~/.local/libexec/`, retrying on
+  > any nonzero exit and dropping to an interactive shell on clean detach. One alias
+  > could serve several panes, told apart by `herdr agent rename`. `HERDR_AGENT` does
+  > **not** work as an identity pin for ssh foregrounds (herdrdev/herdr#2961). Nested
+  > tmux needed `set-titles on` for OSC titles to carry agent state outward — and
+  > assume that is off on any socket until checked, since this file claimed it was on
+  > for months while one socket ran with tmux's `off` default. Full mechanism, wrappers,
+  > and the VPS-side details are in this file's git history.
 
-  Each remote tmux carries `set-titles on` + `set-titles-string "#{pane_title}"` so
-  the TUIs' OSC titles drive herdr states through the nested tmux. Never
-  restart `hermes-tmux.service` casually — it drops Atlas's in-memory history
-  (see ~/Projects/agents docs for Hermes rules).
-- **`atlas-tools ⚙` — a remote CLAUDE CODE surface, not a TUI attach** (added
-  2026-08-25, `prefix+t`). It reuses the existing `claude-code` ssh alias rather
-  than adding its own shim: detection keys on the ssh child's *process name*, and
-  several panes may share one alias since the pane command supplies different args
-  — `herdr agent rename` is what tells them apart. It shared the alias with
-  `axiom ∴` until that surface was retired 2026-09-02; the sharing mechanism is
-  still the reason a new remote pane needs no new shim.
-
-  ```text
-  cwd:     $HOME                        # local placeholder — herdr's cwd is ALWAYS local
-  command: ~/.local/bin/claude-code root@openclaw-prod -t \
-           "sudo -u node tmux -L atlas-tools -f /home/node/.config/tmux/atlas-tools.conf \
-            new-session -A -s ATLAS-TOOLS -c /home/node/Projects/atlas-tools"
-  ```
-
-  **A remote project needs no Mac-side checkout.** herdr's pane `cwd` is where the
-  local ssh process starts and nothing more; the working directory is established
-  remotely by the ssh command. The repo lives only at
-  `/home/node/Projects/atlas-tools` on openclaw-prod, owned by `node`, and every
-  git/uv/test/lint/Claude Code command runs there.
-
-  `new-session -A` makes the pane **self-healing**: it attaches if the session
-  exists and creates it otherwise, so a VPS reboot needs no systemd unit — the
-  auto-reconnect shim retries, and the first successful attach rebuilds the
-  session. This is why `atlas-tools` has no `*-tmux.service` twin.
-
-  **`-f <conf>` is load-bearing.** tmux's `set-titles` default is `off`, and that
-  option is what forwards the inner TUI's OSC title outward for herdr to read
-  state through a nested tmux. node has no `~/.tmux.conf`, and options set at
-  runtime die with the tmux server — so the socket gets its own conf file,
-  scoped with `-L`/`-f` so it cannot disturb the `default` socket.
-  > **Assume `set-titles` is off until you check.** The retired `axiom` socket ran
-  > with tmux's `off` default until 2026-08-25 while this file claimed every remote
-  > tmux carried it on — the doc was wrong for months and nothing surfaced it.
-  > Verify per socket rather than trusting this section.
+- **Diagnosing a pane that is not what it looks like.** Discovered on remote panes,
+  but the mechanics are not remote-specific — a local agent that exits drops to the
+  same `exec /bin/zsh -il` fallback, so these still apply.
+  > **A workspace reading `agent_status: unknown` means look at the pane's foreground
+  > process first** (`pane.process_info`) — a fallback `zsh` is the tell. No agent
+  > process means nothing to detect; it is not a detection bug.
   >
-  > **A missing `set-titles` was NOT why `axiom ∴` once read `agent_status:
-  > unknown`** — a first guess
-  > that the evidence killed. The pane was running `/bin/zsh -il`, the shim's
-  > clean-detach fallback: something detached the ssh, the wrapper exited 0, and
-  > the pane sat at a shell. No agent process, so nothing to detect. The remote
-  > side was healthy the whole time (`claude --continue` alive, session intact).
-  > **A workspace reading `unknown` means look at the pane's foreground process
-  > first** (`pane.process_info`) — a fallback `zsh` is the tell.
-  >
-  > **`layout.export` then splits it into two cases, and they want different
-  > repairs** (established 2026-08-26 and re-confirmed 2026-09-02, both times
-  > reconnecting a remote pane; the table applies to any of them):
+  > **`layout.export` then splits it into two cases, wanting different repairs**
+  > (established 2026-08-26, re-confirmed 2026-09-02):
   >
   > | Export shows | Cause | Repair |
   > |---|---|---|
   > | **no `command`** key | the #2966 restore boot-race — the command was dropped | `layout.apply` to rebuild the pane |
-  > | `command` **present** | clean detach — ssh exited 0, shim broke its retry loop by design | `herdr pane run <pane-id> 'exec <the command>'` |
-  > | `command` present, foreground is `ssh` (not `claude-code`) | someone re-attached **by hand** from the fallback shell — `ssh -t root@…`, then `su - node` + `claude` outside tmux. The agent is live remotely but herdr can't see it: detection keys on the process *name*, and a bare `ssh` isn't the alias | in-pane: `/exit` the remote claude (transcript persists), `exit` each shell until the local zsh is back, then the case-2 `exec`, then `claude --continue` inside the new tmux |
+  > | `command` **present** | the agent exited and the pane held at its fallback shell | `herdr pane run <pane-id> 'exec <the command>'` |
   >
-  > Reach for `layout.apply` only in the first case. The third case (added 2026-08-27,
-  > `atlas-tools ⚙`) looks like the second in `layout.export` and like a healthy pane on
-  > screen — a full Claude Code TUI, correct cwd — and only `pane.process_info` gives it
-  > away. `claude --continue` in the tmux'd shell resumed the same session (`ctx` unchanged),
-  > so nothing is lost; the cost of leaving it is that the un-tmux'd claude dies with the
-  > next disconnect. In the second the layout is
+  > Reach for `layout.apply` only in the first case. In the second the layout is
   > already correct and only the *process* fell back, so rebuilding is destructive
   > overkill: it kills the pane and mints a new `pane_id`. `herdr pane run
   > <PANE_ID> <COMMAND>` sends text plus Enter in one call and reuses the existing
-  > pane, so the id survives. Prefix the command with `exec` so the shim replaces
-  > the fallback shell rather than nesting inside it — the shim re-execs its own
-  > `/bin/zsh -il` on the next clean detach, so never-self-close still holds.
+  > pane, so the id survives. Prefix the command with `exec` so it replaces the
+  > fallback shell rather than nesting inside it — the command re-execs its own
+  > `/bin/zsh -il` on the next exit, so never-self-close still holds.
+  >
+  > A third case existed while the fleet had remote panes: `command` present but the
+  > foreground was a bare `ssh`, meaning someone had re-attached by hand outside the
+  > shim. It looked healthy on screen and only `pane.process_info` gave it away. Moot
+  > now that no pane runs ssh, but the shape — *the screen lies, the process does not*
+  > — is the reusable lesson.
   >
   > **Re-run `herdr agent rename` either way.** The name binding is released when
   > the agent *process* dies, not only when the pane is recreated — verified
   > 2026-08-26: the pane id was reused and `name` still came back `null`, breaking
   > the jump key, which targets the name. An earlier version of this note said
   > "since a recreated pane loses its name," which is narrower than the truth.
-  >
-  > Check the remote before repairing anything local: the VPS session usually
-  > outlives the disconnect, so reattaching restores the conversation intact.
 
 - **Local agent pane template (fleet standard, revised 2026-08-27):** a local
   Claude Code agent runs as a declarative pane with command
@@ -548,8 +480,8 @@ conversations across server restarts via `claude --resume <id>`.
   carries the conversation across a clean server restart. Rename with `herdr
   agent rename`; the binding releases when the agent *process* dies, so reapply
   after a degraded restore, along with `layout.apply` if the command was dropped
-  (#2966). The same never-self-close rule is baked into the remote shim wrappers
-  (`herdr/shims/`), so it holds fleet-wide. **When building any new agent, use
+  (#2966). The never-self-close rule was also baked into the retired remote shim
+  wrappers, so it has always held fleet-wide. **When building any new agent, use
   this template and route the change through the standard flow** (see the global
   CLAUDE.md "Herdr fleet & agent building").
   - **Why `--continue` is the template default and not a repair-time opt-in**

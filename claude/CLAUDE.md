@@ -266,11 +266,16 @@ rather than improvising a different shape in whatever project you're in:
   directory — not necessarily the pane's own, where a slug is shared with another
   surface — falling back to a fresh one where none exists; the trailing `exec zsh` is
   the "a pane never self-closes on `/exit`/crash" rule; canonical caveats live in the
-  dotfiles CLAUDE.md pane-template section). Remote surfaces use the repo-tracked
-  auto-reconnect shims in `dotfiles/herdr/shims/`.
-- **Config, shims, and the helper are dotfiles-tracked** — herdr changes ride a dotfiles
-  branch/PR (config.toml is symlinked and writes back), never an ad-hoc edit to
-  `~/.config/herdr/`.
+  dotfiles CLAUDE.md pane-template section). **The fleet is all-local since
+  2026-09-03** — the ssh shims that made remote panes detectable were removed with the
+  last remote surface; the dotfiles CLAUDE.md "Herdr" section records the mechanism if
+  one ever needs rebuilding.
+- **Herdr config is dotfiles-tracked** — herdr changes ride a dotfiles branch/PR
+  (config.toml is symlinked and writes back), never an ad-hoc edit to
+  `~/.config/herdr/`. The ssh shims and their install helper were tracked the same way
+  until they retired with the last remote surface on 2026-09-03; if a remote pane ever
+  returns, rebuild them under the same rule rather than hand-placing files in
+  `~/.local/bin`.
 - **New local project agent → also do the standard bootstrap**: per-agent Obsidian vault
   (see the vault section above), a project CLAUDE.md, and a jump key.
 - The canonical, detailed procedure — pane templates, the launchd-PATH rule, the socket
