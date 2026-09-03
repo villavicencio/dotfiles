@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 #
 # report_drift.sh — READ-ONLY report of drift between this machine and the
-# tracked manifests (brew/Brewfile, npm/npm-requirements.txt).
+# tracked manifests (brew/Brewfile, npm/npm-requirements.txt) and tracked configs
+# delivered by copy (claude/settings.json).
 #
 # It NEVER modifies any manifest. It replaces the old regenerate-from-machine
 # habit (`brew bundle dump` / `ls $(npm root -g)`), which (a) recorded
