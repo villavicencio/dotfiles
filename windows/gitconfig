@@ -5,11 +5,16 @@
 # here. (A stub rather than a symlink to git/gitconfig: git has no OS-conditional
 # include, so the shared file cannot pull this one in by itself.)
 
-# core.autocrlf = input is deliberately NOT here - it is in the ~/.gitconfig stub
-# that install.ps1 writes. This file lives in the worktree, so a checkout of any
-# commit that lacks it drops the include mid-checkout and Git for Windows' system
-# autocrlf=true takes over, rewriting files with CRLF. See
-# docs/solutions/cross-machine/windows-target-gotchas-2026-09-24.md.
+# core.autocrlf = input is set in TWO places on purpose. Git for Windows' system
+# config says true, which checks files out with CRLF, so either copy missing is a
+# regression:
+#   - the ~/.gitconfig stub (install.ps1): outside the worktree, so it survives a
+#     checkout of any commit that lacks this file - the primary copy;
+#   - here: covers a machine whose stub predates the stub copy, until install.ps1
+#     is re-run (a pull alone would otherwise leave it with neither).
+# See docs/solutions/cross-machine/windows-target-gotchas-2026-09-24.md.
+[core]
+    autocrlf = input
 
 # credential.helper is multi-valued: an empty value resets the list inherited
 # from git/gitconfig (osxkeychain + the /usr/local GCM path, neither of which

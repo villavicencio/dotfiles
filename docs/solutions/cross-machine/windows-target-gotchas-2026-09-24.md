@@ -73,7 +73,10 @@ missing include, so `autocrlf` fell back to the system `true`, and the following
 `i/lf w/crlf`). That included `helpers/generate_docs_index.sh`, which bash
 can't run with CRLF. It also defeats a repair: deleting and re-checking-out
 those files deletes `windows/gitconfig` too, so the checkout runs as `true`
-again. The setting now lives in the stub, which is outside the repo. To repair a
+again. The setting now lives in the stub, which is outside the repo. It also
+stays in `windows/gitconfig`, because removing it from there would give a
+machine whose stub predates #187 *neither* copy after a pull. Each copy covers
+the case where the other is missing (CodeRabbit on #187). To repair a
 tree that's already affected, force the value for that one command:
 `git -c core.autocrlf=input checkout -- <files>`. The credential overrides
 still live in `windows/gitconfig`, so on a branch from before #186 git falls

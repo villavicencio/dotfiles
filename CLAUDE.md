@@ -986,6 +986,9 @@ What `install.ps1` does, in order — each step idempotent, `-DryRun` mutates no
      **anything that governs checkout must live outside the worktree.** A setting in
      `windows/gitconfig` vanishes whenever a checkout removes that file (any commit
      before #186), and git then rewrites files with CRLF under the system `autocrlf=true`.
+     `windows/gitconfig` keeps a second copy on purpose: a machine whose stub predates #187
+     still gets `input` from it after a pull, until `install.ps1` is re-run. Don't remove
+     either copy.
    - `$PROFILE` dot-sources `windows/powershell/profile.ps1`. `$PROFILE` lives under
      Documents, which OneDrive commonly redirects and syncs, and OneDrive handles symlinks
      badly. Resolve Documents with `[Environment]::GetFolderPath('MyDocuments')`, never
