@@ -1,11 +1,12 @@
 # Dotfiles
 
-This repo is the single source of truth for two Macs:
+This repo is the single source of truth for two Macs and a Windows gaming PC:
 
 | Machine | OS | Hardware | Role |
 |---|---|---|---|
 | personal | macOS Tahoe | M-series | Primary, source of truth |
 | work | macOS Sequoia | M-series | corporate-managed |
+| gaming-pc | Windows 11 Pro | Ryzen 7 5800X / RTX 3070 | Gaming; set up by `install.ps1`, not Dotbot (see "Setting up the Windows PC") |
 
 Managed by [Dotbot](https://github.com/anishathalye/dotbot). Run `./install` to set up a machine — the wrapper runs a shared `dotbot-conf/base.yaml` and then the platform layer (`dotbot-conf/darwin.yaml` on Darwin, `dotbot-conf/linux.yaml` on Linux) automatically (no active Linux target as of 2026-05-21 — the Hetzner VPS was re-purposed away from a dotfiles tree; see retire-noted runbook in `docs/solutions/cross-machine/vps-dotfiles-target.md` if you ever want to revive a Linux target).
 
@@ -36,6 +37,11 @@ lazygit/        lazygit config
 npm/            npm global package list (npm-requirements.txt)
 nvim/           Neovim config (custom/ is symlinked into ~/.config/nvim/)
 starship/       Starship prompt config (command_timeout is a global top-level key)
+windows/        Windows layer, applied by install.ps1 at the repo root (NOT Dotbot):
+  packages.json           winget package list — the Brewfile counterpart
+  gitconfig               overrides chained after git/gitconfig by the ~/.gitconfig stub
+  powershell/profile.ps1  PowerShell 7 profile — the zshrc + alias.sh counterpart
+  terminal/dotfiles.json  Windows Terminal fragment — the iTerm dynamic-profile counterpart
 bin/            Repo CLI — bin/dot (symlinked to ~/.local/bin/dot)
   lib/*.py      Python helpers for doctor/bench. Real files, NOT heredocs — see
                 "No heredocs in bin/dot" below
@@ -134,9 +140,10 @@ the hook silently reports "no leaks found" on every commit — verified against
 gitleaks v8.30.1. If gitleaks's hook config ever fixes this upstream, the override
 becomes a harmless no-op.
 
-**Version pin.** Gitleaks version is pinned in two places that must match: the `rev:` in
-`.pre-commit-config.yaml` and `GITLEAKS_VERSION` in `helpers/install_pre_commit.sh`
-(used for the Linux binary download). Bump both together.
+**Version pin.** Gitleaks version is pinned in three places that must match: the `rev:` in
+`.pre-commit-config.yaml`, `GITLEAKS_VERSION` in `helpers/install_pre_commit.sh`
+(used for the Linux binary download), and the `Gitleaks.Gitleaks` `Version` in
+`windows/packages.json`. Bump all three together.
 
 ### Node version
 `NODE_VERSION` is defined in `zsh/zshenv` and used by `helpers/install_node.sh`.
@@ -936,6 +943,67 @@ together:
 5. Runs helper scripts: omz, brew, Brewfile, tmux, nvim, nvm, node (fonts install via Brewfile casks)
 
 Helper scripts are in `helpers/`. Each is independently runnable.
+
+On Windows, `install.ps1` replaces all of the above — see the next section.
+
+---
+
+## Setting up the Windows PC
+
+The Windows layer is **PowerShell, not Dotbot**: Dotbot's `shell` directives assume a
+POSIX shell, and nothing in `base.yaml` (zsh, Oh My Zsh, tmux, Homebrew) applies. The glue
+stays in the platform's native shell, per
+`docs/solutions/best-practices/keep-dotfiles-glue-layer-in-shell-not-rust-lua-2026-05-30.md`.
+
+1. Turn on Developer Mode (Settings → System → For developers) so symlinks work unelevated.
+2. Install PowerShell 7 and git: `winget install Microsoft.PowerShell Git.Git`
+3. Clone with LF line endings — Git for Windows' system config sets `core.autocrlf=true`,
+   which would check the shell scripts out as CRLF before `windows/gitconfig` can override it:
+   ```powershell
+   git -c core.autocrlf=input clone https://github.com/villavicencio/dotfiles.git $HOME\Projects\Personal\dotfiles
+   ```
+4. `cd $HOME\Projects\Personal\dotfiles`, then `pwsh -File install.ps1 -DryRun` to preview
+   and `pwsh -File install.ps1` to apply. A failed step does not stop the others; the
+   script exits 1 and lists what failed.
+5. `gh auth login` (the github.com credential helper in `windows/gitconfig` is `gh`).
+
+What `install.ps1` does, in order — each step idempotent, `-DryRun` mutates nothing:
+
+1. `winget import windows/packages.json --no-upgrade` — installs what is missing and never
+   upgrades what is present (without `--no-upgrade` it upgrades every outdated package,
+   running apps included). Upgrades are topgrade's job (`update`).
+2. Symlinks the configs shared with macOS — `git/gitignore`, `git/gitattributes`,
+   `starship/starship.toml`, `lazygit/config.yml` (into `%APPDATA%`), `claude/CLAUDE.md` —
+   plus the Windows Terminal fragment. A real file in the way is moved to
+   `<name>.pre-dotfiles`, never deleted.
+3. Writes two **stubs** rather than links:
+   - `~/.gitconfig` `[include]`s `git/gitconfig` then `windows/gitconfig`. Git has no
+     OS-conditional include, so the shared file cannot pull in the Windows overrides itself.
+     The overrides reset the multi-valued `credential.helper` lists with an empty value
+     (dropping `osxkeychain` and the `/opt/homebrew/bin/gh` path) before adding
+     `manager` / the Windows `gh.exe`.
+   - `$PROFILE` dot-sources `windows/powershell/profile.ps1`. `$PROFILE` lives under
+     Documents, which OneDrive commonly redirects and syncs, and OneDrive handles symlinks
+     badly. Resolve Documents with `[Environment]::GetFolderPath('MyDocuments')`, never
+     hardcode it.
+4. `pre-commit install` (pre-commit via `uv tool`; gitleaks via winget, **pinned in
+   `windows/packages.json` too** — that is a third place the gitleaks version must match).
+
+Windows-specific rules:
+
+- **Never seed `claude/settings.json` on Windows.** Every hook in it calls tmux/herdr bash
+  scripts; on Windows they would error on every event. A Windows settings seed is future work.
+- **`claude/CLAUDE.md` IS linked on Windows** — its Mac-only sections (vaults, herdr, Obscura)
+  already say so.
+- **`topgrade/topgrade.toml` is NOT linked on Windows** — its `[commands]` entry is POSIX
+  shell. Topgrade runs on defaults there.
+- **Machine-local overrides:** `~/env.ps1` (sourced last by the profile) is the `~/env.sh`
+  counterpart; `~/.gitconfig.local` works unchanged.
+- **Windows Terminal's `settings.json` is app-rewritten** — same trap as Claude's. Tracked
+  terminal config goes in the fragment (`windows/terminal/dotfiles.json`), which Terminal
+  only reads.
+
+Gotchas behind these rules: `docs/solutions/cross-machine/windows-target-gotchas-2026-09-24.md`.
 
 ---
 

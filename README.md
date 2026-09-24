@@ -2,11 +2,12 @@
 
 [![install-matrix](https://github.com/villavicencio/dotfiles/actions/workflows/install-matrix.yml/badge.svg)](https://github.com/villavicencio/dotfiles/actions/workflows/install-matrix.yml)
 
-Personal macOS dotfiles — the single source of truth for two Macs (a primary
-personal machine and a corporate-managed work machine). Managed by
-[Dotbot](https://github.com/anishathalye/dotbot): idempotent symlinking plus a
-handful of helper scripts that install Homebrew packages, Oh My Zsh, tmux/nvim
-plugins, Nerd Fonts, and a gitleaks pre-commit hook.
+Personal dotfiles — the single source of truth for two Macs (a primary
+personal machine and a corporate-managed work machine) and a Windows gaming PC.
+The Macs are managed by [Dotbot](https://github.com/anishathalye/dotbot):
+idempotent symlinking plus a handful of helper scripts that install Homebrew
+packages, Oh My Zsh, tmux/nvim plugins, Nerd Fonts, and a gitleaks pre-commit
+hook. Windows has its own PowerShell installer (see [Windows](#windows)).
 
 ## Install
 
@@ -34,6 +35,24 @@ a dry run. After a first install, make zsh your default shell and re-login:
 ```sh
 chsh -s "$(which zsh)"
 ```
+
+### Windows
+
+With Developer Mode on (for symlinks), PowerShell 7 and git installed
+(`winget install Microsoft.PowerShell Git.Git`):
+
+```powershell
+git -c core.autocrlf=input clone https://github.com/villavicencio/dotfiles.git $HOME\Projects\Personal\dotfiles
+cd $HOME\Projects\Personal\dotfiles
+pwsh -File install.ps1 -DryRun   # preview; changes nothing
+pwsh -File install.ps1
+```
+
+`install.ps1` installs `windows/packages.json` with winget, links the configs
+shared with macOS (git ignore/attributes, Starship, lazygit, the global
+`CLAUDE.md`), writes stubs for `~/.gitconfig` and the PowerShell profile, and
+installs the gitleaks pre-commit hook. Details in [`CLAUDE.md`](CLAUDE.md)
+under "Setting up the Windows PC".
 
 ## The `dot` command
 
@@ -66,6 +85,7 @@ operations — no new dependencies:
 | `claude/` | Claude Code config, statusline, hooks (symlinked into `~/.claude/`) |
 | `docs/` | solution write-ups (`docs/solutions/`) and planning artifacts |
 | `ci/` | CI assets (Dockerfile for the install-matrix workflow) |
+| `windows/` | Windows layer for `install.ps1`: winget packages, gitconfig overrides, PowerShell profile, Windows Terminal fragment |
 
 ## Machine-specific overrides (not tracked)
 

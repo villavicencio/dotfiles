@@ -1,0 +1,108 @@
+{
+    "$schema":  "https://aka.ms/winget-packages.schema.2.0.json",
+    "CreationDate":  "2026-09-24T00:00:00.000-07:00",
+    "Sources":  [
+                    {
+                        "Packages":  [
+                                         {
+                                             "PackageIdentifier":  "Microsoft.PowerShell"
+                                         },
+                                         {
+                                             "PackageIdentifier":  "Microsoft.WindowsTerminal"
+                                         },
+                                         {
+                                             "PackageIdentifier":  "Starship.Starship"
+                                         },
+                                         {
+                                             "PackageIdentifier":  "ajeetdsouza.zoxide"
+                                         },
+                                         {
+                                             "PackageIdentifier":  "junegunn.fzf"
+                                         },
+                                         {
+                                             "PackageIdentifier":  "DEVCOM.JetBrainsMonoNerdFont"
+                                         },
+                                         {
+                                             "PackageIdentifier":  "eza-community.eza"
+                                         },
+                                         {
+                                             "PackageIdentifier":  "sharkdp.bat"
+                                         },
+                                         {
+                                             "PackageIdentifier":  "sharkdp.fd"
+                                         },
+                                         {
+                                             "PackageIdentifier":  "BurntSushi.ripgrep.MSVC"
+                                         },
+                                         {
+                                             "PackageIdentifier":  "jqlang.jq"
+                                         },
+                                         {
+                                             "PackageIdentifier":  "7zip.7zip"
+                                         },
+                                         {
+                                             "PackageIdentifier":  "Git.Git"
+                                         },
+                                         {
+                                             "PackageIdentifier":  "GitHub.cli"
+                                         },
+                                         {
+                                             "PackageIdentifier":  "dandavison.delta"
+                                         },
+                                         {
+                                             "PackageIdentifier":  "JesseDuffield.lazygit"
+                                         },
+                                         {
+                                             "PackageIdentifier":  "Gitleaks.Gitleaks",
+                                             "Version":  "8.30.1"
+                                         },
+                                         {
+                                             "PackageIdentifier":  "Anysphere.Cursor"
+                                         },
+                                         {
+                                             "PackageIdentifier":  "astral-sh.uv"
+                                         },
+                                         {
+                                             "PackageIdentifier":  "Microsoft.WSL"
+                                         },
+                                         {
+                                             "PackageIdentifier":  "topgrade-rs.topgrade"
+                                         },
+                                         {
+                                             "PackageIdentifier":  "Microsoft.PowerToys"
+                                         },
+                                         {
+                                             "PackageIdentifier":  "AgileBits.1Password"
+                                         },
+                                         {
+                                             "PackageIdentifier":  "TheBrowserCompany.Arc"
+                                         },
+                                         {
+                                             "PackageIdentifier":  "BillStewart.SyncthingWindowsSetup"
+                                         },
+                                         {
+                                             "PackageIdentifier":  "Logitech.OptionsPlus"
+                                         },
+                                         {
+                                             "PackageIdentifier":  "Valve.Steam"
+                                         },
+                                         {
+                                             "PackageIdentifier":  "RockstarGames.Launcher"
+                                         },
+                                         {
+                                             "PackageIdentifier":  "TechPowerUp.GPU-Z"
+                                         },
+                                         {
+                                             "PackageIdentifier":  "Nvidia.FrameView"
+                                         }
+                                     ],
+                        "SourceDetails":  {
+                                              "Argument":  "https://cdn.winget.microsoft.com/cache",
+                                              "Identifier":  "Microsoft.Winget.Source_8wekyb3d8bbwe",
+                                              "Name":  "winget",
+                                              "Type":  "Microsoft.PreIndexed.Package"
+                                          }
+                    }
+                ],
+    "WinGetVersion":  "1.29.380"
+}

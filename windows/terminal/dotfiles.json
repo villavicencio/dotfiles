@@ -1,0 +1,10 @@
+{
+  "$help": "Windows Terminal JSON fragment (the counterpart of iterm/profile-dynamic.json). Linked by install.ps1 into %LOCALAPPDATA%/Microsoft/Windows Terminal/Fragments/dotfiles/. Terminal only reads fragments, so unlike its settings.json this file never gets rewritten under us.",
+  "profiles": [
+    {
+      "$help": "PowerShell 7 (the dynamic profile Terminal generates for pwsh; its GUID is fixed). The Nerd Font is what renders starship/starship.toml's glyphs.",
+      "updates": "{574e775e-4f2a-5b96-ac1e-a2962a402336}",
+      "font": { "face": "JetBrainsMono Nerd Font" }
+    }
+  ]
+}
