@@ -183,7 +183,12 @@ draws from one shared pool: a quiet repo can hit the ceiling it never spent. Per
 optional usage-based add-on. **This account is on the free plan as of 2026-09-24 — 1 included
 review per hour** (David, 2026-09-24; CodeRabbit's review footer on dotfiles #186 the same day:
 "Your plan provides up to 1 included review per hour"). It was Pro+ at 10/hr before that (footer
-on dotfiles #171, 2026-08-24). One review an hour covers every repo and agent together, so the
+on dotfiles #171, 2026-08-24). **On the free plan a repo with fewer than 10 GitHub stars gets no
+automatic review** (David, 2026-09-24) — every round, including a PR's first, must be requested
+with `@coderabbitai review`. Observed: dotfiles #187 (opened 2026-09-24 16:27 UTC) got no
+automatic review, while #186 three hours earlier still did, presumably before the plan change took
+effect. So after opening a PR here, request the review; don't wait for one that will never start.
+One review an hour covers every repo and agent together, so the
 first review of a PR can use up the hour and its fix round then waits — plan PRs around that
 rather than splitting work finely. A request sent while throttled only returns `Review rate
 limited`; CodeRabbit's "Review limit reached" comment on the PR states when the next review is

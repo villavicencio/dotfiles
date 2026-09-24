@@ -7,8 +7,10 @@
 # draws from that same allowance. By default each push
 # triggers a re-review and spends from that pool on intermediate commits.
 #
-# auto_incremental_review: false makes re-review a deliberate act. The first review of a
-# PR is still automatic; each later round is requested with `@coderabbitai review`. That
+# auto_incremental_review: false makes re-review a deliberate act. On a paid plan the
+# first review of a PR is still automatic; on the free plan this repo (under 10 stars)
+# gets no automatic reviews at all, so every round - the first included - is requested
+# with `@coderabbitai review`. Each later round is requested the same way. That
 # matches the fix -> push -> request -> re-review loop in the global CLAUDE.md "Code
 # Review" section without spending a review on every commit. `@coderabbitai rate limit`
 # reports remaining capacity and does not consume a review.
