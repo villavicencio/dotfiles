@@ -43,6 +43,9 @@ windows/        Windows layer, applied by install.ps1 at the repo root (NOT Dotb
   gitconfig               overrides chained after git/gitconfig by the ~/.gitconfig stub
   powershell/profile.ps1  PowerShell 7 profile — the zshrc + alias.sh counterpart
   terminal/dotfiles.json  Windows Terminal fragment — the iTerm dynamic-profile counterpart
+  tweaks.ps1              system settings (mouse, Game Bar, GPU scheduling, time sync,
+                          Terminal default profile) — the `defaults write` counterpart;
+                          a separate opt-in step, NOT run by install.ps1
 bin/            Repo CLI — bin/dot (symlinked to ~/.local/bin/dot)
   lib/*.py      Python helpers for doctor/bench. Real files, NOT heredocs — see
                 "No heredocs in bin/dot" below
@@ -968,6 +971,8 @@ stays in the platform's native shell, per
    and `pwsh -File install.ps1` to apply. A failed step does not stop the others; the
    script exits 1 and lists what failed.
 5. `gh auth login` (the github.com credential helper in `windows/gitconfig` is `gh`).
+6. System settings, from an **elevated** `pwsh`: `pwsh -File windows/tweaks.ps1 -DryRun`,
+   then without `-DryRun`. See "System tweaks" below.
 
 What `install.ps1` does, in order — each step idempotent, `-DryRun` mutates nothing:
 
@@ -1009,7 +1014,36 @@ Windows-specific rules:
   counterpart; `~/.gitconfig.local` works unchanged.
 - **Windows Terminal's `settings.json` is app-rewritten** — same trap as Claude's. Tracked
   terminal config goes in the fragment (`windows/terminal/dotfiles.json`), which Terminal
-  only reads.
+  only reads. The one exception is `defaultProfile`, which a fragment cannot set:
+  `windows/tweaks.ps1` edits that single line in place.
+
+### System tweaks (`windows/tweaks.ps1`)
+
+The counterpart of macOS `defaults write`: a data-driven list (`$Tweaks`) of Windows settings,
+each read live and reported `ok`, `would set` (`-DryRun`) or `set`. Before a change it saves
+the prior values under `%LOCALAPPDATA%\dotfiles\tweaks-backups\<timestamp>\`. A failing entry
+doesn't stop the others; the script exits 1 and lists them.
+
+- **Separate from `install.ps1` on purpose.** Some entries write HKLM or run `w32tm` and need
+  elevation, and `install.ps1` stays unelevated. An unelevated run still *reads* the admin
+  entries (reported `ok` when correct); it records a failure only when one would have to
+  change. It also changes the live session (mouse), which a routine re-install shouldn't do.
+- **Record only what this PC already has.** An entry lands after the setting was changed by
+  hand and verified, and `-DryRun` must then read `ok` on every line. The script is a record,
+  not a place to try new settings. Current entries: mouse acceleration off, Game Bar
+  background recording off, hardware-accelerated GPU scheduling on (admin, needs a restart),
+  Windows Time syncing from `time.windows.com,0x9` (admin), and Terminal's default profile
+  = PowerShell 7.
+- **An entry changes a setting through the API that applies it live, not only the registry.**
+  Mouse: `SystemParametersInfo(SPI_SETMOUSE, [0,0,0], SPIF_UPDATEINIFILE|SPIF_SENDCHANGE)`
+  writes the same three `HKCU\Control Panel\Mouse` values *and* changes the running session.
+  A registry-only write waits for the next sign-in, so the mouse entry also compares
+  `SPI_GETMOUSE` with the registry. Time: `w32tm /config … /update` makes the running service
+  re-read its settings, then `/resync` syncs now. That entry proves the *configuration*, not
+  that a sync happened. `w32tm /query /status` shows the last sync.
+- **Never name a `$Tweaks` key `Values`, `Keys` or `Count`.** On an entry without that key,
+  `$t.Values` returns the hashtable's own `.Values` collection instead of `$null`, so the
+  entry gets treated as a registry entry. That's why the registry list is called `Registry`.
 
 Gotchas behind these rules: `docs/solutions/cross-machine/windows-target-gotchas-2026-09-24.md`.
 

@@ -62,7 +62,8 @@ bin/        Repo CLI — bin/dot (symlinked to ~/.local/bin/dot)
             bin/lib/*.py — Python helpers for doctor/bench, deliberately NOT heredocs
 windows/    Windows layer, applied by install.ps1 (repo root): packages.json (winget),
             gitconfig (overrides chained after git/gitconfig), powershell/profile.ps1,
-            terminal/dotfiles.json (Windows Terminal fragment)
+            terminal/dotfiles.json (Windows Terminal fragment); tweaks.ps1 (system
+            settings, the `defaults write` counterpart; opt-in, not run by install.ps1)
 ```
 
 ---
@@ -241,6 +242,13 @@ install via Homebrew casks in `brew/Brewfile`, not a helper.)
 `$PROFILE`, then the pre-commit hook. Full steps and rules: "Setting up the Windows PC" in
 `CLAUDE.md`. Verify with a `-DryRun` (must report changes but make none) and a second real
 run (every line must read `ok`).
+
+**Windows system settings:** `pwsh -File windows/tweaks.ps1 [-DryRun]`, from an elevated
+shell. It's a separate opt-in step, because some entries need elevation and `install.ps1`
+stays unelevated. It records only settings the PC already has, each changed through the API
+that applies it live (mouse via `SystemParametersInfo`, time via `w32tm /config /update`), and
+it backs up prior values first. A `-DryRun` must read `ok` on every line. Details: "System
+tweaks" in `CLAUDE.md`.
 
 ---
 
