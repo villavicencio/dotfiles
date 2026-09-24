@@ -50,8 +50,9 @@ pwsh -File install.ps1
 
 `install.ps1` installs `windows/packages.json` with winget, links the configs
 shared with macOS (git ignore/attributes, Starship, lazygit, the global
-`CLAUDE.md`), writes stubs for `~/.gitconfig` and the PowerShell profile, and
-installs the gitleaks pre-commit hook. Details in [`CLAUDE.md`](CLAUDE.md)
+`CLAUDE.md`, the Neovim config), writes stubs for `~/.gitconfig` and the PowerShell
+profile, installs the gitleaks pre-commit hook, and restores the pinned Neovim
+plugins. Details in [`CLAUDE.md`](CLAUDE.md)
 under "Setting up the Windows PC".
 
 ### WSL (Linux on the Windows PC)
@@ -92,7 +93,7 @@ operations — no new dependencies:
 | `brew/` | `Brewfile` — all Homebrew formulae and casks |
 | `zsh/` | `zshenv`, `zshrc`, `alias.sh`, `functions.sh`, `functions/` |
 | `git/` | `gitconfig`, `gitignore`, `gitattributes` |
-| `nvim/` | Neovim config (`custom/` symlinked into `~/.config/nvim/`) |
+| `nvim/` | Neovim config (NvChad v2.5; the whole dir is linked as `~/.config/nvim`, `%LOCALAPPDATA%\nvim` on Windows) |
 | `tmux/` | tmux config, status-bar scripts, window-meta persistence |
 | `starship/` | Starship prompt config |
 | `iterm/` | iTerm2 profile settings |
@@ -100,7 +101,7 @@ operations — no new dependencies:
 | `claude/` | Claude Code config, statusline, hooks (symlinked into `~/.claude/`) |
 | `docs/` | solution write-ups (`docs/solutions/`) and planning artifacts |
 | `ci/` | CI assets (Dockerfile for the install-matrix workflow) |
-| `windows/` | Windows layer for `install.ps1`: winget packages, gitconfig overrides, PowerShell profile, Windows Terminal fragment |
+| `windows/` | Windows layer for `install.ps1`: winget packages, gitconfig overrides, PowerShell profile, Windows Terminal fragment, nvim plugin bootstrap |
 
 ## Machine-specific overrides (not tracked)
 
