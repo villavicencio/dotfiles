@@ -192,12 +192,18 @@ if [ -e "$DEST" ] || [ -L "$DEST" ]; then
   exit 0
 fi
 
-# noclobber makes the create exclusive (O_EXCL), so a file that appeared since
-# the check above (Claude Code starting up, say) is never overwritten.
-if ( set -C; cat "$SRC" > "$DEST" ) 2>/dev/null; then
-  echo "Seeded Claude settings -> $DEST"
-elif [ -e "$DEST" ] || [ -L "$DEST" ]; then
+# Copy to a temp file beside the destination and verify it, THEN publish it with
+# `ln`, which creates the name exclusively: it fails if settings.json appeared
+# since the check above (Claude Code starting up, say), so a live file is never
+# overwritten, and a failed copy never leaves a partial settings.json behind.
+tmp="$DEST.seed.$$"
+if ! cp "$SRC" "$tmp" 2>/dev/null || ! cmp -s "$SRC" "$tmp"; then
+  rm -f "$tmp"; echo "Error: could not copy $SRC_REL to $tmp" >&2; exit 1
+fi
+if ln "$tmp" "$DEST" 2>/dev/null; then
+  rm -f "$tmp"; echo "Seeded Claude settings -> $DEST"
+elif rm -f "$tmp"; [ -e "$DEST" ] || [ -L "$DEST" ]; then
   echo "Claude settings appeared meanwhile, leaving it alone (run 'dot drift' to compare)."
 else
-  echo "Error: could not write $DEST" >&2; exit 1
+  echo "Error: could not create $DEST" >&2; exit 1
 fi

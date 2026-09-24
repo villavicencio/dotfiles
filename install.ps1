@@ -198,20 +198,29 @@ Invoke-Step 'seed ~/.claude/settings.json' {
     }
     if ($DryRun) { Write-Would "seed $dest from windows/claude-settings.json"; return }
     New-Item -ItemType Directory -Force (Split-Path $dest) | Out-Null
-    # FileMode.CreateNew is an exclusive create: it fails if the file appeared
-    # since the check above (Claude Code starting up, say), so a live file is
-    # never overwritten. Copy-Item would silently replace it.
-    $bytes = [IO.File]::ReadAllBytes($src)
+    # Write a temp file beside the destination and verify it, THEN publish it
+    # with File.Move(overwrite: false), a same-volume rename that fails if
+    # settings.json appeared since the check above (Claude Code starting up,
+    # say). A live file is never overwritten, and a failed write never leaves a
+    # partial settings.json that later runs would mistake for a live config.
+    $tmp = "$dest.seed.$PID"
     try {
-        $fs = [IO.FileStream]::new($dest, [IO.FileMode]::CreateNew, [IO.FileAccess]::Write)
-    } catch [System.IO.IOException] {
-        if (Test-Path -LiteralPath $dest) {
-            Write-Host "    ok      $dest (appeared meanwhile, left alone)"; return
+        Copy-Item -LiteralPath $src -Destination $tmp -Force
+        if ((Get-FileHash -LiteralPath $tmp).Hash -ne (Get-FileHash -LiteralPath $src).Hash) {
+            throw "seed copy did not verify: $tmp"
         }
-        throw
+        try {
+            [IO.File]::Move($tmp, $dest, $false)
+        } catch [System.IO.IOException] {
+            if (Test-Path -LiteralPath $dest) {
+                Write-Host "    ok      $dest (appeared meanwhile, left alone)"; return
+            }
+            throw
+        }
+        Write-Host "    seeded  $dest"
+    } finally {
+        Remove-Item -LiteralPath $tmp -Force -ErrorAction SilentlyContinue
     }
-    try { $fs.Write($bytes, 0, $bytes.Length) } finally { $fs.Dispose() }
-    Write-Host "    seeded  $dest"
 }
 
 # 5. pre-commit + gitleaks hook -----------------------------------------------

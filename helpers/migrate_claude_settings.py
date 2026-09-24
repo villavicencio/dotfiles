@@ -62,6 +62,17 @@ def main():
               file=sys.stderr)
         return 1
 
+    # Decide before touching anything: an already-migrated file gets no backup
+    # and no rewrite, so re-running really is a no-op.
+    def has_hook(event, command):
+        groups = (data.get("hooks") or {}).get(event) or []
+        return any(h.get("command") == command for g in groups for h in g.get("hooks", []))
+    missing = [(e, c) for e, c in (HOOKS if with_hooks else []) if not has_hook(e, c)]
+    if "allowedTools" not in data and not missing:
+        print("Nothing to migrate: no allowedTools key%s."
+              % (", blank-state hooks already registered" if with_hooks else ""))
+        return 0
+
     backup = "%s.bak-%d" % (SETTINGS, int(time.time()))
     shutil.copy2(SETTINGS, backup)
 
@@ -71,11 +82,8 @@ def main():
     data["permissions"]["allow"] = merged
 
     added = []
-    for event, command in (HOOKS if with_hooks else []):
-        hooks = data.setdefault("hooks", collections.OrderedDict())
-        groups = hooks.setdefault(event, [])
-        if any(h.get("command") == command for g in groups for h in g.get("hooks", [])):
-            continue
+    for event, command in missing:
+        groups = data.setdefault("hooks", collections.OrderedDict()).setdefault(event, [])
         groups.append({"matcher": "*",
                        "hooks": [{"type": "command", "command": command, "timeout": 5}]})
         added.append(event)
