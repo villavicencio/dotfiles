@@ -962,7 +962,9 @@ stays in the platform's native shell, per
    ```powershell
    git -c core.autocrlf=input clone https://github.com/villavicencio/dotfiles.git $HOME\Projects\Personal\dotfiles
    ```
-4. `pwsh -File install.ps1 -DryRun` to preview, then `pwsh -File install.ps1`.
+4. `cd $HOME\Projects\Personal\dotfiles`, then `pwsh -File install.ps1 -DryRun` to preview
+   and `pwsh -File install.ps1` to apply. A failed step does not stop the others; the
+   script exits 1 and lists what failed.
 5. `gh auth login` (the github.com credential helper in `windows/gitconfig` is `gh`).
 
 What `install.ps1` does, in order — each step idempotent, `-DryRun` mutates nothing:

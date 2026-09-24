@@ -1,4 +1,4 @@
-# PowerShell 7 profile — the Windows counterpart of zsh/zshrc + zsh/alias.sh.
+# PowerShell 7 profile: the Windows counterpart of zsh/zshrc + zsh/alias.sh.
 # Loaded by a one-line stub at $PROFILE that dot-sources this file (written by install.ps1).
 # A stub rather than a symlink: $PROFILE lives under Documents, which OneDrive may sync,
 # and OneDrive handles symlinks badly.
@@ -66,6 +66,6 @@ function open($path = '.') { Invoke-Item $path }                            # li
 function touch($file) { if (Test-Path $file) { (Get-Item $file).LastWriteTime = Get-Date } else { New-Item -ItemType File $file | Out-Null } }
 function dotfiles { Set-Location (Split-Path (Split-Path $PSScriptRoot)) }  # cd to the repo root
 
-# --- Machine-local overrides (untracked) — the counterpart of ~/env.sh ------
+# --- Machine-local overrides (untracked): the counterpart of ~/env.sh -------
 $localProfile = Join-Path $HOME 'env.ps1'
 if (Test-Path $localProfile) { . $localProfile }

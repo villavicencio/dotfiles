@@ -15,7 +15,9 @@
       4. pre-commit + the gitleaks hook for this repo
 
     Idempotent: re-running changes nothing that is already in place. A real file
-    found where a link belongs is moved aside to <name>.pre-dotfiles, never deleted.
+    found where a link belongs is moved aside to <name>.pre-dotfiles (timestamped
+    if that name is taken), never deleted. A failing step does not stop the later
+    ones; the script exits 1 and lists what failed.
     Symlinks need Developer Mode (Settings > System > For developers) or an
     elevated shell.
 
@@ -30,9 +32,40 @@ param(
 )
 $ErrorActionPreference = 'Stop'
 $Repo = $PSScriptRoot
+$Failures = [System.Collections.Generic.List[string]]::new()
 
 function Write-Step($msg) { Write-Host "==> $msg" -ForegroundColor Cyan }
 function Write-Would($msg) { Write-Host "[dry-run] would $msg" -ForegroundColor Yellow }
+
+# Native commands don't throw on a non-zero exit, even with $ErrorActionPreference
+# = 'Stop'. Record the failure and keep going, so one bad package doesn't block the
+# config links.
+function Test-NativeExit([string]$what) {
+    if ($LASTEXITCODE -ne 0) {
+        $Failures.Add("$what (exit $LASTEXITCODE)")
+        Write-Warning "$what failed with exit code $LASTEXITCODE"
+        return $false
+    }
+    return $true
+}
+
+# winget adds to the user PATH in the registry, which this already-running process
+# never sees; re-read it so tools installed a moment ago resolve.
+function Update-SessionPath {
+    $env:Path = @(
+        "$HOME\.local\bin"
+        [Environment]::GetEnvironmentVariable('Path', 'Machine')
+        [Environment]::GetEnvironmentVariable('Path', 'User')
+    ) -join ';'
+}
+
+# Move a real file out of the way without ever overwriting an earlier backup.
+function Backup-File([string]$Target) {
+    $backup = "$Target.pre-dotfiles"
+    if (Test-Path -LiteralPath $backup) { $backup = "$backup.$(Get-Date -Format yyyyMMdd-HHmmss)" }
+    Move-Item -LiteralPath $Target $backup
+    Write-Host "    backup  $backup"
+}
 
 # Link $Target -> $Repo/$Source, dotbot `relink: true` style.
 function Set-DotLink([string]$Target, [string]$Source) {
@@ -47,10 +80,9 @@ function Set-DotLink([string]$Target, [string]$Source) {
     if ($DryRun) { Write-Would "link $Target -> $Source"; return }
     New-Item -ItemType Directory -Force (Split-Path $Target) | Out-Null
     if ($item -and $item.LinkType) {
-        Remove-Item -LiteralPath $Target -Force                       # stale/other link: relink
+        Remove-Item -LiteralPath $Target -Force   # stale/other link: relink
     } elseif ($item) {
-        Move-Item -LiteralPath $Target "$Target.pre-dotfiles" -Force  # real file: keep a backup
-        Write-Host "    backup  $Target.pre-dotfiles"
+        Backup-File $Target                       # real file: keep it
     }
     New-Item -ItemType SymbolicLink -Path $Target -Target $src | Out-Null
     Write-Host "    linked  $Target -> $Source"
@@ -63,10 +95,7 @@ function Set-Stub([string]$Target, [string]$Content) {
     }
     if ($DryRun) { Write-Would "write stub $Target"; return }
     New-Item -ItemType Directory -Force (Split-Path $Target) | Out-Null
-    if (Test-Path $Target) {
-        Move-Item -LiteralPath $Target "$Target.pre-dotfiles" -Force
-        Write-Host "    backup  $Target.pre-dotfiles"
-    }
+    if (Test-Path $Target) { Backup-File $Target }
     [IO.File]::WriteAllText($Target, $Content, [Text.UTF8Encoding]::new($false))
     Write-Host "    wrote   $Target"
 }
@@ -81,10 +110,11 @@ if ($SkipPackages) {
     # --no-upgrade: install what is missing, never upgrade what is present. Without it,
     # `winget import` upgrades every outdated package in the list, including apps that
     # are running (Logi Options+ failed mid-upgrade with exit 1008 on the first run).
-    # Upgrades are topgrade's job (`update`).
+    # Upgrades are topgrade's job (`update`). Exits 0 when everything is already there.
     winget import --import-file (Join-Path $Repo 'windows/packages.json') `
         --accept-package-agreements --accept-source-agreements --ignore-unavailable --no-upgrade
-    # winget exits non-zero when anything was already installed; not a failure here.
+    $null = Test-NativeExit 'winget import'
+    Update-SessionPath
 }
 
 # 2. Links ------------------------------------------------------------------
@@ -103,7 +133,7 @@ foreach ($t in $links.Keys) { Set-DotLink ([IO.Path]::GetFullPath($t)) $links[$t
 Write-Step 'stubs'
 $repoFwd = $Repo -replace '\\', '/'
 Set-Stub "$HOME/.gitconfig" @"
-# Written by install.ps1 — edit the tracked files, not this stub.
+# Written by install.ps1 - edit the tracked files, not this stub.
 [include]
     path = $repoFwd/git/gitconfig
 [include]
@@ -120,14 +150,31 @@ if ($DryRun) {
     Write-Would 'install pre-commit (uv tool) if missing, then run: pre-commit install'
 } else {
     if (-not (Get-Command gitleaks -ErrorAction SilentlyContinue)) {
-        Write-Warning 'gitleaks not on PATH (installed by winget above; open a new shell and re-run)'
+        $Failures.Add('gitleaks not on PATH (the hook would block every commit)')
+        Write-Warning 'gitleaks not on PATH; the pre-commit hook will refuse commits until it is'
     }
-    if (-not (Get-Command pre-commit -ErrorAction SilentlyContinue)) {
-        uv tool install pre-commit
-        $env:Path = "$HOME\.local\bin;$env:Path"
+    $hasPreCommit = [bool](Get-Command pre-commit -ErrorAction SilentlyContinue)
+    if (-not $hasPreCommit) {
+        if (Get-Command uv -ErrorAction SilentlyContinue) {
+            uv tool install pre-commit
+            $hasPreCommit = Test-NativeExit 'uv tool install pre-commit'
+            Update-SessionPath
+        } else {
+            $Failures.Add('uv not found, so pre-commit could not be installed')
+        }
     }
-    Push-Location $Repo
-    try { pre-commit install } finally { Pop-Location }
+    if ($hasPreCommit) {
+        Push-Location $Repo
+        try { pre-commit install; $null = Test-NativeExit 'pre-commit install' } finally { Pop-Location }
+    }
 }
 
-Write-Step ($DryRun ? 'Dry run complete — nothing was changed.' : 'Installation complete!')
+if ($DryRun) {
+    Write-Step 'Dry run complete - nothing was changed.'
+} elseif ($Failures.Count) {
+    Write-Host "`nCompleted with $($Failures.Count) failure(s):" -ForegroundColor Red
+    $Failures | ForEach-Object { Write-Host "  - $_" -ForegroundColor Red }
+    exit 1
+} else {
+    Write-Step 'Installation complete!'
+}

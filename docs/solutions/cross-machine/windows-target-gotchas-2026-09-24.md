@@ -88,6 +88,29 @@ matches too much: .NET/VC++ runtimes, WindowsAppRuntime, Edge, OneDrive. Treat
 the export as a candidate list. `packages.json` is curated to intentional
 installs, the same rule as the Brewfile.
 
+**`winget import --no-upgrade` exits 0 when everything is already
+installed**, so any non-zero exit is a real failure. When measuring it, don't
+pipe winget into `Select-Object -First N`: the pipeline stops early, kills
+winget, and `$LASTEXITCODE` reads `-1`. That produced a false "already
+installed counts as failure" reading once. Capture `$LASTEXITCODE` on the line
+right after the call.
+
+**A running process never sees PATH changes that winget makes.** winget writes
+the user PATH in the registry (`%LOCALAPPDATA%\Microsoft\WinGet\Links` for
+portable packages). The shell that ran the install, and every process started
+before it, keeps the old PATH. That includes the Claude Code session itself,
+so `! gh auth login` failed with `command not found` right after `gh` was
+installed, and the gitleaks pre-commit hook failed with `Executable gitleaks not
+found`. `install.ps1` re-reads PATH from the registry after winget
+(`Update-SessionPath`). Interactively, open a new terminal, or call the tool by
+its full path.
+
+**Native exit codes don't trip `$ErrorActionPreference = 'Stop'`.** It only
+covers PowerShell errors. `install.ps1` checks `$LASTEXITCODE` after winget,
+`uv` and `pre-commit`, records each failure, still runs the remaining steps, and
+exits 1 with the list. It prints "Installation complete!" only when nothing
+failed.
+
 ## Claude Code and Windows Terminal
 
 **`claude/settings.json` must not be seeded on Windows.** Every hook in it
