@@ -272,8 +272,28 @@ except Exception as exc:
 for k in list(d):
     if k in strip or k == "//":
         d.pop(k)
-blob = json.dumps(d, indent=2, sort_keys=True)
-print(blob.replace(os.path.expanduser("~") + "/", "~/"))
+# Fold $HOME paths to ~/ on the parsed values, as capture does: a blob-level
+# replace can't match a Windows home, which json.dumps escapes (C:\\Users\\...).
+home = os.path.expanduser("~").rstrip("\\/")
+prefixes = {home}
+if os.name == "nt":
+    fwd = home.replace("\\", "/")
+    prefixes.add(fwd)
+    if len(fwd) > 2 and fwd[1] == ":":
+        prefixes.add("/" + fwd[0].lower() + fwd[2:])
+prefixes = sorted(prefixes, key=len, reverse=True)
+def fold(v):
+    if isinstance(v, str):
+        for p in prefixes:
+            for sep in ("/", "\\"):
+                v = v.replace(p + sep, "~/")
+        return v
+    if isinstance(v, list):
+        return [fold(x) for x in v]
+    if isinstance(v, dict):
+        return {fold(k): fold(x) for k, x in v.items()}
+    return v
+print(json.dumps(fold(d), indent=2, sort_keys=True))
 PYEOF
   }
   # Check the normalizer's exit status AND that it printed something: a failed
@@ -302,7 +322,9 @@ PYEOF
   if grep -q '"allowedTools"' "$CLAUDE_LIVE"; then
     echo "  WARNING: live settings has a legacy top-level 'allowedTools' key."
     echo "           It OVERRIDES permissions.allow, which is then silently inert."
-    echo "           Repair with: python3 helpers/migrate_claude_settings.py"
+    # $PYTHON is the probed interpreter (the Store python3 placeholder never
+    # runs). On Windows the migration folds allowedTools only, no herdr hooks.
+    echo "           Repair with: $PYTHON helpers/migrate_claude_settings.py"
     status=1
   fi
 fi

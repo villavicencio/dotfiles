@@ -326,7 +326,8 @@ diff would report permanent un-actionable drift. To record live changes:
 
 ```bash
 dot drift                                            # see what diverged
-bash helpers/install_claude_settings.sh --capture    # regenerate claude/settings.json, then commit
+bash helpers/install_claude_settings.sh --capture    # regenerate claude/settings.json (Git Bash on
+                                                     # Windows: windows/claude-settings.json), then commit
 ```
 
 `--capture` regenerates rather than `cp`s: it drops the machine-local keys
@@ -337,7 +338,9 @@ re-prepends the tracked `"//"` header, and rewrites absolute `$HOME` paths back 
 **Agents cannot write this file** — the auto-mode classifier blocks it by design, so it stops an
 agent widening its own permissions. `helpers/migrate_claude_settings.py` exists for a machine
 whose settings predate this scheme (folds `allowedTools` back, registers the blank-state hook);
-it is idempotent, backs up first, and **you run it yourself**, not an agent.
+it is idempotent, backs up first, and **you run it yourself**, not an agent. On Windows (native
+Python, or `--no-hooks`) it only folds `allowedTools` — no herdr hooks — and under Git Bash
+you run it as `python`, since `python3` there is the Microsoft Store placeholder.
 
 ### Herdr — agent multiplexer (config symlinked; writes flow back)
 `herdr` (Brewfile) is a tmux-shaped client/server multiplexer with native agent

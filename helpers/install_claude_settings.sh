@@ -82,7 +82,7 @@ if [ "${1:-}" = "--capture" ]; then
   [ -n "$PYTHON" ] || { echo "Error: no working python3/python on PATH" >&2; exit 1; }
 
   STRIP_KEYS="$STRIP_KEYS" SRC="$(native_path "$SRC")" DEST="$(native_path "$DEST")" \
-    SRC_REL="$SRC_REL" "$PYTHON" - <<'PY' || exit 1
+    SRC_REL="$SRC_REL" PYTHON="$PYTHON" "$PYTHON" - <<'PY' || exit 1
 import json, collections, os, sys
 
 src, dest = os.environ["SRC"], os.environ["DEST"]
@@ -106,9 +106,10 @@ if unmerged:
     print(
         "Error: live settings still has a legacy 'allowedTools' key with %d rule(s)\n"
         "       not present in permissions.allow. Capturing now would silently drop\n"
-        "       them. Run this first, then re-capture:\n"
-        "           python3 helpers/migrate_claude_settings.py\n"
-        "       Unmerged: %s" % (len(unmerged), ", ".join(unmerged[:5])),
+        "       them. Run this first, then re-capture (on Windows it only folds\n"
+        "       allowedTools; it registers no herdr hooks there):\n"
+        "           %s helpers/migrate_claude_settings.py\n"
+        "       Unmerged: %s" % (len(unmerged), os.environ["PYTHON"], ", ".join(unmerged[:5])),
         file=sys.stderr,
     )
     raise SystemExit(1)
@@ -127,13 +128,39 @@ if "//" in tracked:
             rebuilt[k] = v
     live = rebuilt
 
-# Absolute $HOME paths are unportable across the two Macs; installers write them
+# Absolute $HOME paths are unportable across machines; installers write them
 # (herdr's integration does). Claude Code expands ~ in hook commands, so fold
 # them back. Only $HOME is rewritten — /Applications paths are machine-stable.
+# Fold the parsed VALUES (and keys), not the serialized blob: on Windows the
+# home is C:\Users\<you>, which json.dumps escapes to C:\\Users\\..., so a
+# blob-level replace never matches. Windows also gets the forward-slash and
+# Git Bash (/c/Users/<you>) spellings.
+def home_prefixes():
+    home = os.path.expanduser("~").rstrip("\\/")
+    cands = {home}
+    if os.name == "nt":
+        fwd = home.replace("\\", "/")
+        cands.add(fwd)
+        if len(fwd) > 2 and fwd[1] == ":":
+            cands.add("/" + fwd[0].lower() + fwd[2:])
+    return sorted(cands, key=len, reverse=True)
+
+def fold_home(v, prefixes):
+    if isinstance(v, str):
+        for p in prefixes:
+            for sep in ("/", "\\"):
+                v = v.replace(p + sep, "~/")
+        return v
+    if isinstance(v, list):
+        return [fold_home(x, prefixes) for x in v]
+    if isinstance(v, dict):
+        return collections.OrderedDict(
+            (fold_home(k, prefixes), fold_home(x, prefixes)) for k, x in v.items())
+    return v
+
+before = json.dumps(live, indent=2)
+live = fold_home(live, home_prefixes())
 blob = json.dumps(live, indent=2)
-home = os.path.expanduser("~")
-before = blob
-blob = blob.replace(home + "/", "~/")
 normalized = blob != before
 
 tmp = src + ".tmp.%d" % os.getpid()
@@ -165,4 +192,12 @@ if [ -e "$DEST" ] || [ -L "$DEST" ]; then
   exit 0
 fi
 
-cp "$SRC" "$DEST" && echo "Seeded Claude settings -> $DEST"
+# noclobber makes the create exclusive (O_EXCL), so a file that appeared since
+# the check above (Claude Code starting up, say) is never overwritten.
+if ( set -C; cat "$SRC" > "$DEST" ) 2>/dev/null; then
+  echo "Seeded Claude settings -> $DEST"
+elif [ -e "$DEST" ] || [ -L "$DEST" ]; then
+  echo "Claude settings appeared meanwhile, leaving it alone (run 'dot drift' to compare)."
+else
+  echo "Error: could not write $DEST" >&2; exit 1
+fi

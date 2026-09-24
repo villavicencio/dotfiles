@@ -338,7 +338,8 @@ run (every line must read `ok`).
   `modelSettings`, `autoMode`, `mcpServers`, `allowedTools`, and normalizing `$HOME` paths to `~/`).
   `dot drift` compares capture-normalized forms and warns if `allowedTools` reappears.
   Agents cannot write this file — the auto-mode classifier blocks it by design; run
-  `helpers/migrate_claude_settings.py` yourself on a machine that predates the scheme.
+  `helpers/migrate_claude_settings.py` yourself on a machine that predates the scheme (on
+  Windows it folds `allowedTools` only, no herdr hooks; run it as `python` under Git Bash).
 - **`git/gitconfig` `core.pager = vim -`** is intentional; `diff`/`show` route through
   **delta** via the `[pager]` overrides.
 - **GCM credential-helper entries** in `git/gitconfig` are auto-generated — commit them

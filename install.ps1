@@ -198,7 +198,19 @@ Invoke-Step 'seed ~/.claude/settings.json' {
     }
     if ($DryRun) { Write-Would "seed $dest from windows/claude-settings.json"; return }
     New-Item -ItemType Directory -Force (Split-Path $dest) | Out-Null
-    Copy-Item -LiteralPath $src -Destination $dest
+    # FileMode.CreateNew is an exclusive create: it fails if the file appeared
+    # since the check above (Claude Code starting up, say), so a live file is
+    # never overwritten. Copy-Item would silently replace it.
+    $bytes = [IO.File]::ReadAllBytes($src)
+    try {
+        $fs = [IO.FileStream]::new($dest, [IO.FileMode]::CreateNew, [IO.FileAccess]::Write)
+    } catch [System.IO.IOException] {
+        if (Test-Path -LiteralPath $dest) {
+            Write-Host "    ok      $dest (appeared meanwhile, left alone)"; return
+        }
+        throw
+    }
+    try { $fs.Write($bytes, 0, $bytes.Length) } finally { $fs.Dispose() }
     Write-Host "    seeded  $dest"
 }
 

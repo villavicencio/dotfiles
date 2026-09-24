@@ -25,6 +25,11 @@ NOTE: Claude Code's auto-mode classifier blocks agents from writing this file
 human-run script. Invoke it yourself:
 
     python3 helpers/migrate_claude_settings.py
+
+On Windows (native Python, or with --no-hooks) step 2 is skipped: herdr and
+its bash hooks don't exist there, and the Windows seed deliberately carries no
+hooks. Only the allowedTools fold runs. Under Git Bash `python3` is usually
+the Microsoft Store placeholder, so call it as `python`.
 """
 import collections
 import json
@@ -41,15 +46,17 @@ HOOKS = [
 
 
 def main():
+    with_hooks = not (os.name == "nt" or sys.platform == "cygwin" or "--no-hooks" in sys.argv[1:])
     if os.environ.get("DOTFILES_DRY_RUN", "0") == "1":
-        print("[dry-run] would repair %s (allowedTools fold + blank-state hooks)" % SETTINGS)
+        print("[dry-run] would repair %s (allowedTools fold%s)"
+              % (SETTINGS, " + blank-state hooks" if with_hooks else ""))
         return 0
     if not os.path.exists(SETTINGS):
         print("No settings at %s — nothing to migrate." % SETTINGS)
         return 0
 
     try:
-        data = json.load(open(SETTINGS), object_pairs_hook=collections.OrderedDict)
+        data = json.load(open(SETTINGS, encoding="utf-8"), object_pairs_hook=collections.OrderedDict)
     except Exception as exc:
         print("Error: %s is not valid JSON (%s) — refusing to touch it" % (SETTINGS, exc),
               file=sys.stderr)
@@ -63,9 +70,9 @@ def main():
     merged = list(dict.fromkeys(list(allow) + list(legacy)))
     data["permissions"]["allow"] = merged
 
-    hooks = data.setdefault("hooks", collections.OrderedDict())
     added = []
-    for event, command in HOOKS:
+    for event, command in (HOOKS if with_hooks else []):
+        hooks = data.setdefault("hooks", collections.OrderedDict())
         groups = hooks.setdefault(event, [])
         if any(h.get("command") == command for g in groups for h in g.get("hooks", [])):
             continue
@@ -75,10 +82,10 @@ def main():
 
     tmp = SETTINGS + ".tmp.%d" % os.getpid()
     try:
-        with open(tmp, "w") as fh:
+        with open(tmp, "w", encoding="utf-8", newline="\n") as fh:
             json.dump(data, fh, indent=2)
             fh.write("\n")
-        json.load(open(tmp))            # parse-check before replacing
+        json.load(open(tmp, encoding="utf-8"))  # parse-check before replacing
         os.replace(tmp, SETTINGS)
     except Exception:
         if os.path.exists(tmp):
@@ -89,7 +96,9 @@ def main():
     print("allowedTools:      %s" % ("removed, %d rules folded in" % len(legacy) if legacy
                                      else "absent (already migrated)"))
     print("permissions.allow: %d rules" % len(merged))
-    print("blank-state hooks: %s" % (", ".join(added) if added else "already registered"))
+    print("blank-state hooks: %s" % (", ".join(added) if added
+                                     else "already registered" if with_hooks
+                                     else "skipped (Windows / --no-hooks)"))
     return 0
 
 
