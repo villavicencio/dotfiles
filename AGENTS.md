@@ -49,7 +49,8 @@ helpers/    Bash scripts called by the install pipeline (each independently runn
 herdr/      Herdr agent-multiplexer config (config.toml symlinked into ~/.config/herdr/)
 iterm/      iTerm2 preferences
 lazygit/    lazygit config
-nvim/       Neovim config (custom/ is symlinked into ~/.config/nvim/)
+nvim/       Neovim config (NvChad v2.5; the whole dir is linked as ~/.config/nvim,
+            %LOCALAPPDATA%\nvim on Windows). Plugins pinned in lazy-lock.json
 starship/   Starship prompt config (command_timeout is a global top-level key)
 tmux/       tmux config + status-bar scripts + window-meta persistence
 topgrade/   Topgrade system-updater config
@@ -62,7 +63,8 @@ bin/        Repo CLI — bin/dot (symlinked to ~/.local/bin/dot)
             bin/lib/*.py — Python helpers for doctor/bench, deliberately NOT heredocs
 windows/    Windows layer, applied by install.ps1 (repo root): packages.json (winget),
             gitconfig (overrides chained after git/gitconfig), powershell/profile.ps1,
-            terminal/dotfiles.json (Windows Terminal fragment)
+            terminal/dotfiles.json (Windows Terminal fragment), install_nvim.ps1 (the
+            helpers/install_nvim.sh counterpart)
 ```
 
 ---
@@ -241,8 +243,9 @@ Brewfile, tmux, nvim, nvm, node). Each helper is independently runnable. (Nerd F
 install via Homebrew casks in `brew/Brewfile`, not a helper.)
 
 **Windows:** `pwsh -File install.ps1 [-DryRun] [-SkipPackages]` instead — winget import
-(`--no-upgrade`), symlinks for the configs shared with macOS, stubs for `~/.gitconfig` and
-`$PROFILE`, then the pre-commit hook. Full steps and rules: "Setting up the Windows PC" in
+(`--no-upgrade`), symlinks for the configs shared with macOS (including `nvim/` as
+`%LOCALAPPDATA%\nvim`), stubs for `~/.gitconfig` and `$PROFILE`, the pre-commit hook, then
+the pinned nvim plugins (`windows/install_nvim.ps1`). Full steps and rules: "Setting up the Windows PC" in
 `CLAUDE.md`. Verify with a `-DryRun` (must report changes but make none) and a second real
 run (every line must read `ok`).
 
@@ -365,6 +368,15 @@ run (every line must read `ok`).
   Dotbot shell step that prompts — `linux.yaml`'s `chsh` — needs `stdin: true` (Dotbot
   defaults stdin to `/dev/null`). Write-up:
   `docs/solutions/cross-machine/wsl-ubuntu-target-2026-09-24.md`.
+- **nvim pins: the first launch on an empty machine drifts them.** lazy.nvim installs in
+  rounds, and the lockfile write between rounds drops NvChad-imported plugins, which then
+  land at their branch HEAD and are written back into the tracked `nvim/lazy-lock.json`
+  (through the link). `helpers/install_nvim.sh` and `windows/install_nvim.ps1` keep a
+  copy of the pins, put it back, restore, and verify against the copy with
+  `helpers/nvim_verify_lock.lua`. Don't reduce this to one `Lazy! restore`. The minimum is
+  Neovim **0.12** (the pinned nvim-treesitter needs it). On Linux the helper installs the
+  pinned release tarball into `~/.local` (no sudo; apt's 0.9.5 is not used). Write-up:
+  `docs/solutions/runtime-errors/lazy-nvim-first-launch-drifts-lockfile-2026-09-24.md`.
 - **Windows gets stubs, not links, for `~/.gitconfig` and `$PROFILE`** — git has no
   OS-conditional include, and `$PROFILE` sits under a OneDrive-redirected Documents folder.
   **Never seed `claude/settings.json` on Windows** (its hooks are tmux/herdr bash scripts),

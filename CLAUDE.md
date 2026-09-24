@@ -37,13 +37,15 @@ herdr/          Herdr agent-multiplexer config (config.toml symlinked into ~/.co
 iterm/          iTerm2 preferences (exported plist, includes Shift+Enter key mapping)
 lazygit/        lazygit config
 npm/            npm global package list (npm-requirements.txt)
-nvim/           Neovim config (custom/ is symlinked into ~/.config/nvim/)
+nvim/           Neovim config (NvChad v2.5; the whole dir is linked as ~/.config/nvim,
+                %LOCALAPPDATA%\nvim on Windows). Plugins pinned in lazy-lock.json
 starship/       Starship prompt config (command_timeout is a global top-level key)
 windows/        Windows layer, applied by install.ps1 at the repo root (NOT Dotbot):
   packages.json           winget package list — the Brewfile counterpart
   gitconfig               overrides chained after git/gitconfig by the ~/.gitconfig stub
   powershell/profile.ps1  PowerShell 7 profile — the zshrc + alias.sh counterpart
   terminal/dotfiles.json  Windows Terminal fragment — the iTerm dynamic-profile counterpart
+  install_nvim.ps1        nvim plugin bootstrap — the helpers/install_nvim.sh counterpart
 bin/            Repo CLI — bin/dot (symlinked to ~/.local/bin/dot)
   lib/*.py      Python helpers for doctor/bench. Real files, NOT heredocs — see
                 "No heredocs in bin/dot" below
@@ -258,6 +260,21 @@ If a leaked loop ever shows up, kill it via `pkill -f claude-spinner-marker`.
 ### OMZ plugin sync
 When adding an Oh My Zsh plugin to the `plugins=()` list in `zshrc`, also add the corresponding
 `git clone` to `helpers/install_omz.sh` so it gets installed on fresh machines.
+
+### Neovim plugin pins — the first launch on an empty machine drifts them
+`nvim/lazy-lock.json` is reached through the `~/.config/nvim` link, and lazy.nvim's first
+install **rewrites it**. It installs in rounds; NvChad's own plugins are only known once
+NvChad is on disk, and the lockfile write between rounds drops their entries, so those
+plugins land at their branch HEAD and the drifted commits are written back. A later
+`Lazy! restore` restores *to that rewritten file*, so it looks green. On 2026-09-24,
+9 of 27 pins drifted this way.
+
+`helpers/install_nvim.sh` and `windows/install_nvim.ps1` therefore keep a copy of the pins,
+bootstrap, put the copy back, restore, and verify against the copy with
+`helpers/nvim_verify_lock.lua`. **Don't collapse this back into a single `Lazy! restore`
+pass.** CI's post-apply R8 check fails if `./install` leaves the lockfile modified. The
+minimum Neovim version is **0.12**, because the pinned nvim-treesitter (`main`) requires it.
+Write-up: `docs/solutions/runtime-errors/lazy-nvim-first-launch-drifts-lockfile-2026-09-24.md`.
 
 ### A hook symlinked into the repo is branch-fragile — land the file before wiring it
 `~/.claude/hooks/*.sh` are Dotbot symlinks **into this working tree**, so they resolve against
@@ -990,9 +1007,10 @@ What `install.ps1` does, in order — each step idempotent, `-DryRun` mutates no
    upgrades what is present (without `--no-upgrade` it upgrades every outdated package,
    running apps included). Upgrades are topgrade's job (`update`).
 2. Symlinks the configs shared with macOS — `git/gitignore`, `git/gitattributes`,
-   `starship/starship.toml`, `lazygit/config.yml` (into `%APPDATA%`), `claude/CLAUDE.md` —
-   plus the Windows Terminal fragment. A real file in the way is moved to
-   `<name>.pre-dotfiles`, never deleted.
+   `starship/starship.toml`, `lazygit/config.yml` (into `%APPDATA%`), `claude/CLAUDE.md`,
+   and the whole `nvim/` directory as `%LOCALAPPDATA%\nvim` (where Windows Neovim reads its
+   config) — plus the Windows Terminal fragment. A real file or directory in the way is
+   moved to `<name>.pre-dotfiles`, never deleted.
 3. Writes two **stubs** rather than links:
    - `~/.gitconfig` `[include]`s `git/gitconfig` then `windows/gitconfig`. Git has no
      OS-conditional include, so the shared file cannot pull in the Windows overrides itself.
@@ -1011,6 +1029,10 @@ What `install.ps1` does, in order — each step idempotent, `-DryRun` mutates no
      hardcode it.
 4. `pre-commit install` (pre-commit via `uv tool`; gitleaks via winget, **pinned in
    `windows/packages.json` too** — that is a third place the gitleaks version must match).
+5. `windows/install_nvim.ps1`: the Windows twin of `helpers/install_nvim.sh`. It restores
+   the plugins pinned in `nvim/lazy-lock.json` into `%LOCALAPPDATA%\nvim-data` and runs
+   `helpers/nvim_verify_lock.lua`, the verifier the two share. It skips (exit 0) when nvim
+   is missing or older than 0.12, and it can also be run on its own.
 
 Windows-specific rules:
 
@@ -1025,6 +1047,15 @@ Windows-specific rules:
 - **Windows Terminal's `settings.json` is app-rewritten** — same trap as Claude's. Tracked
   terminal config goes in the fragment (`windows/terminal/dotfiles.json`), which Terminal
   only reads.
+- **Neovim on Windows:** `Neovim.Neovim` is a machine-scope MSI, so `winget import` raises a
+  UAC prompt. It adds `C:\Program Files\Neovim\bin` to the machine PATH, which
+  `Update-SessionPath` picks up in the same run. `LuaLS.lua-language-server` is the Brewfile's
+  `lua-language-server` (NvChad enables `lua_ls`). The config needs nothing else to start:
+  git, curl, tar, and ripgrep are already there. Optional extras are in `nvim/README.md`:
+  stylua and the html/css servers through `:Mason` (the latter need Node), and the
+  tree-sitter CLI plus a C compiler for parsers Neovim does not bundle.
+- **Don't run `python3` from a Windows install step.** It is often the Microsoft Store
+  stub under `WindowsApps`, which is why the nvim pin verifier is Lua run by `nvim -l`.
 
 Gotchas behind these rules: `docs/solutions/cross-machine/windows-target-gotchas-2026-09-24.md`.
 
@@ -1051,7 +1082,11 @@ is a **second, independent clone** in the Linux filesystem, not the Windows chec
 
 Expected on a fresh install, not failures:
 
-- `install_nvim.sh` skips — apt's Neovim is 0.9.5 and the config needs 0.11+ (VIL-152).
+- `install_nvim.sh` installs Neovim itself: the pinned official release tarball
+  (sha256-checked) into `~/.local/opt/nvim-v<ver>`, with `~/.local/bin/nvim` linked to it.
+  It needs no sudo, and apt's 0.9.5 `neovim` is no longer installed. A WSL distro set up
+  before VIL-152 still has apt's copy at `/usr/bin/nvim`. `~/.local/bin` comes first on
+  PATH, so it is shadowed and harmless; `sudo apt remove neovim` removes it.
 - `dot doctor` warns: no Homebrew; macOS-only aliases (`show`/`hide`/`flush`/`localip`,
   `update`→topgrade) point at missing binaries; `.claude/settings.local.json` absent;
   `python3` "shadowed" by `/bin` → `/usr/bin` (Ubuntu's merged-usr symlink, same file).

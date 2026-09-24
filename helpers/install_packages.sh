@@ -54,9 +54,11 @@ else
     # doesn't), and less is git/gitconfig.linux's core.pager and zshenv's $PAGER.
     # Without them, paged git output, `git add -p` and `git commit` (no -m) fail
     # on a tty trying to run a binary that isn't there.
+    # No `neovim`: apt's is 0.9.5 and the config needs 0.12+, so
+    # helpers/install_nvim.sh installs the official release into ~/.local instead.
     apt_install \
         bat btop curl fd-find fzf gawk git git-delta jq less \
-        ncdu neovim ripgrep shellcheck tig tmux \
+        ncdu ripgrep shellcheck tig tmux \
         tree vim watch wget zsh build-essential cmake \
         luarocks python3-pip pipx
 

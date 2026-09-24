@@ -13,6 +13,7 @@
       2. symlinks for configs shared with macOS, plus the Windows Terminal fragment
       3. stubs for files that must chain or be OneDrive-safe (~/.gitconfig, $PROFILE)
       4. pre-commit + the gitleaks hook for this repo
+      5. the nvim plugin set pinned in nvim/lazy-lock.json (windows/install_nvim.ps1)
 
     Idempotent: re-running changes nothing that is already in place. A real file
     found where a link belongs is moved aside to <name>.pre-dotfiles (timestamped
@@ -148,6 +149,9 @@ $links = [ordered]@{
     "$env:APPDATA/lazygit/config.yml" = 'lazygit/config.yml'
     "$HOME/.claude/CLAUDE.md"         = 'claude/CLAUDE.md'
     "$env:LOCALAPPDATA/Microsoft/Windows Terminal/Fragments/dotfiles/dotfiles.json" = 'windows/terminal/dotfiles.json'
+    # Whole-directory link, like ~/.config/nvim on macOS/Linux: Windows nvim reads its
+    # config from %LOCALAPPDATA%\nvim (plugins/data go to %LOCALAPPDATA%\nvim-data).
+    "$env:LOCALAPPDATA/nvim"          = 'nvim'
 }
 foreach ($t in $links.Keys) {
     Invoke-Step "link $($links[$t])" { Set-DotLink ([IO.Path]::GetFullPath($t)) $links[$t] }
@@ -201,6 +205,14 @@ if ($DryRun) {
         Push-Location $Repo
         try { pre-commit install; $null = Test-NativeExit 'pre-commit install' } finally { Pop-Location }
     }
+}
+
+# 5. nvim plugins ---------------------------------------------------------------
+Write-Step 'nvim plugins (nvim/lazy-lock.json)'
+Invoke-Step 'nvim plugin bootstrap' {
+    # Skips (exit 0) when nvim is missing or too old; exit 1 = a pin didn't restore.
+    & (Join-Path $Repo 'windows/install_nvim.ps1') -DryRun:$DryRun
+    $null = Test-NativeExit 'nvim plugin bootstrap'
 }
 
 if ($Failures.Count) {
