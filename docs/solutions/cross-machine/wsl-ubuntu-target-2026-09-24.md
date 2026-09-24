@@ -105,5 +105,8 @@ shows the fix commit.
   file. Result on 2026-09-24: 0 failures, 4 warnings, `dot bench` median 186 ms.
 - **Neovim:** apt ships 0.9.5, and `install_nvim.sh` skips cleanly because the
   config needs 0.11+ (VIL-152).
-- **git credential helpers:** WSL inherits `git/gitconfig`'s macOS helpers.
-  Public clones and pulls work; pushing from WSL needs VIL-146.
+- **git credential helpers:** WSL inherited `git/gitconfig`'s macOS helpers.
+  Public clones and pulls worked, but pushing didn't. Fixed by VIL-146: a Linux
+  overlay (`git/gitconfig.linux`, linked to `~/.config/git/gitconfig.platform`
+  and included by `git/gitconfig`) swaps them for `/usr/bin/gh`. See CLAUDE.md
+  "Git on Linux".

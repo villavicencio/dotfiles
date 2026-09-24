@@ -19,6 +19,13 @@
     # macOS deliberately does NOT link this — its sidecar is written live by the
     # tmux-window-namer skill.
     ~/.config/tmux/window-meta.json: tmux/window-meta.linux.json
+    # Git platform overlay (VIL-146). git/gitconfig [include]s this path after
+    # its credential sections; the overlay swaps the macOS helpers (osxkeychain,
+    # /usr/local GCM, /opt/homebrew/bin/gh) for /usr/bin/gh and the vim pager for
+    # less. macOS deliberately links nothing here: a missing include is skipped,
+    # so the Macs resolve the same config as before. ~/.config/git is created by
+    # base.yaml.
+    ~/.config/git/gitconfig.platform: git/gitconfig.linux
 
 - shell:
     # Same shape as darwin.yaml's chsh: without it a Linux login (a WSL tab)
