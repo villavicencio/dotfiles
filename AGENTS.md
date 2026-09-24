@@ -37,7 +37,8 @@ The active Linux target is WSL Ubuntu 24.04 on the gaming PC (since 2026-09-24; 
 ```
 brew/       Brewfile — all Homebrew formulae and casks
 btop/       btop system monitor config
-ci/         CI assets (Dockerfile for the install-matrix workflow)
+ci/         CI assets (Dockerfile for the install-matrix Linux leg, PSScriptAnalyzer
+            settings for its Windows leg)
 docs/       Compound-engineering artifacts:
             - docs/brainstorms/  requirements docs
             - docs/ideation/     idea-survival outputs
@@ -195,7 +196,9 @@ find "$FAKE" -mindepth 1 | wc -l   # must print 0
 rm -rf "$FAKE"
 ```
 CI (`.github/workflows/install-matrix.yml`) runs the full installer on macOS + Linux and
-asserts outcomes; keep both legs green.
+`install.ps1 -SkipPackages` on a hosted Windows runner (no full `winget import`; every
+`packages.json` ID is resolved instead), and asserts outcomes; keep all three legs green.
+The `windows` job's `EXPECTED_LINKS` list must match `$links` in `install.ps1`.
 
 ---
 
@@ -209,7 +212,7 @@ tickets. Avoid committing directly to `master`.
 - **Trivial exceptions** (typo, one-line doc tweak) may go straight to `master`.
 - **Docs-only PRs skip the install matrix, not the review** — `install-matrix.yml` sets
   `paths-ignore: ['docs/**', '**.md', 'claude/**/*.md']`, so a markdown-only change never
-  triggers `linux`/`macos`; don't wait for a run that will never start. CodeRabbit still
+  triggers `linux`/`macos`/`windows`; don't wait for a run that will never start. CodeRabbit still
   reviews markdown on any review-eligible PR (drafts and `WIP` / `DO NOT MERGE` titles are
   excluded), so wait for its check to leave `pending` and triage the findings —
   `mergeStateStatus: CLEAN` also reads clean while a review is pending or throttled.
@@ -240,7 +243,7 @@ install via Homebrew casks in `brew/Brewfile`, not a helper.)
 (`--no-upgrade`), symlinks for the configs shared with macOS, stubs for `~/.gitconfig` and
 `$PROFILE`, then the pre-commit hook. Full steps and rules: "Setting up the Windows PC" in
 `CLAUDE.md`. Verify with a `-DryRun` (must report changes but make none) and a second real
-run (every line must read `ok`).
+run (every line must read `ok`). CI's `windows` job asserts both.
 
 ---
 

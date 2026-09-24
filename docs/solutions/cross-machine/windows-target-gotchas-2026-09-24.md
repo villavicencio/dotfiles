@@ -88,6 +88,22 @@ takes its line endings from the script file, so a CRLF copy of `install.ps1`
 wrote a CRLF stub. The next LF run saw a "different" file and backed it up and
 rewrote it for nothing.
 
+**`gh`'s default token can't push workflow files.** `gh auth login` requests
+`repo`, `read:org` and `gist`. With `gh` as the github.com credential helper,
+the first push that touched `.github/workflows/` (the VIL-151 Windows CI leg)
+was refused:
+
+```text
+! [remote rejected] … (refusing to allow an OAuth App to create or update
+workflow `.github/workflows/install-matrix.yml` without `workflow` scope)
+```
+
+Everything else pushes fine, so this surfaces only on CI changes. Log in with
+`gh auth login --scopes workflow`, or add it later with
+`gh auth refresh -h github.com -s workflow`. Both open a browser device flow,
+so an agent can't do it. There was no other stored GitHub credential to fall
+back on: `cmdkey /list` showed only `gh`'s own entries.
+
 **Git has no OS-conditional include**, so `git/gitconfig` cannot pull in the
 Windows overrides by itself. `~/.gitconfig` is therefore a generated stub that
 `[include]`s `git/gitconfig` and then `windows/gitconfig`, with absolute paths

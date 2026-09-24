@@ -29,7 +29,7 @@ docs/           Compound-engineering pipeline artifacts:
                 - docs/ideation/     Idea-survival outputs from /ce-ideate
                 - docs/plans/        Implementation plans from /ce-plan
                 - docs/solutions/    documented solutions to past problems (bugs, best practices, workflow patterns), organized by category with YAML frontmatter (module, tags, problem_type)
-ci/             CI assets (Dockerfile for install-matrix workflow)
+ci/             CI assets (Dockerfile for install-matrix's linux leg, PSScriptAnalyzer settings for its windows leg)
 git/            gitconfig, gitignore, gitattributes
 helpers/        Bash scripts called by the install pipeline
 herdr/          Herdr agent-multiplexer config (config.toml symlinked into ~/.config/herdr/)
@@ -837,7 +837,7 @@ Picking up a board ticket always gets its own branch (never work a ticket on
 
 **A docs-only PR skips the install matrix — but not the review.**
 `install-matrix.yml` declares `paths-ignore: ['docs/**', '**.md', 'claude/**/*.md']`,
-so a markdown-only change never triggers `linux`/`macos`; do not wait for a run that
+so a markdown-only change never triggers `linux`/`macos`/`windows`; do not wait for a run that
 will never start. **CodeRabbit still reviews it** if the PR is review-eligible — drafts and
 `WIP` / `DO NOT MERGE` titles are excluded — and it does have findings on markdown, as it did
 on #171. So `mergeStateStatus: CLEAN` is not by itself the merge signal — wait for the
@@ -967,7 +967,10 @@ stays in the platform's native shell, per
 4. `cd $HOME\Projects\Personal\dotfiles`, then `pwsh -File install.ps1 -DryRun` to preview
    and `pwsh -File install.ps1` to apply. A failed step does not stop the others; the
    script exits 1 and lists what failed.
-5. `gh auth login` (the github.com credential helper in `windows/gitconfig` is `gh`).
+5. `gh auth login --scopes workflow` (the github.com credential helper in `windows/gitconfig`
+   is `gh`). `gh`'s default token scopes are `repo`, `read:org` and `gist`, and GitHub refuses
+   a push that touches `.github/workflows/` without `workflow`. On a machine already logged
+   in: `gh auth refresh -h github.com -s workflow` (interactive, so a human step).
 
 What `install.ps1` does, in order — each step idempotent, `-DryRun` mutates nothing:
 
@@ -1010,6 +1013,13 @@ Windows-specific rules:
 - **Windows Terminal's `settings.json` is app-rewritten** — same trap as Claude's. Tracked
   terminal config goes in the fragment (`windows/terminal/dotfiles.json`), which Terminal
   only reads.
+- **CI covers the Windows layer** — `install-matrix.yml`'s `windows` job (hosted
+  `windows-2025`) runs the dry-run, a `-SkipPackages` apply, a second idempotent run, and
+  the #187 commit-switch check. It does **not** run the full `winget import` (a gaming PC's
+  app list: slow, and some installers want a GUI or a reboot); it resolves every
+  `packages.json` ID and pinned version in winget instead, since `install.ps1`'s
+  `--ignore-unavailable` would skip a dead ID silently. **Adding or removing a link in
+  `install.ps1` means updating the job's `EXPECTED_LINKS` too.**
 
 Gotchas behind these rules: `docs/solutions/cross-machine/windows-target-gotchas-2026-09-24.md`.
 
