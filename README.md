@@ -59,7 +59,8 @@ under "Setting up the Windows PC".
 The regular Linux layer runs inside WSL Ubuntu, from its own clone:
 
 ```sh
-# in PowerShell: wsl --install -d Ubuntu-24.04, then create your user with: wsl -d Ubuntu-24.04
+# in PowerShell: wsl --install -d Ubuntu-24.04 --no-launch
+#   then first launch, which creates your Linux user: wsl -d Ubuntu-24.04
 git clone https://github.com/villavicencio/dotfiles.git ~/Projects/Personal/dotfiles
 cd ~/Projects/Personal/dotfiles
 ./install --dry-run

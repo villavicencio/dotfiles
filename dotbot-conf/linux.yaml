@@ -31,12 +31,15 @@
     # it chsh prints "Password:" and fails at once with "PAM: Authentication
     # failure" - no chance to type (seen on the first WSL install, 2026-09-24).
     # sudo was unaffected because it opens /dev/tty itself.
+    # Both shell paths go through readlink -f: on merged-/usr Ubuntu /bin/zsh and
+    # /usr/bin/zsh are the same file, and a raw string compare would re-run chsh
+    # (and its password prompt) whenever PATH lists /bin first.
     - stdin: true
       command: |
         if [ "${DOTFILES_DRY_RUN:-0}" = "1" ]; then
           echo "[dry-run] would chsh -s $(command -v zsh || echo zsh)"
         elif [ "${CI:-false}" != "true" ] && command -v zsh >/dev/null 2>&1 \
-            && [ "$(getent passwd "$USER" | cut -d: -f7)" != "$(command -v zsh)" ]; then
+            && [ "$(readlink -f "$(getent passwd "$USER" | cut -d: -f7)")" != "$(readlink -f "$(command -v zsh)")" ]; then
           chsh -s "$(command -v zsh)"
         else
           echo "skipping chsh (CI, zsh missing, or zsh already the login shell)"
