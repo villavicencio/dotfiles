@@ -45,6 +45,10 @@ windows/        Windows layer, applied by install.ps1 at the repo root (NOT Dotb
   gitconfig               overrides chained after git/gitconfig by the ~/.gitconfig stub
   powershell/profile.ps1  PowerShell 7 profile — the zshrc + alias.sh counterpart
   terminal/dotfiles.json  Windows Terminal fragment — the iTerm dynamic-profile counterpart
+  claude-settings.json    hook-free Claude Code settings, copy-seeded to ~/.claude/settings.json
+  tweaks.ps1              system settings (mouse, Game Bar, GPU scheduling, time sync,
+                          Terminal default profile) — the `defaults write` counterpart;
+                          a separate opt-in step, NOT run by install.ps1
   install_nvim.ps1        nvim plugin bootstrap — the helpers/install_nvim.sh counterpart
 bin/            Repo CLI — bin/dot (symlinked to ~/.local/bin/dot)
   lib/*.py      Python helpers for doctor/bench. Real files, NOT heredocs — see
@@ -60,7 +64,7 @@ zsh/
   functions/    Individual function files (man_colorful, mkdir_and_cd, etc.)
 claude/
   CLAUDE.md              Global Claude Code instructions (symlinked to ~/.claude/CLAUDE.md)
-  settings.json          Claude Code settings — plugins, allowed tools (symlinked to ~/.claude/settings.json)
+  settings.json          Claude Code settings — plugins, allowed tools (COPY-SEEDED to ~/.claude/settings.json, never symlinked)
   statusline-command.sh  Statusline script (symlinked to ~/.claude/statusline-command.sh)
   hooks/                 Claude Code hooks (e.g. tmux-attention.sh)
 ```
@@ -324,7 +328,8 @@ is on the default branch and therefore present on every branch cut from it.
 
 ### Claude Code `settings.json` — copy-seeded, never symlinked
 `claude/settings.json` is the **only** tracked config delivered by copy rather than a
-Dotbot `link:`. The Otty config was the other one until Otty was uninstalled and its
+Dotbot `link:` (its Windows sibling `windows/claude-settings.json` is copy-seeded the same
+way by `install.ps1` — see "Setting up the Windows PC"). The Otty config was the other one until Otty was uninstalled and its
 tracking removed (2026-09-03); the reasoning below is the same one that governed it, and
 the mechanism is written up in
 `docs/solutions/integration-issues/otty-config-symlink-hostile-atomic-rename-2026-08-07.md`
@@ -355,18 +360,21 @@ diff would report permanent un-actionable drift. To record live changes:
 
 ```bash
 dot drift                                            # see what diverged
-bash helpers/install_claude_settings.sh --capture    # regenerate claude/settings.json, then commit
+bash helpers/install_claude_settings.sh --capture    # regenerate claude/settings.json (Git Bash on
+                                                     # Windows: windows/claude-settings.json), then commit
 ```
 
 `--capture` regenerates rather than `cp`s: it drops the machine-local keys
-(`effortLevel`, `autoMode`, `mcpServers`, and `allowedTools` — which must never be tracked),
+(`effortLevel`, `modelSettings`, `autoMode`, `mcpServers`, and `allowedTools` — which must never be tracked),
 re-prepends the tracked `"//"` header, and rewrites absolute `$HOME` paths back to `~/`
 (installers write literal `/Users/<you>/...`; Claude Code expands `~` in hook commands).
 
 **Agents cannot write this file** — the auto-mode classifier blocks it by design, so it stops an
 agent widening its own permissions. `helpers/migrate_claude_settings.py` exists for a machine
 whose settings predate this scheme (folds `allowedTools` back, registers the blank-state hook);
-it is idempotent, backs up first, and **you run it yourself**, not an agent.
+it is idempotent, backs up first, and **you run it yourself**, not an agent. On Windows (native
+Python, or `--no-hooks`) it only folds `allowedTools` — no herdr hooks — and under Git Bash
+you run it as `python`, since `python3` there is the Microsoft Store placeholder.
 
 ### Herdr — agent multiplexer (config symlinked; writes flow back)
 `herdr` (Brewfile) is a tmux-shaped client/server multiplexer with native agent
@@ -1012,6 +1020,8 @@ stays in the platform's native shell, per
    and `pwsh -File install.ps1` to apply. A failed step does not stop the others; the
    script exits 1 and lists what failed.
 5. `gh auth login` (the github.com credential helper in `windows/gitconfig` is `gh`).
+6. System settings, from an **elevated** `pwsh`: `pwsh -File windows/tweaks.ps1 -DryRun`,
+   then without `-DryRun`. See "System tweaks" below.
 
 What `install.ps1` does, in order — each step idempotent, `-DryRun` mutates nothing:
 
@@ -1020,9 +1030,9 @@ What `install.ps1` does, in order — each step idempotent, `-DryRun` mutates no
    running apps included). Upgrades are topgrade's job (`update`).
 2. Symlinks the configs shared with macOS — `git/gitignore`, `git/gitattributes`,
    `starship/starship.toml`, `lazygit/config.yml` (into `%APPDATA%`), `claude/CLAUDE.md`,
-   and the whole `nvim/` directory as `%LOCALAPPDATA%\nvim` (where Windows Neovim reads its
-   config) — plus the Windows Terminal fragment. A real file or directory in the way is
-   moved to `<name>.pre-dotfiles`, never deleted.
+   `claude/statusline-command.sh`, and the whole `nvim/` directory as `%LOCALAPPDATA%\nvim`
+   (where Windows Neovim reads its config) — plus the Windows Terminal fragment. A real
+   file or directory in the way is moved to `<name>.pre-dotfiles`, never deleted.
 3. Writes two **stubs** rather than links:
    - `~/.gitconfig` `[include]`s `git/gitconfig` then `windows/gitconfig`. Git has no
      OS-conditional include, so the shared file cannot pull in the Windows overrides itself.
@@ -1039,9 +1049,12 @@ What `install.ps1` does, in order — each step idempotent, `-DryRun` mutates no
      Documents, which OneDrive commonly redirects and syncs, and OneDrive handles symlinks
      badly. Resolve Documents with `[Environment]::GetFolderPath('MyDocuments')`, never
      hardcode it.
-4. `pre-commit install` (pre-commit via `uv tool`; gitleaks via winget, **pinned in
+4. Seeds `~/.claude/settings.json` from `windows/claude-settings.json` **only when absent**
+   — the same contract as `helpers/install_claude_settings.sh` on the Macs. A live file is
+   never touched, and the seed is a copy, never a link (Claude Code rewrites the file).
+5. `pre-commit install` (pre-commit via `uv tool`; gitleaks via winget, **pinned in
    `windows/packages.json` too** — that is a third place the gitleaks version must match).
-5. `windows/install_nvim.ps1`: the Windows twin of `helpers/install_nvim.sh`. It restores
+6. `windows/install_nvim.ps1`: the Windows twin of `helpers/install_nvim.sh`. It restores
    the plugins pinned in `nvim/lazy-lock.json` into `%LOCALAPPDATA%\nvim-data` and runs
    `helpers/nvim_verify_lock.lua`, the verifier the two share. A missing nvim is a failure
    (step 1 imports with `--ignore-unavailable`, so a Neovim that didn't install would
@@ -1053,8 +1066,41 @@ What `install.ps1` does, in order — each step idempotent, `-DryRun` mutates no
 
 Windows-specific rules:
 
-- **Never seed `claude/settings.json` on Windows.** Every hook in it calls tmux/herdr bash
-  scripts; on Windows they would error on every event. A Windows settings seed is future work.
+- **Windows seeds `windows/claude-settings.json`, never `claude/settings.json`.** Every hook
+  in the Mac file calls a tmux/herdr bash script, which would error on every event here.
+  The Windows file is the Mac baseline with three things removed, and nothing added:
+
+  | Removed | Why |
+  |---|---|
+  | `hooks` (all of them) | `tmux-attention.sh`, `herdr-agent-state.sh`, `herdr-blank-state.sh` — no tmux or herdr on Windows |
+  | `preferredNotifChannel: "iterm2"` | iTerm2 is macOS-only; Claude Code picks a default |
+  | `Bash(brew …)`, `Bash(tmux -V*)` allow rules | no Homebrew or tmux; dead rules |
+
+  Everything else is identical: `permissions` (the remaining allow rules + `defaultMode`),
+  `enabledPlugins`, `extraKnownMarketplaces`, and the UI/notification prefs. **The
+  `statusLine` block is byte-identical** — `sh "$HOME/.claude/statusline-command.sh"` runs
+  under Git Bash's `sh` with `$HOME` expanded (verified live 2026-09-24), and `install.ps1`
+  links the script. Its deps are `jq` (winget `jqlang.jq`), `git`, `awk`, and the Nerd Font
+  from the Terminal fragment.
+  **Nothing keeps the two files in step but you**: change a shared key in one, change it in
+  the other. Under Git Bash, `install_claude_settings.sh` (seed and `--capture`) and
+  `report_drift.sh` target the Windows file, so a capture on the PC cannot overwrite the Mac
+  baseline with a hook-free copy. On Windows `report_drift.sh` reports **only** the Claude
+  settings comparison — its Homebrew and npm-globals sections are Mac/Linux inventories and
+  are skipped, not failed. Both helpers probe for a Python that actually runs (`python3`
+  under Git Bash is usually the Microsoft Store placeholder, which `command -v` finds but
+  which exits non-zero), fall back to `python`, and hand it `cygpath -w` paths; a failed
+  normalization is an error, never a silent "(in sync)".
+  The seed only lands on a machine with no settings file. A PC that already has one keeps
+  it; adopting the baseline there is a human step (the auto-mode classifier blocks agents
+  from writing it): move the live file aside, re-run `install.ps1`, then re-add any
+  machine-local keys (`modelSettings`, `theme`, …).
+- **The status line normalizes Windows paths for display only.** Claude Code sends `cwd` as
+  `C:\Users\…` while Git Bash's `$HOME` is `/c/Users/…`; the script converts a drive-letter
+  path with `cygpath -u` before the `~` comparison (paths outside `$HOME` keep their native
+  form) and passes the raw path to `git -C`. It also feeds jq with `printf '%s\n'` (dash's
+  `echo` expands the `\\` in JSON-escaped Windows paths into an invalid escape) and reads
+  with `jq -j` (a native `jq.exe` ends its line with CRLF, and dash keeps the CR).
 - **`claude/CLAUDE.md` IS linked on Windows** — its Mac-only sections (vaults, herdr, Obscura)
   already say so.
 - **`topgrade/topgrade.toml` is NOT linked on Windows** — its `[commands]` entry is POSIX
@@ -1063,7 +1109,8 @@ Windows-specific rules:
   counterpart; `~/.gitconfig.local` works unchanged.
 - **Windows Terminal's `settings.json` is app-rewritten** — same trap as Claude's. Tracked
   terminal config goes in the fragment (`windows/terminal/dotfiles.json`), which Terminal
-  only reads.
+  only reads. The one exception is `defaultProfile`, which a fragment cannot set:
+  `windows/tweaks.ps1` edits that single line in place.
 - **Neovim on Windows:** `Neovim.Neovim` is a machine-scope MSI, so `winget import` raises a
   UAC prompt. It adds `C:\Program Files\Neovim\bin` to the machine PATH, which
   `Update-SessionPath` picks up in the same run. `LuaLS.lua-language-server` is the Brewfile's
@@ -1073,6 +1120,38 @@ Windows-specific rules:
   tree-sitter CLI plus a C compiler for parsers Neovim does not bundle.
 - **Don't run `python3` from a Windows install step.** It is often the Microsoft Store
   stub under `WindowsApps`, which is why the nvim pin verifier is Lua run by `nvim -l`.
+
+### System tweaks (`windows/tweaks.ps1`)
+
+The counterpart of macOS `defaults write`: a data-driven list (`$Tweaks`) of Windows settings,
+each compared by its configured value (registry or `settings.json`; the mouse and time entries
+also check the live session) and reported `ok`, `would set` (`-DryRun`) or `set`. Before a change it saves
+the prior values under `%LOCALAPPDATA%\dotfiles\tweaks-backups\<timestamp>-<pid>\`. A failing entry
+doesn't stop the others; the script exits 1 and lists them.
+
+- **Separate from `install.ps1` on purpose.** Some entries write HKLM or run `w32tm` and need
+  elevation, and `install.ps1` stays unelevated. An unelevated run still *reads* the admin
+  entries (reported `ok` when correct); it records a failure only when one would have to
+  change. It also changes the live session (mouse), which a routine re-install shouldn't do.
+- **Record only what this PC already has.** An entry lands after the setting was changed by
+  hand and verified, and `-DryRun` must then read `ok` on every line. The script is a record,
+  not a place to try new settings. Current entries: mouse acceleration off, Game Bar
+  background recording off, hardware-accelerated GPU scheduling on (admin, needs a restart),
+  Windows Time syncing from `time.windows.com,0x9` (admin), and Terminal's default profile
+  = PowerShell 7.
+- **Only the mouse and time entries apply live.** Game Bar and GPU scheduling are plain
+  registry writes: Game Bar may need a sign-out, and GPU scheduling needs a restart. Mouse: `SystemParametersInfo(SPI_SETMOUSE, [0,0,0], SPIF_UPDATEINIFILE|SPIF_SENDCHANGE)`
+  writes the same three `HKCU\Control Panel\Mouse` values *and* changes the running session.
+  A registry-only write waits for the next sign-in, so the mouse entry also compares
+  `SPI_GETMOUSE` with the registry. Time: `w32tm /config … /update` makes the running service
+  re-read its settings, then `/resync` syncs now. Correct registry values don't prove the
+  service uses them (this PC had them and had never synced), so the time entry also compares
+  `w32tm /query /source` with the configured peer, and runs the set when either differs. The
+  source reads "Local CMOS Clock" until the first poll after boot, so a run just after boot
+  may resync, which is harmless.
+- **Never name a `$Tweaks` key `Values`, `Keys` or `Count`.** On an entry without that key,
+  `$t.Values` returns the hashtable's own `.Values` collection instead of `$null`, so the
+  entry gets treated as a registry entry. That's why the registry list is called `Registry`.
 
 Gotchas behind these rules: `docs/solutions/cross-machine/windows-target-gotchas-2026-09-24.md`.
 

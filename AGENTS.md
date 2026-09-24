@@ -63,8 +63,10 @@ bin/        Repo CLI — bin/dot (symlinked to ~/.local/bin/dot)
             bin/lib/*.py — Python helpers for doctor/bench, deliberately NOT heredocs
 windows/    Windows layer, applied by install.ps1 (repo root): packages.json (winget),
             gitconfig (overrides chained after git/gitconfig), powershell/profile.ps1,
-            terminal/dotfiles.json (Windows Terminal fragment), install_nvim.ps1 (the
-            helpers/install_nvim.sh counterpart)
+            terminal/dotfiles.json (Windows Terminal fragment), claude-settings.json
+            (hook-free Claude Code settings seed — COPY-SEEDED like the Mac's); tweaks.ps1
+            (system settings, the `defaults write` counterpart; opt-in, not run by install.ps1);
+            install_nvim.ps1 (the helpers/install_nvim.sh counterpart)
 ```
 
 ---
@@ -243,11 +245,22 @@ Brewfile, tmux, nvim, nvm, node). Each helper is independently runnable. (Nerd F
 install via Homebrew casks in `brew/Brewfile`, not a helper.)
 
 **Windows:** `pwsh -File install.ps1 [-DryRun] [-SkipPackages]` instead — winget import
-(`--no-upgrade`), symlinks for the configs shared with macOS (including `nvim/` as
-`%LOCALAPPDATA%\nvim`), stubs for `~/.gitconfig` and `$PROFILE`, the pre-commit hook, then
-the pinned nvim plugins (`windows/install_nvim.ps1`). Full steps and rules: "Setting up the Windows PC" in
+(`--no-upgrade`), symlinks for the configs shared with macOS (the Claude status line and
+`nvim/` as `%LOCALAPPDATA%\nvim` included), stubs for `~/.gitconfig` and `$PROFILE`, a
+`~/.claude/settings.json` seed (only when absent), the pre-commit hook, then the pinned nvim
+plugins (`windows/install_nvim.ps1`). Full steps and rules: "Setting up the Windows PC" in
 `CLAUDE.md`. Verify with a `-DryRun` (must report changes but make none) and a second real
 run (every line must read `ok`).
+
+**Windows system settings:** from an elevated shell, preview with
+`pwsh -File windows/tweaks.ps1 -DryRun`, then apply with `pwsh -File windows/tweaks.ps1`.
+It's a separate opt-in step, because some entries need elevation and `install.ps1` stays
+unelevated. It records only settings the PC already has and backs up prior values first.
+The mouse and time entries also check the live session and apply live (mouse via
+`SystemParametersInfo`; time via `w32tm /config /update` + `/resync`, run whenever the registry
+or the service's reported source differs). Game Bar and GPU scheduling are plain registry writes and may need
+a sign-out or restart. A `-DryRun` must read `ok` on every line. Details: "System
+tweaks" in `CLAUDE.md`.
 
 ---
 
@@ -340,10 +353,11 @@ run (every line must read `ok`).
   precedence trap PR #127 had removed: when both keys exist the legacy one WINS and
   `permissions.allow` is inert. `helpers/install_claude_settings.sh` seeds when absent and
   `--capture` records live changes back (dropping the machine-local keys `effortLevel`,
-  `autoMode`, `mcpServers`, `allowedTools`, and normalizing `$HOME` paths to `~/`).
+  `modelSettings`, `autoMode`, `mcpServers`, `allowedTools`, and normalizing `$HOME` paths to `~/`).
   `dot drift` compares capture-normalized forms and warns if `allowedTools` reappears.
   Agents cannot write this file — the auto-mode classifier blocks it by design; run
-  `helpers/migrate_claude_settings.py` yourself on a machine that predates the scheme.
+  `helpers/migrate_claude_settings.py` yourself on a machine that predates the scheme (on
+  Windows it folds `allowedTools` only, no herdr hooks; run it as `python` under Git Bash).
 - **`git/gitconfig` `core.pager = vim -`** is intentional on the Macs; `diff`/`show` route
   through **delta** via the `[pager]` overrides. Linux gets `less -FRX` from the overlay below.
 - **Linux git config is `git/gitconfig` plus an overlay, via an include, not a stub.**
@@ -380,8 +394,17 @@ run (every line must read `ok`).
   `docs/solutions/runtime-errors/lazy-nvim-first-launch-drifts-lockfile-2026-09-24.md`.
 - **Windows gets stubs, not links, for `~/.gitconfig` and `$PROFILE`** — git has no
   OS-conditional include, and `$PROFILE` sits under a OneDrive-redirected Documents folder.
-  **Never seed `claude/settings.json` on Windows** (its hooks are tmux/herdr bash scripts),
-  and **don't link `topgrade/topgrade.toml` there** (its `[commands]` entry is POSIX shell).
+  **Windows seeds `windows/claude-settings.json`, never `claude/settings.json`** (the Mac
+  file's hooks are tmux/herdr bash scripts that would error on every event). The Windows
+  file is the Mac baseline minus `hooks`, `preferredNotifChannel`, and the brew/tmux allow
+  rules; the `statusLine` block is identical and runs under Git Bash's `sh`. Keep the two
+  files' shared keys in step by hand. Same copy-only-when-absent contract, and the
+  helpers (`install_claude_settings.sh --capture`, `report_drift.sh`) switch to the
+  Windows file under Git Bash so a capture on the PC can't overwrite the Mac baseline.
+  On Windows `report_drift.sh` skips the Homebrew/npm inventories (Mac/Linux manifests)
+  and runs only the Claude comparison, with a Python probe that rejects the Microsoft
+  Store `python3` placeholder; a failed normalization is an error, never "(in sync)".
+  **Don't link `topgrade/topgrade.toml` there** (its `[commands]` entry is POSIX shell).
   Write-up: `docs/solutions/cross-machine/windows-target-gotchas-2026-09-24.md`.
 - The **tmux session-restoration block** in `zshrc` is guarded to run only outside tmux and
   only in iTerm2.

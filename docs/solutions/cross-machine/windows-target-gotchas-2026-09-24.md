@@ -12,7 +12,7 @@ tags:
   - claude-code
   - cross-machine
 severity: Medium
-component: "install.ps1, windows/gitconfig, windows/powershell/profile.ps1, windows/packages.json, windows/terminal/dotfiles.json"
+component: "install.ps1, windows/tweaks.ps1, windows/gitconfig, windows/powershell/profile.ps1, windows/packages.json, windows/terminal/dotfiles.json"
 problem_type: "cross-machine config portability"
 module: "install pipeline (windows)"
 related_solutions:
@@ -144,8 +144,36 @@ complete!" only when nothing failed.
 
 **`claude/settings.json` must not be seeded on Windows.** Every hook in it
 calls a tmux or herdr bash script (`tmux-attention.sh`, `herdr-agent-state.sh`,
-`herdr-blank-state.sh`), so each event would error. `claude/CLAUDE.md` is safe
-to link, because its Mac-only sections are already labeled as such.
+`herdr-blank-state.sh`), so each event would error. Since VIL-150, `install.ps1`
+seeds `windows/claude-settings.json` instead (only when `~/.claude/settings.json`
+is absent): the Mac baseline minus the hooks, the iTerm2 notification channel and
+the brew/tmux allow rules. `claude/CLAUDE.md` is safe to link, because its
+Mac-only sections are already labeled as such.
+
+**The status line works unchanged under Git Bash's `sh`**, including the Mac
+`statusLine` command string (`$HOME` expands). Three Windows-only wrinkles, all
+fixed in the script (VIL-150):
+
+- Claude Code sends `cwd` as `C:\Users\Loft\...` while `$HOME` is
+  `/c/Users/Loft`, so `~` shortening never matched. The script converts a
+  drive-letter path with `cygpath -u` for the comparison only; `git -C` still
+  gets the raw path, which it accepts.
+- `echo "$input"` under dash (and any `xpg_echo` sh) turns JSON's `\\` into
+  `\`, so jq failed with "Invalid escape" and every field came back empty.
+  `printf '%s\n'` passes the bytes through.
+- A native `jq.exe` ends output with CRLF. Git Bash's `sh` drops the CR, but
+  dash kept it in the last field and drew an empty worktree badge. `jq -j`
+  writes no line ending at all.
+
+CI gotcha: the install matrix's R3 PII scan greps every tracked file outside
+`docs/**` for `/Users/<alnum>`, and a Git Bash path like `/c/Users/me` in a
+code comment matches it. Write example paths with a placeholder
+(`/c/Users/<you>`), as the Mac examples already do.
+
+Testing gotcha: the Claude Code Bash tool collapses `\\` in inline command
+text, so feed Windows-path JSON through a file written with the Write tool, not
+an inline heredoc or `printf`. `dash` ships with Git for Windows, so the
+dash-only failures reproduce on the PC.
 
 **Windows Terminal rewrites its own `settings.json`**, the same trap as Claude
 Code's settings and Otty's config. Tracked terminal config therefore goes in a
@@ -154,6 +182,38 @@ which Terminal only reads. It is the counterpart of the iTerm dynamic profile.
 The fragment targets the pwsh profile by its fixed GUID
 `{574e775e-4f2a-5b96-ac1e-a2962a402336}` with `"updates"`. Terminal generates
 that profile the next time it launches after pwsh is installed.
+
+## System tweaks (`windows/tweaks.ps1`)
+
+**A mouse setting written only to the registry doesn't apply until the next
+sign-in.** `HKCU\Control Panel\Mouse` (`MouseSpeed`, `MouseThreshold1`,
+`MouseThreshold2`) is what persists, but the running session keeps its own copy.
+`SystemParametersInfo(SPI_SETMOUSE, 0, int[3]{threshold1, threshold2, speed},
+SPIF_UPDATEINIFILE | SPIF_SENDCHANGE)` changes both: per the Win32 docs,
+`SPIF_UPDATEINIFILE` "writes the new system-wide parameter setting to the user
+profile" and `SPIF_SENDCHANGE` broadcasts `WM_SETTINGCHANGE`. "Enhance pointer
+precision" off is `[0,0,0]`. The script's mouse entry reads both the registry
+and `SPI_GETMOUSE`, so a registry-only change still shows up as drift.
+
+**`w32tm /config` needs `/update` to reach the running service.** Microsoft's
+W32Time reference says `/update` "notifies W32Time that the configuration is
+changing, causing the changes to take effect". This PC's `NtpServer` and `Type`
+were `time.windows.com,0x9` / `NTP`, but the clock had never synced. The
+documented stand-alone default for `NtpServer` is `time.windows.com,0x1`, so on
+a fresh install the entry would detect the difference and fix it. Correct
+values don't prove the service uses them, though, so the entry also compares
+`w32tm /query /source` with the configured peer and resyncs when it differs.
+Right after boot the source reads "Local CMOS Clock" until the first poll, so a
+run then may resync needlessly, which is harmless.
+
+**A hashtable's own properties shadow missing keys.** `$Tweaks` entries are
+hashtables. The first version named the registry list `Values`. On the Terminal
+entry, which has no such key, `$t.Values` returned the hashtable's built-in
+`.Values` collection instead of `$null`. The engine then treated it as a
+registry entry, and the dry run failed with `Cannot bind argument to parameter
+'LiteralPath' because it is null`. Keys that exist win over properties, so this
+only fails on entries *without* the key. Avoid `Values`, `Keys` and `Count` as
+key names.
 
 ## Repo scripts run from Git Bash
 
