@@ -44,7 +44,7 @@ docs/       Compound-engineering artifacts:
             - docs/plans/        implementation plans
             - docs/solutions/    documented solutions to past problems, with YAML
                                  frontmatter (module, tags, problem_type) + INDEX.md
-git/        gitconfig, gitignore, gitattributes
+git/        gitconfig, gitignore, gitattributes, gitconfig.linux (Linux overlay, see gotchas)
 helpers/    Bash scripts called by the install pipeline (each independently runnable)
 herdr/      Herdr agent-multiplexer config (config.toml symlinked into ~/.config/herdr/)
 iterm/      iTerm2 preferences
@@ -88,7 +88,8 @@ with a POSIX fallback.
 
 ### Machine-specific values go in untracked local files
 - **`~/env.sh`** — sourced last in `zshrc` (`2>/dev/null`); local-only exports/aliases/PATH.
-- **`~/.gitconfig.local`** — included at the end of `git/gitconfig`; set a work email here.
+- **`~/.gitconfig.local`** — included at the end of `git/gitconfig` (after the platform
+  overlay, so it wins); set a work email here.
 - **`~/.ssh/config`** — per-machine host aliases; not tracked.
 
 ### Secret hygiene
@@ -337,8 +338,20 @@ run (every line must read `ok`).
   `dot drift` compares capture-normalized forms and warns if `allowedTools` reappears.
   Agents cannot write this file — the auto-mode classifier blocks it by design; run
   `helpers/migrate_claude_settings.py` yourself on a machine that predates the scheme.
-- **`git/gitconfig` `core.pager = vim -`** is intentional; `diff`/`show` route through
-  **delta** via the `[pager]` overrides.
+- **`git/gitconfig` `core.pager = vim -`** is intentional on the Macs; `diff`/`show` route
+  through **delta** via the `[pager]` overrides. Linux gets `less -FRX` from the overlay below.
+- **Linux git config is `git/gitconfig` plus an overlay, via an include, not a stub.**
+  `git/gitconfig` `[include]`s `~/.config/git/gitconfig.platform` after its `[credential]`
+  sections and before `~/.gitconfig.local`. `linux.yaml` links that path to
+  `git/gitconfig.linux`; macOS links nothing, and git skips a missing include, so the Macs
+  resolve the same config as before. The overlay resets the multi-valued
+  `credential.helper` lists with an empty value (dropping `osxkeychain`, the `/usr/local`
+  GCM path and `/opt/homebrew/bin/gh`), then adds `!/usr/bin/gh auth git-credential` for
+  github.com/gist.github.com only. So `git config --get-all credential.helper` still
+  *prints* the macOS values on Linux; check what git actually runs with
+  `GIT_TRACE=1 git credential fill`, as CI's R8 assertion does. Not `includeIf "gitdir:…"`:
+  every includeIf condition is about the repo, none about the OS. `git-delta`, `vim` and
+  `less` are in the Linux apt list because the git config names them (VIL-146).
 - **GCM credential-helper entries** in `git/gitconfig` are auto-generated — commit them
   separately from other work.
 - **`MYSQL_BIN="/usr/local/mysql/bin"`** is the MySQL PKG installer path on both

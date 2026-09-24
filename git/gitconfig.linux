@@ -1,0 +1,37 @@
+# Linux overrides for git/gitconfig (VIL-146).
+#
+# dotbot-conf/linux.yaml links this file to ~/.config/git/gitconfig.platform,
+# which git/gitconfig [include]s after its own credential sections. macOS links
+# nothing there, and git silently ignores an include whose path doesn't exist,
+# so the Macs resolve exactly the config they did before. Only what differs from
+# macOS lives here.
+#
+# Not includeIf "gitdir:...": every includeIf condition is about the repository
+# (its path, branch, remotes), none about the OS, so it can't cover `git clone`
+# into /tmp, a repo under /mnt/c, or `git config --global` run outside a repo.
+
+# credential.helper is multi-valued: an empty value resets the list inherited
+# from git/gitconfig (osxkeychain + the /usr/local GCM path, neither of which
+# exists on Linux). Nothing is added back for other hosts: with no helper git
+# prompts, which is the honest default on a box without a keychain.
+[credential]
+    helper =
+# gh from helpers/install_packages.sh (cli.github.com apt repo) is /usr/bin/gh.
+# Absolute for the reason git/gitconfig gives: helpers run with the caller's
+# PATH, which may not have sourced the shell. It's also what `gh auth setup-git`
+# writes, so running that later won't add a second entry.
+[credential "https://github.com"]
+    helper =
+    helper = !/usr/bin/gh auth git-credential
+[credential "https://gist.github.com"]
+    helper =
+    helper = !/usr/bin/gh auth git-credential
+
+# core.pager = vim - is a macOS preference (CLAUDE.md "Things intentionally left
+# as-is"). On the openclaw-prod VPS (2026-09-02) it turned git output in agent
+# terminal sessions into vim buffers. Git only pages when stdout is a tty, so
+# scripts never hit it; interactive and agent pty sessions do. less with the
+# flags git itself defaults LESS to (F: quit if one screen, R: keep colors,
+# X: don't clear) matches $PAGER/$LESS in zsh/zshenv.
+[core]
+    pager = less -FRX

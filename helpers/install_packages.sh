@@ -48,10 +48,16 @@ else
     sudo apt-get update -qq
 
     # Core CLI tools (apt equivalents of Brewfile)
+    # git-delta, vim and less are here because the git config names them: delta
+    # is the [pager] for diff/show and the interactive.diffFilter (Brewfile has
+    # it), vim is core.editor (macOS ships it; the ubuntu:24.04 base image
+    # doesn't), and less is git/gitconfig.linux's core.pager and zshenv's $PAGER.
+    # Without them, paged git output, `git add -p` and `git commit` (no -m) fail
+    # on a tty trying to run a binary that isn't there.
     apt_install \
-        bat btop curl fd-find fzf gawk git jq \
+        bat btop curl fd-find fzf gawk git git-delta jq less \
         ncdu neovim ripgrep shellcheck tig tmux \
-        tree watch wget zsh build-essential cmake \
+        tree vim watch wget zsh build-essential cmake \
         luarocks python3-pip pipx
 
     # GitHub CLI
