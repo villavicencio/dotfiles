@@ -12,7 +12,7 @@ tags:
   - claude-code
   - cross-machine
 severity: Medium
-component: "install.ps1, windows/gitconfig, windows/powershell/profile.ps1, windows/packages.json, windows/terminal/dotfiles.json"
+component: "install.ps1, windows/tweaks.ps1, windows/gitconfig, windows/powershell/profile.ps1, windows/packages.json, windows/terminal/dotfiles.json"
 problem_type: "cross-machine config portability"
 module: "install pipeline (windows)"
 related_solutions:
@@ -182,6 +182,38 @@ which Terminal only reads. It is the counterpart of the iTerm dynamic profile.
 The fragment targets the pwsh profile by its fixed GUID
 `{574e775e-4f2a-5b96-ac1e-a2962a402336}` with `"updates"`. Terminal generates
 that profile the next time it launches after pwsh is installed.
+
+## System tweaks (`windows/tweaks.ps1`)
+
+**A mouse setting written only to the registry doesn't apply until the next
+sign-in.** `HKCU\Control Panel\Mouse` (`MouseSpeed`, `MouseThreshold1`,
+`MouseThreshold2`) is what persists, but the running session keeps its own copy.
+`SystemParametersInfo(SPI_SETMOUSE, 0, int[3]{threshold1, threshold2, speed},
+SPIF_UPDATEINIFILE | SPIF_SENDCHANGE)` changes both: per the Win32 docs,
+`SPIF_UPDATEINIFILE` "writes the new system-wide parameter setting to the user
+profile" and `SPIF_SENDCHANGE` broadcasts `WM_SETTINGCHANGE`. "Enhance pointer
+precision" off is `[0,0,0]`. The script's mouse entry reads both the registry
+and `SPI_GETMOUSE`, so a registry-only change still shows up as drift.
+
+**`w32tm /config` needs `/update` to reach the running service.** Microsoft's
+W32Time reference says `/update` "notifies W32Time that the configuration is
+changing, causing the changes to take effect". This PC's `NtpServer` and `Type`
+were `time.windows.com,0x9` / `NTP`, but the clock had never synced. The
+documented stand-alone default for `NtpServer` is `time.windows.com,0x1`, so on
+a fresh install the entry would detect the difference and fix it. Correct
+values don't prove the service uses them, though, so the entry also compares
+`w32tm /query /source` with the configured peer and resyncs when it differs.
+Right after boot the source reads "Local CMOS Clock" until the first poll, so a
+run then may resync needlessly, which is harmless.
+
+**A hashtable's own properties shadow missing keys.** `$Tweaks` entries are
+hashtables. The first version named the registry list `Values`. On the Terminal
+entry, which has no such key, `$t.Values` returned the hashtable's built-in
+`.Values` collection instead of `$null`. The engine then treated it as a
+registry entry, and the dry run failed with `Cannot bind argument to parameter
+'LiteralPath' because it is null`. Keys that exist win over properties, so this
+only fails on entries *without* the key. Avoid `Values`, `Keys` and `Count` as
+key names.
 
 ## Repo scripts run from Git Bash
 

@@ -63,7 +63,8 @@ bin/        Repo CLI — bin/dot (symlinked to ~/.local/bin/dot)
 windows/    Windows layer, applied by install.ps1 (repo root): packages.json (winget),
             gitconfig (overrides chained after git/gitconfig), powershell/profile.ps1,
             terminal/dotfiles.json (Windows Terminal fragment), claude-settings.json
-            (hook-free Claude Code settings seed — COPY-SEEDED like the Mac's)
+            (hook-free Claude Code settings seed — COPY-SEEDED like the Mac's); tweaks.ps1
+            (system settings, the `defaults write` counterpart; opt-in, not run by install.ps1)
 ```
 
 ---
@@ -247,6 +248,16 @@ included), stubs for `~/.gitconfig` and `$PROFILE`, a `~/.claude/settings.json` 
 when absent), then the pre-commit hook. Full steps and rules: "Setting up the Windows PC" in
 `CLAUDE.md`. Verify with a `-DryRun` (must report changes but make none) and a second real
 run (every line must read `ok`).
+
+**Windows system settings:** from an elevated shell, preview with
+`pwsh -File windows/tweaks.ps1 -DryRun`, then apply with `pwsh -File windows/tweaks.ps1`.
+It's a separate opt-in step, because some entries need elevation and `install.ps1` stays
+unelevated. It records only settings the PC already has and backs up prior values first.
+The mouse and time entries also check the live session and apply live (mouse via
+`SystemParametersInfo`; time via `w32tm /config /update` + `/resync`, run whenever the registry
+or the service's reported source differs). Game Bar and GPU scheduling are plain registry writes and may need
+a sign-out or restart. A `-DryRun` must read `ok` on every line. Details: "System
+tweaks" in `CLAUDE.md`.
 
 ---
 
