@@ -211,8 +211,9 @@ if ($DryRun) {
 Write-Step 'nvim plugins (nvim/lazy-lock.json)'
 Invoke-Step 'nvim plugin bootstrap' {
     # Upgrades a too-old nvim; exit 1 = nvim missing or still too old, or a pin didn't
-    # restore. A missing nvim is only a skip when packages were skipped on purpose.
-    & (Join-Path $Repo 'windows/install_nvim.ps1') -DryRun:$DryRun -AllowMissing:$SkipPackages
+    # restore. Under -SkipPackages a missing nvim is a skip and an old one fails
+    # without running winget.
+    & (Join-Path $Repo 'windows/install_nvim.ps1') -DryRun:$DryRun -AllowMissing:$SkipPackages -NoUpgrade:$SkipPackages
     $null = Test-NativeExit 'nvim plugin bootstrap'
 }
 

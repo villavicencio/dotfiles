@@ -41,8 +41,8 @@ fi
 # Move a path out of the way without ever overwriting an earlier backup (the same
 # <name>.pre-dotfiles convention install.ps1 uses). Never deletes.
 move_aside() {
-  local backup="$1.pre-dotfiles"
-  if [ -e "$backup" ] || [ -L "$backup" ]; then backup="$backup.$(date +%Y%m%d-%H%M%S)"; fi
+  local backup="$1.pre-dotfiles" n=1
+  while [ -e "$backup" ] || [ -L "$backup" ]; do backup="$1.pre-dotfiles.$n"; n=$((n + 1)); done
   if ! mv "$1" "$backup"; then
     echo "install_nvim.sh: could not move $1 aside — not replacing it." >&2
     return 1
@@ -60,7 +60,10 @@ install_linux_nvim() {
   esac
 
   local prefix="$HOME/.local/opt/nvim-v$NVIM_VERSION"
-  if [ ! -x "$prefix/bin/nvim" ]; then
+  # Reuse an existing install only if this helper wrote it from the verified tarball
+  # (its marker holds that tarball's sha256); anything else is moved aside below.
+  local marker="$prefix/.dotfiles-tarball-sha256"
+  if [ ! -x "$prefix/bin/nvim" ] || [ "$(cat "$marker" 2>/dev/null)" != "$sha" ]; then
     echo "Installing Neovim v$NVIM_VERSION ($arch) to $prefix..."
     local url="https://github.com/neovim/neovim/releases/download/v$NVIM_VERSION/nvim-linux-$arch.tar.gz"
     local tmp
@@ -86,6 +89,7 @@ install_linux_nvim() {
       echo "install_nvim.sh: could not move Neovim into $prefix" >&2; rm -rf "$tmp"; return 1
     fi
     rm -rf "$tmp"
+    printf '%s\n' "$sha" > "$marker" || return 1
   fi
   mkdir -p "$HOME/.local/bin"
   local link="$HOME/.local/bin/nvim"
@@ -211,8 +215,10 @@ nvim -l "$here/nvim_verify_lock.lua" "$pinned"; rc=$?
 # The config must load: NvChad's nvconfig module is only loaded once init.lua has
 # run through, and any startup error text lands in the captured output.
 load="$(nvim --headless "+lua io.write(package.loaded.nvconfig and 'config-loaded' or 'config-NOT-loaded')" +qa 2>&1)"; load_rc=$?
+# That launch can install a still-missing plugin and rewrite the lockfile again.
+restore_pins || exit 1
 
-if [ "$rc" -eq 0 ] && [ "$boot_rc" -eq 0 ] && [ "$restore_rc" -eq 0 ] \
+if [ "$rc" -eq 0 ]&& [ "$boot_rc" -eq 0 ] && [ "$restore_rc" -eq 0 ] \
    && [ "$load_rc" -eq 0 ] && [ "$load" = "config-loaded" ]; then
   echo "nvim: all pinned plugins present at their locked commits and the config loads; bootstrap complete."
   exit 0
@@ -231,4 +237,6 @@ if [ -s "$diag" ]; then
   sed 's/^/  /' "$diag" >&2
 fi
 echo "  Open nvim (it finishes installing on launch), then run :Lazy restore + :checkhealth." >&2
+keep_pinned=1
+echo "  The pins are kept at $pinned." >&2
 exit 1

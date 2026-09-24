@@ -19,11 +19,12 @@
     An nvim older than 0.12 is upgraded with winget first (install.ps1 imports with
     --no-upgrade); if it is still too old, that is a failure.
     A missing nvim is a failure too, because Neovim.Neovim is in windows/packages.json;
-    -AllowMissing turns it into a skip (install.ps1 passes it under -SkipPackages).
+    -AllowMissing turns it into a skip, and -NoUpgrade makes a too-old nvim fail without
+    running winget (install.ps1 passes both under -SkipPackages).
     Exit code: 0 ok (or skipped under -AllowMissing), 1 nvim missing or too old,
     snapshot or restore failure, or incomplete bootstrap.
 #>
-param([switch]$DryRun, [switch]$AllowMissing)
+param([switch]$DryRun, [switch]$AllowMissing, [switch]$NoUpgrade)
 $ErrorActionPreference = 'Stop'
 $Repo = Split-Path $PSScriptRoot
 $MinNvim = [version]'0.12'   # the pinned nvim-treesitter (main) requires 0.12
@@ -50,6 +51,11 @@ function Test-NvimNewEnough([string]$line) {
 # --no-upgrade, so a machine that already had 0.11 keeps it. Upgrade it and re-check;
 # exit 1 (recorded by install.ps1) if that still does not reach the minimum.
 $verLine = Get-NvimVersionLine
+if (-not (Test-NvimNewEnough $verLine) -and $NoUpgrade) {
+    # install.ps1 -SkipPackages: never touch packages, so fail instead of upgrading.
+    Write-Warning "this config needs Neovim $MinNvim+, found '$verLine'. Upgrade it (winget upgrade --id Neovim.Neovim -e) and re-run."
+    exit 1
+}
 if (-not (Test-NvimNewEnough $verLine)) {
     Write-Host "Neovim is too old for this config ('$verLine'); running winget upgrade --id Neovim.Neovim -e..."
     winget upgrade --id Neovim.Neovim -e --accept-package-agreements --accept-source-agreements
@@ -122,6 +128,7 @@ try {
     # startup error text lands in the captured output.
     $load = (& nvim --headless "+lua io.write(package.loaded.nvconfig and 'config-loaded' or 'config-NOT-loaded')" +qa 2>&1 | Out-String).Trim()
     $loadRc = $LASTEXITCODE
+    Restore-Pins   # that launch can install a still-missing plugin and rewrite the lockfile
     if ($verifyRc -eq 0 -and $bootRc -eq 0 -and $restoreRc -eq 0 -and $loadRc -eq 0 -and $load -eq 'config-loaded') {
         Write-Host 'nvim: all pinned plugins present at their locked commits and the config loads; bootstrap complete.'
         exit 0
@@ -138,12 +145,15 @@ try {
         Get-Content $diag | ForEach-Object { "  $_" }
     }
     Write-Host '  Open nvim (it finishes installing on launch), then run :Lazy restore + :checkhealth.'
+    $keepPinned = $true
+    Write-Host "  The pins are kept at $pinned."
     exit 1
 } catch {
     Write-Warning "nvim plugin bootstrap failed: $($_.Exception.Message)"
+    $keepPinned = $true
     exit 1
 } finally {
     if ($diag) { Remove-Item $diag -Force -ErrorAction SilentlyContinue }
-    # A failed restore keeps the snapshot: it may be the only copy of uncommitted pins.
+    # A failed run keeps the snapshot: it may be the only copy of uncommitted pins.
     if ($pinned -and -not $keepPinned) { Remove-Item $pinned -Force -ErrorAction SilentlyContinue }
 }
