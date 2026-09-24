@@ -23,23 +23,54 @@ else
       exit 0
     fi
 
+    # Fail fast. Without this a failed apt-get install fell through to the
+    # "installed successfully" line and exited 0, so the job only failed two
+    # helpers later (install_tmux.sh: "tmux: command not found") instead of at
+    # the real cause (VIL-149). Scoped to the Linux branch: the macOS branch
+    # keeps its existing per-helper error handling.
+    set -euo pipefail
+
+    # apt_install PKG...: install, retrying once against a fresh package index.
+    # A mirror can 404 a .deb that the cached index still lists (a superseded
+    # security update), and apt then aborts the whole batch. Refreshing the
+    # index and reinstalling self-heals that race. No --fix-missing: it would
+    # "succeed" with some packages silently skipped.
+    apt_install() {
+        sudo apt-get install -y "$@" && return 0
+        echo "apt-get install failed; refreshing package lists and retrying once..." >&2
+        sudo apt-get update -qq
+        sudo apt-get install -y "$@" || {
+            echo "ERROR: apt-get install failed after retry: $*" >&2
+            exit 1
+        }
+    }
+
     sudo apt-get update -qq
 
     # Core CLI tools (apt equivalents of Brewfile)
-    sudo apt-get install -y \
-        bat btop curl fd-find fzf gawk git jq \
+    # git-delta, vim and less are here because the git config names them: delta
+    # is the [pager] for diff/show and the interactive.diffFilter (Brewfile has
+    # it), vim is core.editor (macOS ships it; the ubuntu:24.04 base image
+    # doesn't), and less is git/gitconfig.linux's core.pager and zshenv's $PAGER.
+    # Without them, paged git output, `git add -p` and `git commit` (no -m) fail
+    # on a tty trying to run a binary that isn't there.
+    apt_install \
+        bat btop curl fd-find fzf gawk git git-delta jq less \
         ncdu neovim ripgrep shellcheck tig tmux \
-        tree watch wget zsh build-essential cmake \
+        tree vim watch wget zsh build-essential cmake \
         luarocks python3-pip pipx
 
-    # GitHub CLI
-    if ! command -v gh &>/dev/null; then
+    # GitHub CLI. Test the exact path, not `command -v gh`: git/gitconfig.linux
+    # hardcodes /usr/bin/gh as the credential helper, so a gh installed anywhere
+    # else (e.g. ~/.local/bin) must not skip the apt install.
+    if [ ! -x /usr/bin/gh ]; then
         echo "Installing GitHub CLI..."
         curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
             | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg 2>/dev/null
         echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" \
             | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
-        sudo apt-get update -qq && sudo apt-get install -y gh
+        sudo apt-get update -qq
+        apt_install gh
     fi
 
     # Starship prompt

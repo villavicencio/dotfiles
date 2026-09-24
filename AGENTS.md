@@ -44,7 +44,7 @@ docs/       Compound-engineering artifacts:
             - docs/plans/        implementation plans
             - docs/solutions/    documented solutions to past problems, with YAML
                                  frontmatter (module, tags, problem_type) + INDEX.md
-git/        gitconfig, gitignore, gitattributes
+git/        gitconfig, gitignore, gitattributes, gitconfig.linux (Linux overlay, see gotchas)
 helpers/    Bash scripts called by the install pipeline (each independently runnable)
 herdr/      Herdr agent-multiplexer config (config.toml symlinked into ~/.config/herdr/)
 iterm/      iTerm2 preferences
@@ -89,7 +89,8 @@ with a POSIX fallback.
 
 ### Machine-specific values go in untracked local files
 - **`~/env.sh`** — sourced last in `zshrc` (`2>/dev/null`); local-only exports/aliases/PATH.
-- **`~/.gitconfig.local`** — included at the end of `git/gitconfig`; set a work email here.
+- **`~/.gitconfig.local`** — included at the end of `git/gitconfig` (after the platform
+  overlay, so it wins); set a work email here.
 - **`~/.ssh/config`** — per-machine host aliases; not tracked.
 
 ### Secret hygiene
@@ -210,22 +211,25 @@ tickets. Avoid committing directly to `master`.
 - **Trivial exceptions** (typo, one-line doc tweak) may go straight to `master`.
 - **Docs-only PRs skip the install matrix, not the review** — `install-matrix.yml` sets
   `paths-ignore: ['docs/**', '**.md', 'claude/**/*.md']`, so a markdown-only change never
-  triggers `linux`/`macos`; don't wait for a run that will never start. CodeRabbit still
-  reviews markdown on any review-eligible PR (drafts and `WIP` / `DO NOT MERGE` titles are
-  excluded), so wait for its check to leave `pending` and triage the findings —
-  `mergeStateStatus: CLEAN` also reads clean while a review is pending or throttled.
+  triggers `linux`/`macos`; don't wait for a run that will never start. review-stack still
+  reviews every head of a non-draft PR, markdown included, so wait for its comment for the
+  current head and triage the findings — `mergeStateStatus: CLEAN` also reads clean while
+  the review hasn't posted yet.
 
 Issue tracking: Linear, project `Dotfiles`, team `Villavicencio` (key `VIL`) —
 https://linear.app/villavicencio/project/dotfiles-74974922348e (migrated off the
 GitHub Projects board 2026-08-20; the board and closed GitHub issues are read-only
 history — never create new GitHub issues).
 
-- **PR review is CodeRabbit** (`.coderabbit.yaml` at repo root sets
-  `auto_incremental_review: false`, so re-review is requested with an `@coderabbitai review`
-  comment rather than fired by every push). Wait for its verdict and for each re-review before
-  merging — a stale `CHANGES_REQUESTED` is not permission, and a `Review rate limited` check
-  passes by design without any review having run. Full procedure, rate-limit mechanics, and when
-  to escalate to `dv:gauntlet` instead: the **Code Review** section of the global CLAUDE.md.
+- **PR review is review-stack, David's own reviewer** (since 2026-09-24, PRs #190 and
+  later; replaces CodeRabbit here). It reviews every new head of an open, non-draft PR
+  automatically, 2–6 minutes after the push, and posts one comment per head, starting with
+  `<!-- review-stack:head=<full sha> run=<id> -->`. Wait for the comment for the current
+  head (the `gh pr view … --jq` poll is in CLAUDE.md), fix the real findings and push; the
+  new head is re-reviewed automatically. Merge when the current head's review has no high or
+  critical finding that is neither fixed nor waived with David. It doesn't read thread
+  replies. "⚠️ The review did not complete" means tell David. CodeRabbit comments are
+  optional input: don't wait for them or re-trigger `@coderabbitai`.
 
 ---
 
@@ -345,8 +349,20 @@ tweaks" in `CLAUDE.md`.
   `dot drift` compares capture-normalized forms and warns if `allowedTools` reappears.
   Agents cannot write this file — the auto-mode classifier blocks it by design; run
   `helpers/migrate_claude_settings.py` yourself on a machine that predates the scheme.
-- **`git/gitconfig` `core.pager = vim -`** is intentional; `diff`/`show` route through
-  **delta** via the `[pager]` overrides.
+- **`git/gitconfig` `core.pager = vim -`** is intentional on the Macs; `diff`/`show` route
+  through **delta** via the `[pager]` overrides. Linux gets `less -FRX` from the overlay below.
+- **Linux git config is `git/gitconfig` plus an overlay, via an include, not a stub.**
+  `git/gitconfig` `[include]`s `~/.config/git/gitconfig.platform` after its `[credential]`
+  sections and before `~/.gitconfig.local`. `linux.yaml` links that path to
+  `git/gitconfig.linux`; macOS links nothing, and git skips a missing include, so the Macs
+  resolve the same config as before. The overlay resets the multi-valued
+  `credential.helper` lists with an empty value (dropping `osxkeychain`, the `/usr/local`
+  GCM path and `/opt/homebrew/bin/gh`), then adds `!/usr/bin/gh auth git-credential` for
+  github.com/gist.github.com only. So `git config --get-all credential.helper` still
+  *prints* the macOS values on Linux; check what git actually runs with
+  `GIT_TRACE=1 git credential fill`, as CI's R8 assertion does. Not `includeIf "gitdir:…"`:
+  every includeIf condition is about the repo, none about the OS. `git-delta`, `vim` and
+  `less` are in the Linux apt list because the git config names them (VIL-146).
 - **GCM credential-helper entries** in `git/gitconfig` are auto-generated — commit them
   separately from other work.
 - **`MYSQL_BIN="/usr/local/mysql/bin"`** is the MySQL PKG installer path on both

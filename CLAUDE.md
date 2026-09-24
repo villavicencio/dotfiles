@@ -30,7 +30,8 @@ docs/           Compound-engineering pipeline artifacts:
                 - docs/plans/        Implementation plans from /ce-plan
                 - docs/solutions/    documented solutions to past problems (bugs, best practices, workflow patterns), organized by category with YAML frontmatter (module, tags, problem_type)
 ci/             CI assets (Dockerfile for install-matrix workflow)
-git/            gitconfig, gitignore, gitattributes
+git/            gitconfig, gitignore, gitattributes, gitconfig.linux (Linux overlay — see
+                "Git on Linux" under "Setting up WSL on the Windows PC")
 helpers/        Bash scripts called by the install pipeline
 herdr/          Herdr agent-multiplexer config (config.toml symlinked into ~/.config/herdr/)
 iterm/          iTerm2 preferences (exported plist, includes Shift+Enter key mapping)
@@ -86,7 +87,8 @@ Never use `$HOMEBREW_BREW_FILE` — it's unreliable across Homebrew versions. Us
 **Shell:** `~/env.sh` is sourced at the very end of `zshrc` (silently, `2>/dev/null`).
 Use it on any machine for local-only exports, aliases, or PATH additions that should not be committed.
 
-**Git identity:** `~/.gitconfig.local` is included at the end of `git/gitconfig`.
+**Git identity:** `~/.gitconfig.local` is included at the end of `git/gitconfig`, after the
+platform overlay (`~/.config/git/gitconfig.platform`, Linux only), so local settings win.
 The personal email (`villavicencio.david@gmail.com`) is the default. On a work machine,
 override with the corporate email in the local file:
 
@@ -828,12 +830,25 @@ this repo, not just ticket work. Avoid committing directly to `master`.
   2026-08-25) — doc edits, typo fixes, and handoff commits included. The rule
   targets behavior and config changes, where review and a clean history matter.
   When in doubt, branch.
-- **PR review is CodeRabbit** (`.coderabbit.yaml` at repo root sets
-  `auto_incremental_review: false`, so re-review is requested with an `@coderabbitai review`
-  comment rather than fired by every push). Wait for its verdict and for each re-review before
-  merging — a stale `CHANGES_REQUESTED` is not permission, and a `Review rate limited` check
-  passes by design without any review having run. Full procedure, rate-limit mechanics, and when
-  to escalate to `dv:gauntlet` instead: the **Code Review** section of the global CLAUDE.md.
+- **PR review is review-stack, David's own reviewer** (since 2026-09-24, PRs #190 and
+  later; replaces CodeRabbit here). It reviews **every new head** of an open, non-draft PR
+  automatically, 2–6 minutes after the push, so there is no trigger comment and no hourly
+  budget. It posts **one PR comment per head**, whose first line is
+  `<!-- review-stack:head=<full sha> run=<id> -->`, followed by findings with a severity and
+  a `path:line`. Wait for the comment for the *current* head (poll every 60 s, give up after
+  20 min):
+
+  ```bash
+  gh pr view <N> --repo villavicencio/dotfiles --json headRefOid,comments --jq '.headRefOid as $h | [.comments[] | select(.body | contains("review-stack:head=" + $h))] | last | .body // "PENDING"'
+  ```
+
+  Fix the real findings and push; the new head is re-reviewed automatically. **Merge
+  readiness:** the latest review-stack comment for the current head has no high or
+  critical finding that is neither fixed nor explicitly waived with David. It doesn't read
+  thread replies, so record a declined finding in your summary to David, not on the PR.
+  A comment saying "⚠️ The review did not complete" alerts Atlas; tell David instead of
+  waiting. CodeRabbit may still comment on its own schedule. That's optional input: don't
+  wait for it, and don't mention or re-trigger `@coderabbitai`.
 
 Picking up a board ticket always gets its own branch (never work a ticket on
 `master`).
@@ -841,11 +856,11 @@ Picking up a board ticket always gets its own branch (never work a ticket on
 **A docs-only PR skips the install matrix — but not the review.**
 `install-matrix.yml` declares `paths-ignore: ['docs/**', '**.md', 'claude/**/*.md']`,
 so a markdown-only change never triggers `linux`/`macos`; do not wait for a run that
-will never start. **CodeRabbit still reviews it** if the PR is review-eligible — drafts and
-`WIP` / `DO NOT MERGE` titles are excluded — and it does have findings on markdown, as it did
-on #171. So `mergeStateStatus: CLEAN` is not by itself the merge signal — wait for the
-CodeRabbit check to leave `pending` and triage its findings first. `CLEAN` only tells you
-nothing is *blocking*; a throttled or still-running review also reads clean.
+will never start. **review-stack still reviews it** (every head of a non-draft PR), and
+reviewers do have findings on markdown, as CodeRabbit did on #171. So `mergeStateStatus:
+CLEAN` is not by itself the merge signal — wait for the review-stack comment for the current
+head and triage its findings first. `CLEAN` only tells you nothing is *blocking*; a review
+that hasn't posted yet also reads clean.
 
 ### Claude Code permissions: one allowlist, not two
 
@@ -1088,9 +1103,52 @@ Why the Linux layer needed changes for this (both invisible in CI):
   (`sudo` is unaffected — it opens `/dev/tty` itself.) Any future Dotbot step that prompts
   needs the same flag.
 
-WSL inherits `git/gitconfig`'s macOS credential helpers (`osxkeychain`, the
-`/opt/homebrew/bin/gh` path) — harmless for public clones and pulls, but a push from WSL
-needs the host-conditional git config work in VIL-146.
+### Git on Linux — an overlay via include (VIL-146)
+
+`~/.gitconfig` is the same symlink to `git/gitconfig` on every Dotbot host. On Linux,
+`linux.yaml` also links `~/.config/git/gitconfig.platform` → `git/gitconfig.linux`, which
+`git/gitconfig` `[include]`s after its `[credential]` sections and before
+`~/.gitconfig.local`. macOS links nothing there, and git silently skips a missing include,
+so the Macs resolve exactly the config they did before (the only new key is
+`include.path` itself). The overlay:
+
+- **resets the multi-valued `credential.helper` lists** with an empty value, dropping
+  `osxkeychain`, the `/usr/local` GCM path and `/opt/homebrew/bin/gh`, then adds
+  `!/usr/bin/gh auth git-credential` for github.com and gist.github.com only. Other hosts
+  get no helper, so git prompts. `/usr/bin/gh` is where `install_packages.sh`'s
+  cli.github.com apt repo puts it, and it's also what `gh auth setup-git` writes, so
+  running that later adds nothing.
+- **sets `core.pager = less -FRX`**. `vim -` stays the Mac preference (see "Things
+  intentionally left as-is"). Git only pages on a tty, so scripts never hit it, but on
+  openclaw-prod it turned git output in agent sessions into vim buffers.
+
+`git config --get-all credential.helper` **still prints the macOS values on Linux**. The
+reset works by appending an empty entry, not by deleting lines from another file. To see
+what git actually runs:
+
+```bash
+printf 'protocol=https\nhost=github.com\n\n' | GIT_TRACE=1 GIT_TERMINAL_PROMPT=0 git credential fill 2>&1 >/dev/null | grep run_command
+```
+
+CI's R8 assertion (`.github/actions/install-matrix-post-apply`) runs that on the `linux`
+leg and checks the macOS values are unchanged on `macos`.
+
+Why not the alternatives: **`includeIf "gitdir:/home/"`** (the ticket's first idea)
+conditions on the repository, not the OS, so `git clone` into `/tmp`, a repo under `/mnt/c`,
+or `git config --global` outside any repo would still see the macOS helpers. **A
+Windows-style stub** would mean a Dotbot shell step writing `~/.gitconfig`, which is a
+symlink into the repo on existing hosts: a plain `>` follows the link and overwrites
+`git/gitconfig` itself (the same trap as "A hook symlinked into the repo…"). The overlay has
+no checkout-governing setting like Windows' `autocrlf`, so it doesn't need to live outside
+the worktree.
+
+The Linux apt list also installs `git-delta`, `vim` and `less`: `git/gitconfig` names delta
+(the diff/show pager and `interactive.diffFilter`) and vim (`core.editor`), and the overlay
+names less. The ubuntu:24.04 base image has none of them.
+
+**Picking it up on an existing WSL install:** `git pull && ./install` in the WSL clone (the
+new link is a plain Dotbot `link:`, and apt adds the three packages), then `gh auth login`
+if gh isn't authenticated yet.
 
 Gotchas behind these rules: `docs/solutions/cross-machine/wsl-ubuntu-target-2026-09-24.md`.
 
@@ -1135,7 +1193,7 @@ Gotchas behind these rules: `docs/solutions/cross-machine/wsl-ubuntu-target-2026
 ## Things intentionally left as-is
 
 - `MYSQL_BIN="/usr/local/mysql/bin"` — MySQL PKG installer uses this path on both architectures, it is not a Homebrew path.
-- `git/gitconfig` `core.pager = vim -` — intentional preference; vim is the pager for `log`/etc. (Note: `git diff`/`git show` deliberately route through **delta** via the `[pager]` overrides — `core.pager` staying `vim -` is by design, not an oversight.)
+- `git/gitconfig` `core.pager = vim -` — intentional preference; vim is the pager for `log`/etc. (Note: `git diff`/`git show` deliberately route through **delta** via the `[pager]` overrides — `core.pager` staying `vim -` is by design, not an oversight.) This is the Mac preference only: Linux hosts get `less -FRX` from `git/gitconfig.linux` (VIL-146).
 - The tmux session restoration block in `zshrc` — guarded to only run outside tmux and only in iTerm2.
 - GCM credential helper entries in `git/gitconfig` — auto-generated by Git Credential Manager, commit separately from other work.
 - **Linux Dotbot layer + helper branches** (`dotbot-conf/linux.yaml`, the `uname`-guarded locale step in `dotbot-conf/base.yaml`, `case Linux)` in `./install`, `uname` guards in `helpers/*`) — preserved after the VPS was decommissioned (2026-05-21) and in active use again since 2026-09-24 for WSL Ubuntu on the gaming PC (see "Setting up WSL on the Windows PC"). The VPS-specific runbook stays at `docs/solutions/cross-machine/vps-dotfiles-target.md`.
