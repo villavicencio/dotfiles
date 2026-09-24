@@ -185,9 +185,12 @@ review per hour** (David, 2026-09-24; CodeRabbit's review footer on dotfiles #18
 "Your plan provides up to 1 included review per hour"). It was Pro+ at 10/hr before that (footer
 on dotfiles #171, 2026-08-24). **On the free plan a repo with fewer than 10 GitHub stars gets no
 automatic review** (David, 2026-09-24) — every round, including a PR's first, must be requested
-with `@coderabbitai review`. Observed: dotfiles #187 (opened 2026-09-24 16:27 UTC) got no
-automatic review, while #186 three hours earlier still did, presumably before the plan change took
-effect. So after opening a PR here, request the review; don't wait for one that will never start.
+with `@coderabbitai review` (or the review checkbox in CodeRabbit's summary comment). Neither #186
+nor #187 got an automatic first review; both were triggered by David ticking that checkbox. So after
+opening a PR here, request the review; don't wait for one that will never start. **To tell who
+triggered a review, check the summary comment's edit history** (GraphQL `userContentEdits`
+→ `editor`): a checkbox trigger is an edit, not a comment, so it never shows in the comment list,
+and a review that follows it looks automatic when it wasn't.
 One review an hour covers every repo and agent together, so the
 first review of a PR can use up the hour and its fix round then waits — plan PRs around that
 rather than splitting work finely. A request sent while throttled only returns `Review rate
