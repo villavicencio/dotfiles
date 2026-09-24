@@ -60,8 +60,10 @@ else
         tree vim watch wget zsh build-essential cmake \
         luarocks python3-pip pipx
 
-    # GitHub CLI
-    if ! command -v gh &>/dev/null; then
+    # GitHub CLI. Test the exact path, not `command -v gh`: git/gitconfig.linux
+    # hardcodes /usr/bin/gh as the credential helper, so a gh installed anywhere
+    # else (e.g. ~/.local/bin) must not skip the apt install.
+    if [ ! -x /usr/bin/gh ]; then
         echo "Installing GitHub CLI..."
         curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
             | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg 2>/dev/null
