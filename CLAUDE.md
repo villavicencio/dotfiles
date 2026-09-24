@@ -277,7 +277,11 @@ minimum Neovim version is **0.12**, because the pinned nvim-treesitter (`main`) 
 An installed nvim below that is upgraded (`brew upgrade neovim` / `winget upgrade`), and
 the helper fails if it is still too old. It never skips with exit 0, because the package
 steps only install what is missing. The snapshot is checked (non-empty, byte-equal)
-before nvim starts, and every restore is checked after it is written.
+before nvim starts, and every restore is checked after it is written. Success also requires
+both nvim passes to exit 0 and a clean headless load of the config (`nvconfig` loaded,
+no output). `nvim --headless` exits 0 even when `init.lua` errors, so exit codes alone
+prove nothing. On Linux, anything already at `~/.local/bin/nvim` (other than a symlink)
+or at the version dir is moved to `<name>.pre-dotfiles`, never deleted.
 Write-up: `docs/solutions/runtime-errors/lazy-nvim-first-launch-drifts-lockfile-2026-09-24.md`.
 
 ### A hook symlinked into the repo is branch-fragile — land the file before wiring it

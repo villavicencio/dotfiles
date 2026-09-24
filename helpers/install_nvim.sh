@@ -38,6 +38,18 @@ fi
 # enough). zshenv puts ~/.local/bin ahead of /usr/bin, so this wins over any apt
 # copy. Re-running with the same pin is a no-op; a bumped pin installs alongside
 # and moves the link (the old version dir stays until removed by hand).
+# Move a path out of the way without ever overwriting an earlier backup (the same
+# <name>.pre-dotfiles convention install.ps1 uses). Never deletes.
+move_aside() {
+  local backup="$1.pre-dotfiles"
+  if [ -e "$backup" ] || [ -L "$backup" ]; then backup="$backup.$(date +%Y%m%d-%H%M%S)"; fi
+  if ! mv "$1" "$backup"; then
+    echo "install_nvim.sh: could not move $1 aside — not replacing it." >&2
+    return 1
+  fi
+  echo "    moved aside: $1 -> $backup"
+}
+
 install_linux_nvim() {
   local arch sha
   case "$(uname -m)" in
@@ -62,14 +74,25 @@ install_linux_nvim() {
     if ! tar -xzf "$tmp/nvim.tar.gz" -C "$tmp"; then
       echo "install_nvim.sh: could not unpack $url" >&2; rm -rf "$tmp"; return 1
     fi
-    rm -rf "$prefix"   # a partial dir from an interrupted earlier run (no executable nvim)
-    mv "$tmp/nvim-linux-$arch" "$prefix"
+    # Never delete something already at $prefix (it may not be ours): move it aside.
+    if [ -e "$prefix" ] || [ -L "$prefix" ]; then
+      move_aside "$prefix" || { rm -rf "$tmp"; return 1; }
+    fi
+    if ! mv "$tmp/nvim-linux-$arch" "$prefix"; then
+      echo "install_nvim.sh: could not move Neovim into $prefix" >&2; rm -rf "$tmp"; return 1
+    fi
     rm -rf "$tmp"
   fi
   mkdir -p "$HOME/.local/bin"
-  # Touch the link only when it points elsewhere, so a re-run changes nothing.
-  if [ "$(readlink "$HOME/.local/bin/nvim" 2>/dev/null)" != "$prefix/bin/nvim" ]; then
-    ln -sfn "$prefix/bin/nvim" "$HOME/.local/bin/nvim"
+  local link="$HOME/.local/bin/nvim"
+  # Touch the link only when it points elsewhere, so a re-run changes nothing. A
+  # symlink is safe to repoint; a real file or directory there is someone's own
+  # nvim, so it is moved aside rather than overwritten.
+  if [ "$(readlink "$link" 2>/dev/null)" != "$prefix/bin/nvim" ]; then
+    if [ -e "$link" ] && [ ! -L "$link" ]; then
+      move_aside "$link" || return 1
+    fi
+    ln -sfn "$prefix/bin/nvim" "$link" || return 1
   fi
   # Fail loudly rather than let the version gate below read a binary that can't
   # start (e.g. a glibc older than the release was built against) as "too old".
@@ -157,11 +180,12 @@ restore_pins() {
 }
 
 # Pass 1: bootstrap/install (output is almost all git progress). Pass 2: restore
-# to the pins; keep its stderr for diagnostics. Neither exit code is trusted —
-# `nvim --headless +qa` exits 0 even on a broken config — the verify below is.
-nvim --headless +qa >/dev/null 2>&1 || true
+# to the pins; keep its stderr for diagnostics. Both must exit 0, but that alone
+# proves little: `nvim --headless` exits 0 even when init.lua errors. So success
+# also needs every pin verified AND a clean headless load of the config below.
+nvim --headless +qa >/dev/null 2>&1; boot_rc=$?
 restore_pins || exit 1
-nvim --headless "+Lazy! restore" +qa >/dev/null 2>"$diag" || true
+nvim --headless "+Lazy! restore" +qa >/dev/null 2>"$diag"; restore_rc=$?
 restore_pins || exit 1
 
 # Verify EVERY locked plugin is at its recorded commit with a clean checkout
@@ -169,11 +193,22 @@ restore_pins || exit 1
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 nvim -l "$here/nvim_verify_lock.lua" "$pinned"; rc=$?
 
-if [ "$rc" -eq 0 ]; then
-  echo "nvim: all pinned plugins present at their locked commits; bootstrap complete."
+# The config must load: NvChad's nvconfig module is only loaded once init.lua has
+# run through, and any startup error text lands in the captured output.
+load="$(nvim --headless "+lua io.write(package.loaded.nvconfig and 'config-loaded' or 'config-NOT-loaded')" +qa 2>&1)"; load_rc=$?
+
+if [ "$rc" -eq 0 ] && [ "$boot_rc" -eq 0 ] && [ "$restore_rc" -eq 0 ] \
+   && [ "$load_rc" -eq 0 ] && [ "$load" = "config-loaded" ]; then
+  echo "nvim: all pinned plugins present at their locked commits and the config loads; bootstrap complete."
   exit 0
 fi
 
+[ "$boot_rc" -eq 0 ] || echo "install_nvim.sh: bootstrap pass exited $boot_rc." >&2
+[ "$restore_rc" -eq 0 ] || echo "install_nvim.sh: Lazy! restore exited $restore_rc." >&2
+if [ "$load_rc" -ne 0 ] || [ "$load" != "config-loaded" ]; then
+  echo "install_nvim.sh: the config did not load cleanly headless (exit $load_rc):" >&2
+  printf '%s\n' "$load" | sed 's/^/  /' >&2
+fi
 echo "install_nvim.sh: nvim plugin bootstrap INCOMPLETE (see above)." >&2
 echo "  (If ~/.config/nvim isn't a symlink to this repo yet, run ./install first.)" >&2
 if [ -s "$diag" ]; then

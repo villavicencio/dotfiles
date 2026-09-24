@@ -89,15 +89,30 @@ try {
 
     Write-Host 'Bootstrapping nvim plugins (Lazy restore from pinned lazy-lock.json)...'
     # Output is ~all git progress; the restore pass keeps stderr for diagnostics.
+    # Both passes must exit 0, but nvim exits 0 even when init.lua errors, so success
+    # also needs every pin verified AND a clean headless load of the config.
     & nvim --headless +qa *> $null
+    $bootRc = $LASTEXITCODE
     Restore-Pins
     & nvim --headless '+Lazy! restore' +qa 2> $diag > $null
+    $restoreRc = $LASTEXITCODE
     Restore-Pins
 
     & nvim -l (Join-Path $Repo 'helpers/nvim_verify_lock.lua') $pinned.FullName
-    if ($LASTEXITCODE -eq 0) {
-        Write-Host 'nvim: all pinned plugins present at their locked commits; bootstrap complete.'
+    $verifyRc = $LASTEXITCODE
+    # NvChad's nvconfig module is only loaded once init.lua has run through; any
+    # startup error text lands in the captured output.
+    $load = (& nvim --headless "+lua io.write(package.loaded.nvconfig and 'config-loaded' or 'config-NOT-loaded')" +qa 2>&1 | Out-String).Trim()
+    $loadRc = $LASTEXITCODE
+    if ($verifyRc -eq 0 -and $bootRc -eq 0 -and $restoreRc -eq 0 -and $loadRc -eq 0 -and $load -eq 'config-loaded') {
+        Write-Host 'nvim: all pinned plugins present at their locked commits and the config loads; bootstrap complete.'
         exit 0
+    }
+    if ($bootRc -ne 0) { Write-Warning "bootstrap pass exited $bootRc." }
+    if ($restoreRc -ne 0) { Write-Warning "Lazy! restore exited $restoreRc." }
+    if ($loadRc -ne 0 -or $load -ne 'config-loaded') {
+        Write-Warning "the config did not load cleanly headless (exit $loadRc):"
+        $load -split "`n" | ForEach-Object { "  $_" }
     }
     Write-Warning 'nvim plugin bootstrap INCOMPLETE (see above).'
     if ((Get-Item $diag).Length) {
