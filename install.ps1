@@ -12,7 +12,8 @@
       1. winget packages from windows/packages.json   (the Brewfile counterpart)
       2. symlinks for configs shared with macOS, plus the Windows Terminal fragment
       3. stubs for files that must chain or be OneDrive-safe (~/.gitconfig, $PROFILE)
-      4. pre-commit + the gitleaks hook for this repo
+      4. ~/.claude/settings.json seeded from windows/claude-settings.json, only if absent
+      5. pre-commit + the gitleaks hook for this repo
 
     Idempotent: re-running changes nothing that is already in place. A real file
     found where a link belongs is moved aside to <name>.pre-dotfiles (timestamped
@@ -147,6 +148,8 @@ $links = [ordered]@{
     "$HOME/.config/starship.toml"     = 'starship/starship.toml'
     "$env:APPDATA/lazygit/config.yml" = 'lazygit/config.yml'
     "$HOME/.claude/CLAUDE.md"         = 'claude/CLAUDE.md'
+    # Runs under Git Bash's sh (the seeded statusLine invokes it); needs jq from packages.json.
+    "$HOME/.claude/statusline-command.sh" = 'claude/statusline-command.sh'
     "$env:LOCALAPPDATA/Microsoft/Windows Terminal/Fragments/dotfiles/dotfiles.json" = 'windows/terminal/dotfiles.json'
 }
 foreach ($t in $links.Keys) {
@@ -178,7 +181,54 @@ Invoke-Step 'stub ~/.gitconfig' { Set-Stub "$HOME/.gitconfig" $gitStub }
 $pwshProfile = Join-Path ([Environment]::GetFolderPath('MyDocuments')) 'PowerShell/Microsoft.PowerShell_profile.ps1'
 Invoke-Step 'stub $PROFILE' { Set-Stub $pwshProfile ". `"$Repo\windows\powershell\profile.ps1`"`n" }
 
-# 4. pre-commit + gitleaks hook -----------------------------------------------
+# 4. Claude Code settings (seed only) ------------------------------------------
+Write-Step 'Claude Code settings (seed if absent)'
+# COPIED, never linked, and only when absent: Claude Code rewrites this file in
+# place, so a link would be orphaned on its first write, and an existing file is
+# the user's live config. Same contract as helpers/install_claude_settings.sh.
+# The source is the Windows sibling, not claude/settings.json, whose hooks are
+# tmux/herdr bash scripts that would error on every event here.
+Invoke-Step 'seed ~/.claude/settings.json' {
+    $src = Join-Path $Repo 'windows/claude-settings.json'
+    $dest = [IO.Path]::GetFullPath("$HOME/.claude/settings.json")
+    if (-not (Test-Path -LiteralPath $src)) { throw 'seed source missing: windows/claude-settings.json' }
+    # Get-Item -Force also catches a dangling link, which Test-Path reports as absent.
+    $existing = Get-Item -LiteralPath $dest -Force -ErrorAction SilentlyContinue
+    if ($existing) {
+        # A directory (or a link to one) is not a settings file: fail, don't report ok.
+        if ($existing.PSIsContainer -or (Test-Path -LiteralPath $dest -PathType Container)) {
+            throw "$dest exists but is not a file"
+        }
+        Write-Host "    ok      $dest (present, left alone)"; return
+    }
+    if ($DryRun) { Write-Would "seed $dest from windows/claude-settings.json"; return }
+    New-Item -ItemType Directory -Force (Split-Path $dest) | Out-Null
+    # Write a temp file beside the destination and verify it, THEN publish it
+    # with File.Move(overwrite: false), a same-volume rename that fails if
+    # settings.json appeared since the check above (Claude Code starting up,
+    # say). A live file is never overwritten, and a failed write never leaves a
+    # partial settings.json that later runs would mistake for a live config.
+    $tmp = "$dest.seed.$PID"
+    try {
+        Copy-Item -LiteralPath $src -Destination $tmp -Force
+        if ((Get-FileHash -LiteralPath $tmp).Hash -ne (Get-FileHash -LiteralPath $src).Hash) {
+            throw "seed copy did not verify: $tmp"
+        }
+        try {
+            [IO.File]::Move($tmp, $dest, $false)
+        } catch [System.IO.IOException] {
+            if (Test-Path -LiteralPath $dest) {
+                Write-Host "    ok      $dest (appeared meanwhile, left alone)"; return
+            }
+            throw
+        }
+        Write-Host "    seeded  $dest"
+    } finally {
+        if (Test-Path -LiteralPath $tmp) { Remove-Item -LiteralPath $tmp -Force }  # a failure throws, so Invoke-Step records it
+    }
+}
+
+# 5. pre-commit + gitleaks hook -----------------------------------------------
 Write-Step 'pre-commit + gitleaks hook'
 if ($DryRun) {
     Write-Would 'install pre-commit (uv tool) if missing, then run: pre-commit install'

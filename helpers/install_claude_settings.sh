@@ -28,24 +28,44 @@ set -uo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SRC="$REPO_ROOT/claude/settings.json"
 DEST="$HOME/.claude/settings.json"
+# Windows (Git Bash) tracks a hook-free sibling, which install.ps1 seeds. Point
+# at it here too, or --capture run on the PC would overwrite the Mac baseline
+# with a file that has no hooks.
+IS_WINDOWS=0
+case "$(uname -s)" in
+  MINGW*|MSYS*|CYGWIN*) IS_WINDOWS=1; SRC="$REPO_ROOT/windows/claude-settings.json" ;;
+esac
+SRC_REL="${SRC#"$REPO_ROOT"/}"   # for messages: claude/settings.json or windows/claude-settings.json
+
+# A native Windows python can't open a Git Bash path (/c/Users/...); hand it
+# the C:\... form. Everywhere else the path passes through unchanged.
+native_path() {
+  if [ "$IS_WINDOWS" -eq 1 ] && command -v cygpath >/dev/null 2>&1; then
+    cygpath -w "$1"
+  else
+    printf '%s\n' "$1"
+  fi
+}
 
 # Keys that are machine- or session-specific and must never be tracked. The
 # file's own "//" header states the rule; these are the observed offenders.
 #   effortLevel  session pin
-#   autoMode     per-project classifier context (has leaked a project's
+#   modelSettings per-model pins (e.g. {"claude-opus-5-5": {"effortLevel": ...}}),
+#                the newer home of the effort pin — seen live on the Windows PC
+#   autoMode    per-project classifier context (has leaked a project's
 #                trusted-repo path and service list into user scope before)
 #   mcpServers   per-machine server definitions
 #   allowedTools LEGACY key — silently overrides permissions.allow. Never track
 #                it; capture drops it so a stale live file cannot reintroduce it.
-STRIP_KEYS="effortLevel autoMode mcpServers allowedTools"
+STRIP_KEYS="effortLevel modelSettings autoMode mcpServers allowedTools"
 
 # Dry-run guard comes FIRST so it covers --capture too: capture writes to the
 # repo, and `DOTFILES_DRY_RUN=1 ... --capture` must not mutate anything.
 if [ "${DOTFILES_DRY_RUN:-0}" = "1" ]; then
   if [ "${1:-}" = "--capture" ]; then
-    echo "[dry-run] would capture ~/.claude/settings.json into claude/settings.json"
+    echo "[dry-run] would capture ~/.claude/settings.json into $SRC_REL"
   else
-    echo "[dry-run] would seed ~/.claude/settings.json from claude/settings.json if absent"
+    echo "[dry-run] would seed ~/.claude/settings.json from $SRC_REL if absent"
   fi
   exit 0
 fi
@@ -53,20 +73,27 @@ fi
 if [ "${1:-}" = "--capture" ]; then
   [ -f "$DEST" ] || { echo "Error: no live settings at $DEST" >&2; exit 1; }
   [ -f "$SRC" ]  || { echo "Error: tracked settings missing at $SRC" >&2; exit 1; }
-  command -v python3 >/dev/null 2>&1 || { echo "Error: python3 not on PATH" >&2; exit 1; }
+  # Probe by running it: on Windows `python3` is often the Microsoft Store
+  # placeholder, which `command -v` finds but which exits non-zero.
+  PYTHON=""
+  for _py in python3 python; do
+    if "$_py" -c 'import sys' >/dev/null 2>&1; then PYTHON="$_py"; break; fi
+  done
+  [ -n "$PYTHON" ] || { echo "Error: no working python3/python on PATH" >&2; exit 1; }
 
-  STRIP_KEYS="$STRIP_KEYS" SRC="$SRC" DEST="$DEST" python3 - <<'PY' || exit 1
+  STRIP_KEYS="$STRIP_KEYS" SRC="$(native_path "$SRC")" DEST="$(native_path "$DEST")" \
+    SRC_REL="$SRC_REL" PYTHON="$PYTHON" "$PYTHON" - <<'PY' || exit 1
 import json, collections, os, sys
 
 src, dest = os.environ["SRC"], os.environ["DEST"]
 strip = set(os.environ["STRIP_KEYS"].split())
 
 try:
-    live = json.load(open(dest), object_pairs_hook=collections.OrderedDict)
+    live = json.load(open(dest, encoding="utf-8"), object_pairs_hook=collections.OrderedDict)
 except Exception as e:
     print("Error: live settings is not valid JSON (%s) — nothing captured" % e, file=sys.stderr)
     raise SystemExit(1)
-tracked = json.load(open(src), object_pairs_hook=collections.OrderedDict)
+tracked = json.load(open(src, encoding="utf-8"), object_pairs_hook=collections.OrderedDict)
 
 # `allowedTools` is dropped rather than tracked — but dropping it while it still
 # holds rules absent from permissions.allow would SILENTLY DELETE them from the
@@ -79,9 +106,10 @@ if unmerged:
     print(
         "Error: live settings still has a legacy 'allowedTools' key with %d rule(s)\n"
         "       not present in permissions.allow. Capturing now would silently drop\n"
-        "       them. Run this first, then re-capture:\n"
-        "           python3 helpers/migrate_claude_settings.py\n"
-        "       Unmerged: %s" % (len(unmerged), ", ".join(unmerged[:5])),
+        "       them. Run this first, then re-capture (on Windows it only folds\n"
+        "       allowedTools; it registers no herdr hooks there):\n"
+        "           %s helpers/migrate_claude_settings.py\n"
+        "       Unmerged: %s" % (len(unmerged), os.environ["PYTHON"], ", ".join(unmerged[:5])),
         file=sys.stderr,
     )
     raise SystemExit(1)
@@ -100,20 +128,46 @@ if "//" in tracked:
             rebuilt[k] = v
     live = rebuilt
 
-# Absolute $HOME paths are unportable across the two Macs; installers write them
+# Absolute $HOME paths are unportable across machines; installers write them
 # (herdr's integration does). Claude Code expands ~ in hook commands, so fold
 # them back. Only $HOME is rewritten — /Applications paths are machine-stable.
+# Fold the parsed VALUES (and keys), not the serialized blob: on Windows the
+# home is C:\Users\<you>, which json.dumps escapes to C:\\Users\\..., so a
+# blob-level replace never matches. Windows also gets the forward-slash and
+# Git Bash (/c/Users/<you>) spellings.
+def home_prefixes():
+    home = os.path.expanduser("~").rstrip("\\/")
+    cands = {home}
+    if os.name == "nt":
+        fwd = home.replace("\\", "/")
+        cands.add(fwd)
+        if len(fwd) > 2 and fwd[1] == ":":
+            cands.add("/" + fwd[0].lower() + fwd[2:])
+    return sorted(cands, key=len, reverse=True)
+
+def fold_home(v, prefixes):
+    if isinstance(v, str):
+        for p in prefixes:
+            for sep in ("/", "\\"):
+                v = v.replace(p + sep, "~/")
+        return v
+    if isinstance(v, list):
+        return [fold_home(x, prefixes) for x in v]
+    if isinstance(v, dict):
+        return collections.OrderedDict(
+            (fold_home(k, prefixes), fold_home(x, prefixes)) for k, x in v.items())
+    return v
+
+before = json.dumps(live, indent=2)
+live = fold_home(live, home_prefixes())
 blob = json.dumps(live, indent=2)
-home = os.path.expanduser("~")
-before = blob
-blob = blob.replace(home + "/", "~/")
 normalized = blob != before
 
 tmp = src + ".tmp.%d" % os.getpid()
 try:
-    with open(tmp, "w") as fh:
+    with open(tmp, "w", encoding="utf-8", newline="\n") as fh:  # LF even on Windows
         fh.write(blob + "\n")
-    json.load(open(tmp))          # parse-check before replacing
+    json.load(open(tmp, encoding="utf-8"))        # parse-check before replacing
     os.replace(tmp, src)
 except Exception:
     if os.path.exists(tmp):
@@ -125,7 +179,7 @@ if dropped:
     print("  dropped machine-local keys: %s" % ", ".join(sorted(dropped)))
 if normalized:
     print("  normalized absolute $HOME paths to ~/")
-print("  review with: git diff claude/settings.json")
+print("  review with: git diff %s" % os.environ["SRC_REL"])
 PY
   exit 0
 fi
@@ -138,4 +192,21 @@ if [ -e "$DEST" ] || [ -L "$DEST" ]; then
   exit 0
 fi
 
-cp "$SRC" "$DEST" && echo "Seeded Claude settings -> $DEST"
+# Copy to a temp file beside the destination and verify it, THEN publish it with
+# `ln`, which creates the name exclusively: it fails if settings.json appeared
+# since the check above (Claude Code starting up, say), so a live file is never
+# overwritten, and a failed copy never leaves a partial settings.json behind.
+# mktemp creates the temp file exclusively (fresh random name, O_EXCL), so a
+# pre-planted file or symlink at a guessable name can't redirect the copy.
+tmp="$(mktemp "$DEST.seed.XXXXXX")" || { echo "Error: cannot create a temp file beside $DEST" >&2; exit 1; }
+if ! cp "$SRC" "$tmp" 2>/dev/null || ! cmp -s "$SRC" "$tmp"; then
+  rm -f "$tmp"; echo "Error: could not copy $SRC_REL to $tmp" >&2; exit 1
+fi
+if ln "$tmp" "$DEST" 2>/dev/null; then
+  rm -f "$tmp" || { echo "Error: seeded $DEST but could not remove $tmp" >&2; exit 1; }
+  echo "Seeded Claude settings -> $DEST"
+elif rm -f "$tmp" || { echo "Error: could not remove $tmp" >&2; exit 1; }; [ -e "$DEST" ] || [ -L "$DEST" ]; then
+  echo "Claude settings appeared meanwhile, leaving it alone (run 'dot drift' to compare)."
+else
+  echo "Error: could not create $DEST" >&2; exit 1
+fi
