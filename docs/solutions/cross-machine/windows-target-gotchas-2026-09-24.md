@@ -60,9 +60,33 @@ double quotes.** Claude Code's PowerShell tool is 5.1, so something like
 
 **Git for Windows sets `core.autocrlf=true` in its system config**
 (`C:\Program Files\Git\etc\gitconfig`), so a plain clone checks the shell
-scripts out as CRLF. `windows/gitconfig` sets `autocrlf = input`, but that only
-applies after `install.ps1` has run. The first clone therefore needs
+scripts out as CRLF. The `~/.gitconfig` stub sets `autocrlf = input`, but that
+only applies after `install.ps1` has run. The first clone therefore needs
 `git -c core.autocrlf=input clone …`.
+
+**Never put a checkout-controlling setting in a file inside the worktree.**
+`autocrlf = input` first lived in `windows/gitconfig`, which the stub includes
+from the repo's working tree. On 2026-09-24, `git switch master` moved to a
+master from before #186, where that file doesn't exist. Git silently ignores a
+missing include, so `autocrlf` fell back to the system `true`, and the following
+`git pull` wrote all 13 changed files with CRLF (`git ls-files --eol` showed
+`i/lf w/crlf`). That included `helpers/generate_docs_index.sh`, which bash
+can't run with CRLF. It also defeats a repair: deleting and re-checking-out
+those files deletes `windows/gitconfig` too, so the checkout runs as `true`
+again. The setting now lives in the stub, which is outside the repo. It also
+stays in `windows/gitconfig`, because removing it from there would give a
+machine whose stub predates #187 *neither* copy after a pull. Each copy covers
+the case where the other is missing (CodeRabbit on #187). To repair a
+tree that's already affected, force the value for that one command:
+`git -c core.autocrlf=input checkout -- <files>`. The credential overrides
+still live in `windows/gitconfig`, so on a branch from before #186 git falls
+back to the Mac helper paths. That's acceptable, because nothing there
+rewrites files.
+
+**Build the stub with explicit `"`n"` line endings.** A PowerShell here-string
+takes its line endings from the script file, so a CRLF copy of `install.ps1`
+wrote a CRLF stub. The next LF run saw a "different" file and backed it up and
+rewrote it for nothing.
 
 **Git has no OS-conditional include**, so `git/gitconfig` cannot pull in the
 Windows overrides by itself. `~/.gitconfig` is therefore a generated stub that

@@ -117,6 +117,11 @@ function Set-Stub([string]$Target, [string]$Content) {
     Write-Host "    wrote   $Target"
 }
 
+# Also refresh once up front: a shell started before the tools were installed (an
+# old terminal, a Claude Code session) otherwise reports them missing under
+# -SkipPackages, where the post-winget refresh never runs. Merging is harmless.
+Update-SessionPath
+
 # 1. Packages ---------------------------------------------------------------
 Write-Step 'winget packages (windows/packages.json)'
 if ($SkipPackages) {
@@ -151,14 +156,23 @@ foreach ($t in $links.Keys) {
 # 3. Stubs ------------------------------------------------------------------
 Write-Step 'stubs'
 $repoFwd = $Repo -replace '\\', '/'
-$gitStub = @"
-# Written by install.ps1 - edit the tracked files, not this stub.
-[include]
-    path = $repoFwd/git/gitconfig
-[include]
-    path = $repoFwd/windows/gitconfig
-
-"@
+# autocrlf lives HERE, not in windows/gitconfig: that file is inside the worktree,
+# so checking out any commit without it (everything before the Windows layer)
+# silently drops the include, and git falls back to Git for Windows' system
+# autocrlf=true for the rest of that checkout - rewriting every file it touches
+# with CRLF, including windows/gitconfig itself. This stub is outside the repo.
+# Joined with "`n" rather than a here-string, whose line endings would follow
+# this script's own and make the stub differ between LF and CRLF checkouts.
+$gitStub = @(
+    '# Written by install.ps1 - edit the tracked files, not this stub.'
+    '[include]'
+    "    path = $repoFwd/git/gitconfig"
+    '[include]'
+    "    path = $repoFwd/windows/gitconfig"
+    '[core]'
+    '    autocrlf = input'
+    ''
+) -join "`n"
 Invoke-Step 'stub ~/.gitconfig' { Set-Stub "$HOME/.gitconfig" $gitStub }
 # PowerShell 7's $PROFILE (Documents may be redirected into OneDrive; resolve it rather than guess).
 $pwshProfile = Join-Path ([Environment]::GetFolderPath('MyDocuments')) 'PowerShell/Microsoft.PowerShell_profile.ps1'
