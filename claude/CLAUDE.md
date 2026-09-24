@@ -180,10 +180,16 @@ Limits are **per developer on a rolling hour**, so every repo and every parallel
 draws from one shared pool: a quiet repo can hit the ceiling it never spent. Per
 [docs.coderabbit.ai/faq](https://docs.coderabbit.ai/faq) (fetched 2026-08-24): **Trial 3/hr, Pro
 5/hr, Pro+ 10/hr**, with fair-usage spacing above the 95th percentile of recent usage and an
-optional usage-based add-on. **This account is Pro+ — 10/hr** (CodeRabbit's own review footer on
-dotfiles #171, 2026-08-24: "Your plan provides up to 10 included reviews per hour"). Ten is not
-much when a single ticket spans several PRs across repos and parallel agents, so treat it as a
-budget: `@coderabbitai rate limit` reports real remaining capacity **without consuming a review**,
+optional usage-based add-on. **This account is on the free plan as of 2026-09-24 — 1 included
+review per hour** (David, 2026-09-24; CodeRabbit's review footer on dotfiles #186 the same day:
+"Your plan provides up to 1 included review per hour"). It was Pro+ at 10/hr before that (footer
+on dotfiles #171, 2026-08-24). One review an hour covers every repo and agent together, so the
+first review of a PR can use up the hour and its fix round then waits — plan PRs around that
+rather than splitting work finely. A request sent while throttled only returns `Review rate
+limited`; CodeRabbit's "Review limit reached" comment on the PR states when the next review is
+available ("Next included review available in N minutes"), so read that and re-request after it.
+Treat capacity as a budget: `@coderabbitai rate limit` reports real remaining capacity
+**without consuming a review**,
 and the review footer prints what is left after each run.
 
 **A throttled CodeRabbit is unavailable, not clean.** A throttled PR shows a *passing* check
