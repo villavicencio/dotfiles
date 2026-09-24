@@ -224,7 +224,7 @@ Invoke-Step 'seed ~/.claude/settings.json' {
         }
         Write-Host "    seeded  $dest"
     } finally {
-        Remove-Item -LiteralPath $tmp -Force -ErrorAction SilentlyContinue
+        if (Test-Path -LiteralPath $tmp) { Remove-Item -LiteralPath $tmp -Force }  # a failure throws, so Invoke-Step records it
     }
 }
 
