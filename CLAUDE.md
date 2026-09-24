@@ -276,8 +276,10 @@ pass.** CI's post-apply R9 check fails if `./install` leaves the lockfile modifi
 minimum Neovim version is **0.12**, because the pinned nvim-treesitter (`main`) requires it.
 An installed nvim below that is upgraded (`brew upgrade neovim` / `winget upgrade`), and
 the helper fails if it is still too old. It never skips with exit 0, because the package
-steps only install what is missing. The snapshot is checked (non-empty, byte-equal)
-before nvim starts, and every restore is checked after it is written. Success also requires
+steps only install what is missing. A missing nvim is a failure too. The snapshot is
+checked (non-empty, byte-equal) before nvim starts. A restore writes a sibling temp file,
+checks it, and renames it over the lockfile, so the tracked file is never truncated. If a
+restore fails, the snapshot is kept and its path printed. Success also requires
 both nvim passes to exit 0 and a clean headless load of the config (`nvconfig` loaded,
 no output). `nvim --headless` exits 0 even when `init.lua` errors, so exit codes alone
 prove nothing. On Linux, anything already at `~/.local/bin/nvim` (other than a symlink)
@@ -1039,8 +1041,10 @@ What `install.ps1` does, in order — each step idempotent, `-DryRun` mutates no
    `windows/packages.json` too** — that is a third place the gitleaks version must match).
 5. `windows/install_nvim.ps1`: the Windows twin of `helpers/install_nvim.sh`. It restores
    the plugins pinned in `nvim/lazy-lock.json` into `%LOCALAPPDATA%\nvim-data` and runs
-   `helpers/nvim_verify_lock.lua`, the verifier the two share. It skips (exit 0) when nvim
-   is missing. When nvim is older than 0.12, it runs `winget upgrade --id Neovim.Neovim -e`
+   `helpers/nvim_verify_lock.lua`, the verifier the two share. A missing nvim is a failure
+   (step 1 imports with `--ignore-unavailable`, so a Neovim that didn't install would
+   otherwise pass silently), except under `-SkipPackages`, which passes `-AllowMissing`.
+   When nvim is older than 0.12, it runs `winget upgrade --id Neovim.Neovim -e`
    (step 1's `--no-upgrade` leaves an old copy in place), then fails with exit 1 if the
    version is still too old. It can also be run on its own.
 

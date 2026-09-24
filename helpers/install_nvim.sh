@@ -63,7 +63,11 @@ install_linux_nvim() {
   if [ ! -x "$prefix/bin/nvim" ]; then
     echo "Installing Neovim v$NVIM_VERSION ($arch) to $prefix..."
     local url="https://github.com/neovim/neovim/releases/download/v$NVIM_VERSION/nvim-linux-$arch.tar.gz"
-    local tmp; tmp="$(mktemp -d)"
+    local tmp
+    if ! tmp="$(mktemp -d)" || [ -z "$tmp" ] || [ ! -d "$tmp" ]; then
+      echo "install_nvim.sh: could not create a temp dir for the download." >&2
+      return 1
+    fi
     if ! curl -fsSL --retry 3 -o "$tmp/nvim.tar.gz" "$url"; then
       echo "install_nvim.sh: download failed: $url" >&2; rm -rf "$tmp"; return 1
     fi
@@ -109,9 +113,11 @@ if [ "$(uname)" = "Linux" ]; then
 fi
 
 if ! command -v nvim >/dev/null 2>&1; then
-  echo "install_nvim.sh: nvim not found on PATH — skipping plugin bootstrap." >&2
+  # A failure, not a skip: every platform's package step is meant to have installed
+  # it (Brewfile on macOS, the release tarball above on Linux).
+  echo "install_nvim.sh: nvim not found on PATH — cannot bootstrap the plugins." >&2
   echo "  Install neovim (>=0.$NVIM_MIN_MINOR) and re-run: bash helpers/install_nvim.sh" >&2
-  exit 0
+  exit 1
 fi
 
 # True when the nvim on PATH is new enough; sets $ver for messages.
@@ -156,8 +162,9 @@ fi
 # `Lazy! restore` afterwards restores to that rewritten file, so it looks green.
 # Hence: snapshot the pins, bootstrap, put the pins back, restore, verify against
 # the snapshot. (Observed 2026-09-24: 9 of 27 plugins drifted on a fresh install.)
-pinned=""; diag=""
-trap 'rm -f "$pinned" "$diag"' EXIT
+pinned=""; diag=""; keep_pinned=0
+# The snapshot outlives a failed restore: it may be the only copy of uncommitted pins.
+trap 'rm -f "$diag"; [ "$keep_pinned" = 1 ] || rm -f "$pinned"' EXIT
 if ! pinned="$(mktemp)" || ! diag="$(mktemp)"; then
   echo "install_nvim.sh: could not create temp files — not touching nvim." >&2
   exit 1
@@ -171,12 +178,20 @@ if ! cp "$lockfile" "$pinned" || [ ! -s "$pinned" ] || ! cmp -s "$lockfile" "$pi
 fi
 restore_pins() {
   cmp -s "$pinned" "$lockfile" && return 0
-  # Write through the link so the tracked file is restored, then prove it was.
-  if ! cat "$pinned" > "$lockfile" || ! cmp -s "$pinned" "$lockfile"; then
-    echo "install_nvim.sh: could not restore the pinned $lockfile (it is left drifted)." >&2
-    return 1
+  # Copy to a sibling temp file, prove it, then rename it over the lockfile: the
+  # tracked file is never truncated, so a failed write cannot leave it empty. The
+  # lockfile's directory is the repo's nvim/ (through the ~/.config/nvim link).
+  local tmp_lock="${lockfile%/*}/.lazy-lock.json.restore.$$"
+  if cp "$pinned" "$tmp_lock" && cmp -s "$pinned" "$tmp_lock" \
+     && mv -f "$tmp_lock" "$lockfile" && cmp -s "$pinned" "$lockfile"; then
+    echo "  restored the pinned lazy-lock.json (the bootstrap install had rewritten it)"
+    return 0
   fi
-  echo "  restored the pinned lazy-lock.json (the bootstrap install had rewritten it)"
+  rm -f "$tmp_lock"
+  keep_pinned=1
+  echo "install_nvim.sh: could not restore the pinned $lockfile (it is left drifted)." >&2
+  echo "  The pins are kept at $pinned — copy that file over the lockfile by hand." >&2
+  return 1
 }
 
 # Pass 1: bootstrap/install (output is almost all git progress). Pass 2: restore

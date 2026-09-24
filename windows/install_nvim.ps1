@@ -18,10 +18,12 @@
       4. put the snapshot back again, and verify with helpers/nvim_verify_lock.lua
     An nvim older than 0.12 is upgraded with winget first (install.ps1 imports with
     --no-upgrade); if it is still too old, that is a failure.
-    Exit code: 0 ok (or skipped because nvim is missing), 1 nvim too old, snapshot or
-    restore failure, or incomplete bootstrap.
+    A missing nvim is a failure too, because Neovim.Neovim is in windows/packages.json;
+    -AllowMissing turns it into a skip (install.ps1 passes it under -SkipPackages).
+    Exit code: 0 ok (or skipped under -AllowMissing), 1 nvim missing or too old,
+    snapshot or restore failure, or incomplete bootstrap.
 #>
-param([switch]$DryRun)
+param([switch]$DryRun, [switch]$AllowMissing)
 $ErrorActionPreference = 'Stop'
 $Repo = Split-Path $PSScriptRoot
 $MinNvim = [version]'0.12'   # the pinned nvim-treesitter (main) requires 0.12
@@ -31,8 +33,14 @@ if ($DryRun) {
     exit 0
 }
 if (-not (Get-Command nvim -ErrorAction SilentlyContinue)) {
-    Write-Warning 'nvim not on PATH - skipping the plugin bootstrap. Install Neovim.Neovim (winget) and re-run.'
-    exit 0
+    # winget import runs with --ignore-unavailable, so a Neovim that failed to install
+    # would otherwise pass through both steps silently.
+    if ($AllowMissing) {
+        Write-Warning 'nvim not on PATH - skipping the plugin bootstrap (-AllowMissing).'
+        exit 0
+    }
+    Write-Warning 'nvim not on PATH - cannot bootstrap the plugins. Install Neovim.Neovim (winget) and re-run.'
+    exit 1
 }
 function Get-NvimVersionLine { (& nvim --version | Select-Object -First 1) }
 function Test-NvimNewEnough([string]$line) {
@@ -68,15 +76,25 @@ function Test-SameBytes([string]$a, [string]$b) {
     [Convert]::ToBase64String([IO.File]::ReadAllBytes($a)) -eq [Convert]::ToBase64String([IO.File]::ReadAllBytes($b))
 }
 function Restore-Pins {
-    # Byte-compare so a clean run never touches the tracked file; after a write,
-    # prove it landed rather than trusting the copy.
+    # Byte-compare so a clean run never touches the tracked file. Otherwise copy to a
+    # sibling temp file, prove it, and move it over the lockfile, so the tracked file
+    # is never truncated by a failed write. On failure the snapshot is kept.
     if (Test-SameBytes $lock $pinned) { return }
-    Copy-Item -LiteralPath $pinned $lock -Force
-    if (-not (Test-SameBytes $lock $pinned)) { throw "could not restore the pinned $lock (it is left drifted)" }
+    $tmpLock = Join-Path (Split-Path $lock) ".lazy-lock.json.restore.$PID"
+    try {
+        Copy-Item -LiteralPath $pinned $tmpLock -Force
+        if (-not (Test-SameBytes $tmpLock $pinned)) { throw 'temp copy does not match the pins' }
+        Move-Item -LiteralPath $tmpLock $lock -Force
+        if (-not (Test-SameBytes $lock $pinned)) { throw 'lockfile does not match the pins after the move' }
+    } catch {
+        Remove-Item -LiteralPath $tmpLock -Force -ErrorAction SilentlyContinue
+        $script:keepPinned = $true
+        throw "could not restore the pinned $lock (it is left drifted; the pins are kept at $pinned): $($_.Exception.Message)"
+    }
     Write-Host '    restored the pinned lazy-lock.json (the bootstrap install had rewritten it)'
 }
 
-$pinned = $null; $diag = $null
+$pinned = $null; $diag = $null; $keepPinned = $false
 try {
     $pinned = New-TemporaryFile
     $diag = New-TemporaryFile
@@ -125,5 +143,7 @@ try {
     Write-Warning "nvim plugin bootstrap failed: $($_.Exception.Message)"
     exit 1
 } finally {
-    foreach ($t in @($pinned, $diag)) { if ($t) { Remove-Item $t -Force -ErrorAction SilentlyContinue } }
+    if ($diag) { Remove-Item $diag -Force -ErrorAction SilentlyContinue }
+    # A failed restore keeps the snapshot: it may be the only copy of uncommitted pins.
+    if ($pinned -and -not $keepPinned) { Remove-Item $pinned -Force -ErrorAction SilentlyContinue }
 }
