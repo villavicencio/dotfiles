@@ -825,12 +825,25 @@ this repo, not just ticket work. Avoid committing directly to `master`.
   2026-08-25) — doc edits, typo fixes, and handoff commits included. The rule
   targets behavior and config changes, where review and a clean history matter.
   When in doubt, branch.
-- **PR review is CodeRabbit** (`.coderabbit.yaml` at repo root sets
-  `auto_incremental_review: false`, so re-review is requested with an `@coderabbitai review`
-  comment rather than fired by every push). Wait for its verdict and for each re-review before
-  merging — a stale `CHANGES_REQUESTED` is not permission, and a `Review rate limited` check
-  passes by design without any review having run. Full procedure, rate-limit mechanics, and when
-  to escalate to `dv:gauntlet` instead: the **Code Review** section of the global CLAUDE.md.
+- **PR review is review-stack, David's own reviewer** (since 2026-09-24, PRs #190 and
+  later; replaces CodeRabbit here). It reviews **every new head** of an open, non-draft PR
+  automatically, 2–6 minutes after the push, so there is no trigger comment and no hourly
+  budget. It posts **one PR comment per head**, whose first line is
+  `<!-- review-stack:head=<full sha> run=<id> -->`, followed by findings with a severity and
+  a `path:line`. Wait for the comment for the *current* head (poll every 60 s, give up after
+  20 min):
+
+  ```bash
+  gh pr view <N> --repo villavicencio/dotfiles --json headRefOid,comments --jq '.headRefOid as $h | [.comments[] | select(.body | contains("review-stack:head=" + $h))] | last | .body // "PENDING"'
+  ```
+
+  Fix the real findings and push; the new head is re-reviewed automatically. **Merge
+  readiness:** the latest review-stack comment for the current head has no high or
+  critical finding that is neither fixed nor explicitly waived with David. It doesn't read
+  thread replies, so record a declined finding in your summary to David, not on the PR.
+  A comment saying "⚠️ The review did not complete" alerts Atlas; tell David instead of
+  waiting. CodeRabbit may still comment on its own schedule. That's optional input: don't
+  wait for it, and don't mention or re-trigger `@coderabbitai`.
 
 Picking up a board ticket always gets its own branch (never work a ticket on
 `master`).
@@ -838,11 +851,11 @@ Picking up a board ticket always gets its own branch (never work a ticket on
 **A docs-only PR skips the install matrix — but not the review.**
 `install-matrix.yml` declares `paths-ignore: ['docs/**', '**.md', 'claude/**/*.md']`,
 so a markdown-only change never triggers `linux`/`macos`; do not wait for a run that
-will never start. **CodeRabbit still reviews it** if the PR is review-eligible — drafts and
-`WIP` / `DO NOT MERGE` titles are excluded — and it does have findings on markdown, as it did
-on #171. So `mergeStateStatus: CLEAN` is not by itself the merge signal — wait for the
-CodeRabbit check to leave `pending` and triage its findings first. `CLEAN` only tells you
-nothing is *blocking*; a throttled or still-running review also reads clean.
+will never start. **review-stack still reviews it** (every head of a non-draft PR), and
+reviewers do have findings on markdown, as CodeRabbit did on #171. So `mergeStateStatus:
+CLEAN` is not by itself the merge signal — wait for the review-stack comment for the current
+head and triage its findings first. `CLEAN` only tells you nothing is *blocking*; a review
+that hasn't posted yet also reads clean.
 
 ### Claude Code permissions: one allowlist, not two
 
