@@ -1019,7 +1019,14 @@ stays in the platform's native shell, per
 4. `cd $HOME\Projects\Personal\dotfiles`, then `pwsh -File install.ps1 -DryRun` to preview
    and `pwsh -File install.ps1` to apply. A failed step does not stop the others; the
    script exits 1 and lists what failed.
-5. `gh auth login` (the github.com credential helper in `windows/gitconfig` is `gh`).
+5. `gh auth login --scopes workflow` (the github.com credential helper in `windows/gitconfig`
+   is `gh`). gh is the only GitHub credential on the PC, and its default scopes (`repo`,
+   `read:org`, `gist`) make GitHub **reject any push that touches `.github/workflows/`**:
+   `refusing to allow an OAuth App to create or update workflow … without workflow scope`.
+   An existing login adds it with `gh auth refresh -h github.com -s workflow` (it opens a
+   browser, so an agent can't do it). This blocked VIL-151 and the CI half of VIL-154 on
+   2026-09-24. A composite action under `.github/actions/` is *not* a workflow file and
+   pushes fine without the scope.
 6. System settings, from an **elevated** `pwsh`: `pwsh -File windows/tweaks.ps1 -DryRun`,
    then without `-DryRun`. See "System tweaks" below.
 
