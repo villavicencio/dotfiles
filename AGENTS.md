@@ -335,7 +335,7 @@ run (every line must read `ok`).
   precedence trap PR #127 had removed: when both keys exist the legacy one WINS and
   `permissions.allow` is inert. `helpers/install_claude_settings.sh` seeds when absent and
   `--capture` records live changes back (dropping the machine-local keys `effortLevel`,
-  `autoMode`, `mcpServers`, `allowedTools`, and normalizing `$HOME` paths to `~/`).
+  `modelSettings`, `autoMode`, `mcpServers`, `allowedTools`, and normalizing `$HOME` paths to `~/`).
   `dot drift` compares capture-normalized forms and warns if `allowedTools` reappears.
   Agents cannot write this file — the auto-mode classifier blocks it by design; run
   `helpers/migrate_claude_settings.py` yourself on a machine that predates the scheme.
@@ -360,6 +360,9 @@ run (every line must read `ok`).
   files' shared keys in step by hand. Same copy-only-when-absent contract, and the
   helpers (`install_claude_settings.sh --capture`, `report_drift.sh`) switch to the
   Windows file under Git Bash so a capture on the PC can't overwrite the Mac baseline.
+  On Windows `report_drift.sh` skips the Homebrew/npm inventories (Mac/Linux manifests)
+  and runs only the Claude comparison, with a Python probe that rejects the Microsoft
+  Store `python3` placeholder; a failed normalization is an error, never "(in sync)".
   **Don't link `topgrade/topgrade.toml` there** (its `[commands]` entry is POSIX shell).
   Write-up: `docs/solutions/cross-machine/windows-target-gotchas-2026-09-24.md`.
 - The **tmux session-restoration block** in `zshrc` is guarded to run only outside tmux and

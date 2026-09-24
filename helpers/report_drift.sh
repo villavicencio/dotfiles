@@ -31,6 +31,32 @@ BREWFILE="$REPO_ROOT/brew/Brewfile"
 NPM_REQ="$REPO_ROOT/npm/npm-requirements.txt"
 status=0
 
+# Windows (Git Bash): the Homebrew and npm-globals manifests are Mac/Linux
+# inventories — winget's windows/packages.json is the Windows package list, and
+# install.ps1 installs no npm globals — so those sections are skipped rather than
+# reported as failures. The Claude settings comparison still runs.
+IS_WINDOWS=0
+case "$(uname -s)" in MINGW*|MSYS*|CYGWIN*) IS_WINDOWS=1 ;; esac
+
+# A python3 that actually runs. On Windows `python3` is often the Microsoft
+# Store placeholder: `command -v` finds it, but it exits non-zero with "Python
+# was not found". Probe by running it, and fall back to `python` (what the
+# python.org installer registers).
+PYTHON=""
+for _py in python3 python; do
+  if "$_py" -c 'import sys' >/dev/null 2>&1; then PYTHON="$_py"; break; fi
+done
+
+# A native Windows python can't open a Git Bash path (/c/Users/...); hand it
+# the C:\... form. Everywhere else the path passes through unchanged.
+native_path() {
+  if [ "$IS_WINDOWS" -eq 1 ] && command -v cygpath >/dev/null 2>&1; then
+    cygpath -w "$1"
+  else
+    printf '%s\n' "$1"
+  fi
+}
+
 hr() { printf '\n== %s ==\n' "$1"; }
 indent() { sed 's/^/  /'; }
 # Print the lines in $1 that are not in $2, indented; "(none)" if empty.
@@ -40,7 +66,9 @@ only_in_second() { comm -13 <(printf '%s\n' "$1") <(printf '%s\n' "$2") | grep .
 # ---------------------------------------------------------------------------
 # Homebrew
 # ---------------------------------------------------------------------------
-if command -v brew >/dev/null 2>&1; then
+if [ "$IS_WINDOWS" -eq 1 ]; then
+  hr "Homebrew: skipped on Windows (windows/packages.json is the manifest there)"
+elif command -v brew >/dev/null 2>&1; then
   if [ ! -f "$BREWFILE" ]; then
     echo "ERROR: Brewfile not found at $BREWFILE" >&2
     exit 2
@@ -116,7 +144,9 @@ fi
 # ---------------------------------------------------------------------------
 # npm globals (scoped-package aware via --json)
 # ---------------------------------------------------------------------------
-if command -v npm >/dev/null 2>&1; then
+if [ "$IS_WINDOWS" -eq 1 ]; then
+  hr "npm: skipped on Windows (install.ps1 installs no npm globals)"
+elif command -v npm >/dev/null 2>&1; then
   # Read the global node_modules directory directly rather than `npm ls`, whose
   # JSON output is filtered by inherited config (e.g. npm_config_link/omit) and
   # can silently return a subset of the installed globals. Reading the directory
@@ -206,27 +236,37 @@ fi
 CLAUDE_TRACKED="$REPO_ROOT/claude/settings.json"
 CLAUDE_LIVE="$HOME/.claude/settings.json"
 # Windows (Git Bash) compares against the hook-free sibling install.ps1 seeds.
-case "$(uname -s)" in
-  MINGW*|MSYS*|CYGWIN*) CLAUDE_TRACKED="$REPO_ROOT/windows/claude-settings.json" ;;
-esac
+CLAUDE_INSTALLER="./install"
+if [ "$IS_WINDOWS" -eq 1 ]; then
+  CLAUDE_TRACKED="$REPO_ROOT/windows/claude-settings.json"
+  CLAUDE_INSTALLER="install.ps1"
+fi
+CLAUDE_TRACKED_REL="${CLAUDE_TRACKED#"$REPO_ROOT"/}"
 
-hr "Claude Code: tracked settings.json vs live ~/.claude/settings.json"
+hr "Claude Code: tracked $CLAUDE_TRACKED_REL vs live ~/.claude/settings.json"
 if [ ! -f "$CLAUDE_TRACKED" ]; then
   echo "ERROR: tracked Claude settings missing at $CLAUDE_TRACKED" >&2
   status=1
 elif [ ! -f "$CLAUDE_LIVE" ]; then
-  echo "  (not seeded on this machine yet — ./install will copy it in)"
-elif ! command -v python3 >/dev/null 2>&1; then
-  echo "  (python3 not on PATH — cannot normalize; skipping)"
+  echo "  (not seeded on this machine yet — $CLAUDE_INSTALLER will copy it in)"
+elif [ -z "$PYTHON" ]; then
+  # Not a silent skip: without normalization there is no comparison at all, and
+  # a clean exit would read as "in sync".
+  echo "ERROR: no working python3/python on PATH — cannot compare Claude settings" >&2
+  status=1
 else
   # Emits the live file reduced to what capture would track, so the diff shows
-  # only real, actionable drift.
+  # only real, actionable drift. Explicit utf-8 so Windows' locale codec can't
+  # choke on non-ASCII (the default on macOS/Linux already is utf-8).
   claude_norm() {
-    CLAUDE_FILE="$1" python3 - <<'PYEOF'
+    CLAUDE_FILE="$(native_path "$1")" "$PYTHON" - <<'PYEOF'
 import collections, json, os, sys
-strip = {"effortLevel", "autoMode", "mcpServers", "allowedTools"}
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(newline="\n")   # Windows would emit CRLF lines
+strip = {"effortLevel", "modelSettings", "autoMode", "mcpServers", "allowedTools"}
 try:
-    d = json.load(open(os.environ["CLAUDE_FILE"]), object_pairs_hook=collections.OrderedDict)
+    with open(os.environ["CLAUDE_FILE"], encoding="utf-8") as fh:
+        d = json.load(fh, object_pairs_hook=collections.OrderedDict)
 except Exception as exc:
     print("UNPARSEABLE: %s" % exc); sys.exit(0)
 for k in list(d):
@@ -236,13 +276,20 @@ blob = json.dumps(d, indent=2, sort_keys=True)
 print(blob.replace(os.path.expanduser("~") + "/", "~/"))
 PYEOF
   }
-  claude_live_norm="$(claude_norm "$CLAUDE_LIVE")"
-  claude_tracked_norm="$(claude_norm "$CLAUDE_TRACKED")"
-  if printf '%s' "$claude_live_norm" | grep -q '^UNPARSEABLE'; then
+  # Check the normalizer's exit status AND that it printed something: a failed
+  # interpreter yields "" for both files, and two empty strings compare equal —
+  # a false "(in sync)".
+  claude_live_norm="$(claude_norm "$CLAUDE_LIVE")"; live_rc=$?
+  claude_tracked_norm="$(claude_norm "$CLAUDE_TRACKED")"; tracked_rc=$?
+  if [ "$live_rc" -ne 0 ] || [ "$tracked_rc" -ne 0 ] \
+     || [ -z "$claude_live_norm" ] || [ -z "$claude_tracked_norm" ]; then
+    echo "ERROR: normalizing Claude settings failed ($PYTHON exit: live $live_rc, tracked $tracked_rc) — cannot compute drift" >&2
+    status=1
+  elif printf '%s' "$claude_live_norm" | grep -q '^UNPARSEABLE'; then
     echo "ERROR: live settings is not valid JSON — cannot compute drift" >&2
     status=1
   elif printf '%s' "$claude_tracked_norm" | grep -q '^UNPARSEABLE'; then
-    echo "ERROR: tracked claude/settings.json is not valid JSON — cannot compute drift" >&2
+    echo "ERROR: tracked $CLAUDE_TRACKED_REL is not valid JSON — cannot compute drift" >&2
     status=1
   elif [ "$claude_live_norm" = "$claude_tracked_norm" ]; then
     echo "  (in sync)"

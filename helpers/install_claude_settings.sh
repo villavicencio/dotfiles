@@ -31,27 +31,41 @@ DEST="$HOME/.claude/settings.json"
 # Windows (Git Bash) tracks a hook-free sibling, which install.ps1 seeds. Point
 # at it here too, or --capture run on the PC would overwrite the Mac baseline
 # with a file that has no hooks.
+IS_WINDOWS=0
 case "$(uname -s)" in
-  MINGW*|MSYS*|CYGWIN*) SRC="$REPO_ROOT/windows/claude-settings.json" ;;
+  MINGW*|MSYS*|CYGWIN*) IS_WINDOWS=1; SRC="$REPO_ROOT/windows/claude-settings.json" ;;
 esac
+SRC_REL="${SRC#"$REPO_ROOT"/}"   # for messages: claude/settings.json or windows/claude-settings.json
+
+# A native Windows python can't open a Git Bash path (/c/Users/...); hand it
+# the C:\... form. Everywhere else the path passes through unchanged.
+native_path() {
+  if [ "$IS_WINDOWS" -eq 1 ] && command -v cygpath >/dev/null 2>&1; then
+    cygpath -w "$1"
+  else
+    printf '%s\n' "$1"
+  fi
+}
 
 # Keys that are machine- or session-specific and must never be tracked. The
 # file's own "//" header states the rule; these are the observed offenders.
 #   effortLevel  session pin
-#   autoMode     per-project classifier context (has leaked a project's
+#   modelSettings per-model pins (e.g. {"claude-opus-5-5": {"effortLevel": ...}}),
+#                the newer home of the effort pin — seen live on the Windows PC
+#   autoMode    per-project classifier context (has leaked a project's
 #                trusted-repo path and service list into user scope before)
 #   mcpServers   per-machine server definitions
 #   allowedTools LEGACY key — silently overrides permissions.allow. Never track
 #                it; capture drops it so a stale live file cannot reintroduce it.
-STRIP_KEYS="effortLevel autoMode mcpServers allowedTools"
+STRIP_KEYS="effortLevel modelSettings autoMode mcpServers allowedTools"
 
 # Dry-run guard comes FIRST so it covers --capture too: capture writes to the
 # repo, and `DOTFILES_DRY_RUN=1 ... --capture` must not mutate anything.
 if [ "${DOTFILES_DRY_RUN:-0}" = "1" ]; then
   if [ "${1:-}" = "--capture" ]; then
-    echo "[dry-run] would capture ~/.claude/settings.json into claude/settings.json"
+    echo "[dry-run] would capture ~/.claude/settings.json into $SRC_REL"
   else
-    echo "[dry-run] would seed ~/.claude/settings.json from claude/settings.json if absent"
+    echo "[dry-run] would seed ~/.claude/settings.json from $SRC_REL if absent"
   fi
   exit 0
 fi
@@ -59,20 +73,27 @@ fi
 if [ "${1:-}" = "--capture" ]; then
   [ -f "$DEST" ] || { echo "Error: no live settings at $DEST" >&2; exit 1; }
   [ -f "$SRC" ]  || { echo "Error: tracked settings missing at $SRC" >&2; exit 1; }
-  command -v python3 >/dev/null 2>&1 || { echo "Error: python3 not on PATH" >&2; exit 1; }
+  # Probe by running it: on Windows `python3` is often the Microsoft Store
+  # placeholder, which `command -v` finds but which exits non-zero.
+  PYTHON=""
+  for _py in python3 python; do
+    if "$_py" -c 'import sys' >/dev/null 2>&1; then PYTHON="$_py"; break; fi
+  done
+  [ -n "$PYTHON" ] || { echo "Error: no working python3/python on PATH" >&2; exit 1; }
 
-  STRIP_KEYS="$STRIP_KEYS" SRC="$SRC" DEST="$DEST" python3 - <<'PY' || exit 1
+  STRIP_KEYS="$STRIP_KEYS" SRC="$(native_path "$SRC")" DEST="$(native_path "$DEST")" \
+    SRC_REL="$SRC_REL" "$PYTHON" - <<'PY' || exit 1
 import json, collections, os, sys
 
 src, dest = os.environ["SRC"], os.environ["DEST"]
 strip = set(os.environ["STRIP_KEYS"].split())
 
 try:
-    live = json.load(open(dest), object_pairs_hook=collections.OrderedDict)
+    live = json.load(open(dest, encoding="utf-8"), object_pairs_hook=collections.OrderedDict)
 except Exception as e:
     print("Error: live settings is not valid JSON (%s) — nothing captured" % e, file=sys.stderr)
     raise SystemExit(1)
-tracked = json.load(open(src), object_pairs_hook=collections.OrderedDict)
+tracked = json.load(open(src, encoding="utf-8"), object_pairs_hook=collections.OrderedDict)
 
 # `allowedTools` is dropped rather than tracked — but dropping it while it still
 # holds rules absent from permissions.allow would SILENTLY DELETE them from the
@@ -117,9 +138,9 @@ normalized = blob != before
 
 tmp = src + ".tmp.%d" % os.getpid()
 try:
-    with open(tmp, "w") as fh:
+    with open(tmp, "w", encoding="utf-8", newline="\n") as fh:  # LF even on Windows
         fh.write(blob + "\n")
-    json.load(open(tmp))          # parse-check before replacing
+    json.load(open(tmp, encoding="utf-8"))        # parse-check before replacing
     os.replace(tmp, src)
 except Exception:
     if os.path.exists(tmp):
@@ -131,7 +152,7 @@ if dropped:
     print("  dropped machine-local keys: %s" % ", ".join(sorted(dropped)))
 if normalized:
     print("  normalized absolute $HOME paths to ~/")
-print("  review with: git diff claude/settings.json")
+print("  review with: git diff %s" % os.environ["SRC_REL"])
 PY
   exit 0
 fi

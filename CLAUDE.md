@@ -330,7 +330,7 @@ bash helpers/install_claude_settings.sh --capture    # regenerate claude/setting
 ```
 
 `--capture` regenerates rather than `cp`s: it drops the machine-local keys
-(`effortLevel`, `autoMode`, `mcpServers`, and `allowedTools` — which must never be tracked),
+(`effortLevel`, `modelSettings`, `autoMode`, `mcpServers`, and `allowedTools` — which must never be tracked),
 re-prepends the tracked `"//"` header, and rewrites absolute `$HOME` paths back to `~/`
 (installers write literal `/Users/<you>/...`; Claude Code expands `~` in hook commands).
 
@@ -1023,7 +1023,12 @@ Windows-specific rules:
   **Nothing keeps the two files in step but you**: change a shared key in one, change it in
   the other. Under Git Bash, `install_claude_settings.sh` (seed and `--capture`) and
   `report_drift.sh` target the Windows file, so a capture on the PC cannot overwrite the Mac
-  baseline with a hook-free copy.
+  baseline with a hook-free copy. On Windows `report_drift.sh` reports **only** the Claude
+  settings comparison — its Homebrew and npm-globals sections are Mac/Linux inventories and
+  are skipped, not failed. Both helpers probe for a Python that actually runs (`python3`
+  under Git Bash is usually the Microsoft Store placeholder, which `command -v` finds but
+  which exits non-zero), fall back to `python`, and hand it `cygpath -w` paths; a failed
+  normalization is an error, never a silent "(in sync)".
   The seed only lands on a machine with no settings file. A PC that already has one keeps
   it; adopting the baseline there is a human step (the auto-mode classifier blocks agents
   from writing it): move the live file aside, re-run `install.ps1`, then re-add any
