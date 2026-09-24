@@ -187,7 +187,10 @@ on dotfiles #171, 2026-08-24). One review an hour covers every repo and agent to
 first review of a PR can use up the hour and its fix round then waits — plan PRs around that
 rather than splitting work finely. A request sent while throttled only returns `Review rate
 limited`; CodeRabbit's "Review limit reached" comment on the PR states when the next review is
-available ("Next included review available in N minutes"), so read that and re-request after it.
+available ("Next included review available in N minutes"). **That comment is edited in place** on
+every throttled request, so count N from its `updated_at`, never its `created_at` — on #186 the
+created-at reading put availability 15 minutes early and the retry was throttled again
+(`gh api repos/<owner>/<repo>/issues/<N>/comments` shows both timestamps).
 Treat capacity as a budget: `@coderabbitai rate limit` reports real remaining capacity
 **without consuming a review**,
 and the review footer prints what is left after each run.
