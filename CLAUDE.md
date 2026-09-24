@@ -958,7 +958,8 @@ stays in the platform's native shell, per
 1. Turn on Developer Mode (Settings → System → For developers) so symlinks work unelevated.
 2. Install PowerShell 7 and git: `winget install Microsoft.PowerShell Git.Git`
 3. Clone with LF line endings — Git for Windows' system config sets `core.autocrlf=true`,
-   which would check the shell scripts out as CRLF before `windows/gitconfig` can override it:
+   which would check the shell scripts out as CRLF before the `~/.gitconfig` stub that
+   `install.ps1` writes can override it:
    ```powershell
    git -c core.autocrlf=input clone https://github.com/villavicencio/dotfiles.git $HOME\Projects\Personal\dotfiles
    ```
@@ -981,7 +982,10 @@ What `install.ps1` does, in order — each step idempotent, `-DryRun` mutates no
      OS-conditional include, so the shared file cannot pull in the Windows overrides itself.
      The overrides reset the multi-valued `credential.helper` lists with an empty value
      (dropping `osxkeychain` and the `/opt/homebrew/bin/gh` path) before adding
-     `manager` / the Windows `gh.exe`.
+     `manager` / the Windows `gh.exe`. The stub itself sets `core.autocrlf = input`:
+     **anything that governs checkout must live outside the worktree.** A setting in
+     `windows/gitconfig` vanishes whenever a checkout removes that file (any commit
+     before #186), and git then rewrites files with CRLF under the system `autocrlf=true`.
    - `$PROFILE` dot-sources `windows/powershell/profile.ps1`. `$PROFILE` lives under
      Documents, which OneDrive commonly redirects and syncs, and OneDrive handles symlinks
      badly. Resolve Documents with `[Environment]::GetFolderPath('MyDocuments')`, never

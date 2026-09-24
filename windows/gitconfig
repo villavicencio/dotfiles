@@ -5,11 +5,11 @@
 # here. (A stub rather than a symlink to git/gitconfig: git has no OS-conditional
 # include, so the shared file cannot pull this one in by itself.)
 
-[core]
-    # Git for Windows' system config (C:/Program Files/Git/etc/gitconfig) sets
-    # autocrlf = true, which checks the repo's shell scripts out with CRLF.
-    # Keep LF in the working tree, as on macOS.
-    autocrlf = input
+# core.autocrlf = input is deliberately NOT here - it is in the ~/.gitconfig stub
+# that install.ps1 writes. This file lives in the worktree, so a checkout of any
+# commit that lacks it drops the include mid-checkout and Git for Windows' system
+# autocrlf=true takes over, rewriting files with CRLF. See
+# docs/solutions/cross-machine/windows-target-gotchas-2026-09-24.md.
 
 # credential.helper is multi-valued: an empty value resets the list inherited
 # from git/gitconfig (osxkeychain + the /usr/local GCM path, neither of which
