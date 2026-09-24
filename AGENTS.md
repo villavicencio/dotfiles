@@ -374,7 +374,8 @@ run (every line must read `ok`).
   (through the link). `helpers/install_nvim.sh` and `windows/install_nvim.ps1` keep a
   copy of the pins, put it back, restore, and verify against the copy with
   `helpers/nvim_verify_lock.lua`. Don't reduce this to one `Lazy! restore`. The minimum is
-  Neovim **0.12** (the pinned nvim-treesitter needs it). On Linux the helper installs the
+  Neovim **0.12** (the pinned nvim-treesitter needs it). An older installed nvim is
+  upgraded (brew/winget), and the helper fails if it is still too old rather than skipping. On Linux the helper installs the
   pinned release tarball into `~/.local` (no sudo; apt's 0.9.5 is not used). Write-up:
   `docs/solutions/runtime-errors/lazy-nvim-first-launch-drifts-lockfile-2026-09-24.md`.
 - **Windows gets stubs, not links, for `~/.gitconfig` and `$PROFILE`** — git has no

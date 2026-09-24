@@ -45,9 +45,28 @@ end
 
 local names = vim.tbl_keys(lock)
 table.sort(names)
+-- Fail closed on a lockfile that pins nothing: no entries at all, or an entry
+-- without a full 40-hex commit, would otherwise "pass" without checking a pin.
+if #names == 0 then
+  say("  lockfile pins no plugins: " .. lockfile)
+  os.exit(2)
+end
+local invalid = {}
+for _, name in ipairs(names) do
+  local e = lock[name]
+  local c = type(e) == "table" and e.commit or nil
+  if type(c) ~= "string" or not c:match("^%x+$") or #c ~= 40 then
+    table.insert(invalid, name)
+  end
+end
+if #invalid > 0 then
+  say("  lock entries without a valid commit: " .. table.concat(invalid, " "))
+  os.exit(2)
+end
+
 local miss, bad, good = {}, {}, 0
 for _, name in ipairs(names) do
-  local want = type(lock[name]) == "table" and lock[name].commit or nil
+  local want = lock[name].commit
   local dir = lazy_dir .. "/" .. name
   local head = vim.uv.fs_stat(dir .. "/.git") and git(dir, "rev-parse", "HEAD")
   if not head then
@@ -63,7 +82,7 @@ for _, name in ipairs(names) do
         subm_bad = true
       end
     end
-    if (want and vim.trim(head) ~= want) or dirty == nil or vim.trim(dirty) ~= "" or subm_bad then
+    if vim.trim(head) ~= want or dirty == nil or vim.trim(dirty) ~= "" or subm_bad then
       table.insert(bad, name)
     else
       good = good + 1

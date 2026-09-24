@@ -16,7 +16,10 @@
          entry between install rounds), so:
       3. put the snapshot back, then `Lazy! restore` to the pinned commits
       4. put the snapshot back again, and verify with helpers/nvim_verify_lock.lua
-    Exit code: 0 ok (or skipped because nvim is missing), 1 incomplete bootstrap.
+    An nvim older than 0.12 is upgraded with winget first (install.ps1 imports with
+    --no-upgrade); if it is still too old, that is a failure.
+    Exit code: 0 ok (or skipped because nvim is missing), 1 nvim too old, snapshot or
+    restore failure, or incomplete bootstrap.
 #>
 param([switch]$DryRun)
 $ErrorActionPreference = 'Stop'
@@ -31,10 +34,25 @@ if (-not (Get-Command nvim -ErrorAction SilentlyContinue)) {
     Write-Warning 'nvim not on PATH - skipping the plugin bootstrap. Install Neovim.Neovim (winget) and re-run.'
     exit 0
 }
-$verLine = (& nvim --version | Select-Object -First 1)
-if ($verLine -notmatch 'v(\d+)\.(\d+)' -or [version]"$($Matches[1]).$($Matches[2])" -lt $MinNvim) {
-    Write-Warning "this config needs Neovim $MinNvim+, found '$verLine' - skipping the plugin bootstrap."
-    exit 0
+function Get-NvimVersionLine { (& nvim --version | Select-Object -First 1) }
+function Test-NvimNewEnough([string]$line) {
+    $line -match 'v(\d+)\.(\d+)' -and [version]"$($Matches[1]).$($Matches[2])" -ge $MinNvim
+}
+# An installed-but-too-old nvim is a failure, not a skip: install.ps1 imports with
+# --no-upgrade, so a machine that already had 0.11 keeps it. Upgrade it and re-check;
+# exit 1 (recorded by install.ps1) if that still does not reach the minimum.
+$verLine = Get-NvimVersionLine
+if (-not (Test-NvimNewEnough $verLine)) {
+    Write-Host "Neovim is too old for this config ('$verLine'); running winget upgrade --id Neovim.Neovim -e..."
+    winget upgrade --id Neovim.Neovim -e --accept-package-agreements --accept-source-agreements
+    # The MSI keeps its install dir, but pick up any PATH change it made anyway.
+    $env:Path = (@($env:Path) + [Environment]::GetEnvironmentVariable('Path', 'Machine') +
+        [Environment]::GetEnvironmentVariable('Path', 'User')) -join ';'
+    $verLine = Get-NvimVersionLine
+    if (-not (Test-NvimNewEnough $verLine)) {
+        Write-Warning "this config needs Neovim $MinNvim+, found '$verLine' at $((Get-Command nvim).Source)."
+        exit 1
+    }
 }
 
 # Ask nvim where its config lives (%LOCALAPPDATA%\nvim unless XDG_CONFIG_HOME is set)
@@ -46,19 +64,29 @@ if (-not (Test-Path -LiteralPath $lock)) {
     exit 1
 }
 
-$pinned = New-TemporaryFile
-$diag = New-TemporaryFile
-Copy-Item -LiteralPath $lock $pinned -Force
+function Test-SameBytes([string]$a, [string]$b) {
+    [Convert]::ToBase64String([IO.File]::ReadAllBytes($a)) -eq [Convert]::ToBase64String([IO.File]::ReadAllBytes($b))
+}
 function Restore-Pins {
-    # Byte-compare so a clean run never touches the tracked file.
-    $a = [IO.File]::ReadAllBytes($lock); $b = [IO.File]::ReadAllBytes($pinned)
-    if ([Convert]::ToBase64String($a) -ne [Convert]::ToBase64String($b)) {
-        Copy-Item -LiteralPath $pinned $lock -Force
-        Write-Host '    restored the pinned lazy-lock.json (the bootstrap install had rewritten it)'
-    }
+    # Byte-compare so a clean run never touches the tracked file; after a write,
+    # prove it landed rather than trusting the copy.
+    if (Test-SameBytes $lock $pinned) { return }
+    Copy-Item -LiteralPath $pinned $lock -Force
+    if (-not (Test-SameBytes $lock $pinned)) { throw "could not restore the pinned $lock (it is left drifted)" }
+    Write-Host '    restored the pinned lazy-lock.json (the bootstrap install had rewritten it)'
 }
 
+$pinned = $null; $diag = $null
 try {
+    $pinned = New-TemporaryFile
+    $diag = New-TemporaryFile
+    # The snapshot is the only copy of the pins once nvim starts: prove it complete
+    # (non-empty, byte-equal) before launching nvim. Restore-Pins only ever writes from it.
+    Copy-Item -LiteralPath $lock $pinned -Force
+    if ((Get-Item $pinned).Length -eq 0 -or -not (Test-SameBytes $lock $pinned)) {
+        throw "could not snapshot $lock - not starting nvim"
+    }
+
     Write-Host 'Bootstrapping nvim plugins (Lazy restore from pinned lazy-lock.json)...'
     # Output is ~all git progress; the restore pass keeps stderr for diagnostics.
     & nvim --headless +qa *> $null
@@ -78,6 +106,9 @@ try {
     }
     Write-Host '  Open nvim (it finishes installing on launch), then run :Lazy restore + :checkhealth.'
     exit 1
+} catch {
+    Write-Warning "nvim plugin bootstrap failed: $($_.Exception.Message)"
+    exit 1
 } finally {
-    Remove-Item $pinned, $diag -Force -ErrorAction SilentlyContinue
+    foreach ($t in @($pinned, $diag)) { if ($t) { Remove-Item $t -Force -ErrorAction SilentlyContinue } }
 }

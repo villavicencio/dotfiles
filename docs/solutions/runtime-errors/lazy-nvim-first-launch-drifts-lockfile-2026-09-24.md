@@ -75,9 +75,9 @@ post-apply action (R9) also runs `git diff --exit-code -- nvim/lazy-lock.json` a
 
 - **The pinned nvim-treesitter (`main`) requires Neovim 0.12**, according to its own
   `health.lua`. The documented minimum was 0.11, so it was raised to 0.12.
-- **Parser installs need `tree-sitter` CLI ≥ 0.26.1 plus a C compiler.** Neither is in
-  the Brewfile or `windows/packages.json`, and neither Mac nor Windows has them by
-  default. Neovim 0.12 bundles the `c`, `lua`, `markdown`, `query`, `vim`, and
+- **Parser installs need `tree-sitter` CLI ≥ 0.26.1 plus a C compiler.** No platform
+  installs the tree-sitter CLI. Linux (`build-essential`) and macOS (Command Line Tools)
+  already have a compiler; Windows has none. Neovim 0.12 bundles the `c`, `lua`, `markdown`, `query`, `vim`, and
   `vimdoc` parsers, so Lua and Vim files highlight without them. Only NvChad's extra
   `luadoc` and `printf` parsers are missing.
 - **Keep throwaway test dirs short.** `vim.loader` writes its byte-code cache as one

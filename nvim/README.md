@@ -32,8 +32,10 @@ linked as a whole directory to `~/.config/nvim` by Dotbot (see `dotbot-conf/base
   `stylua` comes from `:MasonInstall stylua` everywhere. `html`/`cssls`
   (`:MasonInstall html-lsp css-lsp`) need Node/npm, which Windows does not have yet.
   Treesitter parsers beyond the ones bundled with Neovim (NvChad adds `luadoc` and `printf`)
-  need the `tree-sitter` CLI (≥ 0.26.1) and a C compiler. No platform installs those; this
-  is optional.
+  need the `tree-sitter` CLI (≥ 0.26.1) and a C compiler. No platform installs the
+  tree-sitter CLI, so this is optional. A C compiler is already there on Linux
+  (`build-essential` is in the apt list) and on macOS (the Command Line Tools Homebrew
+  requires); Windows has none.
 
 Layout: `init.lua` (lazy bootstrap + NvChad import), `lua/options.lua`, `lua/mappings.lua`,
 `lua/chadrc.lua`, `lua/plugins/init.lua` (extra plugin specs), `lua/configs/` (per-plugin setup).

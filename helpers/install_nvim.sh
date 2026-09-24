@@ -67,7 +67,10 @@ install_linux_nvim() {
     rm -rf "$tmp"
   fi
   mkdir -p "$HOME/.local/bin"
-  ln -sfn "$prefix/bin/nvim" "$HOME/.local/bin/nvim"
+  # Touch the link only when it points elsewhere, so a re-run changes nothing.
+  if [ "$(readlink "$HOME/.local/bin/nvim" 2>/dev/null)" != "$prefix/bin/nvim" ]; then
+    ln -sfn "$prefix/bin/nvim" "$HOME/.local/bin/nvim"
+  fi
   # Fail loudly rather than let the version gate below read a binary that can't
   # start (e.g. a glibc older than the release was built against) as "too old".
   if ! "$HOME/.local/bin/nvim" --version >/dev/null 2>&1; then
@@ -88,12 +91,29 @@ if ! command -v nvim >/dev/null 2>&1; then
   exit 0
 fi
 
-ver="$(nvim --version 2>/dev/null | sed -n '1s/.*v\([0-9]*\.[0-9]*\).*/\1/p')"
-vmaj="${ver%%.*}"; vmin="${ver#*.}"
-if [ "${vmaj:-0}" -eq 0 ] && [ "${vmin:-0}" -lt "$NVIM_MIN_MINOR" ]; then
-  echo "install_nvim.sh: this config needs Neovim 0.$NVIM_MIN_MINOR+, found ${ver:-unknown} — skipping bootstrap." >&2
-  echo "  (macOS: brew upgrade neovim. Linux: this helper installs v$NVIM_VERSION to ~/.local.)" >&2
-  exit 0
+# True when the nvim on PATH is new enough; sets $ver for messages.
+nvim_new_enough() {
+  local vmaj vmin
+  ver="$(nvim --version 2>/dev/null | sed -n '1s/.*v\([0-9]*\.[0-9]*\).*/\1/p')"
+  [ -n "$ver" ] || return 1
+  vmaj="${ver%%.*}"; vmin="${ver#*.}"
+  [ "$vmaj" -gt 0 ] || [ "$vmin" -ge "$NVIM_MIN_MINOR" ]
+}
+
+# An installed-but-too-old nvim is a failure, not a skip: the Brewfile step only
+# installs what is missing, so a Mac that already had 0.11 would otherwise report
+# success without the plugin set. On macOS, upgrade through Homebrew and re-check.
+if ! nvim_new_enough; then
+  if [ "$(uname)" = "Darwin" ] && command -v brew >/dev/null 2>&1; then
+    echo "install_nvim.sh: Neovim ${ver:-unknown} is older than 0.$NVIM_MIN_MINOR — running brew upgrade neovim..."
+    brew upgrade neovim || true
+    hash -r
+  fi
+  if ! nvim_new_enough; then
+    echo "install_nvim.sh: this config needs Neovim 0.$NVIM_MIN_MINOR+, found ${ver:-unknown} ($(command -v nvim))." >&2
+    echo "  (macOS: brew upgrade neovim. Linux: this helper installs v$NVIM_VERSION to ~/.local.)" >&2
+    exit 1
+  fi
 fi
 
 echo "Bootstrapping nvim plugins (Lazy restore from pinned lazy-lock.json)..."
@@ -113,22 +133,36 @@ fi
 # `Lazy! restore` afterwards restores to that rewritten file, so it looks green.
 # Hence: snapshot the pins, bootstrap, put the pins back, restore, verify against
 # the snapshot. (Observed 2026-09-24: 9 of 27 plugins drifted on a fresh install.)
-pinned="$(mktemp)"; diag="$(mktemp)"
-cp "$lockfile" "$pinned"
+pinned=""; diag=""
+trap 'rm -f "$pinned" "$diag"' EXIT
+if ! pinned="$(mktemp)" || ! diag="$(mktemp)"; then
+  echo "install_nvim.sh: could not create temp files — not touching nvim." >&2
+  exit 1
+fi
+# The snapshot is the only copy of the pins once nvim starts, so it must be proven
+# complete before nvim runs: copied, non-empty, and byte-equal to the lockfile.
+# restore_pins below never writes from anything but this verified copy.
+if ! cp "$lockfile" "$pinned" || [ ! -s "$pinned" ] || ! cmp -s "$lockfile" "$pinned"; then
+  echo "install_nvim.sh: could not snapshot $lockfile — not starting nvim." >&2
+  exit 1
+fi
 restore_pins() {
-  if ! cmp -s "$pinned" "$lockfile"; then
-    cat "$pinned" > "$lockfile"   # write through the link; keep the tracked file
-    echo "  restored the pinned lazy-lock.json (the bootstrap install had rewritten it)"
+  cmp -s "$pinned" "$lockfile" && return 0
+  # Write through the link so the tracked file is restored, then prove it was.
+  if ! cat "$pinned" > "$lockfile" || ! cmp -s "$pinned" "$lockfile"; then
+    echo "install_nvim.sh: could not restore the pinned $lockfile (it is left drifted)." >&2
+    return 1
   fi
+  echo "  restored the pinned lazy-lock.json (the bootstrap install had rewritten it)"
 }
 
 # Pass 1: bootstrap/install (output is almost all git progress). Pass 2: restore
 # to the pins; keep its stderr for diagnostics. Neither exit code is trusted —
 # `nvim --headless +qa` exits 0 even on a broken config — the verify below is.
 nvim --headless +qa >/dev/null 2>&1 || true
-restore_pins
+restore_pins || exit 1
 nvim --headless "+Lazy! restore" +qa >/dev/null 2>"$diag" || true
-restore_pins
+restore_pins || exit 1
 
 # Verify EVERY locked plugin is at its recorded commit with a clean checkout
 # (helpers/nvim_verify_lock.lua runs inside nvim, shared with Windows).
@@ -137,7 +171,7 @@ nvim -l "$here/nvim_verify_lock.lua" "$pinned"; rc=$?
 
 if [ "$rc" -eq 0 ]; then
   echo "nvim: all pinned plugins present at their locked commits; bootstrap complete."
-  rm -f "$pinned" "$diag"; exit 0
+  exit 0
 fi
 
 echo "install_nvim.sh: nvim plugin bootstrap INCOMPLETE (see above)." >&2
@@ -147,5 +181,4 @@ if [ -s "$diag" ]; then
   sed 's/^/  /' "$diag" >&2
 fi
 echo "  Open nvim (it finishes installing on launch), then run :Lazy restore + :checkhealth." >&2
-rm -f "$pinned" "$diag"
 exit 1

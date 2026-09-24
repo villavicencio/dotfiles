@@ -210,7 +210,8 @@ if ($DryRun) {
 # 5. nvim plugins ---------------------------------------------------------------
 Write-Step 'nvim plugins (nvim/lazy-lock.json)'
 Invoke-Step 'nvim plugin bootstrap' {
-    # Skips (exit 0) when nvim is missing or too old; exit 1 = a pin didn't restore.
+    # Skips (exit 0) when nvim is missing; upgrades a too-old one; exit 1 = still too
+    # old, or a pin didn't restore.
     & (Join-Path $Repo 'windows/install_nvim.ps1') -DryRun:$DryRun
     $null = Test-NativeExit 'nvim plugin bootstrap'
 }

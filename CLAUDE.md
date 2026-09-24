@@ -274,6 +274,10 @@ bootstrap, put the copy back, restore, and verify against the copy with
 `helpers/nvim_verify_lock.lua`. **Don't collapse this back into a single `Lazy! restore`
 pass.** CI's post-apply R9 check fails if `./install` leaves the lockfile modified. The
 minimum Neovim version is **0.12**, because the pinned nvim-treesitter (`main`) requires it.
+An installed nvim below that is upgraded (`brew upgrade neovim` / `winget upgrade`), and
+the helper fails if it is still too old. It never skips with exit 0, because the package
+steps only install what is missing. The snapshot is checked (non-empty, byte-equal)
+before nvim starts, and every restore is checked after it is written.
 Write-up: `docs/solutions/runtime-errors/lazy-nvim-first-launch-drifts-lockfile-2026-09-24.md`.
 
 ### A hook symlinked into the repo is branch-fragile — land the file before wiring it
@@ -1032,7 +1036,9 @@ What `install.ps1` does, in order — each step idempotent, `-DryRun` mutates no
 5. `windows/install_nvim.ps1`: the Windows twin of `helpers/install_nvim.sh`. It restores
    the plugins pinned in `nvim/lazy-lock.json` into `%LOCALAPPDATA%\nvim-data` and runs
    `helpers/nvim_verify_lock.lua`, the verifier the two share. It skips (exit 0) when nvim
-   is missing or older than 0.12, and it can also be run on its own.
+   is missing. When nvim is older than 0.12, it runs `winget upgrade --id Neovim.Neovim -e`
+   (step 1's `--no-upgrade` leaves an old copy in place), then fails with exit 1 if the
+   version is still too old. It can also be run on its own.
 
 Windows-specific rules:
 
