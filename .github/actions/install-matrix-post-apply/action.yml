@@ -233,3 +233,33 @@ runs:
             ;;
         esac
         exit "$fail"
+
+    - name: R9 assertion (nvim >= 0.12, config starts headless, pins untouched)
+      # helpers/install_nvim.sh installs the pinned Neovim release on Linux (apt's is
+      # 0.9.5) and restores nvim/lazy-lock.json's pins; its own verify fails ./install
+      # if any plugin is off-pin. This adds what that verify cannot see: the nvim on
+      # PATH is new enough, the tracked config loads with no startup errors, and the
+      # first-launch install did not leave the tracked lockfile rewritten.
+      shell: bash
+      run: |
+        set -eo pipefail
+        export PATH="$HOME/.local/bin:$PATH"   # Linux: where install_nvim.sh links nvim
+        v="$(nvim --version | head -1)"
+        echo "$v ($(command -v nvim))"
+        ver="$(printf '%s\n' "$v" | sed -n 's/^NVIM v\([0-9]*\.[0-9]*\).*/\1/p')"
+        maj="${ver%%.*}"; min="${ver#*.}"
+        if [ -z "$ver" ] || { [ "$maj" -eq 0 ] && [ "$min" -lt 12 ]; }; then
+          echo "::error::nvim must be >= 0.12 for this config, got: $v"
+          exit 1
+        fi
+        # NvChad's nvconfig module is only loaded once init.lua has run through.
+        out="$(nvim --headless "+lua io.write(package.loaded.nvconfig and 'config-loaded' or 'config-NOT-loaded')" +qa 2>&1)"
+        if [ "$out" != "config-loaded" ]; then
+          echo "::error::headless nvim start of the tracked config was not clean:"
+          printf '%s\n' "$out"
+          exit 1
+        fi
+        if ! git diff --exit-code -- nvim/lazy-lock.json; then
+          echo "::error::the nvim bootstrap rewrote the tracked nvim/lazy-lock.json (pins drifted)"
+          exit 1
+        fi

@@ -68,7 +68,7 @@ Keep the committed pins outside the file lazy.nvim rewrites, and put them back:
 Both `helpers/install_nvim.sh` and `windows/install_nvim.ps1` follow this sequence and
 share one verifier, `helpers/nvim_verify_lock.lua`. It runs under `nvim -l`, so it
 needs no `python3`; on Windows, `python3` is often the Microsoft Store stub. The CI
-post-apply action (R8) also runs `git diff --exit-code -- nvim/lazy-lock.json` after
+post-apply action (R9) also runs `git diff --exit-code -- nvim/lazy-lock.json` after
 `./install`, so a return of the drift fails the build.
 
 ## Also found while testing on Windows

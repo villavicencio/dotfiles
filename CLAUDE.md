@@ -272,7 +272,7 @@ plugins land at their branch HEAD and the drifted commits are written back. A la
 `helpers/install_nvim.sh` and `windows/install_nvim.ps1` therefore keep a copy of the pins,
 bootstrap, put the copy back, restore, and verify against the copy with
 `helpers/nvim_verify_lock.lua`. **Don't collapse this back into a single `Lazy! restore`
-pass.** CI's post-apply R8 check fails if `./install` leaves the lockfile modified. The
+pass.** CI's post-apply R9 check fails if `./install` leaves the lockfile modified. The
 minimum Neovim version is **0.12**, because the pinned nvim-treesitter (`main`) requires it.
 Write-up: `docs/solutions/runtime-errors/lazy-nvim-first-launch-drifts-lockfile-2026-09-24.md`.
 
