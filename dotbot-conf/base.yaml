@@ -57,19 +57,23 @@
         if [ "$(uname)" = "Darwin" ]; then
           :  # locale generation is Linux-only; no-op on macOS
         elif [ "${DOTFILES_DRY_RUN:-0}" = "1" ]; then
-          echo "[dry-run] would apt-get update + install locales + locale-gen en_US.UTF-8 + update-locale"
+          echo "[dry-run] would apt-get update + install locales zsh + locale-gen en_US.UTF-8 + update-locale"
         else
           # Must run before install_packages.sh. apt-get update is required
           # because the ci/Dockerfile minimal base strips /var/lib/apt/lists/*;
           # DEBIAN_FRONTEND=noninteractive is passed THROUGH sudo (env_reset
           # strips it otherwise) so the `locales` postinst doesn't hang on a
           # debconf menu on a non-tty runner.
+          # zsh is installed HERE, not only in install_packages.sh, because the
+          # Oh My Zsh step below runs first and its installer exits 1 with "Zsh is
+          # not installed" on a bare Ubuntu (a fresh WSL distro). CI never saw
+          # this: ci/Dockerfile pre-installs zsh.
           sudo apt-get update -qq
-          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y locales
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y locales zsh
           sudo locale-gen en_US.UTF-8
           sudo update-locale LANG=en_US.UTF-8 LANGUAGE=en_US:en LC_ALL=en_US.UTF-8
         fi
-      description: "Generating en_US.UTF-8 locale (Linux only)"
+      description: "Generating en_US.UTF-8 locale + installing zsh (Linux only)"
     - command: bash helpers/install_omz.sh
       description: "Installing omz + plugins"
       quiet: true
