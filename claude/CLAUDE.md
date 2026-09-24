@@ -199,6 +199,10 @@ available ("Next included review available in N minutes"). **That comment is edi
 every throttled request, so count N from its `updated_at`, never its `created_at` — on #186 the
 created-at reading put availability 15 minutes early and the retry was throttled again
 (`gh api repos/<owner>/<repo>/issues/<N>/comments` shows both timestamps).
+It is also CodeRabbit's **single summary comment**, rewritten through every state (skip notice →
+limit reached → "Currently processing new changes" → the walkthrough), so an edit alone is not a
+new throttle — read the body. On #188 (2026-09-24) a watcher keyed on `updated_at` alone reported
+"throttled again" at the very moment the requested review started.
 Treat capacity as a budget: `@coderabbitai rate limit` reports real remaining capacity
 **without consuming a review**,
 and the review footer prints what is left after each run.
