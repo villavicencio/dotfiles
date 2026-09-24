@@ -1035,8 +1035,9 @@ Windows-specific rules:
 ### System tweaks (`windows/tweaks.ps1`)
 
 The counterpart of macOS `defaults write`: a data-driven list (`$Tweaks`) of Windows settings,
-each read live and reported `ok`, `would set` (`-DryRun`) or `set`. Before a change it saves
-the prior values under `%LOCALAPPDATA%\dotfiles\tweaks-backups\<timestamp>\`. A failing entry
+each compared by its configured value (registry or `settings.json`; the mouse entry also checks
+the live session) and reported `ok`, `would set` (`-DryRun`) or `set`. Before a change it saves
+the prior values under `%LOCALAPPDATA%\dotfiles\tweaks-backups\<timestamp>-<pid>\`. A failing entry
 doesn't stop the others; the script exits 1 and lists them.
 
 - **Separate from `install.ps1` on purpose.** Some entries write HKLM or run `w32tm` and need
@@ -1049,8 +1050,8 @@ doesn't stop the others; the script exits 1 and lists them.
   background recording off, hardware-accelerated GPU scheduling on (admin, needs a restart),
   Windows Time syncing from `time.windows.com,0x9` (admin), and Terminal's default profile
   = PowerShell 7.
-- **An entry changes a setting through the API that applies it live, not only the registry.**
-  Mouse: `SystemParametersInfo(SPI_SETMOUSE, [0,0,0], SPIF_UPDATEINIFILE|SPIF_SENDCHANGE)`
+- **Only the mouse and time entries apply live.** Game Bar and GPU scheduling are plain
+  registry writes: Game Bar may need a sign-out, and GPU scheduling needs a restart. Mouse: `SystemParametersInfo(SPI_SETMOUSE, [0,0,0], SPIF_UPDATEINIFILE|SPIF_SENDCHANGE)`
   writes the same three `HKCU\Control Panel\Mouse` values *and* changes the running session.
   A registry-only write waits for the next sign-in, so the mouse entry also compares
   `SPI_GETMOUSE` with the registry. Time: `w32tm /config … /update` makes the running service

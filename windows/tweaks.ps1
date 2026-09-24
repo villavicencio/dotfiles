@@ -23,7 +23,7 @@
     change one records it as a failure instead of prompting.
 
     Before anything changes, the prior values are written to
-    %LOCALAPPDATA%\dotfiles\tweaks-backups\<timestamp>\ (never overwritten). A
+    %LOCALAPPDATA%\dotfiles\tweaks-backups\<timestamp>-<pid>\ (never overwritten). A
     failing entry does not stop the others; the script exits 1 and lists them.
 
 .EXAMPLE
@@ -89,7 +89,9 @@ function Get-TerminalSettingsPath {
         "$env:LOCALAPPDATA\Microsoft\Windows Terminal\settings.json"   # unpackaged install
     ) | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
 }
-$DefaultProfileRx = '("defaultProfile"\s*:\s*")([^"]*)(")'
+# Anchored to a line that starts with the key, so a commented-out
+# `// "defaultProfile": ...` line (Terminal's settings are JSON with comments) never matches.
+$DefaultProfileRx = '(?m)(^[ \t]*"defaultProfile"\s*:\s*")([^"]*)(")'
 
 # --- the tweaks --------------------------------------------------------------
 # Each entry: Label, Why (one line), Admin (needs elevation to change), and either
@@ -191,8 +193,13 @@ $Tweaks = @(
 
 function Get-BackupDir {
     if (-not $script:BackupDir) {
-        $script:BackupDir = Join-Path $env:LOCALAPPDATA "dotfiles\tweaks-backups\$(Get-Date -Format yyyyMMdd-HHmmss)"
-        New-Item -ItemType Directory -Force $script:BackupDir | Out-Null
+        # The PID makes the name unique per run; creating it without -Force fails
+        # rather than reuse a directory that already exists.
+        $parent = Join-Path $env:LOCALAPPDATA 'dotfiles\tweaks-backups'
+        New-Item -ItemType Directory -Force $parent | Out-Null
+        $dir = Join-Path $parent "$(Get-Date -Format yyyyMMdd-HHmmss)-$PID"
+        New-Item -ItemType Directory $dir | Out-Null
+        $script:BackupDir = $dir
     }
     $script:BackupDir
 }

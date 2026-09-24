@@ -247,11 +247,13 @@ install via Homebrew casks in `brew/Brewfile`, not a helper.)
 `CLAUDE.md`. Verify with a `-DryRun` (must report changes but make none) and a second real
 run (every line must read `ok`).
 
-**Windows system settings:** `pwsh -File windows/tweaks.ps1 [-DryRun]`, from an elevated
-shell. It's a separate opt-in step, because some entries need elevation and `install.ps1`
-stays unelevated. It records only settings the PC already has, each changed through the API
-that applies it live (mouse via `SystemParametersInfo`, time via `w32tm /config /update`), and
-it backs up prior values first. A `-DryRun` must read `ok` on every line. Details: "System
+**Windows system settings:** from an elevated shell, preview with
+`pwsh -File windows/tweaks.ps1 -DryRun`, then apply with `pwsh -File windows/tweaks.ps1`.
+It's a separate opt-in step, because some entries need elevation and `install.ps1` stays
+unelevated. It records only settings the PC already has and backs up prior values first.
+The mouse and time entries apply live (mouse via `SystemParametersInfo`, time via
+`w32tm /config /update`). Game Bar and GPU scheduling are plain registry writes and may need
+a sign-out or restart. A `-DryRun` must read `ok` on every line. Details: "System
 tweaks" in `CLAUDE.md`.
 
 ---
