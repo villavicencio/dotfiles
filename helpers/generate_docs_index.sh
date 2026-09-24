@@ -58,14 +58,15 @@ for path in glob.glob(f"{SOL}/**/*.md", recursive=True):
         d = frontmatter(path)
     except ValueError as e:
         errors.append(str(e)); continue
-    rel = os.path.relpath(path, SOL)
+    # Markdown links want "/"; os.path yields "\" when this runs on Windows.
+    rel = os.path.relpath(path, SOL).replace(os.sep, "/")
     if "module" not in d:
         errors.append(f"{path}: missing required 'module' field"); continue
     docs.append({
         "rel": rel,
         "title": str(d.get("title", os.path.splitext(os.path.basename(path))[0])),
         "module": str(d["module"]),
-        "category": str(d.get("category") or rel.split(os.sep)[0]),
+        "category": str(d.get("category") or rel.split("/")[0]),
         "severity": str(d.get("severity", "")),
         "date": str(d.get("date", "")),
         "status": str(d.get("status", "")),
@@ -106,7 +107,8 @@ if archived:
         out.append(f"| {d['status']} | [{d['title']}]({d['rel']}) | {d['date'] or '—'} |")
     out.append("")
 
-open(INDEX, "w", encoding="utf-8").write("\n".join(out).rstrip() + "\n")
+# newline="\n": text mode on Windows would otherwise write CRLF.
+open(INDEX, "w", encoding="utf-8", newline="\n").write("\n".join(out).rstrip() + "\n")
 print(f"wrote {INDEX}: {len(active)} active, {len(archived)} archived, "
       f"{len({d['module'] for d in active})} modules")
 PY

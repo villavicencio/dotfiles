@@ -1,0 +1,25 @@
+# Windows overrides for git/gitconfig.
+#
+# ~/.gitconfig on Windows is a small stub written by install.ps1 that includes
+# git/gitconfig first and THIS file second, so only what differs from macOS lives
+# here. (A stub rather than a symlink to git/gitconfig: git has no OS-conditional
+# include, so the shared file cannot pull this one in by itself.)
+
+[core]
+    # Git for Windows' system config (C:/Program Files/Git/etc/gitconfig) sets
+    # autocrlf = true, which checks the repo's shell scripts out with CRLF.
+    # Keep LF in the working tree, as on macOS.
+    autocrlf = input
+
+# credential.helper is multi-valued: an empty value resets the list inherited
+# from git/gitconfig (osxkeychain + the /usr/local GCM path, neither of which
+# exists here) before the Windows helper is added.
+[credential]
+    helper =
+    helper = manager
+[credential "https://github.com"]
+    helper =
+    helper = !'C:/Program Files/GitHub CLI/gh.exe' auth git-credential
+[credential "https://gist.github.com"]
+    helper =
+    helper = !'C:/Program Files/GitHub CLI/gh.exe' auth git-credential

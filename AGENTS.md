@@ -14,12 +14,14 @@ conventions every change must follow, and how to verify a change before committi
 ## What this repo is
 
 Personal dotfiles — the single source of truth for two Macs, managed by
-[Dotbot](https://github.com/anishathalye/dotbot).
+[Dotbot](https://github.com/anishathalye/dotbot), and a Windows gaming PC, managed by
+`install.ps1` (PowerShell, not Dotbot).
 
 | Machine | OS | Hardware | Role |
 |---|---|---|---|
 | personal | macOS Tahoe | M-series | Primary, source of truth |
 | work | macOS Sequoia | M-series | corporate-managed |
+| gaming-pc | Windows 11 Pro | Ryzen 7 5800X / RTX 3070 | Gaming; `install.ps1` + `windows/` |
 
 `./install` sets up a machine — the wrapper runs a shared `dotbot-conf/base.yaml` then the
 platform layer (`dotbot-conf/darwin.yaml` on Darwin, `dotbot-conf/linux.yaml` on Linux).
@@ -57,6 +59,9 @@ claude/     Claude Code config, delivered into ~/.claude/ two different ways:
             settings.json                  → COPY-SEEDED, never symlinked (see gotchas)
 bin/        Repo CLI — bin/dot (symlinked to ~/.local/bin/dot)
             bin/lib/*.py — Python helpers for doctor/bench, deliberately NOT heredocs
+windows/    Windows layer, applied by install.ps1 (repo root): packages.json (winget),
+            gitconfig (overrides chained after git/gitconfig), powershell/profile.ps1,
+            terminal/dotfiles.json (Windows Terminal fragment)
 ```
 
 ---
@@ -94,8 +99,9 @@ diffs** are scanned — not the full tree or history.
 - **False positive?** Add an inline `# gitleaks:allow` comment, or a `.gitleaks.toml`
   allowlist entry.
 - **Intentional bypass:** `git commit --no-verify` — and document *why* in the commit body.
-- The gitleaks version is pinned in **two** places that must match: `rev:` in
-  `.pre-commit-config.yaml` and `GITLEAKS_VERSION` in `helpers/install_pre_commit.sh`.
+- The gitleaks version is pinned in **three** places that must match: `rev:` in
+  `.pre-commit-config.yaml`, `GITLEAKS_VERSION` in `helpers/install_pre_commit.sh`, and the
+  `Gitleaks.Gitleaks` `Version` in `windows/packages.json`.
 - Local override `pass_filenames: false` is required — see `CLAUDE.md` for the upstream
   gotcha it works around.
 
@@ -229,6 +235,12 @@ Runs Dotbot with the platform config, which: (1) creates `~/.config/` dirs; (2) 
 Brewfile, tmux, nvim, nvm, node). Each helper is independently runnable. (Nerd Fonts
 install via Homebrew casks in `brew/Brewfile`, not a helper.)
 
+**Windows:** `pwsh -File install.ps1 [-DryRun] [-SkipPackages]` instead — winget import
+(`--no-upgrade`), symlinks for the configs shared with macOS, stubs for `~/.gitconfig` and
+`$PROFILE`, then the pre-commit hook. Full steps and rules: "Setting up the Windows PC" in
+`CLAUDE.md`. Verify with a `-DryRun` (must report changes but make none) and a second real
+run (every line must read `ok`).
+
 ---
 
 ## Invariants & gotchas (do not "fix" these)
@@ -332,6 +344,11 @@ install via Homebrew casks in `brew/Brewfile`, not a helper.)
   architectures — not a Homebrew path, do not `$BREW_PREFIX` it.
 - **Linux Dotbot config + `uname` guards** are preserved post-VPS-decommission as generic
   infrastructure for any future Linux target.
+- **Windows gets stubs, not links, for `~/.gitconfig` and `$PROFILE`** — git has no
+  OS-conditional include, and `$PROFILE` sits under a OneDrive-redirected Documents folder.
+  **Never seed `claude/settings.json` on Windows** (its hooks are tmux/herdr bash scripts),
+  and **don't link `topgrade/topgrade.toml` there** (its `[commands]` entry is POSIX shell).
+  Write-up: `docs/solutions/cross-machine/windows-target-gotchas-2026-09-24.md`.
 - The **tmux session-restoration block** in `zshrc` is guarded to run only outside tmux and
   only in iTerm2.
 
