@@ -173,9 +173,10 @@ changing, causing the changes to take effect". This PC's `NtpServer` and `Type`
 were `time.windows.com,0x9` / `NTP`, but the clock had never synced. The
 documented stand-alone default for `NtpServer` is `time.windows.com,0x1`, so on
 a fresh install the entry would detect the difference and fix it. Correct
-values don't prove a sync happened, though. `w32tm /query /status` shows the
-last one. Right after boot the source reads "Local CMOS Clock" until the first
-poll, which is why the script doesn't use it as the check.
+values don't prove the service uses them, though, so the entry also compares
+`w32tm /query /source` with the configured peer and resyncs when it differs.
+Right after boot the source reads "Local CMOS Clock" until the first poll, so a
+run then may resync needlessly, which is harmless.
 
 **A hashtable's own properties shadow missing keys.** `$Tweaks` entries are
 hashtables. The first version named the registry list `Values`. On the Terminal

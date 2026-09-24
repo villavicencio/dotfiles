@@ -251,8 +251,9 @@ run (every line must read `ok`).
 `pwsh -File windows/tweaks.ps1 -DryRun`, then apply with `pwsh -File windows/tweaks.ps1`.
 It's a separate opt-in step, because some entries need elevation and `install.ps1` stays
 unelevated. It records only settings the PC already has and backs up prior values first.
-The mouse and time entries apply live (mouse via `SystemParametersInfo`, time via
-`w32tm /config /update`). Game Bar and GPU scheduling are plain registry writes and may need
+The mouse and time entries also check the live session and apply live (mouse via
+`SystemParametersInfo`; time via `w32tm /config /update` + `/resync`, run whenever the registry
+or the service's reported source differs). Game Bar and GPU scheduling are plain registry writes and may need
 a sign-out or restart. A `-DryRun` must read `ok` on every line. Details: "System
 tweaks" in `CLAUDE.md`.
 

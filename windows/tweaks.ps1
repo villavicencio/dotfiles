@@ -150,6 +150,16 @@ $Tweaks = @(
             RegValue 'HKLM:\SYSTEM\CurrentControlSet\Services\W32Time\Parameters' 'NtpServer' 'String' 'time.windows.com,0x9'
             RegValue 'HKLM:\SYSTEM\CurrentControlSet\Services\W32Time\Parameters' 'Type'      'String' 'NTP'
         )
+        # Correct values don't prove the service uses them (this PC had them and had
+        # never synced), so also check the source the running service reports. It
+        # reads "Local CMOS Clock" until the first poll after boot, so a run just
+        # after boot may resync; that is harmless.
+        Live   = {
+            $src = (w32tm /query /source 2>$null | Out-String).Trim()
+            if ($LASTEXITCODE -ne 0) { $src = '<unavailable>' }
+            "source=$src"
+        }
+        LiveWant = 'source=time.windows.com,0x9'
         # w32tm writes the same two values; /update is what makes the running service
         # re-read them, and /resync syncs now instead of at the next poll.
         Set    = {

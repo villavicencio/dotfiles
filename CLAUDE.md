@@ -1035,8 +1035,8 @@ Windows-specific rules:
 ### System tweaks (`windows/tweaks.ps1`)
 
 The counterpart of macOS `defaults write`: a data-driven list (`$Tweaks`) of Windows settings,
-each compared by its configured value (registry or `settings.json`; the mouse entry also checks
-the live session) and reported `ok`, `would set` (`-DryRun`) or `set`. Before a change it saves
+each compared by its configured value (registry or `settings.json`; the mouse and time entries
+also check the live session) and reported `ok`, `would set` (`-DryRun`) or `set`. Before a change it saves
 the prior values under `%LOCALAPPDATA%\dotfiles\tweaks-backups\<timestamp>-<pid>\`. A failing entry
 doesn't stop the others; the script exits 1 and lists them.
 
@@ -1055,8 +1055,11 @@ doesn't stop the others; the script exits 1 and lists them.
   writes the same three `HKCU\Control Panel\Mouse` values *and* changes the running session.
   A registry-only write waits for the next sign-in, so the mouse entry also compares
   `SPI_GETMOUSE` with the registry. Time: `w32tm /config … /update` makes the running service
-  re-read its settings, then `/resync` syncs now. That entry proves the *configuration*, not
-  that a sync happened. `w32tm /query /status` shows the last sync.
+  re-read its settings, then `/resync` syncs now. Correct registry values don't prove the
+  service uses them (this PC had them and had never synced), so the time entry also compares
+  `w32tm /query /source` with the configured peer, and runs the set when either differs. The
+  source reads "Local CMOS Clock" until the first poll after boot, so a run just after boot
+  may resync, which is harmless.
 - **Never name a `$Tweaks` key `Values`, `Keys` or `Count`.** On an entry without that key,
   `$t.Values` returns the hashtable's own `.Values` collection instead of `$null`, so the
   entry gets treated as a registry entry. That's why the registry list is called `Registry`.
