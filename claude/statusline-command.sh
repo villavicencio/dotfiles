@@ -87,8 +87,8 @@ bar() {
 # bash — the bash-only form ${cwd/#$home/~} triggers "Bad substitution" under
 # dash, which is /bin/sh and how settings.json invokes this script).
 #
-# Windows (Git Bash's sh): Claude Code sends a native path (C:\Users\me\...)
-# while $HOME is POSIX-form (/c/Users/me), so the prefix never matches. Convert
+# Windows (Git Bash's sh): Claude Code sends a native path (C:\Users\<you>\...)
+# while $HOME is POSIX-form (/c/Users/<you>), so the prefix never matches. Convert
 # a drive-letter path with cygpath (ships with Git for Windows) FOR DISPLAY
 # ONLY; `git -C` below keeps the raw $cwd, which it accepts in either form. A
 # path outside $HOME still displays in its original native form (D:\Games, not

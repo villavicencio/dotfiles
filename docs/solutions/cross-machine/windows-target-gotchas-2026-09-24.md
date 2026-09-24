@@ -165,6 +165,11 @@ fixed in the script (VIL-150):
   dash kept it in the last field and drew an empty worktree badge. `jq -j`
   writes no line ending at all.
 
+CI gotcha: the install matrix's R3 PII scan greps every tracked file outside
+`docs/**` for `/Users/<alnum>`, and a Git Bash path like `/c/Users/me` in a
+code comment matches it. Write example paths with a placeholder
+(`/c/Users/<you>`), as the Mac examples already do.
+
 Testing gotcha: the Claude Code Bash tool collapses `\\` in inline command
 text, so feed Windows-path JSON through a file written with the Write tool, not
 an inline heredoc or `printf`. `dash` ships with Git for Windows, so the
