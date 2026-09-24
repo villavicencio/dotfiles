@@ -193,7 +193,12 @@ Invoke-Step 'seed ~/.claude/settings.json' {
     $dest = [IO.Path]::GetFullPath("$HOME/.claude/settings.json")
     if (-not (Test-Path -LiteralPath $src)) { throw 'seed source missing: windows/claude-settings.json' }
     # Get-Item -Force also catches a dangling link, which Test-Path reports as absent.
-    if (Get-Item -LiteralPath $dest -Force -ErrorAction SilentlyContinue) {
+    $existing = Get-Item -LiteralPath $dest -Force -ErrorAction SilentlyContinue
+    if ($existing) {
+        # A directory (or a link to one) is not a settings file: fail, don't report ok.
+        if ($existing.PSIsContainer -or (Test-Path -LiteralPath $dest -PathType Container)) {
+            throw "$dest exists but is not a file"
+        }
         Write-Host "    ok      $dest (present, left alone)"; return
     }
     if ($DryRun) { Write-Would "seed $dest from windows/claude-settings.json"; return }

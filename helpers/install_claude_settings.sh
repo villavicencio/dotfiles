@@ -196,13 +196,16 @@ fi
 # `ln`, which creates the name exclusively: it fails if settings.json appeared
 # since the check above (Claude Code starting up, say), so a live file is never
 # overwritten, and a failed copy never leaves a partial settings.json behind.
-tmp="$DEST.seed.$$"
+# mktemp creates the temp file exclusively (fresh random name, O_EXCL), so a
+# pre-planted file or symlink at a guessable name can't redirect the copy.
+tmp="$(mktemp "$DEST.seed.XXXXXX")" || { echo "Error: cannot create a temp file beside $DEST" >&2; exit 1; }
 if ! cp "$SRC" "$tmp" 2>/dev/null || ! cmp -s "$SRC" "$tmp"; then
   rm -f "$tmp"; echo "Error: could not copy $SRC_REL to $tmp" >&2; exit 1
 fi
 if ln "$tmp" "$DEST" 2>/dev/null; then
-  rm -f "$tmp"; echo "Seeded Claude settings -> $DEST"
-elif rm -f "$tmp"; [ -e "$DEST" ] || [ -L "$DEST" ]; then
+  rm -f "$tmp" || { echo "Error: seeded $DEST but could not remove $tmp" >&2; exit 1; }
+  echo "Seeded Claude settings -> $DEST"
+elif rm -f "$tmp" || { echo "Error: could not remove $tmp" >&2; exit 1; }; [ -e "$DEST" ] || [ -L "$DEST" ]; then
   echo "Claude settings appeared meanwhile, leaving it alone (run 'dot drift' to compare)."
 else
   echo "Error: could not create $DEST" >&2; exit 1
