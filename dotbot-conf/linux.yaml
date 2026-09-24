@@ -1,9 +1,9 @@
 # Linux-only install layer. Runs AFTER dotbot-conf/base.yaml.
 #
-# No active Linux target as of 2026-05-21 (the Hetzner VPS was repurposed) —
-# kept as generic infrastructure for any future Linux host. The en_US.UTF-8
-# locale generation lives in base.yaml (uname-guarded) because it must run
-# before install_packages.sh, which base runs.
+# Active target since 2026-09-24: WSL Ubuntu 24.04 on the Windows gaming PC
+# (VIL-148). The Hetzner VPS target was retired 2026-05-21. The en_US.UTF-8
+# locale generation (and the zsh it needs for Oh My Zsh) lives in base.yaml
+# (uname-guarded) because it must run before the helpers base runs.
 
 - defaults:
     link:
@@ -21,5 +21,29 @@
     ~/.config/tmux/window-meta.json: tmux/window-meta.linux.json
 
 - shell:
+    # Same shape as darwin.yaml's chsh: without it a Linux login (a WSL tab)
+    # lands in bash and none of zsh/ is loaded. Skipped in CI (PAM auth fails
+    # on hosted runners) and when zsh is already the login shell. chsh prompts
+    # for the user's password, which is fine: on WSL ./install is run
+    # interactively by the user (sudo needs the password anyway).
+    # stdin: true is REQUIRED. Dotbot wires a shell step's stdin to /dev/null by
+    # default, and Linux chsh reads the password through PAM on stdin, so without
+    # it chsh prints "Password:" and fails at once with "PAM: Authentication
+    # failure" - no chance to type (seen on the first WSL install, 2026-09-24).
+    # sudo was unaffected because it opens /dev/tty itself.
+    # Both shell paths go through readlink -f: on merged-/usr Ubuntu /bin/zsh and
+    # /usr/bin/zsh are the same file, and a raw string compare would re-run chsh
+    # (and its password prompt) whenever PATH lists /bin first.
+    - stdin: true
+      command: |
+        if [ "${DOTFILES_DRY_RUN:-0}" = "1" ]; then
+          echo "[dry-run] would chsh -s $(command -v zsh || echo zsh)"
+        elif [ "${CI:-false}" != "true" ] && command -v zsh >/dev/null 2>&1 \
+            && [ "$(readlink -f "$(getent passwd "$USER" | cut -d: -f7)")" != "$(readlink -f "$(command -v zsh)")" ]; then
+          chsh -s "$(command -v zsh)"
+        else
+          echo "skipping chsh (CI, zsh missing, or zsh already the login shell)"
+        fi
+      description: Making zsh the default shell (skipped in CI / if already zsh)
     - command: echo "Installation complete!"
       quiet: false

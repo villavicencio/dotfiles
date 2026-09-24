@@ -22,12 +22,13 @@ Personal dotfiles — the single source of truth for two Macs, managed by
 | personal | macOS Tahoe | M-series | Primary, source of truth |
 | work | macOS Sequoia | M-series | corporate-managed |
 | gaming-pc | Windows 11 Pro | Ryzen 7 5800X / RTX 3070 | Gaming; `install.ps1` + `windows/` |
+| gaming-pc WSL | Ubuntu 24.04 LTS (WSL 2) | same PC | Linux layer; separate clone inside WSL |
 
 `./install` sets up a machine — the wrapper runs a shared `dotbot-conf/base.yaml` then the
 platform layer (`dotbot-conf/darwin.yaml` on Darwin, `dotbot-conf/linux.yaml` on Linux).
-There is no active Linux target as of 2026-05-21 (the Hetzner VPS was repurposed); the Linux
-layer and `uname` guards are kept as generic infrastructure — see
-`docs/solutions/cross-machine/vps-dotfiles-target.md`.
+The active Linux target is WSL Ubuntu 24.04 on the gaming PC (since 2026-09-24; setup in
+`CLAUDE.md` "Setting up WSL on the Windows PC"). The earlier Hetzner VPS target was retired
+2026-05-21 — see `docs/solutions/cross-machine/vps-dotfiles-target.md`.
 
 ---
 
@@ -342,8 +343,12 @@ run (every line must read `ok`).
   separately from other work.
 - **`MYSQL_BIN="/usr/local/mysql/bin"`** is the MySQL PKG installer path on both
   architectures — not a Homebrew path, do not `$BREW_PREFIX` it.
-- **Linux Dotbot config + `uname` guards** are preserved post-VPS-decommission as generic
-  infrastructure for any future Linux target.
+- **Linux Dotbot config + `uname` guards** outlived the VPS and are in use again for WSL
+  Ubuntu. Two WSL-found invariants: zsh is installed in `base.yaml`'s Linux locale step
+  (Oh My Zsh runs first and needs it; CI's image pre-installs it, masking this), and any
+  Dotbot shell step that prompts — `linux.yaml`'s `chsh` — needs `stdin: true` (Dotbot
+  defaults stdin to `/dev/null`). Write-up:
+  `docs/solutions/cross-machine/wsl-ubuntu-target-2026-09-24.md`.
 - **Windows gets stubs, not links, for `~/.gitconfig` and `$PROFILE`** — git has no
   OS-conditional include, and `$PROFILE` sits under a OneDrive-redirected Documents folder.
   **Never seed `claude/settings.json` on Windows** (its hooks are tmux/herdr bash scripts),
