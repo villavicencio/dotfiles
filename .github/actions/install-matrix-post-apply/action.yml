@@ -170,3 +170,66 @@ runs:
             print("::error::interactive startup median %d ms exceeds 800 ms budget" % round(median))
             sys.exit(1)
         PY
+
+    - name: R8 assertion (git config resolves per platform)
+      # VIL-146. git/gitconfig [include]s ~/.config/git/gitconfig.platform,
+      # which linux.yaml links to git/gitconfig.linux and darwin.yaml leaves
+      # absent. Linux must end up with /usr/bin/gh as the ONLY helper git runs
+      # for github.com and none for other hosts, and a non-editor pager. macOS
+      # must resolve exactly what it did before the overlay existed.
+      #
+      # On Linux the check is behavioural: `git credential fill` under
+      # GIT_TRACE lists the helpers git actually runs. `git config --get-all
+      # credential.helper` can't answer that — it still prints the inherited
+      # osxkeychain/GCM values, because the overlay resets the multi-valued
+      # list with an empty entry rather than deleting lines from another file.
+      # macOS asserts config values instead of running helpers, so a keychain
+      # prompt on a runner can't hang the job.
+      shell: bash
+      run: |
+        set -eo pipefail
+        fail=0
+        expect() {  # expect <label> <want> <got>
+          if [ "$2" != "$3" ]; then
+            echo "::error::$1: want [$(printf '%s' "$2" | tr '\n' '|')] got [$(printf '%s' "$3" | tr '\n' '|')]"
+            fail=1
+          else
+            echo "ok: $1 = [$(printf '%s' "$3" | tr '\n' '|')]"
+          fi
+        }
+        helpers_run() {  # helpers_run <host> -> the helper commands git runs
+          printf 'protocol=https\nhost=%s\n\n' "$1" \
+            | GIT_TRACE=1 GIT_TERMINAL_PROMPT=0 GIT_ASKPASS= SSH_ASKPASS= \
+              git credential fill 2>&1 >/dev/null \
+            | sed -n "s/.*run_command: '\(.*\) get'\$/\1/p" || true
+        }
+        pager="$(git config --get core.pager || true)"
+        case "$(uname)" in
+          Linux)
+            expect "platform overlay link" "$PWD/git/gitconfig.linux" \
+              "$(readlink -f "$HOME/.config/git/gitconfig.platform")"
+            expect "helpers run for github.com" "/usr/bin/gh auth git-credential" "$(helpers_run github.com)"
+            expect "helpers run for gist.github.com" "/usr/bin/gh auth git-credential" "$(helpers_run gist.github.com)"
+            expect "helpers run for example.com" "" "$(helpers_run example.com)"
+            expect "core.pager" "less -FRX" "$pager"
+            # Everything git/gitconfig names must exist here: the helper path,
+            # the diff/show pager + diffFilter, the editor, and the pager.
+            for bin in /usr/bin/gh delta vim less; do
+              if command -v "$bin" >/dev/null 2>&1; then echo "ok: $bin -> $(command -v "$bin")"
+              else echo "::error::$bin not found (named by git/gitconfig or git/gitconfig.linux)"; fail=1; fi
+            done
+            ;;
+          Darwin)
+            if [ -e "$HOME/.config/git/gitconfig.platform" ] || [ -L "$HOME/.config/git/gitconfig.platform" ]; then
+              echo "::error::~/.config/git/gitconfig.platform exists on macOS; it must stay unlinked"; fail=1
+            fi
+            expect "credential.helper (all)" "$(printf 'osxkeychain\n\n/usr/local/share/gcm-core/git-credential-manager')" \
+              "$(git config --global --get-all credential.helper)"
+            expect "credential helper for github.com" "!/opt/homebrew/bin/gh auth git-credential" \
+              "$(git config --global --get-urlmatch credential.helper https://github.com)"
+            expect "credential helper for gist.github.com" "!/opt/homebrew/bin/gh auth git-credential" \
+              "$(git config --global --get-urlmatch credential.helper https://gist.github.com)"
+            expect "core.pager" "vim -" "$pager"
+            ;;
+        esac
+        exit "$fail"

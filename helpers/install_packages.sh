@@ -48,14 +48,22 @@ else
     sudo apt-get update -qq
 
     # Core CLI tools (apt equivalents of Brewfile)
+    # git-delta, vim and less are here because the git config names them: delta
+    # is the [pager] for diff/show and the interactive.diffFilter (Brewfile has
+    # it), vim is core.editor (macOS ships it; the ubuntu:24.04 base image
+    # doesn't), and less is git/gitconfig.linux's core.pager and zshenv's $PAGER.
+    # Without them, paged git output, `git add -p` and `git commit` (no -m) fail
+    # on a tty trying to run a binary that isn't there.
     apt_install \
-        bat btop curl fd-find fzf gawk git jq \
+        bat btop curl fd-find fzf gawk git git-delta jq less \
         ncdu neovim ripgrep shellcheck tig tmux \
-        tree watch wget zsh build-essential cmake \
+        tree vim watch wget zsh build-essential cmake \
         luarocks python3-pip pipx
 
-    # GitHub CLI
-    if ! command -v gh &>/dev/null; then
+    # GitHub CLI. Test the exact path, not `command -v gh`: git/gitconfig.linux
+    # hardcodes /usr/bin/gh as the credential helper, so a gh installed anywhere
+    # else (e.g. ~/.local/bin) must not skip the apt install.
+    if [ ! -x /usr/bin/gh ]; then
         echo "Installing GitHub CLI..."
         curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
             | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg 2>/dev/null

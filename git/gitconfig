@@ -77,6 +77,14 @@
 	helper =
 	helper = !/opt/homebrew/bin/gh auth git-credential
 
+# Platform overlay: on Linux, dotbot-conf/linux.yaml links git/gitconfig.linux
+# here, and it resets the macOS credential helpers above. macOS links nothing
+# and git skips a missing include, so this line is a no-op on the Macs. Must stay
+# AFTER every [credential] section it overrides and BEFORE ~/.gitconfig.local, so
+# machine-local settings still win.
+[include]
+    path = ~/.config/git/gitconfig.platform
+
 # Machine-specific overrides (git identity, work email, etc.)
 # On a work machine, create ~/.gitconfig.local with:
 #   [user]
