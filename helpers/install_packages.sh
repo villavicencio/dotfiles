@@ -23,10 +23,32 @@ else
       exit 0
     fi
 
+    # Fail fast. Without this a failed apt-get install fell through to the
+    # "installed successfully" line and exited 0, so the job only failed two
+    # helpers later (install_tmux.sh: "tmux: command not found") instead of at
+    # the real cause (VIL-149). Scoped to the Linux branch: the macOS branch
+    # keeps its existing per-helper error handling.
+    set -euo pipefail
+
+    # apt_install PKG...: install, retrying once against a fresh package index.
+    # A mirror can 404 a .deb that the cached index still lists (a superseded
+    # security update), and apt then aborts the whole batch. Refreshing the
+    # index and reinstalling self-heals that race. No --fix-missing: it would
+    # "succeed" with some packages silently skipped.
+    apt_install() {
+        sudo apt-get install -y "$@" && return 0
+        echo "apt-get install failed; refreshing package lists and retrying once..." >&2
+        sudo apt-get update -qq
+        sudo apt-get install -y "$@" || {
+            echo "ERROR: apt-get install failed after retry: $*" >&2
+            exit 1
+        }
+    }
+
     sudo apt-get update -qq
 
     # Core CLI tools (apt equivalents of Brewfile)
-    sudo apt-get install -y \
+    apt_install \
         bat btop curl fd-find fzf gawk git jq \
         ncdu neovim ripgrep shellcheck tig tmux \
         tree watch wget zsh build-essential cmake \
@@ -39,7 +61,8 @@ else
             | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg 2>/dev/null
         echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" \
             | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
-        sudo apt-get update -qq && sudo apt-get install -y gh
+        sudo apt-get update -qq
+        apt_install gh
     fi
 
     # Starship prompt
