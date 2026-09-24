@@ -7,8 +7,9 @@ This repo is the single source of truth for two Macs and a Windows gaming PC:
 | personal | macOS Tahoe | M-series | Primary, source of truth |
 | work | macOS Sequoia | M-series | corporate-managed |
 | gaming-pc | Windows 11 Pro | Ryzen 7 5800X / RTX 3070 | Gaming; set up by `install.ps1`, not Dotbot (see "Setting up the Windows PC") |
+| gaming-pc WSL | Ubuntu 24.04 LTS (WSL 2) | same PC | The Linux layer; a separate clone inside WSL (see "Setting up WSL on the Windows PC") |
 
-Managed by [Dotbot](https://github.com/anishathalye/dotbot). Run `./install` to set up a machine — the wrapper runs a shared `dotbot-conf/base.yaml` and then the platform layer (`dotbot-conf/darwin.yaml` on Darwin, `dotbot-conf/linux.yaml` on Linux) automatically (no active Linux target as of 2026-05-21 — the Hetzner VPS was re-purposed away from a dotfiles tree; see retire-noted runbook in `docs/solutions/cross-machine/vps-dotfiles-target.md` if you ever want to revive a Linux target).
+Managed by [Dotbot](https://github.com/anishathalye/dotbot). Run `./install` to set up a machine — the wrapper runs a shared `dotbot-conf/base.yaml` and then the platform layer (`dotbot-conf/darwin.yaml` on Darwin, `dotbot-conf/linux.yaml` on Linux) automatically. The active Linux target is WSL Ubuntu on the gaming PC (since 2026-09-24); the earlier Hetzner VPS target was retired 2026-05-21 (runbook: `docs/solutions/cross-machine/vps-dotfiles-target.md`).
 
 > **Tool-neutral brief:** [`AGENTS.md`](AGENTS.md) is the canonical, tool-agnostic
 > description of the repo's layout, conventions, common tasks, and verification commands —
@@ -1014,6 +1015,53 @@ Gotchas behind these rules: `docs/solutions/cross-machine/windows-target-gotchas
 
 ---
 
+## Setting up WSL on the Windows PC
+
+The Linux layer runs unchanged inside WSL — `./install` with `base.yaml` + `linux.yaml`. It
+is a **second, independent clone** in the Linux filesystem, not the Windows checkout through
+`/mnt/c` (that path is slow, and Windows-side line-ending/permission semantics leak in).
+
+1. From Windows: `wsl --install -d Ubuntu-24.04 --no-launch`. Stay on the release
+   `ci/Dockerfile` tests (24.04 today; moving both is VIL-154).
+2. `wsl -d Ubuntu-24.04` and create the Linux user interactively — use `dvillavicencio` so
+   `/home/…` paths line up with `/Users/…` on the Macs. To redo a fresh distro (wrong
+   username), `wsl --unregister Ubuntu-24.04` wipes it; reinstall with step 1.
+3. Inside WSL: `git clone https://github.com/villavicencio/dotfiles.git ~/Projects/Personal/dotfiles`,
+   `cd` into it, `./install --dry-run`, then **`./install` run by the user in a WSL window** —
+   `sudo` and `chsh` both prompt for the Linux password, which an agent shell cannot type.
+   An agent can do everything else (clone, dry-run, verify) via
+   `wsl -d Ubuntu-24.04 -u <user> -- bash <script>`.
+4. Verify in zsh: `getent passwd $USER` shows `/usr/bin/zsh`, `dot doctor` exits 0,
+   `dot bench` median under budget (186 ms measured 2026-09-24).
+
+Expected on a fresh install, not failures:
+
+- `install_nvim.sh` skips — apt's Neovim is 0.9.5 and the config needs 0.11+ (VIL-152).
+- `dot doctor` warns: no Homebrew; macOS-only aliases (`show`/`hide`/`flush`/`localip`,
+  `update`→topgrade) point at missing binaries; `.claude/settings.local.json` absent;
+  `python3` "shadowed" by `/bin` → `/usr/bin` (Ubuntu's merged-usr symlink, same file).
+- `eza`, `zoxide`, `lazygit` are absent — the apt list in `helpers/install_packages.sh` is
+  a curated subset of the Brewfile.
+
+Why the Linux layer needed changes for this (both invisible in CI):
+
+- **zsh is installed in `base.yaml`'s Linux-only locale step**, before `install_omz.sh`:
+  the pinned Oh My Zsh installer exits 1 ("Zsh is not installed") on a bare Ubuntu, and
+  `ci/Dockerfile` pre-installs zsh, so CI never saw it.
+- **`linux.yaml`'s `chsh` step sets `stdin: true`.** Dotbot wires a shell step's stdin to
+  `/dev/null` by default; Linux `chsh` reads its password through PAM on stdin, so without
+  it `chsh` printed `Password:` and failed instantly with `PAM: Authentication failure`.
+  (`sudo` is unaffected — it opens `/dev/tty` itself.) Any future Dotbot step that prompts
+  needs the same flag.
+
+WSL inherits `git/gitconfig`'s macOS credential helpers (`osxkeychain`, the
+`/opt/homebrew/bin/gh` path) — harmless for public clones and pulls, but a push from WSL
+needs the host-conditional git config work in VIL-146.
+
+Gotchas behind these rules: `docs/solutions/cross-machine/wsl-ubuntu-target-2026-09-24.md`.
+
+---
+
 ## Setting up the work Mac
 
 1. Clone this repo (recommended: `~/Projects/Personal/dotfiles`)
@@ -1056,7 +1104,7 @@ Gotchas behind these rules: `docs/solutions/cross-machine/windows-target-gotchas
 - `git/gitconfig` `core.pager = vim -` — intentional preference; vim is the pager for `log`/etc. (Note: `git diff`/`git show` deliberately route through **delta** via the `[pager]` overrides — `core.pager` staying `vim -` is by design, not an oversight.)
 - The tmux session restoration block in `zshrc` — guarded to only run outside tmux and only in iTerm2.
 - GCM credential helper entries in `git/gitconfig` — auto-generated by Git Credential Manager, commit separately from other work.
-- **Linux Dotbot layer + helper branches** (`dotbot-conf/linux.yaml`, the `uname`-guarded locale step in `dotbot-conf/base.yaml`, `case Linux)` in `./install`, `uname` guards in `helpers/*`) — preserved post-VPS-decommission (2026-05-21) as generic infrastructure for any future Linux target. Revival path: retire-noted runbook at `docs/solutions/cross-machine/vps-dotfiles-target.md`.
+- **Linux Dotbot layer + helper branches** (`dotbot-conf/linux.yaml`, the `uname`-guarded locale step in `dotbot-conf/base.yaml`, `case Linux)` in `./install`, `uname` guards in `helpers/*`) — preserved after the VPS was decommissioned (2026-05-21) and in active use again since 2026-09-24 for WSL Ubuntu on the gaming PC (see "Setting up WSL on the Windows PC"). The VPS-specific runbook stays at `docs/solutions/cross-machine/vps-dotfiles-target.md`.
 
 ## Forge Identity
 forge-project-key: dotfiles
