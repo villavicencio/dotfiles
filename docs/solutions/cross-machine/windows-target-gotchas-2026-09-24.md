@@ -101,15 +101,20 @@ portable packages). The shell that ran the install, and every process started
 before it, keeps the old PATH. That includes the Claude Code session itself,
 so `! gh auth login` failed with `command not found` right after `gh` was
 installed, and the gitleaks pre-commit hook failed with `Executable gitleaks not
-found`. `install.ps1` re-reads PATH from the registry after winget
-(`Update-SessionPath`). Interactively, open a new terminal, or call the tool by
-its full path.
+found`. After winget, `install.ps1` adds whatever the registry PATH has that
+the process lacks (`Update-SessionPath`). It *merges* rather than replaces,
+because replacing would drop entries a parent process or profile added only to
+this session, and a `uv` found that way would vanish mid-install. Interactively,
+open a new terminal, or call the tool by its full path.
 
 **Native exit codes don't trip `$ErrorActionPreference = 'Stop'`.** It only
 covers PowerShell errors. `install.ps1` checks `$LASTEXITCODE` after winget,
-`uv` and `pre-commit`, records each failure, still runs the remaining steps, and
-exits 1 with the list. It prints "Installation complete!" only when nothing
-failed.
+`uv` and `pre-commit`. It also wraps each link and stub in `Invoke-Step`,
+because a PowerShell error there (a symlink refused when Developer Mode is off)
+would otherwise abort the script under `Stop`. Every failure is recorded, the
+remaining steps still run, and the script exits 1 with the list. That applies to
+`-DryRun` too, where a missing link source is reported. It prints "Installation
+complete!" only when nothing failed.
 
 ## Claude Code and Windows Terminal
 

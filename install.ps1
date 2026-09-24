@@ -49,14 +49,31 @@ function Test-NativeExit([string]$what) {
     return $true
 }
 
+# Run a PowerShell-level step (link, stub); on error record it and continue, so
+# one bad link can't abort the rest of the install or the failure summary.
+function Invoke-Step([string]$what, [scriptblock]$action) {
+    try { & $action }
+    catch {
+        $Failures.Add("${what}: $($_.Exception.Message)")
+        Write-Warning "$what failed: $($_.Exception.Message)"
+    }
+}
+
 # winget adds to the user PATH in the registry, which this already-running process
-# never sees; re-read it so tools installed a moment ago resolve.
+# never sees. Append the registry entries this process lacks, keeping the existing
+# (possibly process-only) entries and their order, so tools installed a moment ago
+# resolve without losing anything the caller had on PATH.
 function Update-SessionPath {
-    $env:Path = @(
-        "$HOME\.local\bin"
-        [Environment]::GetEnvironmentVariable('Path', 'Machine')
-        [Environment]::GetEnvironmentVariable('Path', 'User')
-    ) -join ';'
+    $entries = [System.Collections.Generic.List[string]]::new()
+    $seen = [System.Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+    $candidates = @($env:Path -split ';') + "$HOME\.local\bin" +
+        ([Environment]::GetEnvironmentVariable('Path', 'Machine') -split ';') +
+        ([Environment]::GetEnvironmentVariable('Path', 'User') -split ';')
+    foreach ($p in $candidates) {
+        # Trailing '\' is ignored only for the duplicate check; entries are kept as written.
+        if ($p -and $seen.Add($p.TrimEnd('\'))) { $entries.Add($p) }
+    }
+    $env:Path = $entries -join ';'
 }
 
 # Move a real file out of the way without ever overwriting an earlier backup.
@@ -127,12 +144,14 @@ $links = [ordered]@{
     "$HOME/.claude/CLAUDE.md"         = 'claude/CLAUDE.md'
     "$env:LOCALAPPDATA/Microsoft/Windows Terminal/Fragments/dotfiles/dotfiles.json" = 'windows/terminal/dotfiles.json'
 }
-foreach ($t in $links.Keys) { Set-DotLink ([IO.Path]::GetFullPath($t)) $links[$t] }
+foreach ($t in $links.Keys) {
+    Invoke-Step "link $($links[$t])" { Set-DotLink ([IO.Path]::GetFullPath($t)) $links[$t] }
+}
 
 # 3. Stubs ------------------------------------------------------------------
 Write-Step 'stubs'
 $repoFwd = $Repo -replace '\\', '/'
-Set-Stub "$HOME/.gitconfig" @"
+$gitStub = @"
 # Written by install.ps1 - edit the tracked files, not this stub.
 [include]
     path = $repoFwd/git/gitconfig
@@ -140,9 +159,10 @@ Set-Stub "$HOME/.gitconfig" @"
     path = $repoFwd/windows/gitconfig
 
 "@
+Invoke-Step 'stub ~/.gitconfig' { Set-Stub "$HOME/.gitconfig" $gitStub }
 # PowerShell 7's $PROFILE (Documents may be redirected into OneDrive; resolve it rather than guess).
 $pwshProfile = Join-Path ([Environment]::GetFolderPath('MyDocuments')) 'PowerShell/Microsoft.PowerShell_profile.ps1'
-Set-Stub $pwshProfile ". `"$Repo\windows\powershell\profile.ps1`"`n"
+Invoke-Step 'stub $PROFILE' { Set-Stub $pwshProfile ". `"$Repo\windows\powershell\profile.ps1`"`n" }
 
 # 4. pre-commit + gitleaks hook -----------------------------------------------
 Write-Step 'pre-commit + gitleaks hook'
@@ -169,12 +189,12 @@ if ($DryRun) {
     }
 }
 
-if ($DryRun) {
-    Write-Step 'Dry run complete - nothing was changed.'
-} elseif ($Failures.Count) {
-    Write-Host "`nCompleted with $($Failures.Count) failure(s):" -ForegroundColor Red
+if ($Failures.Count) {
+    Write-Host "`nCompleted with $($Failures.Count) failure(s)$(if ($DryRun) { ' (dry run - nothing was changed)' }):" -ForegroundColor Red
     $Failures | ForEach-Object { Write-Host "  - $_" -ForegroundColor Red }
     exit 1
+} elseif ($DryRun) {
+    Write-Step 'Dry run complete - nothing was changed.'
 } else {
     Write-Step 'Installation complete!'
 }
