@@ -144,8 +144,31 @@ complete!" only when nothing failed.
 
 **`claude/settings.json` must not be seeded on Windows.** Every hook in it
 calls a tmux or herdr bash script (`tmux-attention.sh`, `herdr-agent-state.sh`,
-`herdr-blank-state.sh`), so each event would error. `claude/CLAUDE.md` is safe
-to link, because its Mac-only sections are already labeled as such.
+`herdr-blank-state.sh`), so each event would error. Since VIL-150, `install.ps1`
+seeds `windows/claude-settings.json` instead (only when `~/.claude/settings.json`
+is absent): the Mac baseline minus the hooks, the iTerm2 notification channel and
+the brew/tmux allow rules. `claude/CLAUDE.md` is safe to link, because its
+Mac-only sections are already labeled as such.
+
+**The status line works unchanged under Git Bash's `sh`**, including the Mac
+`statusLine` command string (`$HOME` expands). Three Windows-only wrinkles, all
+fixed in the script (VIL-150):
+
+- Claude Code sends `cwd` as `C:\Users\Loft\...` while `$HOME` is
+  `/c/Users/Loft`, so `~` shortening never matched. The script converts a
+  drive-letter path with `cygpath -u` for the comparison only; `git -C` still
+  gets the raw path, which it accepts.
+- `echo "$input"` under dash (and any `xpg_echo` sh) turns JSON's `\\` into
+  `\`, so jq failed with "Invalid escape" and every field came back empty.
+  `printf '%s\n'` passes the bytes through.
+- A native `jq.exe` ends output with CRLF. Git Bash's `sh` drops the CR, but
+  dash kept it in the last field and drew an empty worktree badge. `jq -j`
+  writes no line ending at all.
+
+Testing gotcha: the Claude Code Bash tool collapses `\\` in inline command
+text, so feed Windows-path JSON through a file written with the Write tool, not
+an inline heredoc or `printf`. `dash` ships with Git for Windows, so the
+dash-only failures reproduce on the PC.
 
 **Windows Terminal rewrites its own `settings.json`**, the same trap as Claude
 Code's settings and Otty's config. Tracked terminal config therefore goes in a

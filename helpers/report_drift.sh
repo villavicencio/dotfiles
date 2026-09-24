@@ -205,6 +205,10 @@ fi
 # untracked, so a plain diff would report permanent, un-actionable drift.
 CLAUDE_TRACKED="$REPO_ROOT/claude/settings.json"
 CLAUDE_LIVE="$HOME/.claude/settings.json"
+# Windows (Git Bash) compares against the hook-free sibling install.ps1 seeds.
+case "$(uname -s)" in
+  MINGW*|MSYS*|CYGWIN*) CLAUDE_TRACKED="$REPO_ROOT/windows/claude-settings.json" ;;
+esac
 
 hr "Claude Code: tracked settings.json vs live ~/.claude/settings.json"
 if [ ! -f "$CLAUDE_TRACKED" ]; then

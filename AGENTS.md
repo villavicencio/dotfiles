@@ -62,7 +62,8 @@ bin/        Repo CLI — bin/dot (symlinked to ~/.local/bin/dot)
             bin/lib/*.py — Python helpers for doctor/bench, deliberately NOT heredocs
 windows/    Windows layer, applied by install.ps1 (repo root): packages.json (winget),
             gitconfig (overrides chained after git/gitconfig), powershell/profile.ps1,
-            terminal/dotfiles.json (Windows Terminal fragment)
+            terminal/dotfiles.json (Windows Terminal fragment), claude-settings.json
+            (hook-free Claude Code settings seed — COPY-SEEDED like the Mac's)
 ```
 
 ---
@@ -237,8 +238,9 @@ Brewfile, tmux, nvim, nvm, node). Each helper is independently runnable. (Nerd F
 install via Homebrew casks in `brew/Brewfile`, not a helper.)
 
 **Windows:** `pwsh -File install.ps1 [-DryRun] [-SkipPackages]` instead — winget import
-(`--no-upgrade`), symlinks for the configs shared with macOS, stubs for `~/.gitconfig` and
-`$PROFILE`, then the pre-commit hook. Full steps and rules: "Setting up the Windows PC" in
+(`--no-upgrade`), symlinks for the configs shared with macOS (the Claude status line
+included), stubs for `~/.gitconfig` and `$PROFILE`, a `~/.claude/settings.json` seed (only
+when absent), then the pre-commit hook. Full steps and rules: "Setting up the Windows PC" in
 `CLAUDE.md`. Verify with a `-DryRun` (must report changes but make none) and a second real
 run (every line must read `ok`).
 
@@ -351,8 +353,14 @@ run (every line must read `ok`).
   `docs/solutions/cross-machine/wsl-ubuntu-target-2026-09-24.md`.
 - **Windows gets stubs, not links, for `~/.gitconfig` and `$PROFILE`** — git has no
   OS-conditional include, and `$PROFILE` sits under a OneDrive-redirected Documents folder.
-  **Never seed `claude/settings.json` on Windows** (its hooks are tmux/herdr bash scripts),
-  and **don't link `topgrade/topgrade.toml` there** (its `[commands]` entry is POSIX shell).
+  **Windows seeds `windows/claude-settings.json`, never `claude/settings.json`** (the Mac
+  file's hooks are tmux/herdr bash scripts that would error on every event). The Windows
+  file is the Mac baseline minus `hooks`, `preferredNotifChannel`, and the brew/tmux allow
+  rules; the `statusLine` block is identical and runs under Git Bash's `sh`. Keep the two
+  files' shared keys in step by hand. Same copy-only-when-absent contract, and the
+  helpers (`install_claude_settings.sh --capture`, `report_drift.sh`) switch to the
+  Windows file under Git Bash so a capture on the PC can't overwrite the Mac baseline.
+  **Don't link `topgrade/topgrade.toml` there** (its `[commands]` entry is POSIX shell).
   Write-up: `docs/solutions/cross-machine/windows-target-gotchas-2026-09-24.md`.
 - The **tmux session-restoration block** in `zshrc` is guarded to run only outside tmux and
   only in iTerm2.

@@ -6,9 +6,17 @@ input=$(cat)
 # the read — a tab delimiter would collapse adjacent empties because tab is
 # IFS-whitespace. map(tostring) is null-safe here only because every selector
 # below carries a // "" default, so the array holds no nulls.
+# printf '%s\n', not echo: dash's echo (and any sh built with xpg_echo) expands
+# backslash escapes, turning JSON's "C:\\Users" into "C:\Users" -> jq "Invalid
+# escape" -> every field empty. Any JSON string with a backslash escape hits
+# it; Windows paths just guarantee one.
+# jq -j (raw, no trailing newline), not -r: a native Windows jq.exe ends its
+# output line with CRLF, and dash keeps the CR, so it landed in the last field
+# ($wt) and drew an empty worktree badge. With no line ending there is no CR.
+# Elsewhere -j and -r are identical here: $(...) strips the newline anyway.
 US=$(printf '\037')
 IFS="$US" read -r cwd model used effort lim5 lim7 pr_num pr_state pr_url wt <<EOF
-$(echo "$input" | jq -r '[
+$(printf '%s\n' "$input" | jq -j '[
   (.workspace.current_dir // .cwd // ""),
   (.model.display_name // ""),
   (.context_window.used_percentage // ""),
@@ -78,10 +86,27 @@ bar() {
 # Shorten home directory to ~  (POSIX prefix substitution; works in dash AND
 # bash — the bash-only form ${cwd/#$home/~} triggers "Bad substitution" under
 # dash, which is /bin/sh and how settings.json invokes this script).
+#
+# Windows (Git Bash's sh): Claude Code sends a native path (C:\Users\me\...)
+# while $HOME is POSIX-form (/c/Users/me), so the prefix never matches. Convert
+# a drive-letter path with cygpath (ships with Git for Windows) FOR DISPLAY
+# ONLY; `git -C` below keeps the raw $cwd, which it accepts in either form. A
+# path outside $HOME still displays in its original native form (D:\Games, not
+# /d/Games). The pattern only matches "X:\..." / "X:/...", so macOS/Linux
+# paths (always leading "/") never reach cygpath and behave exactly as before.
 home="$HOME"
+cmp_cwd="$cwd"
 case "$cwd" in
+  [A-Za-z]:\\*|[A-Za-z]:/*)
+    if command -v cygpath >/dev/null 2>&1; then
+      cmp_cwd=$(cygpath -u "$cwd" 2>/dev/null) || cmp_cwd="$cwd"
+      [ -n "$cmp_cwd" ] || cmp_cwd="$cwd"
+    fi
+    ;;
+esac
+case "$cmp_cwd" in
   "$home")   short_cwd="~" ;;
-  "$home"/*) short_cwd="~${cwd#"$home"}" ;;
+  "$home"/*) short_cwd="~${cmp_cwd#"$home"}" ;;
   *)         short_cwd="$cwd" ;;
 esac
 

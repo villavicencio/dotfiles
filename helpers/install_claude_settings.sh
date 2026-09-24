@@ -28,6 +28,12 @@ set -uo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SRC="$REPO_ROOT/claude/settings.json"
 DEST="$HOME/.claude/settings.json"
+# Windows (Git Bash) tracks a hook-free sibling, which install.ps1 seeds. Point
+# at it here too, or --capture run on the PC would overwrite the Mac baseline
+# with a file that has no hooks.
+case "$(uname -s)" in
+  MINGW*|MSYS*|CYGWIN*) SRC="$REPO_ROOT/windows/claude-settings.json" ;;
+esac
 
 # Keys that are machine- or session-specific and must never be tracked. The
 # file's own "//" header states the rule; these are the observed offenders.
