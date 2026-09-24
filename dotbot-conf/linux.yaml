@@ -26,7 +26,13 @@
     # on hosted runners) and when zsh is already the login shell. chsh prompts
     # for the user's password, which is fine: on WSL ./install is run
     # interactively by the user (sudo needs the password anyway).
-    - command: |
+    # stdin: true is REQUIRED. Dotbot wires a shell step's stdin to /dev/null by
+    # default, and Linux chsh reads the password through PAM on stdin, so without
+    # it chsh prints "Password:" and fails at once with "PAM: Authentication
+    # failure" - no chance to type (seen on the first WSL install, 2026-09-24).
+    # sudo was unaffected because it opens /dev/tty itself.
+    - stdin: true
+      command: |
         if [ "${DOTFILES_DRY_RUN:-0}" = "1" ]; then
           echo "[dry-run] would chsh -s $(command -v zsh || echo zsh)"
         elif [ "${CI:-false}" != "true" ] && command -v zsh >/dev/null 2>&1 \
