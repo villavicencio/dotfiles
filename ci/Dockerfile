@@ -38,6 +38,12 @@ ENV DEBIAN_FRONTEND=noninteractive
 # had to apt-install it at runtime as a workflow bootstrap step (see
 # issue #58); baking it in here removes that round-trip.
 #
+# On 26.04 the `sudo` package is the classic sudo, installed as the
+# `sudo.ws` alternative (seen in the VIL-154 build log). A stock 26.04
+# install, like the WSL distro, defaults to sudo-rs (Ubuntu's default
+# since 25.10). As root neither one authenticates, so CI does not
+# exercise sudo-rs; the first real run of it is ./install on the distro.
+#
 # python3 (not python3-minimal): Dotbot is a Python script
 # (dotbot/bin/dotbot exec's python3 "$0") and does `import json` /
 # `import yaml` at startup. python3-minimal strips the stdlib, so
