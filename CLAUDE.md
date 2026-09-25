@@ -1195,10 +1195,18 @@ doesn't stop the others; the script exits 1 and lists them.
     top-level key, a non-string value, or text it can't scan is an error, as is invalid UTF-8
     (decoded strictly, so it never round-trips as U+FFFD). Only that value's characters are
     spliced; BOM and line endings are kept.
-  - *How it writes:* the bytes it read are backed up first, the new text goes to a temp file
-    beside the original and is read back, and it is renamed over the original only if the
-    original still hashes as read. If Terminal saved the file in between, the entry fails and
-    writes nothing. A symlinked `settings.json` is edited at its target, leaving the link.
+  - *How it writes:* the bytes it read are backed up first, and the new text goes to a temp
+    file beside the original and is read back. Terminal saves by writing `settings.json.tmp`
+    and renaming it over `settings.json`, so "check the hash, then rename ours over it" would
+    still lose a save that landed between the two. Instead the original is opened sharing only
+    read (read + DELETE access, via P/Invoke `CreateFileW`): from then on nothing else can write
+    it or rename over it, and a file some program already has open for writing makes the entry
+    fail with nothing changed. Through that handle it re-checks the hash, renames the original
+    aside (`SetFileInformationByHandle`, never replacing), then renames the temp file into
+    place without replacing. Terminal's own reads share everything and still work. The only
+    gap left is the instant between those two renames, when the path is empty: a save landing
+    there wins, and the original is put back if it can be (else the error names the `.old`
+    file). A symlinked `settings.json` is edited at its target, leaving the link.
   - Dot-sourcing the script (`. windows/tweaks.ps1`) defines its functions and `$Tweaks` and
     stops before the engine runs, which is how these are tested against scratch files. The
     real `set` path of the script as a whole has still only run against scratch copies.

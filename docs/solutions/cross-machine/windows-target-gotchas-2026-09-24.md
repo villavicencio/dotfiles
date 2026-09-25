@@ -244,9 +244,21 @@ rewrote the file with `WriteAllText`. Review (#192) found three holes:
   tracks comments, strings and bracket depth finds the real top-level key, and
   only that value's characters are replaced.
 - *Concurrent writes.* Terminal saves its own file whenever its settings UI
-  changes. Hash the bytes when read, write a temp file beside the original,
-  re-hash the original just before `File.Move(tmp, path, overwrite)` (a
-  same-directory rename), and fail if it changed.
+  changes, by writing `settings.json.tmp` and renaming it over `settings.json`
+  (`til::io::write_utf8_string_to_file_atomic` in `src/inc/til/io.h`). The
+  first fix hashed the original and then ran `File.Move(tmp, path, overwrite)`,
+  and review on #199 caught that a Terminal save between the two would still
+  be overwritten. A hash check can't close that gap, but a lock can. Open the original with
+  `CreateFileW(GENERIC_READ | DELETE, FILE_SHARE_READ)`. While that handle is
+  open, no one else can write the file or rename or delete over it, and
+  Terminal's own reads (which share everything) still work. Re-hash through the
+  handle, rename the original aside *through the same handle*
+  (`SetFileInformationByHandle(FileRenameInfo)`, `ReplaceIfExists = FALSE`),
+  then `File.Move(tmp, path, overwrite: false)`. What's left is the instant
+  between the two renames, when the path is empty. A save that lands there
+  wins, and the original is put back through the handle. Replacing *over* the
+  locked file isn't possible, because the lock itself denies the delete that a
+  rename-over needs. That's why the original is renamed aside first.
 
 **A hashtable's own properties shadow missing keys.** `$Tweaks` entries are
 hashtables. The first version named the registry list `Values`. On the Terminal

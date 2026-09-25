@@ -271,8 +271,10 @@ that never toggled it: Windows defaults it on without writing `AutoGameModeEnabl
 reads `would set` until the first real run. The Terminal default-profile entry picks the
 `settings.json` of the running Terminal when both the packaged and unpackaged ones exist (and
 fails naming both when it can't tell), edits only the top-level `defaultProfile` value found by
-a comment-aware JSONC scan, and writes via a checked temp file renamed over the original only if
-the original is unchanged since it was read. Dot-source the script to test its functions
+a comment-aware JSONC scan, and writes via a checked temp file. Before the swap it locks the
+original against writes and renames (Terminal saves by renaming a temp file over it), re-checks
+that it is unchanged since it was read, renames it aside through the lock, and renames the temp
+file into place without replacing anything. Dot-source the script to test its functions
 without running it. Details: "System tweaks" in `CLAUDE.md`.
 
 ---

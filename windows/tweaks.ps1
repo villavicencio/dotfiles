@@ -49,6 +49,42 @@ if (-not ('DotfilesTweaks.User32' -as [type])) {
 public static extern bool SystemParametersInfo(uint uiAction, uint uiParam, int[] pvParam, uint fWinIni);
 '@
 }
+# Replacing Terminal's settings.json without losing a save Terminal makes meanwhile
+# (see Write-TerminalDefaultProfile). OpenLocked opens a file for read + DELETE
+# while sharing only read, so no one else can write it, or rename or delete over it,
+# until the handle closes. RenameByHandle moves that same open file to a new name.
+if (-not ('DotfilesTweaks.FileOps' -as [type])) {
+    Add-Type -Namespace DotfilesTweaks -Name FileOps -UsingNamespace Microsoft.Win32.SafeHandles, System.ComponentModel, System.Text -MemberDefinition @'
+[DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+private static extern SafeFileHandle CreateFileW(string name, uint access, uint share, IntPtr sa, uint disposition, uint flags, IntPtr template);
+[DllImport("kernel32.dll", SetLastError = true)]
+private static extern bool SetFileInformationByHandle(SafeFileHandle h, int infoClass, IntPtr info, uint size);
+
+public static SafeFileHandle OpenLocked(string path) {
+    // GENERIC_READ | DELETE, FILE_SHARE_READ, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL
+    SafeFileHandle h = CreateFileW(path, 0x80000000u | 0x00010000u, 1u, IntPtr.Zero, 3u, 0x80u, IntPtr.Zero);
+    if (h.IsInvalid) { throw new Win32Exception(Marshal.GetLastWin32Error()); }
+    return h;
+}
+
+public static void RenameByHandle(SafeFileHandle h, string newPath) {
+    // FILE_RENAME_INFO { BOOLEAN ReplaceIfExists; HANDLE RootDirectory; DWORD FileNameLength; WCHAR FileName[]; }
+    // ReplaceIfExists = FALSE, so an existing file at newPath is never overwritten.
+    byte[] name = Encoding.Unicode.GetBytes(newPath);
+    int nameOffset = IntPtr.Size == 8 ? 20 : 12;
+    int size = nameOffset + name.Length + 2;
+    IntPtr buf = Marshal.AllocHGlobal(size);
+    try {
+        for (int i = 0; i < size; i++) { Marshal.WriteByte(buf, i, 0); }
+        Marshal.WriteInt32(buf, nameOffset - 4, name.Length);
+        Marshal.Copy(name, 0, IntPtr.Add(buf, nameOffset), name.Length);
+        if (!SetFileInformationByHandle(h, 3 /* FileRenameInfo */, buf, (uint)size)) {
+            throw new Win32Exception(Marshal.GetLastWin32Error());
+        }
+    } finally { Marshal.FreeHGlobal(buf); }
+}
+'@
+}
 $SPI_GETMOUSE = 0x0003
 $SPI_SETMOUSE = 0x0004
 $SPIF_UPDATEINIFILE = 0x01   # also write the user profile (the HKCU values below)
@@ -213,11 +249,22 @@ function Read-TerminalSettings([string]$Path) {
 }
 
 # Set the top-level "defaultProfile" of a file read by Read-TerminalSettings to
-# $Guid, changing only that value's text: Terminal rewrites the rest itself. Order:
-# back up the bytes that were read, write the new text to a temp file beside the
-# original, read it back, then rename it over the original only if the original
-# still hashes as read. If Terminal (or anything) saved the file in between, it
-# throws and writes nothing.
+# $Guid, changing only that value's text: Terminal rewrites the rest itself.
+#
+# Terminal saves by writing settings.json.tmp and renaming it over settings.json,
+# so a plain "check the hash, then rename ours over it" could still overwrite a
+# save that lands between the two. Instead:
+#   1. back up the bytes that were read; write the new bytes to a temp file beside
+#      the original and read them back;
+#   2. open the original locked (see DotfilesTweaks.FileOps): from here on nothing
+#      else can write it or rename over it. If something has it open for writing,
+#      this fails and nothing changes;
+#   3. through that handle, check it still hashes as read (else throw: re-run);
+#   4. through that handle, rename the original aside to *.dotfiles-<pid>.old,
+#      then rename the temp file into place without replacing anything. If a new
+#      settings.json appeared in that instant, it is left alone and the original
+#      is put back if it can be (else the error names where it is);
+#   5. close the handle and delete the .old file (the backup holds the same bytes).
 function Write-TerminalDefaultProfile($Settings, [string]$Guid, [string]$BackupFile) {
     $loc = Find-TopLevelJsonString $Settings.Text 'defaultProfile'
     if (-not $loc) { throw 'no top-level "defaultProfile" in settings.json; set it once in Terminal > Settings > Startup' }
@@ -226,16 +273,37 @@ function Write-TerminalDefaultProfile($Settings, [string]$Guid, [string]$BackupF
     if ((Find-TopLevelJsonString $text 'defaultProfile').Value -cne $Guid) { throw 'the edited text does not read back with the new defaultProfile' }
     $enc = [Text.UTF8Encoding]::new($Settings.Bom)
     [byte[]]$bytes = @($enc.GetPreamble()) + @($enc.GetBytes($text))
-    $tmp = Join-Path (Split-Path -Parent $Settings.Path) ".$(Split-Path -Leaf $Settings.Path).dotfiles-$PID.tmp"
+    $path = $Settings.Path
+    $base = Join-Path (Split-Path -Parent $path) ".$(Split-Path -Leaf $path).dotfiles-$PID"
+    $tmp = "$base.tmp"
+    $old = "$base.old"
+    $handle = $null
+    $replaced = $false
     try {
         [IO.File]::WriteAllBytes($tmp, $bytes)
         if ((Get-BytesHash ([IO.File]::ReadAllBytes($tmp))) -ne (Get-BytesHash $bytes)) { throw "temp file $tmp did not read back as written" }
-        if ((Get-BytesHash ([IO.File]::ReadAllBytes($Settings.Path))) -ne $Settings.Hash) {
-            throw "$($Settings.Path) changed after it was read (Terminal may have saved it); nothing was written, re-run"
+        try { $handle = [DotfilesTweaks.FileOps]::OpenLocked($path) }
+        catch { throw "could not lock $path ($($_.Exception.GetBaseException().Message)); another program may be writing it. Nothing was changed; re-run" }
+        $stream = [IO.FileStream]::new($handle, [IO.FileAccess]::Read)
+        $current = [IO.MemoryStream]::new()
+        $stream.CopyTo($current)
+        if ((Get-BytesHash $current.ToArray()) -ne $Settings.Hash) {
+            throw "$path changed after it was read (Terminal may have saved it). Nothing was changed; re-run"
         }
-        [IO.File]::Move($tmp, $Settings.Path, $true)   # a rename within one directory: atomic
+        [DotfilesTweaks.FileOps]::RenameByHandle($handle, $old)
+        try {
+            [IO.File]::Move($tmp, $path, $false)
+        } catch {
+            $why = $_.Exception.Message
+            try { [DotfilesTweaks.FileOps]::RenameByHandle($handle, $path) }
+            catch { throw "could not put the new settings.json in place ($why), and a settings.json that appeared meanwhile was kept; the file that was read is at $old" }
+            throw "could not put the new settings.json in place ($why). The original was put back; re-run"
+        }
+        $replaced = $true
     } finally {
+        if ($handle) { $handle.Dispose() }
         if (Test-Path -LiteralPath $tmp) { Remove-Item -LiteralPath $tmp -Force }
+        if ($replaced -and (Test-Path -LiteralPath $old)) { Remove-Item -LiteralPath $old -Force }
     }
 }
 
