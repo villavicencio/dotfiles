@@ -205,7 +205,8 @@ rm -rf "$FAKE"
 CI (`.github/workflows/install-matrix.yml`) runs the full installer on macOS + Linux (an
 Ubuntu 26.04 container from `ci/Dockerfile`, pinned by digest) and
 `install.ps1 -SkipPackages` on a hosted Windows runner (no full `winget import`; every
-`packages.json` ID is resolved instead), and asserts outcomes; keep all three legs green.
+`packages.json` ID is resolved instead, and a runner without winget fails the job rather
+than skipping checks), and asserts outcomes; keep all three legs green.
 The `windows` job's `EXPECTED_LINKS` list must match `$links` in `install.ps1`.
 
 ---
