@@ -223,6 +223,31 @@ values don't prove the service uses them, though, so the entry also compares
 Right after boot the source reads "Local CMOS Clock" until the first poll, so a
 run then may resync needlessly, which is harmless.
 
+**Game Mode's registry value doesn't exist until something writes it.** Game
+Mode is on by default, but `HKCU\Software\Microsoft\GameBar\AutoGameModeEnabled`
+(DWORD, 1 on / 0 off) is only created when the Settings toggle is flipped. This
+PC had never flipped it, so the key held no such value while Game Mode was on.
+Recording it means a dry run reads `would set` (`<absent>` → `1`) until the
+first real run writes it; that is the one expected non-`ok` line.
+
+**Editing Terminal's `settings.json` safely needs three things a regex doesn't
+give.** The first version matched a line-anchored `"defaultProfile"` regex and
+rewrote the file with `WriteAllText`. Review (#192) found three holes:
+- *Two installs.* The packaged build keeps its settings under
+  `Packages\Microsoft.WindowsTerminal_8wekyb3d8bbwe\LocalState\`, an unpackaged
+  (zip/Scoop) build under `%LOCALAPPDATA%\Microsoft\Windows Terminal\`. Taking
+  whichever exists first can edit a file the Terminal in use never reads. The
+  running `WindowsTerminal.exe` tells them apart: a packaged one runs from
+  `WindowsApps\Microsoft.WindowsTerminal_*`. With no signal, fail and name both.
+- *JSONC.* A regex anchored to line starts skips `// "defaultProfile"` but still
+  matches a nested `"defaultProfile"` or one inside `/* */`. A small scan that
+  tracks comments, strings and bracket depth finds the real top-level key, and
+  only that value's characters are replaced.
+- *Concurrent writes.* Terminal saves its own file whenever its settings UI
+  changes. Hash the bytes when read, write a temp file beside the original,
+  re-hash the original just before `File.Move(tmp, path, overwrite)` (a
+  same-directory rename), and fail if it changed.
+
 **A hashtable's own properties shadow missing keys.** `$Tweaks` entries are
 hashtables. The first version named the registry list `Values`. On the Terminal
 entry, which has no such key, `$t.Values` returned the hashtable's built-in

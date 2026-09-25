@@ -12,9 +12,10 @@
       would set  -DryRun: it differs, and this is what would change
       set        it differed and was changed (prior value saved to the backup dir)
 
-    Only settings this PC already had are recorded here. The script is a no-op on
-    the machine it was written on; that is what its -DryRun proves. To add one,
-    change it by hand first, then record it and check that -DryRun reads "ok".
+    Only settings this PC already had are recorded here. To add one, change it by
+    hand first, then record it and check that -DryRun reads "ok". The one exception
+    is Game Mode: Windows defaults it on without writing AutoGameModeEnabled, so a PC
+    that never toggled it reads "would set" until the first real run writes the value.
 
     This is a separate, opt-in step, not part of install.ps1: some entries write
     HKLM or run w32tm and need an elevated shell, and install.ps1 stays unelevated.
@@ -83,15 +84,160 @@ function RegValue($Path, $Name, $Type, $Value) {
 
 # --- Windows Terminal --------------------------------------------------------
 
+$TerminalPackagedSettings = "$env:LOCALAPPDATA\Packages\Microsoft.WindowsTerminal_8wekyb3d8bbwe\LocalState\settings.json"
+$TerminalUnpackagedSettings = "$env:LOCALAPPDATA\Microsoft\Windows Terminal\settings.json"   # zip / Scoop build
+$Pwsh7ProfileGuid = '{574e775e-4f2a-5b96-ac1e-a2962a402336}'
+
+# The settings.json of the Terminal in use. With only one present, that's it. With
+# both, the running WindowsTerminal.exe decides: the packaged build runs from
+# WindowsApps\Microsoft.WindowsTerminal_*, anything else is unpackaged (Preview and
+# Canary are other packages with their own settings, so they don't count). If none
+# is running, both kinds are, or a process path can't be read, it throws naming
+# both files rather than guess. $RunningExe exists for tests.
 function Get-TerminalSettingsPath {
-    @(
-        "$env:LOCALAPPDATA\Packages\Microsoft.WindowsTerminal_8wekyb3d8bbwe\LocalState\settings.json"
-        "$env:LOCALAPPDATA\Microsoft\Windows Terminal\settings.json"   # unpackaged install
-    ) | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
+    param(
+        [string]$Packaged = $TerminalPackagedSettings,
+        [string]$Unpackaged = $TerminalUnpackagedSettings,
+        [string[]]$RunningExe = @(Get-Process -Name WindowsTerminal -ErrorAction SilentlyContinue | ForEach-Object { [string]$_.Path })
+    )
+    $havePackaged = Test-Path -LiteralPath $Packaged -PathType Leaf
+    $haveUnpackaged = Test-Path -LiteralPath $Unpackaged -PathType Leaf
+    if (-not ($havePackaged -and $haveUnpackaged)) {
+        if ($havePackaged) { return $Packaged }
+        if ($haveUnpackaged) { return $Unpackaged }
+        return $null
+    }
+    $kinds = @($RunningExe | ForEach-Object {
+            if (-not $_) { 'unreadable' }
+            elseif ($_ -match '\\WindowsApps\\Microsoft\.WindowsTerminal_') { 'packaged' }
+            elseif ($_ -notmatch '\\WindowsApps\\') { 'unpackaged' }
+        } | Sort-Object -Unique)
+    if ($kinds.Count -eq 1 -and $kinds[0] -eq 'packaged') { return $Packaged }
+    if ($kinds.Count -eq 1 -and $kinds[0] -eq 'unpackaged') { return $Unpackaged }
+    $seen = if ($kinds.Count) { "running: $($kinds -join ', ')" } else { 'neither is running' }
+    throw ("both Terminal settings files exist and the one in use is unclear ($seen): " +
+        "'$Packaged' (packaged) and '$Unpackaged' (unpackaged). " +
+        'Re-run with only the Terminal you use open, or move the unused file aside.')
 }
-# Anchored to a line that starts with the key, so a commented-out
-# `// "defaultProfile": ...` line (Terminal's settings are JSON with comments) never matches.
-$DefaultProfileRx = '(?m)(^[ \t]*"defaultProfile"\s*:\s*")([^"]*)(")'
+
+# Terminal's settings.json is JSON with comments (and trailing commas). These skip
+# whitespace and comments, and find the closing quote of a string, so the scan below
+# never mistakes a commented-out or quoted "defaultProfile" for the real one.
+function Skip-JsonTrivia([string]$Text, [int]$i) {
+    while ($i -lt $Text.Length) {
+        $c = $Text[$i]
+        if ([char]::IsWhiteSpace($c)) { $i++; continue }
+        if ($c -eq '/' -and $i + 1 -lt $Text.Length -and $Text[$i + 1] -eq '/') {
+            $nl = $Text.IndexOf("`n", $i)
+            $i = if ($nl -lt 0) { $Text.Length } else { $nl + 1 }
+            continue
+        }
+        if ($c -eq '/' -and $i + 1 -lt $Text.Length -and $Text[$i + 1] -eq '*') {
+            $close = $Text.IndexOf('*/', $i + 2, [StringComparison]::Ordinal)
+            if ($close -lt 0) { throw 'settings.json has an unterminated /* comment' }
+            $i = $close + 2
+            continue
+        }
+        break
+    }
+    $i
+}
+function Get-JsonStringEnd([string]$Text, [int]$Open) {
+    for ($i = $Open + 1; $i -lt $Text.Length; $i++) {
+        if ($Text[$i] -eq '\') { $i++ } elseif ($Text[$i] -eq '"') { return $i }
+    }
+    throw 'settings.json has an unterminated string'
+}
+
+# Find the value of the top-level property $Key when it is a string. Returns its
+# offset and length inside the quotes (so the caller can splice just that text), or
+# $null when there is no such top-level key. Keys inside nested objects or arrays,
+# and anything in a comment or string, are skipped. Throws on a duplicate top-level
+# key or a non-string value, since either way which one Terminal uses is unclear.
+function Find-TopLevelJsonString([string]$Text, [string]$Key) {
+    $i = Skip-JsonTrivia $Text 0
+    if ($i -ge $Text.Length -or $Text[$i] -ne '{') { throw 'settings.json is not a JSON object' }
+    $depth = 0
+    $found = $null
+    while (($i = Skip-JsonTrivia $Text $i) -lt $Text.Length) {
+        $c = $Text[$i]
+        if ($c -eq '{' -or $c -eq '[') { $depth++; $i++; continue }
+        if ($c -eq '}' -or $c -eq ']') {
+            $depth--
+            if ($depth -lt 0) { throw 'settings.json has an unbalanced closing bracket' }
+            $i++
+            if ($depth -eq 0) {
+                if ((Skip-JsonTrivia $Text $i) -lt $Text.Length) { throw 'settings.json has text after its top-level object' }
+                break
+            }
+            continue
+        }
+        if ($c -ne '"') { $i++; continue }
+        $end = Get-JsonStringEnd $Text $i
+        if ($depth -eq 1) {
+            $colon = Skip-JsonTrivia $Text ($end + 1)
+            if ($colon -lt $Text.Length -and $Text[$colon] -eq ':' -and
+                $Text.Substring($i + 1, $end - $i - 1) -ceq $Key) {
+                if ($found) { throw "settings.json has more than one top-level `"$Key`"" }
+                $v = Skip-JsonTrivia $Text ($colon + 1)
+                if ($v -ge $Text.Length -or $Text[$v] -ne '"') { throw "top-level `"$Key`" in settings.json is not a string" }
+                $vEnd = Get-JsonStringEnd $Text $v
+                $found = [pscustomobject]@{ Start = $v + 1; Length = $vEnd - $v - 1; Value = $Text.Substring($v + 1, $vEnd - $v - 1) }
+                $end = $vEnd
+            }
+        }
+        $i = $end + 1
+    }
+    if ($depth -ne 0) { throw 'settings.json has an unclosed { or [' }
+    $found
+}
+
+function Get-BytesHash([byte[]]$Bytes) {
+    [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData($Bytes))
+}
+
+# Read settings.json once: the bytes (backed up, and hashed for the unchanged check
+# before the write), whether it starts with a BOM (kept on write), and the text,
+# decoded strictly so invalid UTF-8 throws instead of coming back as U+FFFD.
+function Read-TerminalSettings([string]$Path) {
+    $bytes = [IO.File]::ReadAllBytes($Path)
+    $bom = $bytes.Length -ge 3 -and $bytes[0] -eq 0xEF -and $bytes[1] -eq 0xBB -and $bytes[2] -eq 0xBF
+    $skip = if ($bom) { 3 } else { 0 }
+    [pscustomobject]@{
+        Path  = $Path
+        Bytes = $bytes
+        Bom   = $bom
+        Hash  = Get-BytesHash $bytes
+        Text  = [Text.UTF8Encoding]::new($false, $true).GetString($bytes, $skip, $bytes.Length - $skip)
+    }
+}
+
+# Set the top-level "defaultProfile" of a file read by Read-TerminalSettings to
+# $Guid, changing only that value's text: Terminal rewrites the rest itself. Order:
+# back up the bytes that were read, write the new text to a temp file beside the
+# original, read it back, then rename it over the original only if the original
+# still hashes as read. If Terminal (or anything) saved the file in between, it
+# throws and writes nothing.
+function Write-TerminalDefaultProfile($Settings, [string]$Guid, [string]$BackupFile) {
+    $loc = Find-TopLevelJsonString $Settings.Text 'defaultProfile'
+    if (-not $loc) { throw 'no top-level "defaultProfile" in settings.json; set it once in Terminal > Settings > Startup' }
+    [IO.File]::WriteAllBytes($BackupFile, $Settings.Bytes)
+    $text = $Settings.Text.Remove($loc.Start, $loc.Length).Insert($loc.Start, $Guid)
+    if ((Find-TopLevelJsonString $text 'defaultProfile').Value -cne $Guid) { throw 'the edited text does not read back with the new defaultProfile' }
+    $enc = [Text.UTF8Encoding]::new($Settings.Bom)
+    [byte[]]$bytes = @($enc.GetPreamble()) + @($enc.GetBytes($text))
+    $tmp = Join-Path (Split-Path -Parent $Settings.Path) ".$(Split-Path -Leaf $Settings.Path).dotfiles-$PID.tmp"
+    try {
+        [IO.File]::WriteAllBytes($tmp, $bytes)
+        if ((Get-BytesHash ([IO.File]::ReadAllBytes($tmp))) -ne (Get-BytesHash $bytes)) { throw "temp file $tmp did not read back as written" }
+        if ((Get-BytesHash ([IO.File]::ReadAllBytes($Settings.Path))) -ne $Settings.Hash) {
+            throw "$($Settings.Path) changed after it was read (Terminal may have saved it); nothing was written, re-run"
+        }
+        [IO.File]::Move($tmp, $Settings.Path, $true)   # a rename within one directory: atomic
+    } finally {
+        if (Test-Path -LiteralPath $tmp) { Remove-Item -LiteralPath $tmp -Force }
+    }
+}
 
 # --- the tweaks --------------------------------------------------------------
 # Each entry: Label, Why (one line), Admin (needs elevation to change), and either
@@ -136,6 +282,15 @@ $Tweaks = @(
         Note   = 'A Game Bar that is already running may keep recording until you sign out.'
     }
     @{
+        Label  = 'Game Mode on'
+        # Windows defaults Game Mode on, but AutoGameModeEnabled doesn't exist until
+        # something writes it (the Settings toggle, or this script). So a PC that was
+        # never toggled reads "would set" here, and the first real run writes the 1
+        # that Windows was already assuming.
+        Why    = 'Windows prioritizes the game in the foreground; on by default, but the value is absent until written.'
+        Registry = @( RegValue 'HKCU:\Software\Microsoft\GameBar' 'AutoGameModeEnabled' 'DWord' 1 )   # 1 on, 0 off
+    }
+    @{
         Label  = 'Hardware-accelerated GPU scheduling on'
         Why    = 'Lets the GPU manage its own scheduling queue (Settings > Display > Graphics).'
         Admin  = $true
@@ -174,26 +329,22 @@ $Tweaks = @(
         Label = 'Windows Terminal default profile = PowerShell 7'
         Why   = 'New tabs open pwsh, where the dotfiles profile lives, not Windows PowerShell 5.1.'
         # Terminal rewrites its own settings.json, and a fragment cannot set
-        # defaultProfile, so only that one line is edited in place.
+        # defaultProfile, so only that one value is edited in place.
         Get   = {
             $p = Get-TerminalSettingsPath
             if (-not $p) { return '<settings.json not found>' }
-            $m = [regex]::Match((Get-Content -Raw -LiteralPath $p), $DefaultProfileRx)
-            if ($m.Success) { $m.Groups[2].Value } else { '<no defaultProfile key>' }
+            $loc = Find-TopLevelJsonString (Read-TerminalSettings $p).Text 'defaultProfile'
+            if ($loc) { $loc.Value } else { '<no top-level defaultProfile>' }
         }
-        Want  = '{574e775e-4f2a-5b96-ac1e-a2962a402336}'
+        Want  = $Pwsh7ProfileGuid
         Set   = {
             $p = Get-TerminalSettingsPath
             if (-not $p) { throw 'Windows Terminal settings.json not found: launch Terminal once, then re-run' }
-            Copy-Item -LiteralPath $p (Join-Path (Get-BackupDir) 'windows-terminal-settings.json')
-            $bytes = [IO.File]::ReadAllBytes($p)
-            $bom = $bytes.Length -ge 3 -and $bytes[0] -eq 0xEF -and $bytes[1] -eq 0xBB -and $bytes[2] -eq 0xBF
-            $text = [IO.File]::ReadAllText($p)
-            if (-not [regex]::IsMatch($text, $DefaultProfileRx)) {
-                throw 'no "defaultProfile" key in settings.json; set it once in Terminal > Settings > Startup'
-            }
-            $text = ([regex]$DefaultProfileRx).Replace($text, '${1}{574e775e-4f2a-5b96-ac1e-a2962a402336}${3}', 1)
-            [IO.File]::WriteAllText($p, $text, [Text.UTF8Encoding]::new($bom))
+            # Edit a symlinked settings.json at its target, so the rename below
+            # replaces the real file and leaves the link in place.
+            $item = Get-Item -LiteralPath $p -Force
+            if ($item.LinkTarget) { $p = $item.ResolveLinkTarget($true).FullName }
+            Write-TerminalDefaultProfile (Read-TerminalSettings $p) $Pwsh7ProfileGuid (Join-Path (Get-BackupDir) 'windows-terminal-settings.json')
         }
         Note  = 'Terminal reloads settings.json on change; open tabs keep their profile.'
     }
@@ -228,6 +379,10 @@ function Get-TweakState($t) {
     if ($t.Live) { $cur = "$cur $(& $t.Live)"; $want = "$want $($t.LiveWant)" }
     [pscustomobject]@{ Current = $cur; Want = $want }
 }
+
+# Dot-sourcing (`. windows/tweaks.ps1`) defines the functions and $Tweaks for tests
+# and stops here, before anything is read or changed.
+if ($MyInvocation.InvocationName -eq '.') { return }
 
 Write-Step "system tweaks$(if (-not $IsAdmin) { ' (not elevated: admin entries are read-only this run)' })"
 foreach ($t in $Tweaks) {
