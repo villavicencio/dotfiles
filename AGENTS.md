@@ -265,9 +265,17 @@ It's a separate opt-in step, because some entries need elevation and `install.ps
 unelevated. It records only settings the PC already has and backs up prior values first.
 The mouse and time entries also check the live session and apply live (mouse via
 `SystemParametersInfo`; time via `w32tm /config /update` + `/resync`, run whenever the registry
-or the service's reported source differs). Game Bar and GPU scheduling are plain registry writes and may need
-a sign-out or restart. A `-DryRun` must read `ok` on every line. Details: "System
-tweaks" in `CLAUDE.md`.
+or the service's reported source differs). Game Bar, Game Mode and GPU scheduling are plain registry writes and may need
+a sign-out or restart. A `-DryRun` must read `ok` on every line, except Game Mode on a PC
+that never toggled it: Windows defaults it on without writing `AutoGameModeEnabled`, so it
+reads `would set` until the first real run. The Terminal default-profile entry picks the
+`settings.json` of the running Terminal when both the packaged and unpackaged ones exist (and
+fails naming both when it can't tell), edits only the top-level `defaultProfile` value found by
+a comment-aware JSONC scan, and writes via a checked temp file. Before the swap it locks the
+original against writes and renames (Terminal saves by renaming a temp file over it), re-checks
+that it is unchanged since it was read, renames it aside through the lock, and renames the temp
+file into place without replacing anything. Dot-source the script to test its functions
+without running it. Details: "System tweaks" in `CLAUDE.md`.
 
 ---
 

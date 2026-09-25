@@ -223,6 +223,43 @@ values don't prove the service uses them, though, so the entry also compares
 Right after boot the source reads "Local CMOS Clock" until the first poll, so a
 run then may resync needlessly, which is harmless.
 
+**Game Mode's registry value doesn't exist until something writes it.** Game
+Mode is on by default, but `HKCU\Software\Microsoft\GameBar\AutoGameModeEnabled`
+(DWORD, 1 on / 0 off) is only created when the Settings toggle is flipped. This
+PC had never flipped it, so the key held no such value while Game Mode was on.
+Recording it means a dry run reads `would set` (`<absent>` → `1`) until the
+first real run writes it; that is the one expected non-`ok` line.
+
+**Editing Terminal's `settings.json` safely needs three things a regex doesn't
+give.** The first version matched a line-anchored `"defaultProfile"` regex and
+rewrote the file with `WriteAllText`. Review (#192) found three holes:
+- *Two installs.* The packaged build keeps its settings under
+  `Packages\Microsoft.WindowsTerminal_8wekyb3d8bbwe\LocalState\`, an unpackaged
+  (zip/Scoop) build under `%LOCALAPPDATA%\Microsoft\Windows Terminal\`. Taking
+  whichever exists first can edit a file the Terminal in use never reads. The
+  running `WindowsTerminal.exe` tells them apart: a packaged one runs from
+  `WindowsApps\Microsoft.WindowsTerminal_*`. With no signal, fail and name both.
+- *JSONC.* A regex anchored to line starts skips `// "defaultProfile"` but still
+  matches a nested `"defaultProfile"` or one inside `/* */`. A small scan that
+  tracks comments, strings and bracket depth finds the real top-level key, and
+  only that value's characters are replaced.
+- *Concurrent writes.* Terminal saves its own file whenever its settings UI
+  changes, by writing `settings.json.tmp` and renaming it over `settings.json`
+  (`til::io::write_utf8_string_to_file_atomic` in `src/inc/til/io.h`). The
+  first fix hashed the original and then ran `File.Move(tmp, path, overwrite)`,
+  and review on #199 caught that a Terminal save between the two would still
+  be overwritten. A hash check can't close that gap, but a lock can. Open the original with
+  `CreateFileW(GENERIC_READ | DELETE, FILE_SHARE_READ)`. While that handle is
+  open, no one else can write the file or rename or delete over it, and
+  Terminal's own reads (which share everything) still work. Re-hash through the
+  handle, rename the original aside *through the same handle*
+  (`SetFileInformationByHandle(FileRenameInfo)`, `ReplaceIfExists = FALSE`),
+  then `File.Move(tmp, path, overwrite: false)`. What's left is the instant
+  between the two renames, when the path is empty. A save that lands there
+  wins, and the original is put back through the handle. Replacing *over* the
+  locked file isn't possible, because the lock itself denies the delete that a
+  rename-over needs. That's why the original is renamed aside first.
+
 **A hashtable's own properties shadow missing keys.** `$Tweaks` entries are
 hashtables. The first version named the registry list `Values`. On the Terminal
 entry, which has no such key, `$t.Values` returned the hashtable's built-in

@@ -46,7 +46,7 @@ windows/        Windows layer, applied by install.ps1 at the repo root (NOT Dotb
   powershell/profile.ps1  PowerShell 7 profile — the zshrc + alias.sh counterpart
   terminal/dotfiles.json  Windows Terminal fragment — the iTerm dynamic-profile counterpart
   claude-settings.json    hook-free Claude Code settings, copy-seeded to ~/.claude/settings.json
-  tweaks.ps1              system settings (mouse, Game Bar, GPU scheduling, time sync,
+  tweaks.ps1              system settings (mouse, Game Bar, Game Mode, GPU scheduling, time sync,
                           Terminal default profile) — the `defaults write` counterpart;
                           a separate opt-in step, NOT run by install.ps1
   install_nvim.ps1        nvim plugin bootstrap — the helpers/install_nvim.sh counterpart
@@ -1142,7 +1142,7 @@ Windows-specific rules:
 - **Windows Terminal's `settings.json` is app-rewritten** — same trap as Claude's. Tracked
   terminal config goes in the fragment (`windows/terminal/dotfiles.json`), which Terminal
   only reads. The one exception is `defaultProfile`, which a fragment cannot set:
-  `windows/tweaks.ps1` edits that single line in place.
+  `windows/tweaks.ps1` edits that single value in place (see "System tweaks").
 - **Neovim on Windows:** `Neovim.Neovim` is a machine-scope MSI, so `winget import` raises a
   UAC prompt. It adds `C:\Program Files\Neovim\bin` to the machine PATH, which
   `Update-SessionPath` picks up in the same run. `LuaLS.lua-language-server` is the Brewfile's
@@ -1180,11 +1180,17 @@ doesn't stop the others; the script exits 1 and lists them.
 - **Record only what this PC already has.** An entry lands after the setting was changed by
   hand and verified, and `-DryRun` must then read `ok` on every line. The script is a record,
   not a place to try new settings. Current entries: mouse acceleration off, Game Bar
-  background recording off, hardware-accelerated GPU scheduling on (admin, needs a restart),
-  Windows Time syncing from `time.windows.com,0x9` (admin), and Terminal's default profile
-  = PowerShell 7.
-- **Only the mouse and time entries apply live.** Game Bar and GPU scheduling are plain
-  registry writes: Game Bar may need a sign-out, and GPU scheduling needs a restart. Mouse: `SystemParametersInfo(SPI_SETMOUSE, [0,0,0], SPIF_UPDATEINIFILE|SPIF_SENDCHANGE)`
+  background recording off, Game Mode on, hardware-accelerated GPU scheduling on (admin,
+  needs a restart), Windows Time syncing from `time.windows.com,0x9` (admin), and Terminal's
+  default profile = PowerShell 7.
+- **Game Mode is the one expected `would set`.** Windows defaults it on but doesn't write
+  `HKCU\Software\Microsoft\GameBar\AutoGameModeEnabled` (DWORD, 1 on / 0 off) until the
+  Settings toggle does, so a PC that was never toggled reads `AutoGameModeEnabled=<absent>`.
+  The first real run writes the `1` Windows was already assuming; after that it reads `ok`.
+  (`AllowAutoGameMode`, which some PCs also have in that key, isn't recorded: the Windows 11
+  references — ElevenForum's Game Mode tutorial, Microsoft Q&A — use `AutoGameModeEnabled`.)
+- **Only the mouse and time entries apply live.** Game Bar, Game Mode and GPU scheduling are
+  plain registry writes: Game Bar may need a sign-out, and GPU scheduling needs a restart. Mouse: `SystemParametersInfo(SPI_SETMOUSE, [0,0,0], SPIF_UPDATEINIFILE|SPIF_SENDCHANGE)`
   writes the same three `HKCU\Control Panel\Mouse` values *and* changes the running session.
   A registry-only write waits for the next sign-in, so the mouse entry also compares
   `SPI_GETMOUSE` with the registry. Time: `w32tm /config … /update` makes the running service
@@ -1193,6 +1199,35 @@ doesn't stop the others; the script exits 1 and lists them.
   `w32tm /query /source` with the configured peer, and runs the set when either differs. The
   source reads "Local CMOS Clock" until the first poll after boot, so a run just after boot
   may resync, which is harmless.
+- **The Terminal entry edits one value, carefully**, because Terminal rewrites the rest of its
+  `settings.json` itself:
+  - *Which file:* the packaged build's `…\Packages\Microsoft.WindowsTerminal_8wekyb3d8bbwe\LocalState\settings.json`
+    or the unpackaged (zip/Scoop) build's `%LOCALAPPDATA%\Microsoft\Windows Terminal\settings.json`.
+    When both exist, the running `WindowsTerminal.exe` decides (a packaged one runs from
+    `WindowsApps\Microsoft.WindowsTerminal_*`; Preview/Canary are other packages and don't
+    count). If neither kind is running, both are, or a process path can't be read, the entry
+    fails naming both files rather than guess.
+  - *Which key:* a comment-aware scan of the JSONC finds the **top-level** `defaultProfile`,
+    skipping `//` and `/* */` comments, strings, and nested objects/arrays. Key names are
+    compared after decoding JSON escapes, so `"defaultProfile"` counts. A duplicate
+    top-level key, a non-string value, or text it can't scan is an error, as is invalid UTF-8
+    (decoded strictly, so it never round-trips as U+FFFD). Only that value's characters are
+    spliced; BOM and line endings are kept.
+  - *How it writes:* the bytes it read are backed up first, and the new text goes to a temp
+    file beside the original and is read back. Terminal saves by writing `settings.json.tmp`
+    and renaming it over `settings.json`, so "check the hash, then rename ours over it" would
+    still lose a save that landed between the two. Instead the original is opened sharing only
+    read (read + DELETE access, via P/Invoke `CreateFileW`): from then on nothing else can write
+    it or rename over it, and a file some program already has open for writing makes the entry
+    fail with nothing changed. Through that handle it re-checks the hash, renames the original
+    aside (`SetFileInformationByHandle`, never replacing), then renames the temp file into
+    place without replacing. Terminal's own reads share everything and still work. The only
+    gap left is the instant between those two renames, when the path is empty: a save landing
+    there wins, and the original is put back if it can be (else the error names the `.old`
+    file). A symlinked `settings.json` is edited at its target, leaving the link.
+  - Dot-sourcing the script (`. windows/tweaks.ps1`) defines its functions and `$Tweaks` and
+    stops before the engine runs, which is how these are tested against scratch files. The
+    real `set` path of the script as a whole has still only run against scratch copies.
 - **Never name a `$Tweaks` key `Values`, `Keys` or `Count`.** On an entry without that key,
   `$t.Values` returns the hashtable's own `.Values` collection instead of `$null`, so the
   entry gets treated as a registry entry. That's why the registry list is called `Registry`.
