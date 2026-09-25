@@ -1191,7 +1191,8 @@ doesn't stop the others; the script exits 1 and lists them.
     count). If neither kind is running, both are, or a process path can't be read, the entry
     fails naming both files rather than guess.
   - *Which key:* a comment-aware scan of the JSONC finds the **top-level** `defaultProfile`,
-    skipping `//` and `/* */` comments, strings, and nested objects/arrays. A duplicate
+    skipping `//` and `/* */` comments, strings, and nested objects/arrays. Key names are
+    compared after decoding JSON escapes, so `"defaultProfile"` counts. A duplicate
     top-level key, a non-string value, or text it can't scan is an error, as is invalid UTF-8
     (decoded strictly, so it never round-trips as U+FFFD). Only that value's characters are
     spliced; BOM and line endings are kept.

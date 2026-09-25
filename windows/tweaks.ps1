@@ -212,8 +212,10 @@ function Find-TopLevelJsonString([string]$Text, [string]$Key) {
         $end = Get-JsonStringEnd $Text $i
         if ($depth -eq 1) {
             $colon = Skip-JsonTrivia $Text ($end + 1)
-            if ($colon -lt $Text.Length -and $Text[$colon] -eq ':' -and
-                $Text.Substring($i + 1, $end - $i - 1) -ceq $Key) {
+            $name = $Text.Substring($i + 1, $end - $i - 1)
+            # "defaultProfile" is the same key: decode escapes before comparing.
+            if ($name.Contains('\')) { $name = ConvertFrom-Json -InputObject "`"$name`"" }
+            if ($colon -lt $Text.Length -and $Text[$colon] -eq ':' -and $name -ceq $Key) {
                 if ($found) { throw "settings.json has more than one top-level `"$Key`"" }
                 $v = Skip-JsonTrivia $Text ($colon + 1)
                 if ($v -ge $Text.Length -or $Text[$v] -ne '"') { throw "top-level `"$Key`" in settings.json is not a string" }
