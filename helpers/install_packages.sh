@@ -50,11 +50,11 @@ else
     # Core CLI tools (apt equivalents of Brewfile)
     # git-delta, vim and less are here because the git config names them: delta
     # is the [pager] for diff/show and the interactive.diffFilter (Brewfile has
-    # it), vim is core.editor (macOS ships it; the ubuntu:24.04 base image
+    # it), vim is core.editor (macOS ships it; the bare ubuntu base image
     # doesn't), and less is git/gitconfig.linux's core.pager and zshenv's $PAGER.
     # Without them, paged git output, `git add -p` and `git commit` (no -m) fail
     # on a tty trying to run a binary that isn't there.
-    # No `neovim`: apt's is 0.9.5 and the config needs 0.12+, so
+    # No `neovim`: apt's is 0.9.5 on 24.04 and 0.11 on 26.04, and the config needs 0.12+, so
     # helpers/install_nvim.sh installs the official release into ~/.local instead.
     apt_install \
         bat btop curl fd-find fzf gawk git git-delta jq less \

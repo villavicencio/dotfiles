@@ -7,7 +7,7 @@ This repo is the single source of truth for two Macs and a Windows gaming PC:
 | personal | macOS Tahoe | M-series | Primary, source of truth |
 | work | macOS Sequoia | M-series | corporate-managed |
 | gaming-pc | Windows 11 Pro | Ryzen 7 5800X / RTX 3070 | Gaming; set up by `install.ps1`, not Dotbot (see "Setting up the Windows PC") |
-| gaming-pc WSL | Ubuntu 24.04 LTS (WSL 2) | same PC | The Linux layer; a separate clone inside WSL (see "Setting up WSL on the Windows PC") |
+| gaming-pc WSL | Ubuntu 24.04 LTS (WSL 2) | same PC | The Linux layer; a separate clone inside WSL (see "Setting up WSL on the Windows PC"). CI's Linux leg is on 26.04 (VIL-154) |
 
 Managed by [Dotbot](https://github.com/anishathalye/dotbot). Run `./install` to set up a machine — the wrapper runs a shared `dotbot-conf/base.yaml` and then the platform layer (`dotbot-conf/darwin.yaml` on Darwin, `dotbot-conf/linux.yaml` on Linux) automatically. The active Linux target is WSL Ubuntu on the gaming PC (since 2026-09-24); the earlier Hetzner VPS target was retired 2026-05-21 (runbook: `docs/solutions/cross-machine/vps-dotfiles-target.md`).
 
@@ -1182,8 +1182,10 @@ The Linux layer runs unchanged inside WSL — `./install` with `base.yaml` + `li
 is a **second, independent clone** in the Linux filesystem, not the Windows checkout through
 `/mnt/c` (that path is slow, and Windows-side line-ending/permission semantics leak in).
 
-1. From Windows: `wsl --install -d Ubuntu-24.04 --no-launch`. Stay on the release
-   `ci/Dockerfile` tests (24.04 today; moving both is VIL-154).
+1. From Windows: `wsl --install -d Ubuntu-24.04 --no-launch`. CI (`ci/Dockerfile`) moved
+   to **26.04** in VIL-154; the distro stays on 24.04 until it is reinstalled, so until
+   then the Linux helpers must work on both. For a new or reinstalled distro, use
+   `Ubuntu-26.04` in steps 1–3 to match CI (the reinstall steps are on VIL-154).
 2. `wsl -d Ubuntu-24.04` and create the Linux user interactively — use `dvillavicencio` so
    `/home/…` paths line up with `/Users/…` on the Macs. To redo a fresh distro (wrong
    username), `wsl --unregister Ubuntu-24.04` wipes it; reinstall with step 1.
@@ -1260,7 +1262,7 @@ the worktree.
 
 The Linux apt list also installs `git-delta`, `vim` and `less`: `git/gitconfig` names delta
 (the diff/show pager and `interactive.diffFilter`) and vim (`core.editor`), and the overlay
-names less. The ubuntu:24.04 base image has none of them.
+names less. The bare ubuntu base image (24.04 or 26.04) has none of them.
 
 **Picking it up on an existing WSL install:** `git pull && ./install` in the WSL clone (the
 new link is a plain Dotbot `link:`, and apt adds the three packages), then `gh auth login`
