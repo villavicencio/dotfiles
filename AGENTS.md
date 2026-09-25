@@ -22,13 +22,14 @@ Personal dotfiles — the single source of truth for two Macs, managed by
 | personal | macOS Tahoe | M-series | Primary, source of truth |
 | work | macOS Sequoia | M-series | corporate-managed |
 | gaming-pc | Windows 11 Pro | Ryzen 7 5800X / RTX 3070 | Gaming; `install.ps1` + `windows/` |
-| gaming-pc WSL | Ubuntu 24.04 LTS (WSL 2) | same PC | Linux layer; separate clone inside WSL |
+| gaming-pc WSL | Ubuntu 26.04 LTS (WSL 2) | same PC | Linux layer; separate clone inside WSL |
 
 `./install` sets up a machine — the wrapper runs a shared `dotbot-conf/base.yaml` then the
 platform layer (`dotbot-conf/darwin.yaml` on Darwin, `dotbot-conf/linux.yaml` on Linux).
-The active Linux target is WSL Ubuntu 24.04 on the gaming PC (since 2026-09-24; setup in
-`CLAUDE.md` "Setting up WSL on the Windows PC"). CI's Linux leg runs Ubuntu **26.04**
-(VIL-154); WSL stays on 24.04 until it is reinstalled, so Linux helpers must work on both.
+The active Linux target is WSL Ubuntu 26.04 on the gaming PC (since 2026-09-24, reinstalled
+on 26.04 2026-09-25; setup in `CLAUDE.md` "Setting up WSL on the Windows PC"). CI's Linux
+leg runs the same release (VIL-154). On 26.04 `sudo` is sudo-rs; CI runs as root, so only
+the WSL install exercises it. Linux installs no Node or uv yet (VIL-157).
 The earlier Hetzner VPS target was retired
 2026-05-21 — see `docs/solutions/cross-machine/vps-dotfiles-target.md`.
 

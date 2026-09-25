@@ -7,7 +7,7 @@ This repo is the single source of truth for two Macs and a Windows gaming PC:
 | personal | macOS Tahoe | M-series | Primary, source of truth |
 | work | macOS Sequoia | M-series | corporate-managed |
 | gaming-pc | Windows 11 Pro | Ryzen 7 5800X / RTX 3070 | Gaming; set up by `install.ps1`, not Dotbot (see "Setting up the Windows PC") |
-| gaming-pc WSL | Ubuntu 24.04 LTS (WSL 2) | same PC | The Linux layer; a separate clone inside WSL (see "Setting up WSL on the Windows PC"). CI's Linux leg is on 26.04 (VIL-154) |
+| gaming-pc WSL | Ubuntu 26.04 LTS (WSL 2) | same PC | The Linux layer; a separate clone inside WSL (see "Setting up WSL on the Windows PC"). Same release as CI's Linux leg (VIL-154) |
 
 Managed by [Dotbot](https://github.com/anishathalye/dotbot). Run `./install` to set up a machine — the wrapper runs a shared `dotbot-conf/base.yaml` and then the platform layer (`dotbot-conf/darwin.yaml` on Darwin, `dotbot-conf/linux.yaml` on Linux) automatically. The active Linux target is WSL Ubuntu on the gaming PC (since 2026-09-24); the earlier Hetzner VPS target was retired 2026-05-21 (runbook: `docs/solutions/cross-machine/vps-dotfiles-target.md`).
 
@@ -1242,20 +1242,26 @@ The Linux layer runs unchanged inside WSL — `./install` with `base.yaml` + `li
 is a **second, independent clone** in the Linux filesystem, not the Windows checkout through
 `/mnt/c` (that path is slow, and Windows-side line-ending/permission semantics leak in).
 
-1. From Windows: `wsl --install -d Ubuntu-24.04 --no-launch`. CI (`ci/Dockerfile`) moved
-   to **26.04** in VIL-154; the distro stays on 24.04 until it is reinstalled, so until
-   then the Linux helpers must work on both. For a new or reinstalled distro, use
-   `Ubuntu-26.04` in steps 1–3 to match CI (the reinstall steps are on VIL-154).
-2. `wsl -d Ubuntu-24.04` and create the Linux user interactively — use `dvillavicencio` so
+1. From Windows: `wsl --install -d Ubuntu-26.04 --no-launch`: the same release CI's
+   `ci/Dockerfile` tests (both moved from 24.04 in VIL-154, 2026-09-25). When CI moves to
+   a new release, reinstall WSL to match; the 24.04 distro held nothing unique and was
+   simply unregistered.
+2. `wsl -d Ubuntu-26.04` and create the Linux user interactively — use `dvillavicencio` so
    `/home/…` paths line up with `/Users/…` on the Macs. To redo a fresh distro (wrong
-   username), `wsl --unregister Ubuntu-24.04` wipes it; reinstall with step 1.
+   username), `wsl --unregister Ubuntu-26.04` wipes it; reinstall with step 1.
 3. Inside WSL: `git clone https://github.com/villavicencio/dotfiles.git ~/Projects/Personal/dotfiles`,
    `cd` into it, `./install --dry-run`, then **`./install` run by the user in a WSL window** —
    `sudo` and `chsh` both prompt for the Linux password, which an agent shell cannot type.
    An agent can do everything else (clone, dry-run, verify) via
-   `wsl -d Ubuntu-24.04 -u <user> -- bash <script>`.
+   `wsl -d Ubuntu-26.04 -u <user> -- sh <script>` (use `zsh -i <script>` to check anything
+   `.zshrc` sets up). On 26.04 `sudo` is **sudo-rs** (its prompt reads `[sudo: authenticate]
+   Password:`). CI runs as root and never exercises it, but the 2026-09-25 install ran
+   cleanly under sudo-rs 0.2.13.
 4. Verify in zsh: `getent passwd $USER` shows `/usr/bin/zsh`, `dot doctor` exits 0,
-   `dot bench` median under budget (186 ms measured 2026-09-24).
+   `dot bench` median under budget (184 ms measured on 26.04, 2026-09-25; the first run
+   after install is a slow cold start). The pin check takes its arguments:
+   `nvim --headless -l helpers/nvim_verify_lock.lua nvim/lazy-lock.json ~/.local/share/nvim/lazy`
+   (27/27 at their locked commits).
 
 Expected on a fresh install, not failures:
 
@@ -1269,6 +1275,9 @@ Expected on a fresh install, not failures:
   `python3` "shadowed" by `/bin` → `/usr/bin` (Ubuntu's merged-usr symlink, same file).
 - `eza`, `zoxide`, `lazygit` are absent — the apt list in `helpers/install_packages.sh` is
   a curated subset of the Brewfile.
+- **No Node (nvm) and no uv on Linux.** `install_nvm.sh`, `install_node.sh` and
+  `install_uv.sh` run only from `darwin.yaml`, so `node`/`npm`/`uv` are missing in WSL even
+  in an interactive zsh. VIL-157 decides whether to wire them into `linux.yaml`.
 
 Why the Linux layer needed changes for this (both invisible in CI):
 

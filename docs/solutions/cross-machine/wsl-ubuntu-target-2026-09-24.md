@@ -108,6 +108,18 @@ shows the fix commit.
   official release into `~/.local` without sudo, apt's `neovim` was dropped from
   `install_packages.sh`, and the minimum is now 0.12. See
   `docs/solutions/runtime-errors/lazy-nvim-first-launch-drifts-lockfile-2026-09-24.md`.
+- **Reinstalled on 26.04 (2026-09-25, VIL-154).** A fresh `Ubuntu-26.04` distro plus
+  `./install` worked on the first run, including under 26.04's default `sudo`, **sudo-rs
+  0.2.13**. CI can't cover sudo-rs, because it runs as root and its image installs classic
+  `sudo`. Results: login shell zsh, 27/27 nvim pins, only `/usr/bin/gh` as the github.com
+  credential helper, `dot doctor` 0 fail / 4 warn (the same four as on 24.04), `dot bench`
+  median 184 ms. Then `wsl --set-default Ubuntu-26.04` and `wsl --unregister Ubuntu-24.04`,
+  which freed its 2.95 GB `ext4.vhdx`. The inventory before unregistering (no
+  uncommitted or unpushed work, no `env.sh`, SSH keys or gh login) confirmed nothing was
+  lost. One gap surfaced: Linux installs no Node or uv (VIL-157).
+- **Checking what `.zshrc` sets up from an agent:** `wsl -- zsh -l <script>` isn't
+  interactive, so the nvm lazy loader isn't defined and `node` looks missing even when
+  it's installed. Use `zsh -i <script>`.
 - **git credential helpers:** WSL inherited `git/gitconfig`'s macOS helpers.
   Public clones and pulls worked, but pushing didn't. Fixed by VIL-146: a Linux
   overlay (`git/gitconfig.linux`, linked to `~/.config/git/gitconfig.platform`
