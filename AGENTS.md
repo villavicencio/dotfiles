@@ -394,10 +394,12 @@ tweaks" in `CLAUDE.md`.
   land at their branch HEAD and are written back into the tracked `nvim/lazy-lock.json`
   (through the link). `helpers/install_nvim.sh` and `windows/install_nvim.ps1` keep a
   copy of the pins, put it back, restore, and verify against the copy with
-  `helpers/nvim_verify_lock.lua`. Don't reduce this to one `Lazy! restore`. Both helpers
-  first fail (exit 1, nothing touched) unless nvim's config dir resolves to this repo's
-  `nvim/`, since an existing real `~/.config/nvim` or `%LOCALAPPDATA%\nvim` stays in place
-  when it can't be linked over. The minimum is
+  `helpers/nvim_verify_lock.lua`. Don't reduce this to one `Lazy! restore`. Before taking
+  the pin snapshot or launching nvim, both helpers fail (exit 1, config dir untouched)
+  unless nvim's config dir resolves to this repo's `nvim/`, since an existing real
+  `~/.config/nvim` or `%LOCALAPPDATA%\nvim` stays in place when it can't be linked over.
+  The Neovim install/upgrade checks run earlier, and `-AllowMissing` exits 0 before the
+  guard. The minimum is
   Neovim **0.12** (the pinned nvim-treesitter needs it). An older installed nvim is
   upgraded (brew/winget), and the helper fails if it is still too old rather than skipping. On Linux the helper installs the
   pinned release tarball into `~/.local` (no sudo; apt's 0.9.5 is not used). Write-up:
