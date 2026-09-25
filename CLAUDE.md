@@ -29,7 +29,7 @@ docs/           Compound-engineering pipeline artifacts:
                 - docs/ideation/     Idea-survival outputs from /ce-ideate
                 - docs/plans/        Implementation plans from /ce-plan
                 - docs/solutions/    documented solutions to past problems (bugs, best practices, workflow patterns), organized by category with YAML frontmatter (module, tags, problem_type)
-ci/             CI assets (Dockerfile for install-matrix workflow)
+ci/             CI assets (Dockerfile for install-matrix's linux leg, PSScriptAnalyzer settings for its windows leg)
 git/            gitconfig, gitignore, gitattributes, gitconfig.linux (Linux overlay — see
                 "Git on Linux" under "Setting up WSL on the Windows PC")
 helpers/        Bash scripts called by the install pipeline
@@ -889,7 +889,7 @@ Picking up a board ticket always gets its own branch (never work a ticket on
 
 **A docs-only PR skips the install matrix — but not the review.**
 `install-matrix.yml` declares `paths-ignore: ['docs/**', '**.md', 'claude/**/*.md']`,
-so a markdown-only change never triggers `linux`/`macos`; do not wait for a run that
+so a markdown-only change never triggers `linux`/`macos`/`windows`; do not wait for a run that
 will never start. **review-stack still reviews it** (every head of a non-draft PR), and
 reviewers do have findings on markdown, as CodeRabbit did on #171. So `mergeStateStatus:
 CLEAN` is not by itself the merge signal — wait for the review-stack comment for the current
@@ -1127,6 +1127,14 @@ Windows-specific rules:
   tree-sitter CLI plus a C compiler for parsers Neovim does not bundle.
 - **Don't run `python3` from a Windows install step.** It is often the Microsoft Store
   stub under `WindowsApps`, which is why the nvim pin verifier is Lua run by `nvim -l`.
+- **CI covers the Windows layer.** The `windows` job in `install-matrix.yml` runs on a
+  hosted `windows-2025` runner. It does a dry run, a `-SkipPackages` apply, a second run
+  that must change nothing, and the #187 commit-switch check. It does **not** run the full
+  `winget import`: that is a gaming PC's app list, which is slow, and some installers want
+  a GUI or a reboot. It checks that every `packages.json` ID and pinned version resolves in
+  winget instead, because `install.ps1`'s `--ignore-unavailable` would skip a dead ID
+  without saying so. **Adding or removing a link in `install.ps1` means updating the job's
+  `EXPECTED_LINKS` too.**
 
 ### System tweaks (`windows/tweaks.ps1`)
 

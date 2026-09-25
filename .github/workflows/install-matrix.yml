@@ -2,9 +2,10 @@
 # Install matrix — validates the install pipeline on every PR against master.
 # =============================================================================
 #
-# Two top-level jobs (linux + macos), not a strategy matrix — container-based
-# Linux + bare macOS-15 mix poorly inside one matrix and the cleaner artifact
-# is two clearly-named jobs in the PR check list.
+# Three top-level jobs (linux + macos + windows), not a strategy matrix —
+# container-based Linux, bare macOS-15 and a PowerShell-only Windows leg mix
+# poorly inside one matrix, and the cleaner artifact is clearly-named jobs in
+# the PR check list.
 #
 # Linux leg pulls a digest-pinned image published by publish-ci-image.yml
 # from ghcr.io/<owner>/dotfiles-ci-ubuntu. Updating the image (touching
@@ -37,7 +38,7 @@
 #    makes practical risk low; pull_request_target was considered and
 #    rejected (its own footgun set is worse). Document in the PR
 #    review process.
-# 8. macos-15 / ubuntu-24.04 runner-image rotation: GitHub re-bakes
+# 8. macos-15 / ubuntu-24.04 / windows-2025 runner-image rotation: GitHub re-bakes
 #    these labels periodically (security patches, toolchain bumps).
 #    A surprise green-to-red on an unchanged commit usually means a
 #    runner-image refresh — consult the actions/runner-images repo's
@@ -50,6 +51,45 @@
 #     tracked install-pipeline files, all Dotbot-declared symlinks
 #     resolve to files inside the repo.
 # R4. `zsh -i -c true` exits cleanly post-install.
+#
+# Windows leg (VIL-151) — install.ps1 is PowerShell, not Dotbot
+# ------------------------------------------------------------
+# None of the bash composite actions apply, so the `windows` job's
+# assertions are inline steps, each named for what it proves:
+# W1. The checkout is LF-only after cloning the documented way
+#     (`core.autocrlf=input` over Git for Windows' system `true`).
+# W2. Every tracked .ps1 parses, PSScriptAnalyzer is clean at Warning+
+#     (reasoned exclusions in ci/PSScriptAnalyzerSettings.psd1), the three
+#     Windows JSON files parse strictly, and the three gitleaks pins agree.
+# W3. Every windows/packages.json ID (and pinned Version) resolves in the
+#     winget source. install.ps1 passes --ignore-unavailable, so a dead ID
+#     would otherwise be skipped silently on a real machine.
+# W4. `install.ps1 -DryRun` exits 0 and mutates nothing (snapshot delta).
+# W5. `install.ps1 -SkipPackages` exits 0; every link resolves into the
+#     repo, the stubs are right, git resolves autocrlf=input from the stub
+#     plus the Windows credential-helper chain, ~/.claude/settings.json was
+#     seeded byte-identical to windows/claude-settings.json, and the nvim
+#     bootstrap left nvim/lazy-lock.json untouched.
+# W6. The profile loads cleanly in a redirected shell, as `pwsh -File` does.
+# W7. A second run changes nothing (every link/stub/seed line reads `ok`,
+#     the seeded settings.json is left alone, the lockfile is unchanged).
+# W8. The installed gitleaks pre-commit hook blocks a staged secret.
+# W9. Switching the checkout to a commit without windows/gitconfig keeps
+#     files LF — the #187 regression.
+#
+# Deliberately NOT done on Windows: the full `winget import`. packages.json
+# is a gaming PC's app list (Steam, Rockstar, 1Password, PowerToys, WSL,
+# Nvidia FrameView …); on a hosted runner that is slow and several
+# installers want a GUI session or a reboot, so a red would say more about
+# the runner than the repo. W3 checks every ID resolves instead, and the job
+# installs only what install.ps1 and the profile call (gitleaks, uv,
+# starship, zoxide, Neovim) through winget. Neovim is installed so the
+# apply runs the real windows/install_nvim.ps1 bootstrap (link, pinned
+# restore, verify) rather than its -AllowMissing skip, which is three lines
+# and proves nothing about Windows. If winget ever disappears from the
+# image, W3 is skipped with a ::warning:: and gitleaks/uv come from direct
+# downloads (Neovim is then absent and the skip path runs), never a silent
+# pass.
 
 name: Install matrix
 
@@ -65,7 +105,7 @@ on:
   workflow_dispatch:
   schedule:
     # Weekly, Monday 14:17 UTC (06:17 PST / 07:17 PDT). Catches drift that a
-    # quiet week wouldn't: runner-image rotation (macos-15 / ubuntu-24.04
+    # quiet week wouldn't: runner-image rotation (macos-15 / ubuntu-24.04 / windows-2025
     # re-bakes), upstream tool/formula bumps, dead taps. Scheduled runs execute
     # on the default branch (master). PR runs surface in the checks UI; a
     # scheduled red has no PR, so the notify-on-schedule-failure job below opens
@@ -159,7 +199,7 @@ jobs:
   # else — the permission bump is isolated to the notifier, not the code-executing
   # install jobs.
   notify-on-schedule-failure:
-    needs: [linux, macos]
+    needs: [linux, macos, windows]
     if: ${{ failure() && github.event_name == 'schedule' }}
     runs-on: ubuntu-24.04
     permissions:
@@ -252,3 +292,498 @@ jobs:
 
       - name: Post-apply assertions (R3 user-paths + R4 zsh init)
         uses: ./.github/actions/install-matrix-post-apply
+
+  # Windows leg (VIL-151). install.ps1 is PowerShell, not Dotbot, so the bash
+  # composite actions above don't apply; the W1-W9 assertions described in the
+  # header live inline here, one step each. Every step runs under pwsh 7, and
+  # each checks $LASTEXITCODE itself: native exit codes don't trip
+  # $ErrorActionPreference, and Actions only checks the step's LAST command.
+  windows:
+    runs-on: windows-2025
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: pwsh
+    env:
+      # Master just before #186: no install.ps1 and no windows/gitconfig.
+      # Switching a real checkout to a commit like this is what turned the
+      # #187 CRLF regression loose (W9).
+      PRE_WINDOWS_SHA: 0d253193b1d7d4fb6c9fb7cb94a5a4ae774584c2
+      # Every link install.ps1 must create, as BASE|path-under-base|repo-source.
+      # BASE is HOME or an environment variable. KEEP IN SYNC with $links in
+      # install.ps1 (the same deliberate literal as R5/R6's plugin lists).
+      EXPECTED_LINKS: |
+        HOME|.config/git/gitignore|git/gitignore
+        HOME|.config/git/gitattributes|git/gitattributes
+        HOME|.config/starship.toml|starship/starship.toml
+        APPDATA|lazygit/config.yml|lazygit/config.yml
+        HOME|.claude/CLAUDE.md|claude/CLAUDE.md
+        HOME|.claude/statusline-command.sh|claude/statusline-command.sh
+        LOCALAPPDATA|Microsoft/Windows Terminal/Fragments/dotfiles/dotfiles.json|windows/terminal/dotfiles.json
+        LOCALAPPDATA|nvim|nvim
+    steps:
+      - name: Configure git like the gaming PC (before checkout)
+        # Git for Windows' installer default writes core.autocrlf=true to the
+        # SYSTEM config; the gaming PC has it, and it is the trap the #187 fix
+        # exists for. Pin it rather than trusting whatever the image ships, or
+        # W9 could pass vacuously. The documented first clone is
+        # `git -c core.autocrlf=input clone …`; actions/checkout takes no git
+        # -c flags, so the same override goes in the global config, which
+        # install.ps1 later moves aside to ~/.gitconfig.pre-dotfiles when it
+        # writes its stub (exercising the backup path, checked in W5).
+        run: |
+          "image system core.autocrlf: '$(git config --system --get core.autocrlf)'"
+          git config --system core.autocrlf true
+          if ($LASTEXITCODE) { throw 'could not set system core.autocrlf' }
+          git config --global core.autocrlf input
+          if ($LASTEXITCODE) { throw 'could not set global core.autocrlf' }
+          git --version
+          $PSVersionTable.PSVersion.ToString()
+
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+        with:
+          # Full history: W9 switches to PRE_WINDOWS_SHA. No submodules —
+          # install.ps1 never touches the vendored Dotbot.
+          fetch-depth: 0
+
+      - name: W1 — checkout is LF-only
+        run: |
+          $eol = git ls-files --eol
+          if ($LASTEXITCODE) { throw 'git ls-files --eol failed' }
+          $lf = @($eol | Where-Object { $_ -match '^i/lf\s+w/lf\s' })
+          $bad = @($eol | Where-Object { $_ -match '^i/lf\s+w/crlf\s' })
+          "LF files: $($lf.Count); LF-in-index but CRLF-on-disk: $($bad.Count)"
+          git config --show-origin --get core.autocrlf
+          if ($lf.Count -eq 0) {
+            "::error::no i/lf w/lf files at all - git ls-files --eol output changed?"; exit 1
+          }
+          if ($bad.Count) {
+            "::error::checkout wrote CRLF into $($bad.Count) LF file(s); the documented autocrlf=input clone was not honored"
+            $bad | Select-Object -First 20
+            exit 1
+          }
+
+      - name: W2 — static checks (parse, PSScriptAnalyzer, JSON, gitleaks pins)
+        run: |
+          $fail = 0
+          $ps1 = @(git ls-files '*.ps1')
+          if (-not $ps1) { "::error::git ls-files found no .ps1 files - scoping bug"; exit 1 }
+
+          # Parse with the real PowerShell parser: a syntax error anywhere in
+          # the file fails here, not on some later code path at install time.
+          foreach ($f in $ps1) {
+            $tokens = $null; $errors = $null
+            [void][System.Management.Automation.Language.Parser]::ParseFile(
+              (Resolve-Path -LiteralPath $f).Path, [ref]$tokens, [ref]$errors)
+            if ($errors) {
+              foreach ($e in $errors) { "::error file=$f,line=$($e.Extent.StartLineNumber)::$($e.Message)" }
+              $fail++
+            } else { "parsed      $f" }
+          }
+
+          # PSScriptAnalyzer ships in the windows-2025 image; a missing module
+          # is an image change to look at, not a reason to skip the lint.
+          if (-not (Get-Module -ListAvailable PSScriptAnalyzer)) {
+            "::error::PSScriptAnalyzer is not installed on this runner image"; exit 1
+          }
+          Import-Module PSScriptAnalyzer
+          "PSScriptAnalyzer $((Get-Module PSScriptAnalyzer).Version)"
+          foreach ($f in $ps1) {
+            $found = @(Invoke-ScriptAnalyzer -Path $f -Settings ci/PSScriptAnalyzerSettings.psd1)
+            foreach ($d in $found) {
+              "::error file=$f,line=$($d.Line)::[$($d.Severity)] $($d.RuleName): $($d.Message)"
+            }
+            if ($found) { $fail++ } else { "lint clean  $f" }
+          }
+
+          # Strict JSON (no comments, no trailing commas): winget, Terminal and
+          # Claude Code read these, and none should get a file that only parses
+          # leniently.
+          foreach ($f in 'windows/packages.json', 'windows/terminal/dotfiles.json', 'windows/claude-settings.json') {
+            try {
+              $doc = [System.Text.Json.JsonDocument]::Parse([IO.File]::ReadAllText((Resolve-Path $f).Path))
+              $doc.Dispose()
+              "valid JSON  $f"
+            } catch { "::error file=$f::invalid JSON: $($_.Exception.Message)"; $fail++ }
+          }
+          $pk = Get-Content -Raw windows/packages.json | ConvertFrom-Json
+          $ids = @($pk.Sources.Packages.PackageIdentifier)
+          if ($ids.Count -eq 0 -or ($ids | Where-Object { -not $_ })) {
+            "::error file=windows/packages.json::no packages, or a package without a PackageIdentifier"; $fail++
+          }
+          $dupes = @($ids | Group-Object | Where-Object Count -gt 1 | ForEach-Object Name)
+          if ($dupes) { "::error file=windows/packages.json::duplicate IDs: $($dupes -join ', ')"; $fail++ }
+          $frag = Get-Content -Raw windows/terminal/dotfiles.json | ConvertFrom-Json
+          if (-not $frag.profiles) { "::error file=windows/terminal/dotfiles.json::no profiles"; $fail++ }
+
+          # The gitleaks version is pinned in three places that must match
+          # (CLAUDE.md "Version pin"); a Windows-only bump is easy to forget.
+          $preCommit = [regex]::Match((Get-Content -Raw .pre-commit-config.yaml),
+            'repo:\s*https://github\.com/gitleaks/gitleaks\s+rev:\s*v?(\S+)').Groups[1].Value
+          $helper = [regex]::Match((Get-Content -Raw helpers/install_pre_commit.sh),
+            'GITLEAKS_VERSION="([^"]+)"').Groups[1].Value
+          $winget = ($pk.Sources.Packages | Where-Object PackageIdentifier -eq 'Gitleaks.Gitleaks').Version
+          "gitleaks pins: .pre-commit-config.yaml=$preCommit helpers/install_pre_commit.sh=$helper windows/packages.json=$winget"
+          if (-not $preCommit -or -not $helper -or -not $winget -or
+              $preCommit -ne $helper -or $helper -ne $winget) {
+            "::error::the three gitleaks version pins are missing or disagree"; $fail++
+          }
+
+          if ($fail) { "::error::$fail static check(s) failed"; exit 1 }
+
+      - name: W3 — every winget package ID resolves
+        id: winget
+        run: |
+          # winget ships in the windows-2025 image. If a future image drops it,
+          # skip loudly — this check and the winget installs below can't run —
+          # rather than fail on a runner change or pass without saying so.
+          if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
+            "::warning title=winget unavailable::winget is not on PATH on this runner image. windows/packages.json IDs were NOT validated, and the next step falls back to direct downloads."
+            "available=false" >> $env:GITHUB_OUTPUT
+            exit 0
+          }
+          "winget $(winget --version)"
+          "available=true" >> $env:GITHUB_OUTPUT
+          $pk = Get-Content -Raw windows/packages.json | ConvertFrom-Json
+          $fail = 0
+          foreach ($p in $pk.Sources.Packages) {
+            $wargs = @('show', '--id', $p.PackageIdentifier, '--exact', '--source', 'winget',
+                       '--accept-source-agreements', '--disable-interactivity')
+            $label = $p.PackageIdentifier
+            if ($p.Version) { $wargs += @('--version', $p.Version); $label += " $($p.Version)" }
+            $out = winget @wargs 2>&1
+            $code = $LASTEXITCODE
+            if ($code -ne 0) {
+              "::error file=windows/packages.json::'$label' does not resolve in the winget source (exit $code); install.ps1's --ignore-unavailable would skip it silently"
+              $out | Select-Object -Last 5
+              $fail++
+            } else { "resolves  $label" }
+          }
+          if ($fail) { exit 1 }
+
+      - name: Install what install.ps1 and the profile call (gitleaks, uv, starship, zoxide, Neovim)
+        env:
+          WINGET: ${{ steps.winget.outputs.available }}
+        run: |
+          # Not the full `winget import` — see the header. This is the subset
+          # install.ps1 needs to exit 0 (gitleaks on PATH, uv to install
+          # pre-commit), the two tools whose init the profile runs, and Neovim so
+          # the nvim step does a real bootstrap (see the header).
+          # Deliberately NOT added to $GITHUB_PATH: winget records its PATH
+          # changes in the registry only, exactly as on the gaming PC, so
+          # install.ps1 must find them through its own Update-SessionPath.
+          $pk = Get-Content -Raw windows/packages.json | ConvertFrom-Json
+          $gitleaksVersion = ($pk.Sources.Packages | Where-Object PackageIdentifier -eq 'Gitleaks.Gitleaks').Version
+          if ($env:WINGET -eq 'true') {
+            foreach ($id in 'Gitleaks.Gitleaks', 'astral-sh.uv', 'Starship.Starship', 'ajeetdsouza.zoxide', 'Neovim.Neovim') {
+              $wargs = @('install', '--id', $id, '--exact', '--source', 'winget', '--silent',
+                         '--accept-package-agreements', '--accept-source-agreements', '--disable-interactivity')
+              $v = ($pk.Sources.Packages | Where-Object PackageIdentifier -eq $id).Version
+              if ($v) { $wargs += @('--version', $v) }
+              "==> winget $($wargs -join ' ')"
+              winget @wargs
+              if ($LASTEXITCODE) { "::error::winget install $id failed (exit $LASTEXITCODE)"; exit 1 }
+            }
+          } else {
+            "::warning::winget unavailable: installing gitleaks $gitleaksVersion and uv by direct download into ~/.local/bin; starship, zoxide and Neovim are skipped, so the profile's init branches and the nvim bootstrap go untested (install_nvim.ps1 takes its -AllowMissing skip)"
+            $bin = Join-Path $HOME '.local\bin'
+            New-Item -ItemType Directory -Force $bin | Out-Null
+            $zip = Join-Path $env:RUNNER_TEMP 'gitleaks.zip'
+            Invoke-WebRequest "https://github.com/gitleaks/gitleaks/releases/download/v$gitleaksVersion/gitleaks_${gitleaksVersion}_windows_x64.zip" -OutFile $zip
+            Expand-Archive $zip $bin -Force
+            # UV_NO_MODIFY_PATH: the same reason as helpers/install_uv.sh;
+            # install.ps1 already puts ~/.local/bin on its PATH.
+            $env:UV_NO_MODIFY_PATH = '1'; $env:UV_INSTALL_DIR = $bin
+            Invoke-RestMethod https://astral.sh/uv/install.ps1 | Invoke-Expression
+          }
+
+      - name: W4 — install.ps1 -DryRun exits 0 and mutates nothing
+        run: |
+          $docs = [Environment]::GetFolderPath('MyDocuments')
+          # Every place install.ps1 writes, recursively, plus the top level of
+          # $HOME and Documents (a new stub, link or backup lands there). Paths
+          # and link targets for everything; content hashes for files inside
+          # the roots and for the ~/.gitconfig family. ntuser.* are registry
+          # hives the OS rewrites on its own.
+          function Get-Snapshot {
+            $roots = @("$HOME\.config", "$HOME\.claude", "$env:APPDATA\lazygit",
+                       "$env:LOCALAPPDATA\Microsoft\Windows Terminal", "$env:LOCALAPPDATA\nvim",
+                       "$env:LOCALAPPDATA\nvim-data", "$docs\PowerShell", "$PWD\.git\hooks")
+            $deep = foreach ($r in $roots) {
+              if (Test-Path -LiteralPath $r) {
+                Get-Item -LiteralPath $r -Force
+                Get-ChildItem -LiteralPath $r -Recurse -Force
+              }
+            }
+            $top = foreach ($d in $HOME, $docs) {
+              if (Test-Path -LiteralPath $d) { Get-ChildItem -LiteralPath $d -Force | Where-Object Name -notlike 'ntuser*' }
+            }
+            foreach ($i in @($deep) + @($top)) {
+              $hash = ''
+              if (-not $i.PSIsContainer -and -not $i.LinkType -and
+                  ($deep -contains $i -or $i.Name -like '.gitconfig*')) {
+                $hash = (Get-FileHash -LiteralPath $i.FullName).Hash
+              }
+              "$($i.FullName)|$($i.LinkType)|$($i.Target -join ',')|$hash"
+            }
+          }
+          $pre = @(Get-Snapshot | Sort-Object -Unique)
+          # As documented: `pwsh -File install.ps1 -DryRun` (profile loads too).
+          $out = pwsh -File ./install.ps1 -DryRun 2>&1
+          $code = $LASTEXITCODE
+          $out | ForEach-Object { "$_" }
+          $post = @(Get-Snapshot | Sort-Object -Unique)
+
+          $fail = 0
+          if ($code -ne 0) { "::error::install.ps1 -DryRun exited $code"; $fail++ }
+          $errs = @($out | Where-Object { $_ -is [System.Management.Automation.ErrorRecord] })
+          if ($errs) { "::error::install.ps1 -DryRun wrote $($errs.Count) line(s) to stderr"; $fail++ }
+          $delta = Compare-Object $pre $post
+          if ($delta) {
+            "::error::install.ps1 -DryRun mutated the filesystem:"
+            $delta | ForEach-Object { "  $($_.SideIndicator) $($_.InputObject)" }
+            $fail++
+          }
+          # Fresh-runner sanity, like the Linux/macOS legs' created>=1 check:
+          # nothing is installed yet, so every link, both stubs, the settings
+          # seed and the nvim bootstrap must be previewed. A different count
+          # means install.ps1's output format changed or the link table and
+          # EXPECTED_LINKS drifted apart.
+          $text = $out | ForEach-Object { "$_" -replace "`e\[[0-9;]*m", '' }
+          $expected = @($env:EXPECTED_LINKS -split "`n" | Where-Object { $_.Trim() }).Count
+          $links = @($text | Where-Object { $_ -match '^\[dry-run\] would link ' }).Count
+          $stubs = @($text | Where-Object { $_ -match '^\[dry-run\] would write stub ' }).Count
+          $seeds = @($text | Where-Object { $_ -match '^\[dry-run\] would seed .*settings\.json from windows/claude-settings\.json$' }).Count
+          $nvim = @($text | Where-Object { $_ -match '^\[dry-run\] would bootstrap nvim plugins' }).Count
+          "previewed $links link(s) (expected $expected), $stubs stub(s) (expected 2), $seeds settings seed(s) (expected 1), $nvim nvim bootstrap(s) (expected 1)"
+          if ($links -ne $expected -or $stubs -ne 2 -or $seeds -ne 1 -or $nvim -ne 1) { "::error::dry-run preview count mismatch"; $fail++ }
+          if ($fail) { exit 1 }
+
+      - name: Apply (install.ps1 -SkipPackages)
+        env:
+          WINGET: ${{ steps.winget.outputs.available }}
+        run: |
+          $out = pwsh -File ./install.ps1 -SkipPackages 2>&1
+          $code = $LASTEXITCODE
+          $out | ForEach-Object { "$_" }
+          if ($code) { "::error::install.ps1 -SkipPackages exited $code"; exit 1 }
+          # Neovim was installed above, so the nvim step must have done the real
+          # bootstrap, not taken the -AllowMissing skip that a missing nvim gets.
+          $text = $out | ForEach-Object { "$_" }
+          if ($env:WINGET -eq 'true' -and -not ($text -match 'bootstrap complete')) {
+            "::error::Neovim is installed but install_nvim.ps1 did not report a complete bootstrap"; exit 1
+          }
+
+      - name: W5 — links, stubs, and the git config they produce
+        run: |
+          $repo = (Get-Location).Path
+          $repoFwd = $repo -replace '\\', '/'
+          $fail = 0
+          foreach ($line in $env:EXPECTED_LINKS -split "`n" | Where-Object { $_.Trim() }) {
+            $base, $rel, $src = $line.Trim() -split '\|'
+            $baseDir = if ($base -eq 'HOME') { $HOME } else { [Environment]::GetEnvironmentVariable($base) }
+            $target = [IO.Path]::GetFullPath((Join-Path $baseDir $rel))
+            $want = [IO.Path]::GetFullPath((Join-Path $repo $src))
+            $item = Get-Item -LiteralPath $target -Force -ErrorAction SilentlyContinue
+            if (-not $item) { "::error::missing: $target"; $fail++ }
+            elseif ($item.LinkType -ne 'SymbolicLink') { "::error::not a symlink: $target ($($item.LinkType))"; $fail++ }
+            elseif ($item.Target -ne $want) { "::error::$target -> $($item.Target), expected $want"; $fail++ }
+            elseif (-not (Test-Path -LiteralPath $target)) { "::error::dangling: $target"; $fail++ }
+            else { "link ok   $target -> $src" }
+          }
+
+          # ~/.gitconfig: a real LF-only file (not a link) that includes the
+          # shared file then the Windows overrides, both present.
+          $gc = Join-Path $HOME '.gitconfig'
+          $gcItem = Get-Item -LiteralPath $gc -Force -ErrorAction SilentlyContinue
+          if (-not $gcItem -or $gcItem.LinkType) { "::error::~/.gitconfig is missing or a link"; $fail++ }
+          elseif ([IO.File]::ReadAllText($gc).Contains("`r")) { "::error::~/.gitconfig stub has CRLF line endings"; $fail++ }
+          $inc = @(git config --global --get-all include.path)
+          $wantInc = @("$repoFwd/git/gitconfig", "$repoFwd/windows/gitconfig")
+          if (($inc -join '|') -ne ($wantInc -join '|')) {
+            "::error::~/.gitconfig include.path is [$($inc -join ', ')], expected [$($wantInc -join ', ')]"; $fail++
+          } else { "stub ok   ~/.gitconfig includes $($inc -join ' + ')" }
+          # The runner's own ~/.gitconfig must have been moved aside, not deleted.
+          if (-not (Test-Path -LiteralPath "$gc.pre-dotfiles")) { "::error::no ~/.gitconfig.pre-dotfiles backup"; $fail++ }
+          else { "backup ok ~/.gitconfig.pre-dotfiles" }
+
+          # autocrlf must come from the stub itself (outside the worktree), and
+          # win over Git for Windows' system `true`.
+          $origin = git config --show-origin --get core.autocrlf
+          "core.autocrlf: $origin"
+          $file, $value = $origin -split "`t", 2
+          $file = [IO.Path]::GetFullPath(($file -replace '^file:', ''))
+          if ($value -ne 'input' -or $file -ne [IO.Path]::GetFullPath($gc)) {
+            "::error::core.autocrlf resolves to '$value' from $file; expected 'input' from the ~/.gitconfig stub"; $fail++
+          }
+
+          # credential.helper is multi-valued; only the entries after the last
+          # empty value take effect. The Mac helpers must be reset away.
+          function Get-EffectiveHelper([string]$key) {
+            $all = @(git config --global --includes --get-all $key)
+            $last = [array]::LastIndexOf($all, '')
+            @($all | Select-Object -Skip ($last + 1))
+          }
+          $generic = @(Get-EffectiveHelper 'credential.helper')
+          if (($generic -join ';') -ne 'manager') {
+            "::error::effective credential.helper is [$($generic -join '; ')], expected [manager]"; $fail++
+          } else { "git ok    credential.helper = manager" }
+          $gh = @(Get-EffectiveHelper 'credential.https://github.com.helper')
+          if ($gh.Count -ne 1 -or $gh[0] -notmatch 'gh\.exe. auth git-credential$') {
+            "::error::effective github.com credential helper is [$($gh -join '; ')], expected the gh.exe helper"; $fail++
+          } else { "git ok    github.com helper = $($gh[0])" }
+
+          # $PROFILE: a one-line stub dot-sourcing the tracked profile, at the
+          # path pwsh itself resolves (Documents may be redirected).
+          $prof = Join-Path ([Environment]::GetFolderPath('MyDocuments')) 'PowerShell\Microsoft.PowerShell_profile.ps1'
+          if ($prof -ne $PROFILE.CurrentUserCurrentHost) { "::error::stub path $prof is not pwsh's `$PROFILE ($($PROFILE.CurrentUserCurrentHost))"; $fail++ }
+          $wantProf = ". `"$repo\windows\powershell\profile.ps1`"`n"
+          if (-not (Test-Path -LiteralPath $prof) -or [IO.File]::ReadAllText($prof) -ne $wantProf) {
+            "::error::`$PROFILE stub is missing or has unexpected content"; $fail++
+          } else { "stub ok   $prof" }
+
+          $hook = Join-Path $repo '.git\hooks\pre-commit'
+          if (-not (Test-Path $hook) -or -not (Select-String -Quiet -LiteralPath $hook -Pattern 'pre-commit')) {
+            "::error::.git/hooks/pre-commit is missing or not pre-commit's"; $fail++
+          } else { "hook ok   .git/hooks/pre-commit" }
+
+          # ~/.claude/settings.json: the fresh runner has none, so install.ps1
+          # must have seeded it - a real file (never a link, Claude Code
+          # rewrites it in place), byte-identical to the Windows sibling, with
+          # no leftover temp file from the write-then-move.
+          $settings = Join-Path $HOME '.claude\settings.json'
+          $sItem = Get-Item -LiteralPath $settings -Force -ErrorAction SilentlyContinue
+          if (-not $sItem) { "::error::~/.claude/settings.json was not seeded"; $fail++ }
+          elseif ($sItem.LinkType) { "::error::~/.claude/settings.json is a $($sItem.LinkType), not a copy"; $fail++ }
+          elseif ((Get-FileHash -LiteralPath $settings).Hash -ne (Get-FileHash -LiteralPath windows/claude-settings.json).Hash) {
+            "::error::~/.claude/settings.json differs from windows/claude-settings.json"; $fail++
+          } else { "seed ok   ~/.claude/settings.json == windows/claude-settings.json" }
+          $leftover = @(Get-ChildItem -LiteralPath (Join-Path $HOME '.claude') -Force -Filter 'settings.json.seed.*')
+          if ($leftover) { "::error::seed temp file(s) left behind: $($leftover.Name -join ', ')"; $fail++ }
+
+          # The nvim bootstrap writes the tracked lockfile through the link and
+          # must put the pins back (the same check as the Linux/macOS R9).
+          git diff --exit-code --stat -- nvim/lazy-lock.json
+          if ($LASTEXITCODE) { "::error::the nvim bootstrap left nvim/lazy-lock.json modified (pins drifted)"; $fail++ }
+          else { "pins ok   nvim/lazy-lock.json unchanged" }
+          if ($fail) { exit 1 }
+
+      - name: W6 — profile loads cleanly in a redirected shell
+        run: |
+          # A new terminal takes PATH from the registry, which winget updated;
+          # this step's process predates the installs.
+          $env:Path = @($env:Path, [Environment]::GetEnvironmentVariable('Path', 'Machine'),
+                        [Environment]::GetEnvironmentVariable('Path', 'User')) -join ';'
+          $probe = Join-Path $env:RUNNER_TEMP 'profile-probe.ps1'
+          $lines = @(
+            '$fail = @()'
+            'foreach ($f in "ll", "which", "open", "touch", "mkd", "update", "dotfiles") {'
+            '  if (-not (Get-Command $f -CommandType Function -ErrorAction SilentlyContinue)) { $fail += "function $f not defined" }'
+            '}'
+            'if (Get-Command starship -CommandType Application -ErrorAction SilentlyContinue) {'
+            '  # Not the prompt function text: zoxide''s init (run after starship''s) wraps'
+            '  # prompt in its own function, which calls starship''s from a variable. And'
+            '  # not Get-Module: starship''s init is a New-Module dynamic module, which'
+            '  # Get-Module does not list. Its exported function and env var are what show.'
+            '  $tp = [bool](Get-Command Enable-TransientPrompt -ErrorAction Ignore)'
+            '  "starship: STARSHIP_SHELL=''$env:STARSHIP_SHELL'' Enable-TransientPrompt=$tp"'
+            '  if (-not $env:STARSHIP_SHELL -or -not $tp) { $fail += "starship is installed but its init did not complete" } else { "starship init ran" }'
+            '} else { "starship not on PATH - its init branch not exercised" }'
+            'if (Get-Command zoxide -CommandType Application -ErrorAction SilentlyContinue) {'
+            '  if (-not (Get-Command z -ErrorAction SilentlyContinue)) { $fail += "zoxide is installed but z is not defined" } else { "zoxide z defined" }'
+            '} else { "zoxide not on PATH - its init branch not exercised" }'
+            'dotfiles; if ((Get-Location).Path -ne $env:GITHUB_WORKSPACE) { $fail += "dotfiles went to $((Get-Location).Path)" }'
+            'if ($fail) { $fail | ForEach-Object { "FAIL: $_" }; exit 1 }'
+            '"profile ok"'
+          )
+          Set-Content -LiteralPath $probe -Value $lines
+          # `pwsh -File` loads $PROFILE with output redirected — the case the
+          # PSReadLine guard in profile.ps1 exists for.
+          Set-Location $env:RUNNER_TEMP
+          $out = pwsh -File $probe 2>&1
+          $code = $LASTEXITCODE
+          $out | ForEach-Object { "$_" }
+          $errs = @($out | Where-Object { $_ -is [System.Management.Automation.ErrorRecord] })
+          if ($code -ne 0 -or $errs) { "::error::profile probe failed (exit $code, $($errs.Count) stderr line(s))"; exit 1 }
+
+      - name: W7 — a second run changes nothing
+        run: |
+          # The seeded settings.json must be left alone: same bytes, same mtime.
+          $settings = Join-Path $HOME '.claude\settings.json'
+          $before = "$((Get-Item -LiteralPath $settings).LastWriteTimeUtc.Ticks)|$((Get-FileHash -LiteralPath $settings).Hash)"
+          $out = pwsh -File ./install.ps1 -SkipPackages 2>&1
+          $code = $LASTEXITCODE
+          $out | ForEach-Object { "$_" }
+          $text = $out | ForEach-Object { "$_" -replace "`e\[[0-9;]*m", '' }
+          $fail = 0
+          if ($code -ne 0) { "::error::second run exited $code"; $fail++ }
+          $errs = @($out | Where-Object { $_ -is [System.Management.Automation.ErrorRecord] })
+          if ($errs) { "::error::second run wrote $($errs.Count) line(s) to stderr (the profile now loads too)"; $fail++ }
+          $changed = @($text | Where-Object { $_ -match '^\s{4}(linked|wrote|backup|seeded)\s' })
+          if ($changed) { "::error::second run was not idempotent:"; $changed; $fail++ }
+          $ok = @($text | Where-Object { $_ -match '^\s{4}ok\s' }).Count
+          $expected = @($env:EXPECTED_LINKS -split "`n" | Where-Object { $_.Trim() }).Count + 3
+          "ok lines: $ok (expected ${expected}: every link + 2 stubs + the settings seed)"
+          if ($ok -ne $expected) { "::error::expected $expected 'ok' lines"; $fail++ }
+          if (-not ($text -match '^\s{4}ok\s.*settings\.json \(present, left alone\)$')) {
+            "::error::the second run did not report ~/.claude/settings.json as present and left alone"; $fail++
+          }
+          $after = "$((Get-Item -LiteralPath $settings).LastWriteTimeUtc.Ticks)|$((Get-FileHash -LiteralPath $settings).Hash)"
+          if ($after -ne $before) { "::error::the second run rewrote ~/.claude/settings.json"; $fail++ }
+          else { "seed ok   ~/.claude/settings.json untouched" }
+          git diff --exit-code --stat -- nvim/lazy-lock.json
+          if ($LASTEXITCODE) { "::error::the second run left nvim/lazy-lock.json modified"; $fail++ }
+          if ($fail) { exit 1 }
+
+      - name: W8 — the gitleaks pre-commit hook blocks a staged secret
+        run: |
+          $env:Path = @($env:Path, [Environment]::GetEnvironmentVariable('Path', 'Machine'),
+                        [Environment]::GetEnvironmentVariable('Path', 'User'),
+                        (Join-Path $HOME '.local\bin')) -join ';'
+          # High-entropy fake (CLAUDE.md "Entropy gate"), assembled at run time
+          # so this workflow file itself never carries a matching token.
+          $token = 'ghp_' + 'xKy7mFP2zL9QrT4vN8bH3sD1jE6cWa0pIuYg'
+          $file = 'ci-gitleaks-smoke.txt'
+          Set-Content -LiteralPath $file -Value "github_token = $token"
+          $head = git rev-parse HEAD
+          git add -- $file
+          $out = git -c user.name=ci -c user.email=ci@example.invalid commit -q -m 'gitleaks smoke test' 2>&1
+          $code = $LASTEXITCODE
+          $after = git rev-parse HEAD
+          git reset -q -- $file
+          Remove-Item -LiteralPath $file
+          $out | ForEach-Object { "$_" }
+          if ($code -eq 0 -or $after -ne $head) {
+            "::error::the pre-commit hook let a staged GitHub token through (exit $code)"; exit 1
+          }
+          if (-not (($out | ForEach-Object { "$_" }) -match 'leaks found')) {
+            "::error::the commit was refused, but not by gitleaks finding the token"; exit 1
+          }
+          "hook blocked the commit, as it should"
+
+      - name: W9 — switching to a commit without windows/gitconfig keeps LF (#187)
+        run: |
+          function Assert-Lf([string]$where) {
+            $bad = @(git ls-files --eol | Where-Object { $_ -match '^i/lf\s+w/crlf\s' })
+            if ($bad) {
+              "::error::after switching to $where, $($bad.Count) LF file(s) were written with CRLF"
+              $bad | Select-Object -First 20
+              exit 1
+            }
+            "LF-only at $where"
+          }
+          # Premise: without the fix, this system value is what git would fall
+          # back to. If it isn't `true`, the step proves nothing.
+          if ((git config --system --get core.autocrlf) -ne 'true') { "::error::premise: system core.autocrlf is not true"; exit 1 }
+          $back = git rev-parse HEAD
+          git switch -q --detach $env:PRE_WINDOWS_SHA
+          if ($LASTEXITCODE) { "::error::could not switch to $env:PRE_WINDOWS_SHA"; exit 1 }
+          if (Test-Path windows/gitconfig) { "::error::premise: windows/gitconfig exists at $env:PRE_WINDOWS_SHA"; exit 1 }
+          $v = git config --get core.autocrlf
+          "core.autocrlf with windows/gitconfig gone: $v"
+          if ($v -ne 'input') { "::error::core.autocrlf is '$v' once windows/gitconfig is gone; the stub must carry it"; exit 1 }
+          Assert-Lf $env:PRE_WINDOWS_SHA
+          git switch -q --detach $back
+          if ($LASTEXITCODE) { "::error::could not switch back to $back"; exit 1 }
+          Assert-Lf $back

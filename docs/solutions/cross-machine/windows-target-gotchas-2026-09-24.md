@@ -10,6 +10,7 @@ tags:
   - onedrive
   - windows-terminal
   - claude-code
+  - github-actions
   - cross-machine
 severity: Medium
 component: "install.ps1, windows/tweaks.ps1, windows/gitconfig, windows/powershell/profile.ps1, windows/packages.json, windows/terminal/dotfiles.json"
@@ -87,6 +88,22 @@ rewrites files.
 takes its line endings from the script file, so a CRLF copy of `install.ps1`
 wrote a CRLF stub. The next LF run saw a "different" file and backed it up and
 rewrote it for nothing.
+
+**`gh`'s default token can't push workflow files.** `gh auth login` requests
+`repo`, `read:org` and `gist`. With `gh` as the github.com credential helper,
+the first push that touched `.github/workflows/` (the VIL-151 Windows CI leg)
+was refused:
+
+```text
+! [remote rejected] … (refusing to allow an OAuth App to create or update
+workflow `.github/workflows/install-matrix.yml` without `workflow` scope)
+```
+
+Everything else pushes fine, so this surfaces only on CI changes. Log in with
+`gh auth login --scopes workflow`, or add it later with
+`gh auth refresh -h github.com -s workflow`. Both open a browser device flow,
+so an agent can't do it. There was no other stored GitHub credential to fall
+back on: `cmdkey /list` showed only `gh`'s own entries.
 
 **Git has no OS-conditional include**, so `git/gitconfig` cannot pull in the
 Windows overrides by itself. `~/.gitconfig` is therefore a generated stub that
@@ -237,3 +254,35 @@ mentions a system-looking path.** A cleanup command that removed
 same command as `Remove-Item`, even though `Unregister-ScheduledTask` was the
 thing using it. The whole command is refused before any of it runs. Split the
 task-removal and file-removal steps into separate commands.
+
+## CI on a hosted Windows runner (VIL-151)
+
+The `windows` job in `install-matrix.yml` runs on `windows-2025`. These points
+come from its first runs on 2026-09-25 (PR #194):
+
+- **winget works on the hosted image.** `winget v1.11.510` is on PATH, and both
+  `winget show` and `winget install --silent --source winget` run
+  non-interactively. That includes machine-scope MSIs (Starship, Neovim
+  0.12.5), because the runner account is elevated. Resolving all 32 IDs in
+  `packages.json` took about 13 seconds.
+- **Symlinks need no Developer Mode there.** The runner is elevated, so
+  `New-Item -ItemType SymbolicLink` just works. That means CI can't catch a
+  machine where Developer Mode is off.
+- **The image already has `core.autocrlf=true`** in Git for Windows' system
+  config, matching the gaming PC. The job still sets it explicitly, so the #187
+  check can't pass by accident on a future image.
+- **winget PATH changes reach the registry, not the step's process.** The job
+  deliberately doesn't add them to `GITHUB_PATH`, so `install.ps1`'s
+  `Update-SessionPath` has to find gitleaks, uv and nvim. It does. A step that
+  runs the tools itself, like the profile probe, merges the machine and user
+  PATH from the registry first, the way a new terminal would.
+- **zoxide's init wraps `prompt`.** The profile runs starship's init, then
+  zoxide's. zoxide saves the current `prompt` and defines its own, which calls
+  the saved one. So `function:prompt` never mentions starship, even when
+  starship is working.
+- **`Get-Module starship` is empty even when starship's init ran.** The init is
+  a `New-Module` dynamic module, and `Get-Module` doesn't list dynamic modules.
+  Check `$env:STARSHIP_SHELL` and the exported `Enable-TransientPrompt` instead.
+- **A PowerShell function that returns a one-element array returns the element.**
+  `$gh = Get-X` then gives a string, and `$gh[0]` is its first character. Wrap
+  the call in `@(...)` when the caller indexes the result.
