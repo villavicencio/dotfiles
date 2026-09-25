@@ -38,14 +38,37 @@ status=0
 IS_WINDOWS=0
 case "$(uname -s)" in MINGW*|MSYS*|CYGWIN*) IS_WINDOWS=1 ;; esac
 
-# A python3 that actually runs. On Windows `python3` is often the Microsoft
-# Store placeholder: `command -v` finds it, but it exits non-zero with "Python
-# was not found". Probe by running it, and fall back to `python` (what the
-# python.org installer registers).
-PYTHON=""
-for _py in python3 python; do
-  if "$_py" -c 'import sys' >/dev/null 2>&1; then PYTHON="$_py"; break; fi
-done
+# The Python the Claude settings comparison runs, resolved LAZILY by
+# resolve_python — only once that comparison actually needs it — so a run that
+# compares nothing never probes, and never lets uv download an interpreter.
+# PYTHON is an array (the uv command is several words). resolve_python's exit
+# status is the test, never ${#PYTHON[@]}: Bash 3.2 under `set -u` treats an
+# empty array as unbound. PYTHON is only expanded after it succeeds.
+PYTHON=()
+resolve_python() {
+  local _py
+  # A python3 that actually runs. On Windows `python3` is often the Microsoft
+  # Store placeholder: `command -v` finds it, but it exits non-zero with
+  # "Python was not found". Probe by running it, and fall back to `python`
+  # (what the python.org installer registers).
+  for _py in python3 python; do
+    if "$_py" -c 'import sys' >/dev/null 2>&1; then
+      PYTHON=("$_py"); return 0
+    fi
+  done
+  # No working Python on PATH — the state of a Windows PC set up only by
+  # install.ps1, which installs uv but no Python. Run one through uv: it uses
+  # an interpreter it can discover (managed, PATH, or the Windows registry; it
+  # skips the Store placeholder) or, if there is none, downloads a managed one
+  # into uv's own store. That download is intended: this is only reached when
+  # a comparison needs Python. --no-project stops uv treating this repo as a
+  # project to create and sync.
+  if command -v uv >/dev/null 2>&1 \
+     && uv run --no-project --quiet python -c 'import sys' >/dev/null 2>&1; then
+    PYTHON=(uv run --no-project --quiet python); return 0
+  fi
+  return 1
+}
 
 # A native Windows python can't open a Git Bash path (/c/Users/...); hand it
 # the C:\... form. Everywhere else the path passes through unchanged.
@@ -249,17 +272,17 @@ if [ ! -f "$CLAUDE_TRACKED" ]; then
   status=1
 elif [ ! -f "$CLAUDE_LIVE" ]; then
   echo "  (not seeded on this machine yet — $CLAUDE_INSTALLER will copy it in)"
-elif [ -z "$PYTHON" ]; then
+elif ! resolve_python; then
   # Not a silent skip: without normalization there is no comparison at all, and
   # a clean exit would read as "in sync".
-  echo "ERROR: no working python3/python on PATH — cannot compare Claude settings" >&2
+  echo "ERROR: no working python3/python on PATH, and no working uv to run one — cannot compare Claude settings" >&2
   status=1
 else
   # Emits the live file reduced to what capture would track, so the diff shows
   # only real, actionable drift. Explicit utf-8 so Windows' locale codec can't
   # choke on non-ASCII (the default on macOS/Linux already is utf-8).
   claude_norm() {
-    CLAUDE_FILE="$(native_path "$1")" "$PYTHON" - <<'PYEOF'
+    CLAUDE_FILE="$(native_path "$1")" "${PYTHON[@]}" - <<'PYEOF'
 import collections, json, os, sys
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(newline="\n")   # Windows would emit CRLF lines
@@ -303,7 +326,7 @@ PYEOF
   claude_tracked_norm="$(claude_norm "$CLAUDE_TRACKED")"; tracked_rc=$?
   if [ "$live_rc" -ne 0 ] || [ "$tracked_rc" -ne 0 ] \
      || [ -z "$claude_live_norm" ] || [ -z "$claude_tracked_norm" ]; then
-    echo "ERROR: normalizing Claude settings failed ($PYTHON exit: live $live_rc, tracked $tracked_rc) — cannot compute drift" >&2
+    echo "ERROR: normalizing Claude settings failed (${PYTHON[*]} exit: live $live_rc, tracked $tracked_rc) — cannot compute drift" >&2
     status=1
   elif printf '%s' "$claude_live_norm" | grep -q '^UNPARSEABLE'; then
     echo "ERROR: live settings is not valid JSON — cannot compute drift" >&2
@@ -322,9 +345,9 @@ PYEOF
   if grep -q '"allowedTools"' "$CLAUDE_LIVE"; then
     echo "  WARNING: live settings has a legacy top-level 'allowedTools' key."
     echo "           It OVERRIDES permissions.allow, which is then silently inert."
-    # $PYTHON is the probed interpreter (the Store python3 placeholder never
+    # PYTHON is the probed interpreter (the Store python3 placeholder never
     # runs). On Windows the migration folds allowedTools only, no herdr hooks.
-    echo "           Repair with: $PYTHON helpers/migrate_claude_settings.py"
+    echo "           Repair with: ${PYTHON[*]} helpers/migrate_claude_settings.py"
     status=1
   fi
 fi
