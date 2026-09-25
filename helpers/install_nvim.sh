@@ -137,21 +137,45 @@ nvim_new_enough() {
 # installs what is missing, so a Mac that already had 0.11 would otherwise report
 # success without the plugin set. On macOS, upgrade through Homebrew and re-check.
 if ! nvim_new_enough; then
+  brew_rc=""
   if [ "$(uname)" = "Darwin" ] && command -v brew >/dev/null 2>&1; then
     echo "install_nvim.sh: Neovim ${ver:-unknown} is older than 0.$NVIM_MIN_MINOR — running brew upgrade neovim..."
-    brew upgrade neovim || true
+    # Keep the status for the message: the version re-check below decides, but a
+    # failed upgrade is the likely cause when it is still too old.
+    brew upgrade neovim; brew_rc=$?
+    [ "$brew_rc" -eq 0 ] || echo "install_nvim.sh: brew upgrade neovim exited $brew_rc." >&2
     hash -r
   fi
   if ! nvim_new_enough; then
     echo "install_nvim.sh: this config needs Neovim 0.$NVIM_MIN_MINOR+, found ${ver:-unknown} ($(command -v nvim))." >&2
+    if [ -n "$brew_rc" ] && [ "$brew_rc" -ne 0 ]; then
+      echo "  (brew upgrade neovim failed with exit $brew_rc; see its output above.)" >&2
+    fi
     echo "  (macOS: brew upgrade neovim. Linux: this helper installs v$NVIM_VERSION to ~/.local.)" >&2
     exit 1
   fi
 fi
 
-echo "Bootstrapping nvim plugins (Lazy restore from pinned lazy-lock.json)..."
+here="$(cd -P "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+
+# nvim's config dir must BE this repo's nvim/ (through the ~/.config/nvim link), or
+# the bootstrap below would install, restore and rewrite someone else's config.
+# Dotbot leaves an existing real ~/.config/nvim directory in place rather than
+# linking over it, so check the resolved path (every symlink followed), not just
+# that a lazy-lock.json exists. Nothing in that directory is touched on failure.
 nvim_config_dir="$(nvim --clean --headless --cmd "lua io.write(vim.fn.stdpath('config'))" +qa 2>/dev/null)"
-lockfile="${nvim_config_dir:-${XDG_CONFIG_HOME:-$HOME/.config}/nvim}/lazy-lock.json"
+nvim_config_dir="${nvim_config_dir:-${XDG_CONFIG_HOME:-$HOME/.config}/nvim}"
+repo_nvim="$(cd -P "$here/../nvim" 2>/dev/null && pwd -P)"
+real_config_dir="$(cd -P "$nvim_config_dir" 2>/dev/null && pwd -P)"
+if [ -z "$repo_nvim" ] || [ -z "$real_config_dir" ] || [ "$real_config_dir" != "$repo_nvim" ]; then
+  echo "install_nvim.sh: nvim's config dir $nvim_config_dir is not this repo's nvim/ — not bootstrapping." >&2
+  echo "  resolves to: ${real_config_dir:-(missing)}; expected: ${repo_nvim:-$here/../nvim (missing)}" >&2
+  echo "  Move that directory aside and run ./install (it links ~/.config/nvim to the repo)." >&2
+  exit 1
+fi
+
+echo "Bootstrapping nvim plugins (Lazy restore from pinned lazy-lock.json)..."
+lockfile="$nvim_config_dir/lazy-lock.json"
 if [ ! -f "$lockfile" ]; then
   echo "install_nvim.sh: no lockfile at $lockfile — run ./install first (it links ~/.config/nvim)." >&2
   exit 1
@@ -209,7 +233,6 @@ restore_pins || exit 1
 
 # Verify EVERY locked plugin is at its recorded commit with a clean checkout
 # (helpers/nvim_verify_lock.lua runs inside nvim, shared with Windows).
-here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 nvim -l "$here/nvim_verify_lock.lua" "$pinned"; rc=$?
 
 # The config must load: NvChad's nvconfig module is only loaded once init.lua has
@@ -231,7 +254,6 @@ if [ "$load_rc" -ne 0 ] || [ "$load" != "config-loaded" ]; then
   printf '%s\n' "$load" | sed 's/^/  /' >&2
 fi
 echo "install_nvim.sh: nvim plugin bootstrap INCOMPLETE (see above)." >&2
-echo "  (If ~/.config/nvim isn't a symlink to this repo yet, run ./install first.)" >&2
 if [ -s "$diag" ]; then
   echo "  --- last restore stderr ---" >&2
   sed 's/^/  /' "$diag" >&2

@@ -21,8 +21,10 @@
     A missing nvim is a failure too, because Neovim.Neovim is in windows/packages.json;
     -AllowMissing turns it into a skip, and -NoUpgrade makes a too-old nvim fail without
     running winget (install.ps1 passes both under -SkipPackages).
+    The config dir nvim reports must resolve (links and junctions followed) to this
+    repo's nvim/; anything else fails before nvim touches it.
     Exit code: 0 ok (or skipped under -AllowMissing), 1 nvim missing or too old,
-    snapshot or restore failure, or incomplete bootstrap.
+    config dir not the repo's nvim/, snapshot or restore failure, or incomplete bootstrap.
 #>
 param([switch]$DryRun, [switch]$AllowMissing, [switch]$NoUpgrade)
 $ErrorActionPreference = 'Stop'
@@ -72,6 +74,45 @@ if (-not (Test-NvimNewEnough $verLine)) {
 # Ask nvim where its config lives (%LOCALAPPDATA%\nvim unless XDG_CONFIG_HOME is set)
 # rather than hardcoding it. --clean: don't load the config (and its installer) for this.
 $configDir = (& nvim --clean --headless --cmd "lua io.write(vim.fn.stdpath('config'))" +qa) -join ''
+
+# The real path of $Path with every symlink and junction on it followed (its parents
+# too), or $null when it does not exist or cannot be resolved.
+function Resolve-RealPath([string]$Path) {
+    $full = [IO.Path]::GetFullPath($Path)
+    if ($full.Length -gt [IO.Path]::GetPathRoot($full).Length) { $full = $full.TrimEnd('\', '/') }
+    $parent = [IO.Path]::GetDirectoryName($full)
+    if ($parent) {
+        $realParent = Resolve-RealPath $parent
+        if (-not $realParent) { return $null }
+        $full = Join-Path $realParent ([IO.Path]::GetFileName($full))
+    }
+    $item = Get-Item -LiteralPath $full -Force -ErrorAction SilentlyContinue
+    if (-not $item) { return $null }
+    if ($item.LinkType -in 'SymbolicLink', 'Junction') {
+        $target = $item.ResolveLinkTarget($true)
+        if (-not $target -or -not $target.Exists) { return $null }
+        return Resolve-RealPath $target.FullName
+    }
+    $item.FullName
+}
+# The config dir must BE this repo's nvim/ (through the install.ps1 link), or the
+# bootstrap below would install, restore and rewrite someone else's config: a real
+# %LOCALAPPDATA%\nvim that could not be moved aside keeps the link from being made.
+# Compare resolved paths, not just "a lazy-lock.json exists". Nothing in that
+# directory is touched on failure.
+try {
+    $realConfig = Resolve-RealPath $configDir
+    $realRepoNvim = Resolve-RealPath (Join-Path $Repo 'nvim')
+} catch {
+    $realConfig = $null   # e.g. a link cycle
+}
+if (-not $realConfig -or -not $realRepoNvim -or
+    -not [string]::Equals($realConfig, $realRepoNvim, [StringComparison]::OrdinalIgnoreCase)) {
+    Write-Warning "nvim's config dir $configDir is not this repo's nvim/ - not bootstrapping."
+    Write-Host "  resolves to: $(if ($realConfig) { $realConfig } else { '(missing)' }); expected: $(Join-Path $Repo 'nvim')"
+    Write-Host '  Move that directory aside and run install.ps1 (it links %LOCALAPPDATA%\nvim to the repo).'
+    exit 1
+}
 $lock = Join-Path $configDir 'lazy-lock.json'
 if (-not (Test-Path -LiteralPath $lock)) {
     Write-Warning "no lockfile at $lock - is $configDir linked to nvim/? (run install.ps1 first)"
