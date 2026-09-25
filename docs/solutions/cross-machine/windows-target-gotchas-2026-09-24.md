@@ -10,6 +10,7 @@ tags:
   - onedrive
   - windows-terminal
   - claude-code
+  - github-actions
   - cross-machine
 severity: Medium
 component: "install.ps1, windows/tweaks.ps1, windows/gitconfig, windows/powershell/profile.ps1, windows/packages.json, windows/terminal/dotfiles.json"
@@ -253,3 +254,35 @@ mentions a system-looking path.** A cleanup command that removed
 same command as `Remove-Item`, even though `Unregister-ScheduledTask` was the
 thing using it. The whole command is refused before any of it runs. Split the
 task-removal and file-removal steps into separate commands.
+
+## CI on a hosted Windows runner (VIL-151)
+
+The `windows` job in `install-matrix.yml` runs on `windows-2025`. These points
+come from its first runs on 2026-09-25 (PR #194):
+
+- **winget works on the hosted image.** `winget v1.11.510` is on PATH, and both
+  `winget show` and `winget install --silent --source winget` run
+  non-interactively. That includes machine-scope MSIs (Starship, Neovim
+  0.12.5), because the runner account is elevated. Resolving all 32 IDs in
+  `packages.json` took about 13 seconds.
+- **Symlinks need no Developer Mode there.** The runner is elevated, so
+  `New-Item -ItemType SymbolicLink` just works. That means CI can't catch a
+  machine where Developer Mode is off.
+- **The image already has `core.autocrlf=true`** in Git for Windows' system
+  config, matching the gaming PC. The job still sets it explicitly, so the #187
+  check can't pass by accident on a future image.
+- **winget PATH changes reach the registry, not the step's process.** The job
+  deliberately doesn't add them to `GITHUB_PATH`, so `install.ps1`'s
+  `Update-SessionPath` has to find gitleaks, uv and nvim. It does. A step that
+  runs the tools itself, like the profile probe, merges the machine and user
+  PATH from the registry first, the way a new terminal would.
+- **zoxide's init wraps `prompt`.** The profile runs starship's init, then
+  zoxide's. zoxide saves the current `prompt` and defines its own, which calls
+  the saved one. So `function:prompt` never mentions starship, even when
+  starship is working.
+- **`Get-Module starship` is empty even when starship's init ran.** The init is
+  a `New-Module` dynamic module, and `Get-Module` doesn't list dynamic modules.
+  Check `$env:STARSHIP_SHELL` and the exported `Enable-TransientPrompt` instead.
+- **A PowerShell function that returns a one-element array returns the element.**
+  `$gh = Get-X` then gives a string, and `$gh[0]` is its first character. Wrap
+  the call in `@(...)` when the caller indexes the result.
