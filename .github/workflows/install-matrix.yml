@@ -151,16 +151,17 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     container:
-      # Pinned to the digest published by publish-ci-image.yml on the
-      # most recent ci/Dockerfile master push. Update this hash by hand
-      # after each republish — fetch from `docker buildx imagetools
-      # inspect ghcr.io/<owner>/dotfiles-ci-ubuntu:24.04`. The image
+      # Pinned to a digest published by publish-ci-image.yml (Ubuntu
+      # 26.04 since VIL-154; the older :24.04 image is untouched). Update
+      # this hash by hand after each republish — read it from the publish
+      # run's summary or `docker buildx imagetools inspect
+      # ghcr.io/<owner>/dotfiles-ci-ubuntu:26.04`. The image
       # bakes in python3 + sudo (per #58) and Acquire::ForceIPv4 (per
       # #65) so no runtime apt-bootstrap or network warm-up is needed.
       # github.repository_owner is used so owner-rename / repo-transfer
       # doesn't break CI; it's lowercase for this repo, which ghcr.io
       # requires.
-      image: ghcr.io/${{ github.repository_owner }}/dotfiles-ci-ubuntu@sha256:8f6ad527bb8ee8d729f94c2e3c6f18f872a54b7a0f698d670ac4a8adc6a3f20e
+      image: ghcr.io/${{ github.repository_owner }}/dotfiles-ci-ubuntu@sha256:0fe49237dd437911a6780fc6b225963c0d7f30582ce06404744b114621acdf37
     steps:
       - name: Checkout
         # SHA-pinned to close the supply-chain vector where a force-pushed
