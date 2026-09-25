@@ -7,8 +7,8 @@
 # because the tracked overlay targeted removed NvChad v1.0 APIs).
 #
 # On Linux it first installs Neovim itself: the official release tarball, pinned
-# and checksum-verified, into ~/.local (no sudo). Ubuntu's apt `neovim` is 0.9.5,
-# far below what this config needs. macOS gets nvim from the Brewfile instead.
+# and checksum-verified, into ~/.local (no sudo). Ubuntu's apt `neovim` (0.9.5 on
+# 24.04, 0.11 on 26.04) is below what this config needs. macOS gets nvim from the Brewfile instead.
 # Windows runs windows/install_nvim.ps1, the PowerShell twin of this file.
 
 set -uo pipefail

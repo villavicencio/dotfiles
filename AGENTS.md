@@ -27,7 +27,9 @@ Personal dotfiles — the single source of truth for two Macs, managed by
 `./install` sets up a machine — the wrapper runs a shared `dotbot-conf/base.yaml` then the
 platform layer (`dotbot-conf/darwin.yaml` on Darwin, `dotbot-conf/linux.yaml` on Linux).
 The active Linux target is WSL Ubuntu 24.04 on the gaming PC (since 2026-09-24; setup in
-`CLAUDE.md` "Setting up WSL on the Windows PC"). The earlier Hetzner VPS target was retired
+`CLAUDE.md` "Setting up WSL on the Windows PC"). CI's Linux leg runs Ubuntu **26.04**
+(VIL-154); WSL stays on 24.04 until it is reinstalled, so Linux helpers must work on both.
+The earlier Hetzner VPS target was retired
 2026-05-21 — see `docs/solutions/cross-machine/vps-dotfiles-target.md`.
 
 ---
@@ -200,7 +202,8 @@ done
 find "$FAKE" -mindepth 1 | wc -l   # must print 0
 rm -rf "$FAKE"
 ```
-CI (`.github/workflows/install-matrix.yml`) runs the full installer on macOS + Linux and
+CI (`.github/workflows/install-matrix.yml`) runs the full installer on macOS + Linux (an
+Ubuntu 26.04 container from `ci/Dockerfile`, pinned by digest) and
 `install.ps1 -SkipPackages` on a hosted Windows runner (no full `winget import`; every
 `packages.json` ID is resolved instead), and asserts outcomes; keep all three legs green.
 The `windows` job's `EXPECTED_LINKS` list must match `$links` in `install.ps1`.
