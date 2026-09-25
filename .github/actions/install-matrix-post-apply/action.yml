@@ -236,10 +236,11 @@ runs:
 
     - name: R9 assertion (nvim >= 0.12, config starts headless, pins untouched)
       # helpers/install_nvim.sh installs the pinned Neovim release on Linux (apt's is
-      # 0.9.5) and restores nvim/lazy-lock.json's pins; its own verify fails ./install
-      # if any plugin is off-pin. This adds what that verify cannot see: the nvim on
-      # PATH is new enough, the tracked config loads with no startup errors, and the
-      # first-launch install did not leave the tracked lockfile rewritten.
+      # below the required 0.12) and restores nvim/lazy-lock.json's pins; its own
+      # verify fails ./install if any plugin is off-pin. This adds what that verify
+      # cannot see: the nvim on PATH is new enough, the tracked config loads with no
+      # startup errors, and the first-launch install did not leave the tracked
+      # lockfile rewritten.
       shell: bash
       run: |
         set -eo pipefail

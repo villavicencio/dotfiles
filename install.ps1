@@ -86,16 +86,21 @@ function Backup-File([string]$Target) {
     Write-Host "    backup  $backup"
 }
 
-# Link $Target -> $Repo/$Source, dotbot `relink: true` style.
-function Set-DotLink([string]$Target, [string]$Source) {
+# True when $Target is already the symlink Set-DotLink makes to $Repo/$Source.
+function Test-DotLink([string]$Target, [string]$Source) {
     # GetFullPath normalizes to backslashes; a symlink target with mixed separators
     # is not reliably resolvable on Windows.
     $src = [IO.Path]::GetFullPath((Join-Path $Repo $Source))
-    if (-not (Test-Path $src)) { throw "link source missing: $Source" }
     $item = Get-Item -LiteralPath $Target -Force -ErrorAction SilentlyContinue
-    if ($item -and $item.LinkType -eq 'SymbolicLink' -and $item.Target -eq $src) {
-        Write-Host "    ok      $Target"; return
-    }
+    [bool]($item -and $item.LinkType -eq 'SymbolicLink' -and $item.Target -eq $src)
+}
+
+# Link $Target -> $Repo/$Source, dotbot `relink: true` style.
+function Set-DotLink([string]$Target, [string]$Source) {
+    $src = [IO.Path]::GetFullPath((Join-Path $Repo $Source))
+    if (-not (Test-Path $src)) { throw "link source missing: $Source" }
+    if (Test-DotLink $Target $Source) { Write-Host "    ok      $Target"; return }
+    $item = Get-Item -LiteralPath $Target -Force -ErrorAction SilentlyContinue
     if ($DryRun) { Write-Would "link $Target -> $Source"; return }
     New-Item -ItemType Directory -Force (Split-Path $Target) | Out-Null
     if ($item -and $item.LinkType) {
@@ -260,6 +265,13 @@ if ($DryRun) {
 # 6. nvim plugins ---------------------------------------------------------------
 Write-Step 'nvim plugins (nvim/lazy-lock.json)'
 Invoke-Step 'nvim plugin bootstrap' {
+    # Only bootstrap into the repo's nvim/: if step 2 could not make the link (a real
+    # directory that would not move aside), %LOCALAPPDATA%\nvim is someone else's
+    # config. A dry run made no link, so there is nothing to check yet.
+    $nvimLink = [IO.Path]::GetFullPath("$env:LOCALAPPDATA/nvim")
+    if (-not $DryRun -and -not (Test-DotLink $nvimLink 'nvim')) {
+        throw "$nvimLink is not the link to nvim/ (see the links step); skipped the bootstrap"
+    }
     # Upgrades a too-old nvim; exit 1 = nvim missing or still too old, or a pin didn't
     # restore. Under -SkipPackages a missing nvim is a skip and an old one fails
     # without running winget.

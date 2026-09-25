@@ -276,7 +276,11 @@ plugins land at their branch HEAD and the drifted commits are written back. A la
 `helpers/install_nvim.sh` and `windows/install_nvim.ps1` therefore keep a copy of the pins,
 bootstrap, put the copy back, restore, and verify against the copy with
 `helpers/nvim_verify_lock.lua`. **Don't collapse this back into a single `Lazy! restore`
-pass.** CI's post-apply R9 check fails if `./install` leaves the lockfile modified. The
+pass.** Before any of that, both helpers resolve nvim's config dir (symlinks and junctions
+followed) and exit 1 without touching it unless it is this repo's `nvim/`: Dotbot leaves an
+existing real `~/.config/nvim` in place, and a real `%LOCALAPPDATA%\nvim` that can't be moved
+aside blocks the Windows link. `install.ps1` also skips the helper, recording a failure, when
+`%LOCALAPPDATA%\nvim` isn't its link. CI's post-apply R9 check fails if `./install` leaves the lockfile modified. The
 minimum Neovim version is **0.12**, because the pinned nvim-treesitter (`main`) requires it.
 An installed nvim below that is upgraded (`brew upgrade neovim` / `winget upgrade`), and
 the helper fails if it is still too old. It never skips with exit 0, because the package
