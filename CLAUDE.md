@@ -881,7 +881,11 @@ this repo, not just ticket work. Avoid committing directly to `master`.
   critical finding that is neither fixed nor explicitly waived with David. It doesn't read
   thread replies, so record a declined finding in your summary to David, not on the PR.
   A comment saying "⚠️ The review did not complete" alerts Atlas; tell David instead of
-  waiting. CodeRabbit may still comment on its own schedule. That's optional input: don't
+  waiting. So does a comment whose verdict is **`failed`** or which says "Incomplete review" /
+  "NOT COMPLETE": its "0 findings ✅" means *not reviewed*, not clean. Two causes seen so far
+  (2026-09-24/25): a held run lock, and the connector tripwire, which fires on the text
+  `github_` anywhere in the diff (#194's gitleaks smoke test, `github_token = …`, set it off). Both
+  need Atlas to re-run the same head; nothing on the PR side is wrong. CodeRabbit may still comment on its own schedule. That's optional input: don't
   wait for it, and don't mention or re-trigger `@coderabbitai`.
 
 Picking up a board ticket always gets its own branch (never work a ticket on
