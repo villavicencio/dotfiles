@@ -86,10 +86,10 @@
 # starship, zoxide, Neovim) through winget. Neovim is installed so the
 # apply runs the real windows/install_nvim.ps1 bootstrap (link, pinned
 # restore, verify) rather than its -AllowMissing skip, which is three lines
-# and proves nothing about Windows. If winget ever disappears from the
-# image, W3 is skipped with a ::warning:: and gitleaks/uv come from direct
-# downloads (Neovim is then absent and the skip path runs), never a silent
-# pass.
+# and proves nothing about Windows. winget is a hard prerequisite: if it
+# ever disappears from the image, W3 fails the job. A warning-and-fallback
+# path here would let the job go green with W3, the real nvim bootstrap and
+# W6's starship/zoxide checks all skipped — a false green.
 
 name: Install matrix
 
@@ -353,14 +353,15 @@ jobs:
           $eol = git ls-files --eol
           if ($LASTEXITCODE) { throw 'git ls-files --eol failed' }
           $lf = @($eol | Where-Object { $_ -match '^i/lf\s+w/lf\s' })
-          $bad = @($eol | Where-Object { $_ -match '^i/lf\s+w/crlf\s' })
-          "LF files: $($lf.Count); LF-in-index but CRLF-on-disk: $($bad.Count)"
+          # w/mixed too: a file with both CRLF and LF lines is still wrong.
+          $bad = @($eol | Where-Object { $_ -match '^i/lf\s+w/(crlf|mixed)\s' })
+          "LF files: $($lf.Count); LF-in-index but CRLF/mixed on disk: $($bad.Count)"
           git config --show-origin --get core.autocrlf
           if ($lf.Count -eq 0) {
             "::error::no i/lf w/lf files at all - git ls-files --eol output changed?"; exit 1
           }
           if ($bad.Count) {
-            "::error::checkout wrote CRLF into $($bad.Count) LF file(s); the documented autocrlf=input clone was not honored"
+            "::error::checkout wrote CRLF (or mixed endings) into $($bad.Count) LF file(s); the documented autocrlf=input clone was not honored"
             $bad | Select-Object -First 20
             exit 1
           }
@@ -434,18 +435,16 @@ jobs:
           if ($fail) { "::error::$fail static check(s) failed"; exit 1 }
 
       - name: W3 — every winget package ID resolves
-        id: winget
         run: |
-          # winget ships in the windows-2025 image. If a future image drops it,
-          # skip loudly — this check and the winget installs below can't run —
-          # rather than fail on a runner change or pass without saying so.
+          # winget ships in the windows-2025 image and is a hard prerequisite:
+          # this check, the installs below, the real nvim bootstrap and W6's
+          # init checks all depend on it. Without it, fail rather than let the
+          # job go green with those checks skipped.
           if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
-            "::warning title=winget unavailable::winget is not on PATH on this runner image. windows/packages.json IDs were NOT validated, and the next step falls back to direct downloads."
-            "available=false" >> $env:GITHUB_OUTPUT
-            exit 0
+            "::error title=winget unavailable::winget is not on PATH on this runner image, so windows/packages.json IDs cannot be validated and the Windows checks that need winget-installed tools cannot run."
+            exit 1
           }
           "winget $(winget --version)"
-          "available=true" >> $env:GITHUB_OUTPUT
           $pk = Get-Content -Raw windows/packages.json | ConvertFrom-Json
           $fail = 0
           foreach ($p in $pk.Sources.Packages) {
@@ -464,8 +463,6 @@ jobs:
           if ($fail) { exit 1 }
 
       - name: Install what install.ps1 and the profile call (gitleaks, uv, starship, zoxide, Neovim)
-        env:
-          WINGET: ${{ steps.winget.outputs.available }}
         run: |
           # Not the full `winget import` — see the header. This is the subset
           # install.ps1 needs to exit 0 (gitleaks on PATH, uv to install
@@ -474,29 +471,16 @@ jobs:
           # Deliberately NOT added to $GITHUB_PATH: winget records its PATH
           # changes in the registry only, exactly as on the gaming PC, so
           # install.ps1 must find them through its own Update-SessionPath.
+          # winget is guaranteed here: W3 fails the job without it.
           $pk = Get-Content -Raw windows/packages.json | ConvertFrom-Json
-          $gitleaksVersion = ($pk.Sources.Packages | Where-Object PackageIdentifier -eq 'Gitleaks.Gitleaks').Version
-          if ($env:WINGET -eq 'true') {
-            foreach ($id in 'Gitleaks.Gitleaks', 'astral-sh.uv', 'Starship.Starship', 'ajeetdsouza.zoxide', 'Neovim.Neovim') {
-              $wargs = @('install', '--id', $id, '--exact', '--source', 'winget', '--silent',
-                         '--accept-package-agreements', '--accept-source-agreements', '--disable-interactivity')
-              $v = ($pk.Sources.Packages | Where-Object PackageIdentifier -eq $id).Version
-              if ($v) { $wargs += @('--version', $v) }
-              "==> winget $($wargs -join ' ')"
-              winget @wargs
-              if ($LASTEXITCODE) { "::error::winget install $id failed (exit $LASTEXITCODE)"; exit 1 }
-            }
-          } else {
-            "::warning::winget unavailable: installing gitleaks $gitleaksVersion and uv by direct download into ~/.local/bin; starship, zoxide and Neovim are skipped, so the profile's init branches and the nvim bootstrap go untested (install_nvim.ps1 takes its -AllowMissing skip)"
-            $bin = Join-Path $HOME '.local\bin'
-            New-Item -ItemType Directory -Force $bin | Out-Null
-            $zip = Join-Path $env:RUNNER_TEMP 'gitleaks.zip'
-            Invoke-WebRequest "https://github.com/gitleaks/gitleaks/releases/download/v$gitleaksVersion/gitleaks_${gitleaksVersion}_windows_x64.zip" -OutFile $zip
-            Expand-Archive $zip $bin -Force
-            # UV_NO_MODIFY_PATH: the same reason as helpers/install_uv.sh;
-            # install.ps1 already puts ~/.local/bin on its PATH.
-            $env:UV_NO_MODIFY_PATH = '1'; $env:UV_INSTALL_DIR = $bin
-            Invoke-RestMethod https://astral.sh/uv/install.ps1 | Invoke-Expression
+          foreach ($id in 'Gitleaks.Gitleaks', 'astral-sh.uv', 'Starship.Starship', 'ajeetdsouza.zoxide', 'Neovim.Neovim') {
+            $wargs = @('install', '--id', $id, '--exact', '--source', 'winget', '--silent',
+                       '--accept-package-agreements', '--accept-source-agreements', '--disable-interactivity')
+            $v = ($pk.Sources.Packages | Where-Object PackageIdentifier -eq $id).Version
+            if ($v) { $wargs += @('--version', $v) }
+            "==> winget $($wargs -join ' ')"
+            winget @wargs
+            if ($LASTEXITCODE) { "::error::winget install $id failed (exit $LASTEXITCODE)"; exit 1 }
           }
 
       - name: W4 — install.ps1 -DryRun exits 0 and mutates nothing
@@ -562,8 +546,6 @@ jobs:
           if ($fail) { exit 1 }
 
       - name: Apply (install.ps1 -SkipPackages)
-        env:
-          WINGET: ${{ steps.winget.outputs.available }}
         run: |
           $out = pwsh -File ./install.ps1 -SkipPackages 2>&1
           $code = $LASTEXITCODE
@@ -572,7 +554,7 @@ jobs:
           # Neovim was installed above, so the nvim step must have done the real
           # bootstrap, not taken the -AllowMissing skip that a missing nvim gets.
           $text = $out | ForEach-Object { "$_" }
-          if ($env:WINGET -eq 'true' -and -not ($text -match 'bootstrap complete')) {
+          if (-not ($text -match 'bootstrap complete')) {
             "::error::Neovim is installed but install_nvim.ps1 did not report a complete bootstrap"; exit 1
           }
 
@@ -690,10 +672,10 @@ jobs:
             '  $tp = [bool](Get-Command Enable-TransientPrompt -ErrorAction Ignore)'
             '  "starship: STARSHIP_SHELL=''$env:STARSHIP_SHELL'' Enable-TransientPrompt=$tp"'
             '  if (-not $env:STARSHIP_SHELL -or -not $tp) { $fail += "starship is installed but its init did not complete" } else { "starship init ran" }'
-            '} else { "starship not on PATH - its init branch not exercised" }'
+            '} else { $fail += "starship is not on PATH, so its init branch was not exercised (it was installed above)" }'
             'if (Get-Command zoxide -CommandType Application -ErrorAction SilentlyContinue) {'
             '  if (-not (Get-Command z -ErrorAction SilentlyContinue)) { $fail += "zoxide is installed but z is not defined" } else { "zoxide z defined" }'
-            '} else { "zoxide not on PATH - its init branch not exercised" }'
+            '} else { $fail += "zoxide is not on PATH, so its init branch was not exercised (it was installed above)" }'
             'dotfiles; if ((Get-Location).Path -ne $env:GITHUB_WORKSPACE) { $fail += "dotfiles went to $((Get-Location).Path)" }'
             'if ($fail) { $fail | ForEach-Object { "FAIL: $_" }; exit 1 }'
             '"profile ok"'
@@ -766,9 +748,9 @@ jobs:
       - name: W9 — switching to a commit without windows/gitconfig keeps LF (#187)
         run: |
           function Assert-Lf([string]$where) {
-            $bad = @(git ls-files --eol | Where-Object { $_ -match '^i/lf\s+w/crlf\s' })
+            $bad = @(git ls-files --eol | Where-Object { $_ -match '^i/lf\s+w/(crlf|mixed)\s' })
             if ($bad) {
-              "::error::after switching to $where, $($bad.Count) LF file(s) were written with CRLF"
+              "::error::after switching to $where, $($bad.Count) LF file(s) were written with CRLF (or mixed endings)"
               $bad | Select-Object -First 20
               exit 1
             }

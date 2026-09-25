@@ -1137,8 +1137,12 @@ Windows-specific rules:
   `winget import`: that is a gaming PC's app list, which is slow, and some installers want
   a GUI or a reboot. It checks that every `packages.json` ID and pinned version resolves in
   winget instead, because `install.ps1`'s `--ignore-unavailable` would skip a dead ID
-  without saying so. **Adding or removing a link in `install.ps1` means updating the job's
-  `EXPECTED_LINKS` too.**
+  without saying so. **winget is a hard prerequisite of the job:** if a runner image ever
+  lacks it, the job fails. There is deliberately no fallback, because the ID check, the
+  real nvim bootstrap and the profile's starship/zoxide checks all depend on
+  winget-installed tools, and a fallback would let the job go green with them skipped. The
+  LF checks (W1, W9) reject `w/crlf` and `w/mixed`. **Adding or removing a link in
+  `install.ps1` means updating the job's `EXPECTED_LINKS` too.**
 
 ### System tweaks (`windows/tweaks.ps1`)
 
