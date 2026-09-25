@@ -26,9 +26,9 @@ human-run script. Invoke it yourself:
 
     python3 helpers/migrate_claude_settings.py
 
-On Windows (native Python, or with --no-hooks) step 2 is skipped: herdr and
-its bash hooks don't exist there, and the Windows seed deliberately carries no
-hooks. Only the allowedTools fold runs. Under Git Bash `python3` is usually
+On Windows (native, Cygwin or MSYS Python, or with --no-hooks) step 2 is
+skipped: herdr and its bash hooks don't exist there, and the Windows seed
+deliberately carries no hooks. Only the allowedTools fold runs. Under Git Bash `python3` is usually
 the Microsoft Store placeholder, so call it as `python`.
 """
 import collections
@@ -46,7 +46,10 @@ HOOKS = [
 
 
 def main():
-    with_hooks = not (os.name == "nt" or sys.platform == "cygwin" or "--no-hooks" in sys.argv[1:])
+    # Windows in any Python flavour: native ("nt"), Cygwin, or MSYS2 (an MSYS
+    # python under Git Bash reports sys.platform "msys" and os.name "posix").
+    on_windows = os.name == "nt" or sys.platform in ("cygwin", "msys")
+    with_hooks = not (on_windows or "--no-hooks" in sys.argv[1:])
     if os.environ.get("DOTFILES_DRY_RUN", "0") == "1":
         print("[dry-run] would repair %s (allowedTools fold%s)"
               % (SETTINGS, " + blank-state hooks" if with_hooks else ""))
