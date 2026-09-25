@@ -59,17 +59,20 @@
 # W1. The checkout is LF-only after cloning the documented way
 #     (`core.autocrlf=input` over Git for Windows' system `true`).
 # W2. Every tracked .ps1 parses, PSScriptAnalyzer is clean at Warning+
-#     (reasoned exclusions in ci/PSScriptAnalyzerSettings.psd1), both
+#     (reasoned exclusions in ci/PSScriptAnalyzerSettings.psd1), the three
 #     Windows JSON files parse strictly, and the three gitleaks pins agree.
 # W3. Every windows/packages.json ID (and pinned Version) resolves in the
 #     winget source. install.ps1 passes --ignore-unavailable, so a dead ID
 #     would otherwise be skipped silently on a real machine.
 # W4. `install.ps1 -DryRun` exits 0 and mutates nothing (snapshot delta).
 # W5. `install.ps1 -SkipPackages` exits 0; every link resolves into the
-#     repo, the stubs are right, and git resolves autocrlf=input from the
-#     stub plus the Windows credential-helper chain.
+#     repo, the stubs are right, git resolves autocrlf=input from the stub
+#     plus the Windows credential-helper chain, ~/.claude/settings.json was
+#     seeded byte-identical to windows/claude-settings.json, and the nvim
+#     bootstrap left nvim/lazy-lock.json untouched.
 # W6. The profile loads cleanly in a redirected shell, as `pwsh -File` does.
-# W7. A second run changes nothing (every link/stub line reads `ok`).
+# W7. A second run changes nothing (every link/stub/seed line reads `ok`,
+#     the seeded settings.json is left alone, the lockfile is unchanged).
 # W8. The installed gitleaks pre-commit hook blocks a staged secret.
 # W9. Switching the checkout to a commit without windows/gitconfig keeps
 #     files LF — the #187 regression.
@@ -80,9 +83,13 @@
 # installers want a GUI session or a reboot, so a red would say more about
 # the runner than the repo. W3 checks every ID resolves instead, and the job
 # installs only what install.ps1 and the profile call (gitleaks, uv,
-# starship, zoxide) through winget. If winget ever disappears from the
-# image, W3 is skipped with a ::warning:: and those tools come from direct
-# downloads, never a silent pass.
+# starship, zoxide, Neovim) through winget. Neovim is installed so the
+# apply runs the real windows/install_nvim.ps1 bootstrap (link, pinned
+# restore, verify) rather than its -AllowMissing skip, which is three lines
+# and proves nothing about Windows. If winget ever disappears from the
+# image, W3 is skipped with a ::warning:: and gitleaks/uv come from direct
+# downloads (Neovim is then absent and the skip path runs), never a silent
+# pass.
 
 name: Install matrix
 
@@ -311,7 +318,9 @@ jobs:
         HOME|.config/starship.toml|starship/starship.toml
         APPDATA|lazygit/config.yml|lazygit/config.yml
         HOME|.claude/CLAUDE.md|claude/CLAUDE.md
+        HOME|.claude/statusline-command.sh|claude/statusline-command.sh
         LOCALAPPDATA|Microsoft/Windows Terminal/Fragments/dotfiles/dotfiles.json|windows/terminal/dotfiles.json
+        LOCALAPPDATA|nvim|nvim
     steps:
       - name: Configure git like the gaming PC (before checkout)
         # Git for Windows' installer default writes core.autocrlf=true to the
@@ -388,10 +397,10 @@ jobs:
             if ($found) { $fail++ } else { "lint clean  $f" }
           }
 
-          # Strict JSON (no comments, no trailing commas): winget and Terminal
-          # both read these, and neither should get a file that only parses
+          # Strict JSON (no comments, no trailing commas): winget, Terminal and
+          # Claude Code read these, and none should get a file that only parses
           # leniently.
-          foreach ($f in 'windows/packages.json', 'windows/terminal/dotfiles.json') {
+          foreach ($f in 'windows/packages.json', 'windows/terminal/dotfiles.json', 'windows/claude-settings.json') {
             try {
               $doc = [System.Text.Json.JsonDocument]::Parse([IO.File]::ReadAllText((Resolve-Path $f).Path))
               $doc.Dispose()
@@ -453,20 +462,21 @@ jobs:
           }
           if ($fail) { exit 1 }
 
-      - name: Install what install.ps1 and the profile call (gitleaks, uv, starship, zoxide)
+      - name: Install what install.ps1 and the profile call (gitleaks, uv, starship, zoxide, Neovim)
         env:
           WINGET: ${{ steps.winget.outputs.available }}
         run: |
           # Not the full `winget import` — see the header. This is the subset
           # install.ps1 needs to exit 0 (gitleaks on PATH, uv to install
-          # pre-commit) plus the two tools whose init the profile runs.
+          # pre-commit), the two tools whose init the profile runs, and Neovim so
+          # the nvim step does a real bootstrap (see the header).
           # Deliberately NOT added to $GITHUB_PATH: winget records its PATH
           # changes in the registry only, exactly as on the gaming PC, so
           # install.ps1 must find them through its own Update-SessionPath.
           $pk = Get-Content -Raw windows/packages.json | ConvertFrom-Json
           $gitleaksVersion = ($pk.Sources.Packages | Where-Object PackageIdentifier -eq 'Gitleaks.Gitleaks').Version
           if ($env:WINGET -eq 'true') {
-            foreach ($id in 'Gitleaks.Gitleaks', 'astral-sh.uv', 'Starship.Starship', 'ajeetdsouza.zoxide') {
+            foreach ($id in 'Gitleaks.Gitleaks', 'astral-sh.uv', 'Starship.Starship', 'ajeetdsouza.zoxide', 'Neovim.Neovim') {
               $wargs = @('install', '--id', $id, '--exact', '--source', 'winget', '--silent',
                          '--accept-package-agreements', '--accept-source-agreements', '--disable-interactivity')
               $v = ($pk.Sources.Packages | Where-Object PackageIdentifier -eq $id).Version
@@ -476,7 +486,7 @@ jobs:
               if ($LASTEXITCODE) { "::error::winget install $id failed (exit $LASTEXITCODE)"; exit 1 }
             }
           } else {
-            "::warning::winget unavailable: installing gitleaks $gitleaksVersion and uv by direct download into ~/.local/bin; starship and zoxide are skipped, so the profile's init branches for them go untested"
+            "::warning::winget unavailable: installing gitleaks $gitleaksVersion and uv by direct download into ~/.local/bin; starship, zoxide and Neovim are skipped, so the profile's init branches and the nvim bootstrap go untested (install_nvim.ps1 takes its -AllowMissing skip)"
             $bin = Join-Path $HOME '.local\bin'
             New-Item -ItemType Directory -Force $bin | Out-Null
             $zip = Join-Path $env:RUNNER_TEMP 'gitleaks.zip'
@@ -498,7 +508,8 @@ jobs:
           # hives the OS rewrites on its own.
           function Get-Snapshot {
             $roots = @("$HOME\.config", "$HOME\.claude", "$env:APPDATA\lazygit",
-                       "$env:LOCALAPPDATA\Microsoft\Windows Terminal", "$docs\PowerShell", "$PWD\.git\hooks")
+                       "$env:LOCALAPPDATA\Microsoft\Windows Terminal", "$env:LOCALAPPDATA\nvim",
+                       "$env:LOCALAPPDATA\nvim-data", "$docs\PowerShell", "$PWD\.git\hooks")
             $deep = foreach ($r in $roots) {
               if (Test-Path -LiteralPath $r) {
                 Get-Item -LiteralPath $r -Force
@@ -535,21 +546,34 @@ jobs:
             $fail++
           }
           # Fresh-runner sanity, like the Linux/macOS legs' created>=1 check:
-          # nothing is installed yet, so every link and both stubs must be
-          # previewed. Fewer means install.ps1's output format changed or the
-          # link table and EXPECTED_LINKS drifted apart.
+          # nothing is installed yet, so every link, both stubs, the settings
+          # seed and the nvim bootstrap must be previewed. A different count
+          # means install.ps1's output format changed or the link table and
+          # EXPECTED_LINKS drifted apart.
           $text = $out | ForEach-Object { "$_" -replace "`e\[[0-9;]*m", '' }
           $expected = @($env:EXPECTED_LINKS -split "`n" | Where-Object { $_.Trim() }).Count
           $links = @($text | Where-Object { $_ -match '^\[dry-run\] would link ' }).Count
           $stubs = @($text | Where-Object { $_ -match '^\[dry-run\] would write stub ' }).Count
-          "previewed $links link(s) (expected $expected) and $stubs stub(s) (expected 2)"
-          if ($links -ne $expected -or $stubs -ne 2) { "::error::dry-run preview count mismatch"; $fail++ }
+          $seeds = @($text | Where-Object { $_ -match '^\[dry-run\] would seed .*settings\.json from windows/claude-settings\.json$' }).Count
+          $nvim = @($text | Where-Object { $_ -match '^\[dry-run\] would bootstrap nvim plugins' }).Count
+          "previewed $links link(s) (expected $expected), $stubs stub(s) (expected 2), $seeds settings seed(s) (expected 1), $nvim nvim bootstrap(s) (expected 1)"
+          if ($links -ne $expected -or $stubs -ne 2 -or $seeds -ne 1 -or $nvim -ne 1) { "::error::dry-run preview count mismatch"; $fail++ }
           if ($fail) { exit 1 }
 
       - name: Apply (install.ps1 -SkipPackages)
+        env:
+          WINGET: ${{ steps.winget.outputs.available }}
         run: |
-          pwsh -File ./install.ps1 -SkipPackages
-          if ($LASTEXITCODE) { "::error::install.ps1 -SkipPackages exited $LASTEXITCODE"; exit 1 }
+          $out = pwsh -File ./install.ps1 -SkipPackages 2>&1
+          $code = $LASTEXITCODE
+          $out | ForEach-Object { "$_" }
+          if ($code) { "::error::install.ps1 -SkipPackages exited $code"; exit 1 }
+          # Neovim was installed above, so the nvim step must have done the real
+          # bootstrap, not taken the -AllowMissing skip that a missing nvim gets.
+          $text = $out | ForEach-Object { "$_" }
+          if ($env:WINGET -eq 'true' -and -not ($text -match 'bootstrap complete')) {
+            "::error::Neovim is installed but install_nvim.ps1 did not report a complete bootstrap"; exit 1
+          }
 
       - name: W5 — links, stubs, and the git config they produce
         run: |
@@ -565,7 +589,7 @@ jobs:
             if (-not $item) { "::error::missing: $target"; $fail++ }
             elseif ($item.LinkType -ne 'SymbolicLink') { "::error::not a symlink: $target ($($item.LinkType))"; $fail++ }
             elseif ($item.Target -ne $want) { "::error::$target -> $($item.Target), expected $want"; $fail++ }
-            elseif (-not (Test-Path -LiteralPath $target -PathType Leaf)) { "::error::dangling: $target"; $fail++ }
+            elseif (-not (Test-Path -LiteralPath $target)) { "::error::dangling: $target"; $fail++ }
             else { "link ok   $target -> $src" }
           }
 
@@ -623,6 +647,26 @@ jobs:
           if (-not (Test-Path $hook) -or -not (Select-String -Quiet -LiteralPath $hook -Pattern 'pre-commit')) {
             "::error::.git/hooks/pre-commit is missing or not pre-commit's"; $fail++
           } else { "hook ok   .git/hooks/pre-commit" }
+
+          # ~/.claude/settings.json: the fresh runner has none, so install.ps1
+          # must have seeded it - a real file (never a link, Claude Code
+          # rewrites it in place), byte-identical to the Windows sibling, with
+          # no leftover temp file from the write-then-move.
+          $settings = Join-Path $HOME '.claude\settings.json'
+          $sItem = Get-Item -LiteralPath $settings -Force -ErrorAction SilentlyContinue
+          if (-not $sItem) { "::error::~/.claude/settings.json was not seeded"; $fail++ }
+          elseif ($sItem.LinkType) { "::error::~/.claude/settings.json is a $($sItem.LinkType), not a copy"; $fail++ }
+          elseif ((Get-FileHash -LiteralPath $settings).Hash -ne (Get-FileHash -LiteralPath windows/claude-settings.json).Hash) {
+            "::error::~/.claude/settings.json differs from windows/claude-settings.json"; $fail++
+          } else { "seed ok   ~/.claude/settings.json == windows/claude-settings.json" }
+          $leftover = @(Get-ChildItem -LiteralPath (Join-Path $HOME '.claude') -Force -Filter 'settings.json.seed.*')
+          if ($leftover) { "::error::seed temp file(s) left behind: $($leftover.Name -join ', ')"; $fail++ }
+
+          # The nvim bootstrap writes the tracked lockfile through the link and
+          # must put the pins back (the same check as the Linux/macOS R9).
+          git diff --exit-code --stat -- nvim/lazy-lock.json
+          if ($LASTEXITCODE) { "::error::the nvim bootstrap left nvim/lazy-lock.json modified (pins drifted)"; $fail++ }
+          else { "pins ok   nvim/lazy-lock.json unchanged" }
           if ($fail) { exit 1 }
 
       - name: W6 — profile loads cleanly in a redirected shell
@@ -659,6 +703,9 @@ jobs:
 
       - name: W7 — a second run changes nothing
         run: |
+          # The seeded settings.json must be left alone: same bytes, same mtime.
+          $settings = Join-Path $HOME '.claude\settings.json'
+          $before = "$((Get-Item -LiteralPath $settings).LastWriteTimeUtc.Ticks)|$((Get-FileHash -LiteralPath $settings).Hash)"
           $out = pwsh -File ./install.ps1 -SkipPackages 2>&1
           $code = $LASTEXITCODE
           $out | ForEach-Object { "$_" }
@@ -667,12 +714,20 @@ jobs:
           if ($code -ne 0) { "::error::second run exited $code"; $fail++ }
           $errs = @($out | Where-Object { $_ -is [System.Management.Automation.ErrorRecord] })
           if ($errs) { "::error::second run wrote $($errs.Count) line(s) to stderr (the profile now loads too)"; $fail++ }
-          $changed = @($text | Where-Object { $_ -match '^\s{4}(linked|wrote|backup)\s' })
+          $changed = @($text | Where-Object { $_ -match '^\s{4}(linked|wrote|backup|seeded)\s' })
           if ($changed) { "::error::second run was not idempotent:"; $changed; $fail++ }
           $ok = @($text | Where-Object { $_ -match '^\s{4}ok\s' }).Count
-          $expected = @($env:EXPECTED_LINKS -split "`n" | Where-Object { $_.Trim() }).Count + 2
-          "ok lines: $ok (expected ${expected}: every link + 2 stubs)"
+          $expected = @($env:EXPECTED_LINKS -split "`n" | Where-Object { $_.Trim() }).Count + 3
+          "ok lines: $ok (expected ${expected}: every link + 2 stubs + the settings seed)"
           if ($ok -ne $expected) { "::error::expected $expected 'ok' lines"; $fail++ }
+          if (-not ($text -match '^\s{4}ok\s.*settings\.json \(present, left alone\)$')) {
+            "::error::the second run did not report ~/.claude/settings.json as present and left alone"; $fail++
+          }
+          $after = "$((Get-Item -LiteralPath $settings).LastWriteTimeUtc.Ticks)|$((Get-FileHash -LiteralPath $settings).Hash)"
+          if ($after -ne $before) { "::error::the second run rewrote ~/.claude/settings.json"; $fail++ }
+          else { "seed ok   ~/.claude/settings.json untouched" }
+          git diff --exit-code --stat -- nvim/lazy-lock.json
+          if ($LASTEXITCODE) { "::error::the second run left nvim/lazy-lock.json modified"; $fail++ }
           if ($fail) { exit 1 }
 
       - name: W8 — the gitleaks pre-commit hook blocks a staged secret

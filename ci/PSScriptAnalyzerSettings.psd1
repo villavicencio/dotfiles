@@ -1,5 +1,5 @@
 # PSScriptAnalyzer settings for the install-matrix `windows` job, which lints every
-# tracked .ps1 (install.ps1, windows/powershell/profile.ps1) at Warning and Error.
+# tracked .ps1 (install.ps1 and everything under windows/) at Warning and Error.
 #
 # Each exclusion below is a deliberate design choice, not a finding waved through.
 # Adding a rule here needs the same kind of reason; fix new findings otherwise.
@@ -21,5 +21,10 @@
         # Invoke-Expression. That is the documented init idiom for both tools,
         # and the code comes from binaries installed by winget, not user input.
         'PSAvoidUsingInvokeExpression'
+
+        # A naming convention for cmdlets a module exports. These scripts export
+        # nothing; helpers like Restore-Pins or Set-RegValues act on a set of
+        # values, and the plural says so.
+        'PSUseSingularNouns'
     )
 }

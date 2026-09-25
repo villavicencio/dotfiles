@@ -1135,6 +1135,7 @@ Windows-specific rules:
   winget instead, because `install.ps1`'s `--ignore-unavailable` would skip a dead ID
   without saying so. **Adding or removing a link in `install.ps1` means updating the job's
   `EXPECTED_LINKS` too.**
+
 ### System tweaks (`windows/tweaks.ps1`)
 
 The counterpart of macOS `defaults write`: a data-driven list (`$Tweaks`) of Windows settings,
