@@ -1,9 +1,10 @@
-# Minimal Ubuntu 24.04 image used by the install-matrix workflow to
+# Minimal Ubuntu 26.04 image used by the install-matrix workflow to
 # validate the install pipeline cross-platform on every PR.
 #
-# Mirrors the VPS production target documented in
+# Originally mirrored the (retired) VPS production target documented in
 # docs/solutions/cross-machine/vps-dotfiles-target.md:
-#   - ubuntu:24.04 base
+#   - ubuntu:26.04 base (moved from 24.04 in VIL-154; the WSL target on
+#     the gaming PC follows when it is reinstalled on 26.04)
 #   - root user (the install runbook expects root; dotbot-conf/linux.yaml
 #     assumes root)
 #   - only the bootstrap deps that helpers/install_packages.sh does NOT
@@ -12,7 +13,8 @@
 #
 # This image is published to ghcr.io/<owner>/dotfiles-ci-ubuntu by
 # .github/workflows/publish-ci-image.yml on master pushes that touch
-# this file. Consumers pin to the SHA digest, not the :24.04 tag.
+# this file. Consumers pin to the SHA digest, not the :26.04 tag.
+# (The :24.04 tag is left as it was, never overwritten.)
 #
 # The repo's checkout is mounted into the container at workflow runtime
 # (`actions/checkout@v4` + the runner's working-directory mount) — the
@@ -21,9 +23,9 @@
 #
 # Base image is SHA-pinned (manifest-list digest, multi-arch) to close
 # the upstream supply-chain gap symmetrically with the consumer-side
-# digest pin. Update via `docker buildx imagetools inspect ubuntu:24.04`
+# digest pin. Update via `docker buildx imagetools inspect ubuntu:26.04`
 # when Canonical ships base-image patches.
-FROM ubuntu:24.04@sha256:c4a8d5503dfb2a3eb8ab5f807da5bc69a85730fb49b5cfca2330194ebcc41c7b
+FROM ubuntu:26.04@sha256:da6fc2be547864451aa253836dd926da33623312df4a9a243e35dc877c378a78
 
 ENV DEBIAN_FRONTEND=noninteractive
 

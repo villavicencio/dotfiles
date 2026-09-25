@@ -3,9 +3,13 @@ name: Publish CI image
 run-name: "Publish ci/Dockerfile to ghcr.io (${{ github.event_name }})"
 
 # Builds ci/Dockerfile and publishes it to
-# ghcr.io/<owner>/dotfiles-ci-ubuntu:24.04 so install-matrix.yml (the
-# consuming CI workflow) can pull a pinned Ubuntu 24.04 image that
-# mirrors the VPS production target.
+# ghcr.io/<owner>/dotfiles-ci-ubuntu:26.04 so install-matrix.yml (the
+# consuming CI workflow) can pull a pinned Ubuntu 26.04 image.
+#
+# The tag names the Ubuntu release in ci/Dockerfile's FROM line. A release
+# bump gets a NEW tag, never a re-push of the old one: master's CI keeps
+# pulling the previous image by digest until the bump merges, and :24.04
+# (the image before VIL-154) is left as it was.
 #
 # Visibility: the workflow flips the package to public on every run via
 # `gh api -X PATCH .../visibility -f visibility=public` (idempotent).
@@ -13,7 +17,7 @@ run-name: "Publish ci/Dockerfile to ghcr.io (${{ github.event_name }})"
 # makes it public before consumers need to pull anonymously.
 #
 # Supply-chain: the consuming workflow pins this image to its SHA256
-# digest, not the :24.04 tag. The digest is emitted as a job output AND
+# digest, not the :26.04 tag. The digest is emitted as a job output AND
 # in the run summary so consumers can capture it programmatically (via
 # `gh run view --json outputs -q '.outputs.digest'`) or via copy-paste.
 
@@ -74,7 +78,7 @@ jobs:
         with:
           context: ./ci
           push: true
-          tags: ghcr.io/${{ steps.owner.outputs.lc }}/dotfiles-ci-ubuntu:24.04
+          tags: ghcr.io/${{ steps.owner.outputs.lc }}/dotfiles-ci-ubuntu:26.04
           # provenance: false — SLSA attestation produces a manifest list
           # that complicates digest pinning. Revisit if the digest-pin
           # contract is ever replaced by attestation verification.
@@ -163,7 +167,7 @@ jobs:
             echo ""
             echo "| Field | Value |"
             echo "| --- | --- |"
-            echo "| Tag | \`${IMAGE}:24.04\` |"
+            echo "| Tag | \`${IMAGE}:26.04\` |"
             echo "| Digest | \`${DIGEST}\` |"
             echo ""
             echo "### Pin in the consuming workflow"
