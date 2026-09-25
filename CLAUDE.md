@@ -30,19 +30,26 @@ docs/           Compound-engineering pipeline artifacts:
                 - docs/plans/        Implementation plans from /ce-plan
                 - docs/solutions/    documented solutions to past problems (bugs, best practices, workflow patterns), organized by category with YAML frontmatter (module, tags, problem_type)
 ci/             CI assets (Dockerfile for install-matrix's linux leg, PSScriptAnalyzer settings for its windows leg)
-git/            gitconfig, gitignore, gitattributes
+git/            gitconfig, gitignore, gitattributes, gitconfig.linux (Linux overlay — see
+                "Git on Linux" under "Setting up WSL on the Windows PC")
 helpers/        Bash scripts called by the install pipeline
 herdr/          Herdr agent-multiplexer config (config.toml symlinked into ~/.config/herdr/)
 iterm/          iTerm2 preferences (exported plist, includes Shift+Enter key mapping)
 lazygit/        lazygit config
 npm/            npm global package list (npm-requirements.txt)
-nvim/           Neovim config (custom/ is symlinked into ~/.config/nvim/)
+nvim/           Neovim config (NvChad v2.5; the whole dir is linked as ~/.config/nvim,
+                %LOCALAPPDATA%\nvim on Windows). Plugins pinned in lazy-lock.json
 starship/       Starship prompt config (command_timeout is a global top-level key)
 windows/        Windows layer, applied by install.ps1 at the repo root (NOT Dotbot):
   packages.json           winget package list — the Brewfile counterpart
   gitconfig               overrides chained after git/gitconfig by the ~/.gitconfig stub
   powershell/profile.ps1  PowerShell 7 profile — the zshrc + alias.sh counterpart
   terminal/dotfiles.json  Windows Terminal fragment — the iTerm dynamic-profile counterpart
+  claude-settings.json    hook-free Claude Code settings, copy-seeded to ~/.claude/settings.json
+  tweaks.ps1              system settings (mouse, Game Bar, GPU scheduling, time sync,
+                          Terminal default profile) — the `defaults write` counterpart;
+                          a separate opt-in step, NOT run by install.ps1
+  install_nvim.ps1        nvim plugin bootstrap — the helpers/install_nvim.sh counterpart
 bin/            Repo CLI — bin/dot (symlinked to ~/.local/bin/dot)
   lib/*.py      Python helpers for doctor/bench. Real files, NOT heredocs — see
                 "No heredocs in bin/dot" below
@@ -57,7 +64,7 @@ zsh/
   functions/    Individual function files (man_colorful, mkdir_and_cd, etc.)
 claude/
   CLAUDE.md              Global Claude Code instructions (symlinked to ~/.claude/CLAUDE.md)
-  settings.json          Claude Code settings — plugins, allowed tools (symlinked to ~/.claude/settings.json)
+  settings.json          Claude Code settings — plugins, allowed tools (COPY-SEEDED to ~/.claude/settings.json, never symlinked)
   statusline-command.sh  Statusline script (symlinked to ~/.claude/statusline-command.sh)
   hooks/                 Claude Code hooks (e.g. tmux-attention.sh)
 ```
@@ -83,7 +90,8 @@ Never use `$HOMEBREW_BREW_FILE` — it's unreliable across Homebrew versions. Us
 **Shell:** `~/env.sh` is sourced at the very end of `zshrc` (silently, `2>/dev/null`).
 Use it on any machine for local-only exports, aliases, or PATH additions that should not be committed.
 
-**Git identity:** `~/.gitconfig.local` is included at the end of `git/gitconfig`.
+**Git identity:** `~/.gitconfig.local` is included at the end of `git/gitconfig`, after the
+platform overlay (`~/.config/git/gitconfig.platform`, Linux only), so local settings win.
 The personal email (`villavicencio.david@gmail.com`) is the default. On a work machine,
 override with the corporate email in the local file:
 
@@ -257,6 +265,33 @@ If a leaked loop ever shows up, kill it via `pkill -f claude-spinner-marker`.
 When adding an Oh My Zsh plugin to the `plugins=()` list in `zshrc`, also add the corresponding
 `git clone` to `helpers/install_omz.sh` so it gets installed on fresh machines.
 
+### Neovim plugin pins — the first launch on an empty machine drifts them
+`nvim/lazy-lock.json` is reached through the `~/.config/nvim` link, and lazy.nvim's first
+install **rewrites it**. It installs in rounds; NvChad's own plugins are only known once
+NvChad is on disk, and the lockfile write between rounds drops their entries, so those
+plugins land at their branch HEAD and the drifted commits are written back. A later
+`Lazy! restore` restores *to that rewritten file*, so it looks green. On 2026-09-24,
+9 of 27 pins drifted this way.
+
+`helpers/install_nvim.sh` and `windows/install_nvim.ps1` therefore keep a copy of the pins,
+bootstrap, put the copy back, restore, and verify against the copy with
+`helpers/nvim_verify_lock.lua`. **Don't collapse this back into a single `Lazy! restore`
+pass.** CI's post-apply R9 check fails if `./install` leaves the lockfile modified. The
+minimum Neovim version is **0.12**, because the pinned nvim-treesitter (`main`) requires it.
+An installed nvim below that is upgraded (`brew upgrade neovim` / `winget upgrade`), and
+the helper fails if it is still too old. It never skips with exit 0, because the package
+steps only install what is missing. A missing nvim is a failure too. The snapshot is
+checked (non-empty, byte-equal) before nvim starts. A restore writes a sibling temp file,
+checks it, and renames it over the lockfile, so the tracked file is never truncated. The
+pins are restored again after the final load check. If the run fails, the snapshot is kept
+and its path printed. On Linux, a reused `~/.local/opt/nvim-v<ver>` must carry the
+sha256 marker the helper writes at install time; otherwise it is moved aside and reinstalled. Success also requires
+both nvim passes to exit 0 and a clean headless load of the config (`nvconfig` loaded,
+no output). `nvim --headless` exits 0 even when `init.lua` errors, so exit codes alone
+prove nothing. On Linux, anything already at `~/.local/bin/nvim` (other than a symlink)
+or at the version dir is moved to `<name>.pre-dotfiles`, never deleted.
+Write-up: `docs/solutions/runtime-errors/lazy-nvim-first-launch-drifts-lockfile-2026-09-24.md`.
+
 ### A hook symlinked into the repo is branch-fragile — land the file before wiring it
 `~/.claude/hooks/*.sh` are Dotbot symlinks **into this working tree**, so they resolve against
 whatever branch is checked out. A hook whose file exists only on a *feature* branch goes
@@ -293,7 +328,8 @@ is on the default branch and therefore present on every branch cut from it.
 
 ### Claude Code `settings.json` — copy-seeded, never symlinked
 `claude/settings.json` is the **only** tracked config delivered by copy rather than a
-Dotbot `link:`. The Otty config was the other one until Otty was uninstalled and its
+Dotbot `link:` (its Windows sibling `windows/claude-settings.json` is copy-seeded the same
+way by `install.ps1` — see "Setting up the Windows PC"). The Otty config was the other one until Otty was uninstalled and its
 tracking removed (2026-09-03); the reasoning below is the same one that governed it, and
 the mechanism is written up in
 `docs/solutions/integration-issues/otty-config-symlink-hostile-atomic-rename-2026-08-07.md`
@@ -324,18 +360,21 @@ diff would report permanent un-actionable drift. To record live changes:
 
 ```bash
 dot drift                                            # see what diverged
-bash helpers/install_claude_settings.sh --capture    # regenerate claude/settings.json, then commit
+bash helpers/install_claude_settings.sh --capture    # regenerate claude/settings.json (Git Bash on
+                                                     # Windows: windows/claude-settings.json), then commit
 ```
 
 `--capture` regenerates rather than `cp`s: it drops the machine-local keys
-(`effortLevel`, `autoMode`, `mcpServers`, and `allowedTools` — which must never be tracked),
+(`effortLevel`, `modelSettings`, `autoMode`, `mcpServers`, and `allowedTools` — which must never be tracked),
 re-prepends the tracked `"//"` header, and rewrites absolute `$HOME` paths back to `~/`
 (installers write literal `/Users/<you>/...`; Claude Code expands `~` in hook commands).
 
 **Agents cannot write this file** — the auto-mode classifier blocks it by design, so it stops an
 agent widening its own permissions. `helpers/migrate_claude_settings.py` exists for a machine
 whose settings predate this scheme (folds `allowedTools` back, registers the blank-state hook);
-it is idempotent, backs up first, and **you run it yourself**, not an agent.
+it is idempotent, backs up first, and **you run it yourself**, not an agent. On Windows (native
+Python, or `--no-hooks`) it only folds `allowedTools` — no herdr hooks — and under Git Bash
+you run it as `python`, since `python3` there is the Microsoft Store placeholder.
 
 ### Herdr — agent multiplexer (config symlinked; writes flow back)
 `herdr` (Brewfile) is a tmux-shaped client/server multiplexer with native agent
@@ -825,12 +864,25 @@ this repo, not just ticket work. Avoid committing directly to `master`.
   2026-08-25) — doc edits, typo fixes, and handoff commits included. The rule
   targets behavior and config changes, where review and a clean history matter.
   When in doubt, branch.
-- **PR review is CodeRabbit** (`.coderabbit.yaml` at repo root sets
-  `auto_incremental_review: false`, so re-review is requested with an `@coderabbitai review`
-  comment rather than fired by every push). Wait for its verdict and for each re-review before
-  merging — a stale `CHANGES_REQUESTED` is not permission, and a `Review rate limited` check
-  passes by design without any review having run. Full procedure, rate-limit mechanics, and when
-  to escalate to `dv:gauntlet` instead: the **Code Review** section of the global CLAUDE.md.
+- **PR review is review-stack, David's own reviewer** (since 2026-09-24, PRs #190 and
+  later; replaces CodeRabbit here). It reviews **every new head** of an open, non-draft PR
+  automatically, 2–6 minutes after the push, so there is no trigger comment and no hourly
+  budget. It posts **one PR comment per head**, whose first line is
+  `<!-- review-stack:head=<full sha> run=<id> -->`, followed by findings with a severity and
+  a `path:line`. Wait for the comment for the *current* head (poll every 60 s, give up after
+  20 min):
+
+  ```bash
+  gh pr view <N> --repo villavicencio/dotfiles --json headRefOid,comments --jq '.headRefOid as $h | [.comments[] | select(.body | contains("review-stack:head=" + $h))] | last | .body // "PENDING"'
+  ```
+
+  Fix the real findings and push; the new head is re-reviewed automatically. **Merge
+  readiness:** the latest review-stack comment for the current head has no high or
+  critical finding that is neither fixed nor explicitly waived with David. It doesn't read
+  thread replies, so record a declined finding in your summary to David, not on the PR.
+  A comment saying "⚠️ The review did not complete" alerts Atlas; tell David instead of
+  waiting. CodeRabbit may still comment on its own schedule. That's optional input: don't
+  wait for it, and don't mention or re-trigger `@coderabbitai`.
 
 Picking up a board ticket always gets its own branch (never work a ticket on
 `master`).
@@ -838,11 +890,11 @@ Picking up a board ticket always gets its own branch (never work a ticket on
 **A docs-only PR skips the install matrix — but not the review.**
 `install-matrix.yml` declares `paths-ignore: ['docs/**', '**.md', 'claude/**/*.md']`,
 so a markdown-only change never triggers `linux`/`macos`/`windows`; do not wait for a run that
-will never start. **CodeRabbit still reviews it** if the PR is review-eligible — drafts and
-`WIP` / `DO NOT MERGE` titles are excluded — and it does have findings on markdown, as it did
-on #171. So `mergeStateStatus: CLEAN` is not by itself the merge signal — wait for the
-CodeRabbit check to leave `pending` and triage its findings first. `CLEAN` only tells you
-nothing is *blocking*; a throttled or still-running review also reads clean.
+will never start. **review-stack still reviews it** (every head of a non-draft PR), and
+reviewers do have findings on markdown, as CodeRabbit did on #171. So `mergeStateStatus:
+CLEAN` is not by itself the merge signal — wait for the review-stack comment for the current
+head and triage its findings first. `CLEAN` only tells you nothing is *blocking*; a review
+that hasn't posted yet also reads clean.
 
 ### Claude Code permissions: one allowlist, not two
 
@@ -968,9 +1020,15 @@ stays in the platform's native shell, per
    and `pwsh -File install.ps1` to apply. A failed step does not stop the others; the
    script exits 1 and lists what failed.
 5. `gh auth login --scopes workflow` (the github.com credential helper in `windows/gitconfig`
-   is `gh`). `gh`'s default token scopes are `repo`, `read:org` and `gist`, and GitHub refuses
-   a push that touches `.github/workflows/` without `workflow`. On a machine already logged
-   in: `gh auth refresh -h github.com -s workflow` (interactive, so a human step).
+   is `gh`). gh is the only GitHub credential on the PC, and its default scopes (`repo`,
+   `read:org`, `gist`) make GitHub **reject any push that touches `.github/workflows/`**:
+   `refusing to allow an OAuth App to create or update workflow … without workflow scope`.
+   An existing login adds it with `gh auth refresh -h github.com -s workflow` (it opens a
+   browser, so an agent can't do it). This blocked VIL-151 and the CI half of VIL-154 on
+   2026-09-24. A composite action under `.github/actions/` is *not* a workflow file and
+   pushes fine without the scope.
+6. System settings, from an **elevated** `pwsh`: `pwsh -File windows/tweaks.ps1 -DryRun`,
+   then without `-DryRun`. See "System tweaks" below.
 
 What `install.ps1` does, in order — each step idempotent, `-DryRun` mutates nothing:
 
@@ -978,9 +1036,10 @@ What `install.ps1` does, in order — each step idempotent, `-DryRun` mutates no
    upgrades what is present (without `--no-upgrade` it upgrades every outdated package,
    running apps included). Upgrades are topgrade's job (`update`).
 2. Symlinks the configs shared with macOS — `git/gitignore`, `git/gitattributes`,
-   `starship/starship.toml`, `lazygit/config.yml` (into `%APPDATA%`), `claude/CLAUDE.md` —
-   plus the Windows Terminal fragment. A real file in the way is moved to
-   `<name>.pre-dotfiles`, never deleted.
+   `starship/starship.toml`, `lazygit/config.yml` (into `%APPDATA%`), `claude/CLAUDE.md`,
+   `claude/statusline-command.sh`, and the whole `nvim/` directory as `%LOCALAPPDATA%\nvim`
+   (where Windows Neovim reads its config) — plus the Windows Terminal fragment. A real
+   file or directory in the way is moved to `<name>.pre-dotfiles`, never deleted.
 3. Writes two **stubs** rather than links:
    - `~/.gitconfig` `[include]`s `git/gitconfig` then `windows/gitconfig`. Git has no
      OS-conditional include, so the shared file cannot pull in the Windows overrides itself.
@@ -997,13 +1056,58 @@ What `install.ps1` does, in order — each step idempotent, `-DryRun` mutates no
      Documents, which OneDrive commonly redirects and syncs, and OneDrive handles symlinks
      badly. Resolve Documents with `[Environment]::GetFolderPath('MyDocuments')`, never
      hardcode it.
-4. `pre-commit install` (pre-commit via `uv tool`; gitleaks via winget, **pinned in
+4. Seeds `~/.claude/settings.json` from `windows/claude-settings.json` **only when absent**
+   — the same contract as `helpers/install_claude_settings.sh` on the Macs. A live file is
+   never touched, and the seed is a copy, never a link (Claude Code rewrites the file).
+5. `pre-commit install` (pre-commit via `uv tool`; gitleaks via winget, **pinned in
    `windows/packages.json` too** — that is a third place the gitleaks version must match).
+6. `windows/install_nvim.ps1`: the Windows twin of `helpers/install_nvim.sh`. It restores
+   the plugins pinned in `nvim/lazy-lock.json` into `%LOCALAPPDATA%\nvim-data` and runs
+   `helpers/nvim_verify_lock.lua`, the verifier the two share. A missing nvim is a failure
+   (step 1 imports with `--ignore-unavailable`, so a Neovim that didn't install would
+   otherwise pass silently), except under `-SkipPackages`, which passes `-AllowMissing`
+   and `-NoUpgrade`. With `-NoUpgrade`, an nvim older than 0.12 fails with an "upgrade
+   Neovim.Neovim" message. Otherwise, when nvim is older than 0.12, it runs `winget upgrade --id Neovim.Neovim -e`
+   (step 1's `--no-upgrade` leaves an old copy in place), then fails with exit 1 if the
+   version is still too old. It can also be run on its own.
 
 Windows-specific rules:
 
-- **Never seed `claude/settings.json` on Windows.** Every hook in it calls tmux/herdr bash
-  scripts; on Windows they would error on every event. A Windows settings seed is future work.
+- **Windows seeds `windows/claude-settings.json`, never `claude/settings.json`.** Every hook
+  in the Mac file calls a tmux/herdr bash script, which would error on every event here.
+  The Windows file is the Mac baseline with three things removed, and nothing added:
+
+  | Removed | Why |
+  |---|---|
+  | `hooks` (all of them) | `tmux-attention.sh`, `herdr-agent-state.sh`, `herdr-blank-state.sh` — no tmux or herdr on Windows |
+  | `preferredNotifChannel: "iterm2"` | iTerm2 is macOS-only; Claude Code picks a default |
+  | `Bash(brew …)`, `Bash(tmux -V*)` allow rules | no Homebrew or tmux; dead rules |
+
+  Everything else is identical: `permissions` (the remaining allow rules + `defaultMode`),
+  `enabledPlugins`, `extraKnownMarketplaces`, and the UI/notification prefs. **The
+  `statusLine` block is byte-identical** — `sh "$HOME/.claude/statusline-command.sh"` runs
+  under Git Bash's `sh` with `$HOME` expanded (verified live 2026-09-24), and `install.ps1`
+  links the script. Its deps are `jq` (winget `jqlang.jq`), `git`, `awk`, and the Nerd Font
+  from the Terminal fragment.
+  **Nothing keeps the two files in step but you**: change a shared key in one, change it in
+  the other. Under Git Bash, `install_claude_settings.sh` (seed and `--capture`) and
+  `report_drift.sh` target the Windows file, so a capture on the PC cannot overwrite the Mac
+  baseline with a hook-free copy. On Windows `report_drift.sh` reports **only** the Claude
+  settings comparison — its Homebrew and npm-globals sections are Mac/Linux inventories and
+  are skipped, not failed. Both helpers probe for a Python that actually runs (`python3`
+  under Git Bash is usually the Microsoft Store placeholder, which `command -v` finds but
+  which exits non-zero), fall back to `python`, and hand it `cygpath -w` paths; a failed
+  normalization is an error, never a silent "(in sync)".
+  The seed only lands on a machine with no settings file. A PC that already has one keeps
+  it; adopting the baseline there is a human step (the auto-mode classifier blocks agents
+  from writing it): move the live file aside, re-run `install.ps1`, then re-add any
+  machine-local keys (`modelSettings`, `theme`, …).
+- **The status line normalizes Windows paths for display only.** Claude Code sends `cwd` as
+  `C:\Users\…` while Git Bash's `$HOME` is `/c/Users/…`; the script converts a drive-letter
+  path with `cygpath -u` before the `~` comparison (paths outside `$HOME` keep their native
+  form) and passes the raw path to `git -C`. It also feeds jq with `printf '%s\n'` (dash's
+  `echo` expands the `\\` in JSON-escaped Windows paths into an invalid escape) and reads
+  with `jq -j` (a native `jq.exe` ends its line with CRLF, and dash keeps the CR).
 - **`claude/CLAUDE.md` IS linked on Windows** — its Mac-only sections (vaults, herdr, Obscura)
   already say so.
 - **`topgrade/topgrade.toml` is NOT linked on Windows** — its `[commands]` entry is POSIX
@@ -1012,14 +1116,56 @@ Windows-specific rules:
   counterpart; `~/.gitconfig.local` works unchanged.
 - **Windows Terminal's `settings.json` is app-rewritten** — same trap as Claude's. Tracked
   terminal config goes in the fragment (`windows/terminal/dotfiles.json`), which Terminal
-  only reads.
-- **CI covers the Windows layer** — `install-matrix.yml`'s `windows` job (hosted
-  `windows-2025`) runs the dry-run, a `-SkipPackages` apply, a second idempotent run, and
-  the #187 commit-switch check. It does **not** run the full `winget import` (a gaming PC's
-  app list: slow, and some installers want a GUI or a reboot); it resolves every
-  `packages.json` ID and pinned version in winget instead, since `install.ps1`'s
-  `--ignore-unavailable` would skip a dead ID silently. **Adding or removing a link in
-  `install.ps1` means updating the job's `EXPECTED_LINKS` too.**
+  only reads. The one exception is `defaultProfile`, which a fragment cannot set:
+  `windows/tweaks.ps1` edits that single line in place.
+- **Neovim on Windows:** `Neovim.Neovim` is a machine-scope MSI, so `winget import` raises a
+  UAC prompt. It adds `C:\Program Files\Neovim\bin` to the machine PATH, which
+  `Update-SessionPath` picks up in the same run. `LuaLS.lua-language-server` is the Brewfile's
+  `lua-language-server` (NvChad enables `lua_ls`). The config needs nothing else to start:
+  git, curl, tar, and ripgrep are already there. Optional extras are in `nvim/README.md`:
+  stylua and the html/css servers through `:Mason` (the latter need Node), and the
+  tree-sitter CLI plus a C compiler for parsers Neovim does not bundle.
+- **Don't run `python3` from a Windows install step.** It is often the Microsoft Store
+  stub under `WindowsApps`, which is why the nvim pin verifier is Lua run by `nvim -l`.
+- **CI covers the Windows layer.** The `windows` job in `install-matrix.yml` runs on a
+  hosted `windows-2025` runner. It does a dry run, a `-SkipPackages` apply, a second run
+  that must change nothing, and the #187 commit-switch check. It does **not** run the full
+  `winget import`: that is a gaming PC's app list, which is slow, and some installers want
+  a GUI or a reboot. It checks that every `packages.json` ID and pinned version resolves in
+  winget instead, because `install.ps1`'s `--ignore-unavailable` would skip a dead ID
+  without saying so. **Adding or removing a link in `install.ps1` means updating the job's
+  `EXPECTED_LINKS` too.**
+### System tweaks (`windows/tweaks.ps1`)
+
+The counterpart of macOS `defaults write`: a data-driven list (`$Tweaks`) of Windows settings,
+each compared by its configured value (registry or `settings.json`; the mouse and time entries
+also check the live session) and reported `ok`, `would set` (`-DryRun`) or `set`. Before a change it saves
+the prior values under `%LOCALAPPDATA%\dotfiles\tweaks-backups\<timestamp>-<pid>\`. A failing entry
+doesn't stop the others; the script exits 1 and lists them.
+
+- **Separate from `install.ps1` on purpose.** Some entries write HKLM or run `w32tm` and need
+  elevation, and `install.ps1` stays unelevated. An unelevated run still *reads* the admin
+  entries (reported `ok` when correct); it records a failure only when one would have to
+  change. It also changes the live session (mouse), which a routine re-install shouldn't do.
+- **Record only what this PC already has.** An entry lands after the setting was changed by
+  hand and verified, and `-DryRun` must then read `ok` on every line. The script is a record,
+  not a place to try new settings. Current entries: mouse acceleration off, Game Bar
+  background recording off, hardware-accelerated GPU scheduling on (admin, needs a restart),
+  Windows Time syncing from `time.windows.com,0x9` (admin), and Terminal's default profile
+  = PowerShell 7.
+- **Only the mouse and time entries apply live.** Game Bar and GPU scheduling are plain
+  registry writes: Game Bar may need a sign-out, and GPU scheduling needs a restart. Mouse: `SystemParametersInfo(SPI_SETMOUSE, [0,0,0], SPIF_UPDATEINIFILE|SPIF_SENDCHANGE)`
+  writes the same three `HKCU\Control Panel\Mouse` values *and* changes the running session.
+  A registry-only write waits for the next sign-in, so the mouse entry also compares
+  `SPI_GETMOUSE` with the registry. Time: `w32tm /config … /update` makes the running service
+  re-read its settings, then `/resync` syncs now. Correct registry values don't prove the
+  service uses them (this PC had them and had never synced), so the time entry also compares
+  `w32tm /query /source` with the configured peer, and runs the set when either differs. The
+  source reads "Local CMOS Clock" until the first poll after boot, so a run just after boot
+  may resync, which is harmless.
+- **Never name a `$Tweaks` key `Values`, `Keys` or `Count`.** On an entry without that key,
+  `$t.Values` returns the hashtable's own `.Values` collection instead of `$null`, so the
+  entry gets treated as a registry entry. That's why the registry list is called `Registry`.
 
 Gotchas behind these rules: `docs/solutions/cross-machine/windows-target-gotchas-2026-09-24.md`.
 
@@ -1046,7 +1192,11 @@ is a **second, independent clone** in the Linux filesystem, not the Windows chec
 
 Expected on a fresh install, not failures:
 
-- `install_nvim.sh` skips — apt's Neovim is 0.9.5 and the config needs 0.11+ (VIL-152).
+- `install_nvim.sh` installs Neovim itself: the pinned official release tarball
+  (sha256-checked) into `~/.local/opt/nvim-v<ver>`, with `~/.local/bin/nvim` linked to it.
+  It needs no sudo, and apt's 0.9.5 `neovim` is no longer installed. A WSL distro set up
+  before VIL-152 still has apt's copy at `/usr/bin/nvim`. `~/.local/bin` comes first on
+  PATH, so it is shadowed and harmless; `sudo apt remove neovim` removes it.
 - `dot doctor` warns: no Homebrew; macOS-only aliases (`show`/`hide`/`flush`/`localip`,
   `update`→topgrade) point at missing binaries; `.claude/settings.local.json` absent;
   `python3` "shadowed" by `/bin` → `/usr/bin` (Ubuntu's merged-usr symlink, same file).
@@ -1064,9 +1214,52 @@ Why the Linux layer needed changes for this (both invisible in CI):
   (`sudo` is unaffected — it opens `/dev/tty` itself.) Any future Dotbot step that prompts
   needs the same flag.
 
-WSL inherits `git/gitconfig`'s macOS credential helpers (`osxkeychain`, the
-`/opt/homebrew/bin/gh` path) — harmless for public clones and pulls, but a push from WSL
-needs the host-conditional git config work in VIL-146.
+### Git on Linux — an overlay via include (VIL-146)
+
+`~/.gitconfig` is the same symlink to `git/gitconfig` on every Dotbot host. On Linux,
+`linux.yaml` also links `~/.config/git/gitconfig.platform` → `git/gitconfig.linux`, which
+`git/gitconfig` `[include]`s after its `[credential]` sections and before
+`~/.gitconfig.local`. macOS links nothing there, and git silently skips a missing include,
+so the Macs resolve exactly the config they did before (the only new key is
+`include.path` itself). The overlay:
+
+- **resets the multi-valued `credential.helper` lists** with an empty value, dropping
+  `osxkeychain`, the `/usr/local` GCM path and `/opt/homebrew/bin/gh`, then adds
+  `!/usr/bin/gh auth git-credential` for github.com and gist.github.com only. Other hosts
+  get no helper, so git prompts. `/usr/bin/gh` is where `install_packages.sh`'s
+  cli.github.com apt repo puts it, and it's also what `gh auth setup-git` writes, so
+  running that later adds nothing.
+- **sets `core.pager = less -FRX`**. `vim -` stays the Mac preference (see "Things
+  intentionally left as-is"). Git only pages on a tty, so scripts never hit it, but on
+  openclaw-prod it turned git output in agent sessions into vim buffers.
+
+`git config --get-all credential.helper` **still prints the macOS values on Linux**. The
+reset works by appending an empty entry, not by deleting lines from another file. To see
+what git actually runs:
+
+```bash
+printf 'protocol=https\nhost=github.com\n\n' | GIT_TRACE=1 GIT_TERMINAL_PROMPT=0 git credential fill 2>&1 >/dev/null | grep run_command
+```
+
+CI's R8 assertion (`.github/actions/install-matrix-post-apply`) runs that on the `linux`
+leg and checks the macOS values are unchanged on `macos`.
+
+Why not the alternatives: **`includeIf "gitdir:/home/"`** (the ticket's first idea)
+conditions on the repository, not the OS, so `git clone` into `/tmp`, a repo under `/mnt/c`,
+or `git config --global` outside any repo would still see the macOS helpers. **A
+Windows-style stub** would mean a Dotbot shell step writing `~/.gitconfig`, which is a
+symlink into the repo on existing hosts: a plain `>` follows the link and overwrites
+`git/gitconfig` itself (the same trap as "A hook symlinked into the repo…"). The overlay has
+no checkout-governing setting like Windows' `autocrlf`, so it doesn't need to live outside
+the worktree.
+
+The Linux apt list also installs `git-delta`, `vim` and `less`: `git/gitconfig` names delta
+(the diff/show pager and `interactive.diffFilter`) and vim (`core.editor`), and the overlay
+names less. The ubuntu:24.04 base image has none of them.
+
+**Picking it up on an existing WSL install:** `git pull && ./install` in the WSL clone (the
+new link is a plain Dotbot `link:`, and apt adds the three packages), then `gh auth login`
+if gh isn't authenticated yet.
 
 Gotchas behind these rules: `docs/solutions/cross-machine/wsl-ubuntu-target-2026-09-24.md`.
 
@@ -1111,7 +1304,7 @@ Gotchas behind these rules: `docs/solutions/cross-machine/wsl-ubuntu-target-2026
 ## Things intentionally left as-is
 
 - `MYSQL_BIN="/usr/local/mysql/bin"` — MySQL PKG installer uses this path on both architectures, it is not a Homebrew path.
-- `git/gitconfig` `core.pager = vim -` — intentional preference; vim is the pager for `log`/etc. (Note: `git diff`/`git show` deliberately route through **delta** via the `[pager]` overrides — `core.pager` staying `vim -` is by design, not an oversight.)
+- `git/gitconfig` `core.pager = vim -` — intentional preference; vim is the pager for `log`/etc. (Note: `git diff`/`git show` deliberately route through **delta** via the `[pager]` overrides — `core.pager` staying `vim -` is by design, not an oversight.) This is the Mac preference only: Linux hosts get `less -FRX` from `git/gitconfig.linux` (VIL-146).
 - The tmux session restoration block in `zshrc` — guarded to only run outside tmux and only in iTerm2.
 - GCM credential helper entries in `git/gitconfig` — auto-generated by Git Credential Manager, commit separately from other work.
 - **Linux Dotbot layer + helper branches** (`dotbot-conf/linux.yaml`, the `uname`-guarded locale step in `dotbot-conf/base.yaml`, `case Linux)` in `./install`, `uname` guards in `helpers/*`) — preserved after the VPS was decommissioned (2026-05-21) and in active use again since 2026-09-24 for WSL Ubuntu on the gaming PC (see "Setting up WSL on the Windows PC"). The VPS-specific runbook stays at `docs/solutions/cross-machine/vps-dotfiles-target.md`.

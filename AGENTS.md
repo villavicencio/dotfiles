@@ -45,12 +45,13 @@ docs/       Compound-engineering artifacts:
             - docs/plans/        implementation plans
             - docs/solutions/    documented solutions to past problems, with YAML
                                  frontmatter (module, tags, problem_type) + INDEX.md
-git/        gitconfig, gitignore, gitattributes
+git/        gitconfig, gitignore, gitattributes, gitconfig.linux (Linux overlay, see gotchas)
 helpers/    Bash scripts called by the install pipeline (each independently runnable)
 herdr/      Herdr agent-multiplexer config (config.toml symlinked into ~/.config/herdr/)
 iterm/      iTerm2 preferences
 lazygit/    lazygit config
-nvim/       Neovim config (custom/ is symlinked into ~/.config/nvim/)
+nvim/       Neovim config (NvChad v2.5; the whole dir is linked as ~/.config/nvim,
+            %LOCALAPPDATA%\nvim on Windows). Plugins pinned in lazy-lock.json
 starship/   Starship prompt config (command_timeout is a global top-level key)
 tmux/       tmux config + status-bar scripts + window-meta persistence
 topgrade/   Topgrade system-updater config
@@ -63,7 +64,10 @@ bin/        Repo CLI — bin/dot (symlinked to ~/.local/bin/dot)
             bin/lib/*.py — Python helpers for doctor/bench, deliberately NOT heredocs
 windows/    Windows layer, applied by install.ps1 (repo root): packages.json (winget),
             gitconfig (overrides chained after git/gitconfig), powershell/profile.ps1,
-            terminal/dotfiles.json (Windows Terminal fragment)
+            terminal/dotfiles.json (Windows Terminal fragment), claude-settings.json
+            (hook-free Claude Code settings seed — COPY-SEEDED like the Mac's); tweaks.ps1
+            (system settings, the `defaults write` counterpart; opt-in, not run by install.ps1);
+            install_nvim.ps1 (the helpers/install_nvim.sh counterpart)
 ```
 
 ---
@@ -89,7 +93,8 @@ with a POSIX fallback.
 
 ### Machine-specific values go in untracked local files
 - **`~/env.sh`** — sourced last in `zshrc` (`2>/dev/null`); local-only exports/aliases/PATH.
-- **`~/.gitconfig.local`** — included at the end of `git/gitconfig`; set a work email here.
+- **`~/.gitconfig.local`** — included at the end of `git/gitconfig` (after the platform
+  overlay, so it wins); set a work email here.
 - **`~/.ssh/config`** — per-machine host aliases; not tracked.
 
 ### Secret hygiene
@@ -212,22 +217,25 @@ tickets. Avoid committing directly to `master`.
 - **Trivial exceptions** (typo, one-line doc tweak) may go straight to `master`.
 - **Docs-only PRs skip the install matrix, not the review** — `install-matrix.yml` sets
   `paths-ignore: ['docs/**', '**.md', 'claude/**/*.md']`, so a markdown-only change never
-  triggers `linux`/`macos`/`windows`; don't wait for a run that will never start. CodeRabbit still
-  reviews markdown on any review-eligible PR (drafts and `WIP` / `DO NOT MERGE` titles are
-  excluded), so wait for its check to leave `pending` and triage the findings —
-  `mergeStateStatus: CLEAN` also reads clean while a review is pending or throttled.
+  triggers `linux`/`macos`/`windows`; don't wait for a run that will never start. review-stack still
+  reviews every head of a non-draft PR, markdown included, so wait for its comment for the
+  current head and triage the findings — `mergeStateStatus: CLEAN` also reads clean while
+  the review hasn't posted yet.
 
 Issue tracking: Linear, project `Dotfiles`, team `Villavicencio` (key `VIL`) —
 https://linear.app/villavicencio/project/dotfiles-74974922348e (migrated off the
 GitHub Projects board 2026-08-20; the board and closed GitHub issues are read-only
 history — never create new GitHub issues).
 
-- **PR review is CodeRabbit** (`.coderabbit.yaml` at repo root sets
-  `auto_incremental_review: false`, so re-review is requested with an `@coderabbitai review`
-  comment rather than fired by every push). Wait for its verdict and for each re-review before
-  merging — a stale `CHANGES_REQUESTED` is not permission, and a `Review rate limited` check
-  passes by design without any review having run. Full procedure, rate-limit mechanics, and when
-  to escalate to `dv:gauntlet` instead: the **Code Review** section of the global CLAUDE.md.
+- **PR review is review-stack, David's own reviewer** (since 2026-09-24, PRs #190 and
+  later; replaces CodeRabbit here). It reviews every new head of an open, non-draft PR
+  automatically, 2–6 minutes after the push, and posts one comment per head, starting with
+  `<!-- review-stack:head=<full sha> run=<id> -->`. Wait for the comment for the current
+  head (the `gh pr view … --jq` poll is in CLAUDE.md), fix the real findings and push; the
+  new head is re-reviewed automatically. Merge when the current head's review has no high or
+  critical finding that is neither fixed nor waived with David. It doesn't read thread
+  replies. "⚠️ The review did not complete" means tell David. CodeRabbit comments are
+  optional input: don't wait for them or re-trigger `@coderabbitai`.
 
 ---
 
@@ -240,10 +248,22 @@ Brewfile, tmux, nvim, nvm, node). Each helper is independently runnable. (Nerd F
 install via Homebrew casks in `brew/Brewfile`, not a helper.)
 
 **Windows:** `pwsh -File install.ps1 [-DryRun] [-SkipPackages]` instead — winget import
-(`--no-upgrade`), symlinks for the configs shared with macOS, stubs for `~/.gitconfig` and
-`$PROFILE`, then the pre-commit hook. Full steps and rules: "Setting up the Windows PC" in
+(`--no-upgrade`), symlinks for the configs shared with macOS (the Claude status line and
+`nvim/` as `%LOCALAPPDATA%\nvim` included), stubs for `~/.gitconfig` and `$PROFILE`, a
+`~/.claude/settings.json` seed (only when absent), the pre-commit hook, then the pinned nvim
+plugins (`windows/install_nvim.ps1`). Full steps and rules: "Setting up the Windows PC" in
 `CLAUDE.md`. Verify with a `-DryRun` (must report changes but make none) and a second real
 run (every line must read `ok`). CI's `windows` job asserts both.
+
+**Windows system settings:** from an elevated shell, preview with
+`pwsh -File windows/tweaks.ps1 -DryRun`, then apply with `pwsh -File windows/tweaks.ps1`.
+It's a separate opt-in step, because some entries need elevation and `install.ps1` stays
+unelevated. It records only settings the PC already has and backs up prior values first.
+The mouse and time entries also check the live session and apply live (mouse via
+`SystemParametersInfo`; time via `w32tm /config /update` + `/resync`, run whenever the registry
+or the service's reported source differs). Game Bar and GPU scheduling are plain registry writes and may need
+a sign-out or restart. A `-DryRun` must read `ok` on every line. Details: "System
+tweaks" in `CLAUDE.md`.
 
 ---
 
@@ -336,12 +356,25 @@ run (every line must read `ok`). CI's `windows` job asserts both.
   precedence trap PR #127 had removed: when both keys exist the legacy one WINS and
   `permissions.allow` is inert. `helpers/install_claude_settings.sh` seeds when absent and
   `--capture` records live changes back (dropping the machine-local keys `effortLevel`,
-  `autoMode`, `mcpServers`, `allowedTools`, and normalizing `$HOME` paths to `~/`).
+  `modelSettings`, `autoMode`, `mcpServers`, `allowedTools`, and normalizing `$HOME` paths to `~/`).
   `dot drift` compares capture-normalized forms and warns if `allowedTools` reappears.
   Agents cannot write this file — the auto-mode classifier blocks it by design; run
-  `helpers/migrate_claude_settings.py` yourself on a machine that predates the scheme.
-- **`git/gitconfig` `core.pager = vim -`** is intentional; `diff`/`show` route through
-  **delta** via the `[pager]` overrides.
+  `helpers/migrate_claude_settings.py` yourself on a machine that predates the scheme (on
+  Windows it folds `allowedTools` only, no herdr hooks; run it as `python` under Git Bash).
+- **`git/gitconfig` `core.pager = vim -`** is intentional on the Macs; `diff`/`show` route
+  through **delta** via the `[pager]` overrides. Linux gets `less -FRX` from the overlay below.
+- **Linux git config is `git/gitconfig` plus an overlay, via an include, not a stub.**
+  `git/gitconfig` `[include]`s `~/.config/git/gitconfig.platform` after its `[credential]`
+  sections and before `~/.gitconfig.local`. `linux.yaml` links that path to
+  `git/gitconfig.linux`; macOS links nothing, and git skips a missing include, so the Macs
+  resolve the same config as before. The overlay resets the multi-valued
+  `credential.helper` lists with an empty value (dropping `osxkeychain`, the `/usr/local`
+  GCM path and `/opt/homebrew/bin/gh`), then adds `!/usr/bin/gh auth git-credential` for
+  github.com/gist.github.com only. So `git config --get-all credential.helper` still
+  *prints* the macOS values on Linux; check what git actually runs with
+  `GIT_TRACE=1 git credential fill`, as CI's R8 assertion does. Not `includeIf "gitdir:…"`:
+  every includeIf condition is about the repo, none about the OS. `git-delta`, `vim` and
+  `less` are in the Linux apt list because the git config names them (VIL-146).
 - **GCM credential-helper entries** in `git/gitconfig` are auto-generated — commit them
   separately from other work.
 - **`MYSQL_BIN="/usr/local/mysql/bin"`** is the MySQL PKG installer path on both
@@ -352,10 +385,29 @@ run (every line must read `ok`). CI's `windows` job asserts both.
   Dotbot shell step that prompts — `linux.yaml`'s `chsh` — needs `stdin: true` (Dotbot
   defaults stdin to `/dev/null`). Write-up:
   `docs/solutions/cross-machine/wsl-ubuntu-target-2026-09-24.md`.
+- **nvim pins: the first launch on an empty machine drifts them.** lazy.nvim installs in
+  rounds, and the lockfile write between rounds drops NvChad-imported plugins, which then
+  land at their branch HEAD and are written back into the tracked `nvim/lazy-lock.json`
+  (through the link). `helpers/install_nvim.sh` and `windows/install_nvim.ps1` keep a
+  copy of the pins, put it back, restore, and verify against the copy with
+  `helpers/nvim_verify_lock.lua`. Don't reduce this to one `Lazy! restore`. The minimum is
+  Neovim **0.12** (the pinned nvim-treesitter needs it). An older installed nvim is
+  upgraded (brew/winget), and the helper fails if it is still too old rather than skipping. On Linux the helper installs the
+  pinned release tarball into `~/.local` (no sudo; apt's 0.9.5 is not used). Write-up:
+  `docs/solutions/runtime-errors/lazy-nvim-first-launch-drifts-lockfile-2026-09-24.md`.
 - **Windows gets stubs, not links, for `~/.gitconfig` and `$PROFILE`** — git has no
   OS-conditional include, and `$PROFILE` sits under a OneDrive-redirected Documents folder.
-  **Never seed `claude/settings.json` on Windows** (its hooks are tmux/herdr bash scripts),
-  and **don't link `topgrade/topgrade.toml` there** (its `[commands]` entry is POSIX shell).
+  **Windows seeds `windows/claude-settings.json`, never `claude/settings.json`** (the Mac
+  file's hooks are tmux/herdr bash scripts that would error on every event). The Windows
+  file is the Mac baseline minus `hooks`, `preferredNotifChannel`, and the brew/tmux allow
+  rules; the `statusLine` block is identical and runs under Git Bash's `sh`. Keep the two
+  files' shared keys in step by hand. Same copy-only-when-absent contract, and the
+  helpers (`install_claude_settings.sh --capture`, `report_drift.sh`) switch to the
+  Windows file under Git Bash so a capture on the PC can't overwrite the Mac baseline.
+  On Windows `report_drift.sh` skips the Homebrew/npm inventories (Mac/Linux manifests)
+  and runs only the Claude comparison, with a Python probe that rejects the Microsoft
+  Store `python3` placeholder; a failed normalization is an error, never "(in sync)".
+  **Don't link `topgrade/topgrade.toml` there** (its `[commands]` entry is POSIX shell).
   Write-up: `docs/solutions/cross-machine/windows-target-gotchas-2026-09-24.md`.
 - The **tmux session-restoration block** in `zshrc` is guarded to run only outside tmux and
   only in iTerm2.

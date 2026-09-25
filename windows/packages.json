@@ -53,6 +53,12 @@
                                              "PackageIdentifier":  "JesseDuffield.lazygit"
                                          },
                                          {
+                                             "PackageIdentifier":  "Neovim.Neovim"
+                                         },
+                                         {
+                                             "PackageIdentifier":  "LuaLS.lua-language-server"
+                                         },
+                                         {
                                              "PackageIdentifier":  "Gitleaks.Gitleaks",
                                              "Version":  "8.30.1"
                                          },

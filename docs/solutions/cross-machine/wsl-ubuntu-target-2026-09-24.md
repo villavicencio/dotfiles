@@ -103,7 +103,13 @@ shows the fix commit.
   pointing at missing binaries; no `.claude/settings.local.json`; and `python3`
   "shadowed" by Ubuntu's merged-usr `/bin` → `/usr/bin` link, which is the same
   file. Result on 2026-09-24: 0 failures, 4 warnings, `dot bench` median 186 ms.
-- **Neovim:** apt ships 0.9.5, and `install_nvim.sh` skips cleanly because the
-  config needs 0.11+ (VIL-152).
-- **git credential helpers:** WSL inherits `git/gitconfig`'s macOS helpers.
-  Public clones and pulls work; pushing from WSL needs VIL-146.
+- **Neovim:** apt ships 0.9.5, and `install_nvim.sh` skipped cleanly because the
+  config needed 0.11+. *Resolved by VIL-152:* the helper now installs the pinned
+  official release into `~/.local` without sudo, apt's `neovim` was dropped from
+  `install_packages.sh`, and the minimum is now 0.12. See
+  `docs/solutions/runtime-errors/lazy-nvim-first-launch-drifts-lockfile-2026-09-24.md`.
+- **git credential helpers:** WSL inherited `git/gitconfig`'s macOS helpers.
+  Public clones and pulls worked, but pushing didn't. Fixed by VIL-146: a Linux
+  overlay (`git/gitconfig.linux`, linked to `~/.config/git/gitconfig.platform`
+  and included by `git/gitconfig`) swaps them for `/usr/bin/gh`. See CLAUDE.md
+  "Git on Linux".
