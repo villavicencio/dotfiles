@@ -885,7 +885,11 @@ this repo, not just ticket work. Avoid committing directly to `master`.
   "NOT COMPLETE": its "0 findings ✅" means *not reviewed*, not clean. Two causes seen so far
   (2026-09-24/25): a held run lock, and the connector tripwire, which fires on the text
   `github_` anywhere in the diff (#194's gitleaks smoke test, `github_token = …`, set it off). Both
-  need Atlas to re-run the same head; nothing on the PR side is wrong. CodeRabbit may still comment on its own schedule. That's optional input: don't
+  need Atlas to re-run the same head; nothing on the PR side is wrong. **After an interrupted
+  run, don't merge on the re-run alone — ask David whether the interrupted run's draft had
+  findings.** Runs aren't deterministic: on #194 the stopped run's draft held 3 findings (two
+  medium, one a false-green CI path) that the clean 0-finding re-run didn't raise, and they only
+  surfaced after the merge, so they landed as a follow-up (#196). CodeRabbit may still comment on its own schedule. That's optional input: don't
   wait for it, and don't mention or re-trigger `@coderabbitai`.
 
 Picking up a board ticket always gets its own branch (never work a ticket on
