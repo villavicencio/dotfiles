@@ -1111,7 +1111,11 @@ Windows-specific rules:
   set up only by `install.ps1` (which installs uv, `astral-sh.uv`, but no Python) still gets
   a real comparison and capture. uv uses an interpreter it can discover (its own, `PATH`, or
   the Windows registry; it skips the Store placeholder) or downloads a managed one on first
-  use; `--no-project` stops it treating the repo as a project. Don't add a Python to
+  use; `--no-project` stops it treating the repo as a project. Python is resolved **lazily**,
+  only on the path that actually normalizes or captures settings, so a run that compares
+  nothing (settings not seeded yet, a dry run, the seed path) never probes and never lets uv
+  download. Test the found state with a flag or the resolver's exit status, never
+  `${#PYTHON[@]}`: Bash 3.2 under `set -u` treats an empty array as unbound. Don't add a Python to
   `windows/packages.json` for this. With neither a Python nor a working uv, both helpers fail
   loudly; a failed normalization is an error, never a silent "(in sync)". The fallback is
   not Windows-gated, but the Macs and Linux normally find `python3` first and never reach it.

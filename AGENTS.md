@@ -413,7 +413,8 @@ tweaks" in `CLAUDE.md`.
   and runs only the Claude comparison, with a Python probe that rejects the Microsoft
   Store `python3` placeholder. With no working Python, both helpers run one through
   `uv run --no-project --quiet python` (install.ps1 installs uv, not Python); with neither
-  they fail loudly. A failed normalization is an error, never "(in sync)".
+  they fail loudly. Python is resolved lazily, only when settings are actually compared or
+  captured, so other runs never probe or let uv download. A failed normalization is an error, never "(in sync)".
   **Don't link `topgrade/topgrade.toml` there** (its `[commands]` entry is POSIX shell).
   Write-up: `docs/solutions/cross-machine/windows-target-gotchas-2026-09-24.md`.
 - The **tmux session-restoration block** in `zshrc` is guarded to run only outside tmux and
