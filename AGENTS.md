@@ -364,7 +364,8 @@ tweaks" in `CLAUDE.md`.
   `dot drift` compares capture-normalized forms and warns if `allowedTools` reappears.
   Agents cannot write this file — the auto-mode classifier blocks it by design; run
   `helpers/migrate_claude_settings.py` yourself on a machine that predates the scheme (on
-  Windows it folds `allowedTools` only, no herdr hooks; run it as `python` under Git Bash).
+  Windows — native, Cygwin, or MSYS Python — it folds `allowedTools` only, no herdr hooks; run
+  it as `python` under Git Bash).
 - **`git/gitconfig` `core.pager = vim -`** is intentional on the Macs; `diff`/`show` route
   through **delta** via the `[pager]` overrides. Linux gets `less -FRX` from the overlay below.
 - **Linux git config is `git/gitconfig` plus an overlay, via an include, not a stub.**
@@ -410,7 +411,9 @@ tweaks" in `CLAUDE.md`.
   Windows file under Git Bash so a capture on the PC can't overwrite the Mac baseline.
   On Windows `report_drift.sh` skips the Homebrew/npm inventories (Mac/Linux manifests)
   and runs only the Claude comparison, with a Python probe that rejects the Microsoft
-  Store `python3` placeholder; a failed normalization is an error, never "(in sync)".
+  Store `python3` placeholder. With no working Python, both helpers run one through
+  `uv run --no-project --quiet python` (install.ps1 installs uv, not Python); with neither
+  they fail loudly. A failed normalization is an error, never "(in sync)".
   **Don't link `topgrade/topgrade.toml` there** (its `[commands]` entry is POSIX shell).
   Write-up: `docs/solutions/cross-machine/windows-target-gotchas-2026-09-24.md`.
 - The **tmux session-restoration block** in `zshrc` is guarded to run only outside tmux and

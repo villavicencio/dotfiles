@@ -372,9 +372,11 @@ re-prepends the tracked `"//"` header, and rewrites absolute `$HOME` paths back 
 **Agents cannot write this file** — the auto-mode classifier blocks it by design, so it stops an
 agent widening its own permissions. `helpers/migrate_claude_settings.py` exists for a machine
 whose settings predate this scheme (folds `allowedTools` back, registers the blank-state hook);
-it is idempotent, backs up first, and **you run it yourself**, not an agent. On Windows (native
-Python, or `--no-hooks`) it only folds `allowedTools` — no herdr hooks — and under Git Bash
-you run it as `python`, since `python3` there is the Microsoft Store placeholder.
+it is idempotent, backs up first, and **you run it yourself**, not an agent. On Windows (native,
+Cygwin, or MSYS Python, or `--no-hooks`) it only folds `allowedTools` — no herdr hooks — and
+under Git Bash you run it as `python`, since `python3` there is the Microsoft Store
+placeholder (or `uv run --no-project python helpers/migrate_claude_settings.py` on a PC with no
+Python of its own).
 
 ### Herdr — agent multiplexer (config symlinked; writes flow back)
 `herdr` (Brewfile) is a tmux-shaped client/server multiplexer with native agent
@@ -1104,8 +1106,15 @@ Windows-specific rules:
   settings comparison — its Homebrew and npm-globals sections are Mac/Linux inventories and
   are skipped, not failed. Both helpers probe for a Python that actually runs (`python3`
   under Git Bash is usually the Microsoft Store placeholder, which `command -v` finds but
-  which exits non-zero), fall back to `python`, and hand it `cygpath -w` paths; a failed
-  normalization is an error, never a silent "(in sync)".
+  which exits non-zero), fall back to `python`, and hand it `cygpath -w` paths. **With no
+  working Python they run one through uv** — `uv run --no-project --quiet python` — so a PC
+  set up only by `install.ps1` (which installs uv, `astral-sh.uv`, but no Python) still gets
+  a real comparison and capture. uv uses an interpreter it can discover (its own, `PATH`, or
+  the Windows registry; it skips the Store placeholder) or downloads a managed one on first
+  use; `--no-project` stops it treating the repo as a project. Don't add a Python to
+  `windows/packages.json` for this. With neither a Python nor a working uv, both helpers fail
+  loudly; a failed normalization is an error, never a silent "(in sync)". The fallback is
+  not Windows-gated, but the Macs and Linux normally find `python3` first and never reach it.
   The seed only lands on a machine with no settings file. A PC that already has one keeps
   it; adopting the baseline there is a human step (the auto-mode classifier blocks agents
   from writing it): move the live file aside, re-run `install.ps1`, then re-add any

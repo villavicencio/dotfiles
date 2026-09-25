@@ -74,15 +74,24 @@ if [ "${1:-}" = "--capture" ]; then
   [ -f "$DEST" ] || { echo "Error: no live settings at $DEST" >&2; exit 1; }
   [ -f "$SRC" ]  || { echo "Error: tracked settings missing at $SRC" >&2; exit 1; }
   # Probe by running it: on Windows `python3` is often the Microsoft Store
-  # placeholder, which `command -v` finds but which exits non-zero.
-  PYTHON=""
+  # placeholder, which `command -v` finds but which exits non-zero. An array so
+  # the uv fallback can be a multi-word command.
+  PYTHON=()
   for _py in python3 python; do
-    if "$_py" -c 'import sys' >/dev/null 2>&1; then PYTHON="$_py"; break; fi
+    if "$_py" -c 'import sys' >/dev/null 2>&1; then PYTHON=("$_py"); break; fi
   done
-  [ -n "$PYTHON" ] || { echo "Error: no working python3/python on PATH" >&2; exit 1; }
+  # No working Python on PATH (a Windows PC set up only by install.ps1 has uv
+  # but no Python): run one through uv, which uses an interpreter it can
+  # discover or downloads a managed one. --no-project stops uv treating this
+  # repo as a project. Same fallback as helpers/report_drift.sh.
+  if [ "${#PYTHON[@]}" -eq 0 ] && command -v uv >/dev/null 2>&1 \
+     && uv run --no-project --quiet python -c 'import sys' >/dev/null 2>&1; then
+    PYTHON=(uv run --no-project --quiet python)
+  fi
+  [ "${#PYTHON[@]}" -gt 0 ] || { echo "Error: no working python3/python on PATH, and no working uv to run one" >&2; exit 1; }
 
   STRIP_KEYS="$STRIP_KEYS" SRC="$(native_path "$SRC")" DEST="$(native_path "$DEST")" \
-    SRC_REL="$SRC_REL" PYTHON="$PYTHON" "$PYTHON" - <<'PY' || exit 1
+    SRC_REL="$SRC_REL" PYTHON="${PYTHON[*]}" "${PYTHON[@]}" - <<'PY' || exit 1
 import json, collections, os, sys
 
 src, dest = os.environ["SRC"], os.environ["DEST"]
