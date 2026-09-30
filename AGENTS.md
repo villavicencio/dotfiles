@@ -392,6 +392,13 @@ without running it. Details: "System tweaks" in `CLAUDE.md`.
   `GIT_TRACE=1 git credential fill`, as CI's R8 assertion does. Not `includeIf "gitdir:…"`:
   every includeIf condition is about the repo, none about the OS. `git-delta`, `vim` and
   `less` are in the Linux apt list because the git config names them (VIL-146).
+- **Agent SSH sessions can't read the macOS keychain** ("User interaction is not allowed"), so
+  anything stored there reads as logged out over `ssh mac`: `gh` reports "The token in default is
+  invalid" and Codex MCP logins show "Not logged in". On the personal Mac both use file storage
+  instead (2026-09-30): `gh` via `gh auth token | gh auth login -h github.com --with-token
+  --insecure-storage` (token in `~/.config/gh/hosts.yml`, mode 600), Codex via
+  `mcp_oauth_credentials_store = "file"` in `~/.codex/config.toml` followed by a fresh
+  `codex mcp login <server>`. Check with `gh auth status` and `codex mcp list` over SSH.
 - **GCM credential-helper entries** in `git/gitconfig` are auto-generated — commit them
   separately from other work.
 - **`MYSQL_BIN="/usr/local/mysql/bin"`** is the MySQL PKG installer path on both
