@@ -63,6 +63,8 @@ zsh/        zshenv (env/PATH/BREW_PREFIX), zshrc, alias.sh, functions.sh, functi
 claude/     Claude Code config, delivered into ~/.claude/ two different ways:
             CLAUDE.md, statusline, hooks/  → symlinked
             settings.json                  → COPY-SEEDED, never symlinked (see gotchas)
+codex/      Codex global instructions — AGENTS.md symlinked to ~/.codex/AGENTS.md
+            (kept short on purpose; points at claude/CLAUDE.md for procedures)
 bin/        Repo CLI — bin/dot (symlinked to ~/.local/bin/dot)
             bin/lib/*.py — Python helpers for doctor/bench, deliberately NOT heredocs
 windows/    Windows layer, applied by install.ps1 (repo root): packages.json (winget),

@@ -12,6 +12,7 @@
 - create:
     - ~/.claude/hooks
     - ~/.claude/skills
+    - ~/.codex
 
 - shell:
     # chsh is skipped in CI (PAM auth fails on hosted GitHub runners and would
@@ -42,6 +43,11 @@
 
 - link:
     ~/.claude/CLAUDE.md: claude/CLAUDE.md
+    # Codex global instructions. Hand-written, not the CLAUDE.md find-and-replace that
+    # Codex's "import from Claude Code" produces (that copy overflowed the 32 KiB
+    # project_doc_max_bytes cap and named Claude-only tools). Re-running that import
+    # writes through this symlink; revert it with git.
+    ~/.codex/AGENTS.md: codex/AGENTS.md
     ~/.claude/statusline-command.sh: claude/statusline-command.sh
     ~/.claude/hooks/tmux-attention.sh: claude/hooks/tmux-attention.sh
     ~/.claude/hooks/herdr-blank-state.sh: claude/hooks/herdr-blank-state.sh
