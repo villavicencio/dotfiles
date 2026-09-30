@@ -42,7 +42,8 @@ brew/       Brewfile — all Homebrew formulae and casks
 btop/       btop system monitor config
 ci/         CI assets (Dockerfile for the install-matrix Linux leg, PSScriptAnalyzer
             settings for its Windows leg)
-docs/       Compound-engineering artifacts:
+docs/       docs/agents/ — procedures behind the global agent instructions (loaded on demand)
+            Compound-engineering artifacts:
             - docs/brainstorms/  requirements docs
             - docs/ideation/     idea-survival outputs
             - docs/plans/        implementation plans
@@ -64,7 +65,7 @@ claude/     Claude Code config, delivered into ~/.claude/ two different ways:
             CLAUDE.md, statusline, hooks/  → symlinked
             settings.json                  → COPY-SEEDED, never symlinked (see gotchas)
 codex/      Codex global instructions — AGENTS.md symlinked to ~/.codex/AGENTS.md
-            (kept short on purpose; points at claude/CLAUDE.md for procedures)
+            (kept short on purpose, like claude/CLAUDE.md; both point at docs/agents/)
 bin/        Repo CLI — bin/dot (symlinked to ~/.local/bin/dot)
             bin/lib/*.py — Python helpers for doctor/bench, deliberately NOT heredocs
 windows/    Windows layer, applied by install.ps1 (repo root): packages.json (winget),

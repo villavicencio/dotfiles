@@ -301,5 +301,5 @@ The completion state of round N tells you nothing about round N+1.
 - `docs/solutions/best-practices/verify-the-instrument-before-trusting-a-negative.md` — same
   `observability_gap` root cause. A negative conclusion is only as good as the instrument that
   produced it; here the blind instrument is a check's pass-state.
-- `claude/CLAUDE.md` → "Code Review" — the cross-repo merge procedure this doc's steps amend.
+- `docs/agents/code-review.md` (moved out of `claude/CLAUDE.md` "Code Review" 2026-09-30) — the cross-repo merge procedure this doc's steps amend.
 - `.coderabbit.yaml` — the setting that makes `Review skipped` the steady state.

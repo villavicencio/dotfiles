@@ -1133,8 +1133,8 @@ Windows-specific rules:
   form) and passes the raw path to `git -C`. It also feeds jq with `printf '%s\n'` (dash's
   `echo` expands the `\\` in JSON-escaped Windows paths into an invalid escape) and reads
   with `jq -j` (a native `jq.exe` ends its line with CRLF, and dash keeps the CR).
-- **`claude/CLAUDE.md` IS linked on Windows** — its Mac-only sections (vaults, herdr, Obscura)
-  already say so.
+- **`claude/CLAUDE.md` IS linked on Windows** — its Mac-only rules sit under "Mac setup
+  (personal Mac)", and the Obscura tunnel line names its launchd job.
 - **`topgrade/topgrade.toml` is NOT linked on Windows** — its `[commands]` entry is POSIX
   shell. Topgrade runs on defaults there.
 - **Machine-local overrides:** `~/env.ps1` (sourced last by the profile) is the `~/env.sh`
