@@ -12,6 +12,7 @@
 - create:
     - ~/.claude/hooks
     - ~/.claude/skills
+    - ~/.codex
 
 - shell:
     # chsh is skipped in CI (PAM auth fails on hosted GitHub runners and would
@@ -39,9 +40,18 @@
     # --capture; `dot drift` shows the gap.
     - [bash helpers/install_claude_settings.sh, "Seeding Claude Code settings (if absent)"]
     - [bash helpers/install_herdr_agents.sh, "Linking herdr agent ssh shims"]
+    # Runs before the link step below: moves a regular ~/.codex/AGENTS.md (e.g. from
+    # Codex's Claude import) to a timestamped backup so the symlink can be created.
+    - [bash helpers/migrate_codex_agents.sh, "Moving aside an unlinked Codex AGENTS.md"]
 
 - link:
     ~/.claude/CLAUDE.md: claude/CLAUDE.md
+    # Codex global instructions. Hand-written, not the CLAUDE.md find-and-replace that
+    # Codex's "import from Claude Code" produces (that copy overflowed the 32 KiB
+    # project_doc_max_bytes cap and named Claude-only tools). An existing regular file
+    # is moved aside by helpers/migrate_codex_agents.sh above. Re-running that import
+    # writes through this symlink; revert it with git.
+    ~/.codex/AGENTS.md: codex/AGENTS.md
     ~/.claude/statusline-command.sh: claude/statusline-command.sh
     ~/.claude/hooks/tmux-attention.sh: claude/hooks/tmux-attention.sh
     ~/.claude/hooks/herdr-blank-state.sh: claude/hooks/herdr-blank-state.sh
