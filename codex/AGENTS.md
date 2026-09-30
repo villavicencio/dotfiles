@@ -20,12 +20,12 @@ Detailed procedures behind these rules live in `~/Projects/Personal/dotfiles/cla
 
 ## Code review and merging
 - PR review goes through CodeRabbit. Escalate to `dv:gauntlet` for large or risky diffs, for review of something that isn't a PR, or when CodeRabbit is throttled and the review can't wait (`dv:gauntlet report` is the report-only round). Don't hand-roll a review: no `codex exec review` loops, no ad-hoc reviewer panels.
-- Batch all fixes, push once, then comment `@coderabbitai review`. A push during an in-flight review aborts it and still burns quota (10 reviews/hour, shared across all my repos and agents; `@coderabbitai rate limit` checks it for free).
+- Batch all fixes, push once, then comment `@coderabbitai review`. A push during an in-flight review aborts it and still burns quota. The quota is per developer, shared across all my repos and agents, and small (free plan since 2026-09-24: 1 review/hour, and repos under 10 stars get no automatic review, so request each round). `@coderabbitai rate limit` checks what's left without spending a review.
 - A passing CodeRabbit check doesn't mean a review ran. Read its description: only `Review completed` counts. `rate limited`, `skipped`, and `failed` are all "no review."
   `gh pr checks <N> --json name,state,description -q '.[]|select(.name|test("CodeRabbit";"i"))|"\(.state)\t\(.description)"'`
-- Before any merge, list unresolved review threads. Empty output means you can merge; any line blocks. Re-run it after every re-review.
+- Before any merge, list unresolved review threads (`--paginate` walks every page). Empty output means you can merge; any line blocks. Re-run it after every re-review.
   ```
-  gh api graphql -F owner=<o> -F repo=<r> -F pr=<N> -f query='query($owner:String!,$repo:String!,$pr:Int!){repository(owner:$owner,name:$repo){pullRequest(number:$pr){reviewThreads(first:100){nodes{isResolved path line originalLine}}}}}' -q '.data.repository.pullRequest.reviewThreads.nodes[]|select(.isResolved|not)|"UNRESOLVED \(.path):\(.line // .originalLine)"'
+  gh api graphql --paginate -F owner=<o> -F repo=<r> -F pr=<N> -f query='query($owner:String!,$repo:String!,$pr:Int!,$endCursor:String){repository(owner:$owner,name:$repo){pullRequest(number:$pr){reviewThreads(first:100,after:$endCursor){pageInfo{hasNextPage endCursor}nodes{isResolved path line originalLine}}}}}' -q '.data.repository.pullRequest.reviewThreads.nodes[]|select(.isResolved|not)|"UNRESOLVED \(.path):\(.line // .originalLine)"'
   ```
 - Never merge on a stale `CHANGES_REQUESTED`. Fix each finding, or decline it with the reason recorded on the thread and in the PR body. `mergeStateStatus: CLEAN` means nothing is blocking the button, not that the PR was reviewed. If you skip review on a trivial diff, say so when reporting the merge. Merge past a throttled review only for docs/config, with the throttle recorded in the PR body.
 - Repos under review should carry `.coderabbit.yaml` with `reviews.auto_review.auto_incremental_review: false`.
