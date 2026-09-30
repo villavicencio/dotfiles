@@ -39,7 +39,7 @@ Full procedure, check-description table, and rate-limit mechanics: `docs/agents/
 Full ladder: `docs/agents/web-research.md`.
 - Versions, model IDs, prices, API endpoints, deprecations, and "as of today" claims are realtime facts, even inside coding work. Don't state them from memory. For Anthropic model IDs and pricing, load the `claude-api` skill.
 - Fetch them: `WebFetch` for static pages and JSON registries/APIs; the `browse-gateway` MCP `retrieve` tool (I call it Obscura; load with `ToolSearch("select:mcp__browse-gateway__retrieve")`) for anything WebFetch can't read and for realtime facts. Quote only what's on the page, with URL and fetch time, or say you couldn't confirm. WebSearch only finds URLs; a snippet isn't a verified fact. Use `dv:cite` when I ask for a verified citation or the claim is high-stakes.
-- Obscura reaches its server over an SSH tunnel (launchd job `com.dvillavicencio.browse-gateway-tunnel`). If its tools stop resolving, check the tunnel and say so rather than silently dropping a tier.
+- Obscura is set up on the personal Mac only, over an SSH tunnel (launchd job `com.dvillavicencio.browse-gateway-tunnel`); if its tools stop resolving there, check the tunnel. Where `browse-gateway` isn't available (Windows, WSL, work Mac, or a dead tunnel), say so and use `WebFetch` on the primary source with the same URL-and-fetch-time rule; don't silently drop the freshness requirement.
 - Browserbase is retired and removed. Don't reinstall or suggest it.
 - Reddit: use `dv:reddit`, never WebFetch.
 - When you hit a wall on something unfamiliar, search before saying "I don't know."

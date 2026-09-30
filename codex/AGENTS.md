@@ -39,7 +39,7 @@ Detailed procedures live in dotfiles `docs/agents/` (`~/Projects/Personal/dotfil
 - Versions, model IDs, prices, API endpoints, deprecations, and "as of today" claims are realtime facts, even inside coding work. Don't state them from memory.
 - Fetch them: JSON registries and APIs (npm, PyPI, GitHub) directly; everything else through the `browse-gateway` MCP `retrieve` tool (which I call Obscura). Quote only what's on the page, with URL and fetch time, or say you couldn't confirm. Search results are only for finding URLs. Use `dv:cite` when I ask for a verified citation or the claim is high-stakes.
 - Reddit: use `dv:reddit`, not a plain fetch.
-- Browserbase is retired and removed. Don't reinstall or suggest it. If `browse-gateway` stops resolving, say so; its SSH tunnel is the launchd job `com.dvillavicencio.browse-gateway-tunnel`.
+- Browserbase is retired and removed. Don't reinstall or suggest it. `browse-gateway` exists on the personal Mac only (SSH tunnel, launchd job `com.dvillavicencio.browse-gateway-tunnel`); where it isn't available or stops resolving, say so and fetch the primary source directly with the same URL-and-fetch-time rule.
 
 ## Durable knowledge
 - When you discover a rule, gotcha, or command that works after others failed, write it down in the same turn: the repo's `AGENTS.md` or `docs/solutions/` for project knowledge, or dotfiles for cross-project knowledge. `HANDOFF.md` is overwritten by `dv:handoff`, so it isn't a durable home.

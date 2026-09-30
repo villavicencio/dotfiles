@@ -74,9 +74,10 @@ the diff itself routes through one of the two tools above.
   bare `.line` is `null` on stale-position threads and renders real findings as `path:null`.
   Re-run it **after every re-review**, not once per PR: a re-review can add findings after the
   previous round was fully resolved and confirmed. On the REST fallback
-  (`gh api --paginate .../pulls/<N>/comments`, which has no resolution state) `--paginate` is
-  mandatory — `per_page` alone caps at one page and silently drops findings past it, and
-  `gh api .../comments/<id>` 404s for review comments.
+  (`gh api --paginate repos/<owner>/<repo>/pulls/<N>/comments`, which has no resolution state)
+  `--paginate` is mandatory — `per_page` alone caps at one page and silently drops findings past
+  it, and `gh api repos/<owner>/<repo>/issues/comments/<id>` 404s for review comments (they live
+  under `pulls/comments/<id>`).
 - **Triage every finding**: fix it on the branch, or decline it with the reason recorded both on
   the thread and in the PR body. A finding you disagree with is a standoff you document, not one
   you merge past silently.

@@ -1134,7 +1134,8 @@ Windows-specific rules:
   `echo` expands the `\\` in JSON-escaped Windows paths into an invalid escape) and reads
   with `jq -j` (a native `jq.exe` ends its line with CRLF, and dash keeps the CR).
 - **`claude/CLAUDE.md` IS linked on Windows** — its Mac-only rules sit under "Mac setup
-  (personal Mac)", and the Obscura tunnel line names its launchd job.
+  (personal Mac)", and the Obscura rule says it exists only on the personal Mac and gives the
+  `WebFetch` fallback everywhere else (the Windows installer doesn't provision `browse-gateway`).
 - **`topgrade/topgrade.toml` is NOT linked on Windows** — its `[commands]` entry is POSIX
   shell. Topgrade runs on defaults there.
 - **Machine-local overrides:** `~/env.ps1` (sourced last by the profile) is the `~/env.sh`
