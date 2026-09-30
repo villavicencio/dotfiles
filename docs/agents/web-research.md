@@ -46,7 +46,7 @@ Three tiers, in order. Reach for the lowest tier that can actually answer the qu
    >   per host. `browser_close` is idempotent.
    >
    > **Configured globally as of 2026-08-07** in the root `mcpServers` of `~/.claude.json`, as
-   > consumer `mac-global` — available in every project on this Mac. `~/Projects/agents`
+   > consumer `mac-global` — available in every project on the personal Mac, and only there. `~/Projects/agents`
    > (consumer `argus`) keeps its own project-scoped entry and identity; that is
    > deliberate, not drift.
    >
@@ -81,7 +81,9 @@ discipline above.
 SERP snippets that are stale-by-design and do not satisfy the freshness contract — it is fine
 for *finding* candidate URLs but a fact lifted from a search snippet is not a verified fact.
 When the user asks for a *specific current fact*, route through tier 2 or tier 3, not WebSearch
-alone.
+alone. **Where Obscura isn't available** (Windows, WSL, the work Mac, or a dead tunnel), say so,
+then fetch the primary source with `WebFetch` under the same quote-with-URL-and-timestamp rule, or
+decline; `dv:cite` still applies where it's installed.
 
 The ladder is for *realtime fetches*, not general reasoning, code review, design discussion, or
 summarization of static reference material — those don't need a fetch at all. When in doubt
