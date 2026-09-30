@@ -147,9 +147,10 @@ the diff itself routes through one of the two tools above.
   surface exposing `isResolved`:
 
   ```bash
-  gh api graphql -F owner=<owner> -F repo=<repo> -F pr=<N> -f query='
-  query($owner:String!,$repo:String!,$pr:Int!){ repository(owner:$owner,name:$repo){
-    pullRequest(number:$pr){ reviewThreads(first:100){ nodes{ isResolved path line originalLine
+  gh api graphql --paginate -F owner=<owner> -F repo=<repo> -F pr=<N> -f query='
+  query($owner:String!,$repo:String!,$pr:Int!,$endCursor:String){ repository(owner:$owner,name:$repo){
+    pullRequest(number:$pr){ reviewThreads(first:100,after:$endCursor){
+      pageInfo{ hasNextPage endCursor } nodes{ isResolved path line originalLine
       comments(last:1){ nodes{ author{login} } } } } } } }' \
    -q '.data.repository.pullRequest.reviewThreads.nodes[] | select(.isResolved|not)
        | "UNRESOLVED \(.path):\(.line // .originalLine)"'

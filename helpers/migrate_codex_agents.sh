@@ -18,12 +18,31 @@ if [ -L "$TARGET" ] || [ ! -e "$TARGET" ]; then
   exit 0
 fi
 
+# Only a regular file is ours to move. Anything else (a directory, a fifo) is left in
+# place and fails the install loudly rather than being swept aside.
+if [ ! -f "$TARGET" ]; then
+  echo "codex AGENTS.md: $TARGET exists but is not a regular file; move it yourself" >&2
+  exit 1
+fi
+
+# Never overwrite an earlier backup: pick a name that doesn't exist yet.
 BACKUP="$TARGET.pre-dotfiles-$(date +%Y%m%d%H%M%S)"
+n=0
+while [ -e "$BACKUP" ] || [ -L "$BACKUP" ]; do
+  n=$((n + 1))
+  BACKUP="$TARGET.pre-dotfiles-$(date +%Y%m%d%H%M%S)-$n"
+done
 
 if [ "${DOTFILES_DRY_RUN:-0}" = "1" ]; then
   echo "[dry-run] would move $TARGET to $BACKUP"
   exit 0
 fi
 
-mv "$TARGET" "$BACKUP"
+# -n refuses to replace a destination that appears between the check and the move;
+# the -e test after it turns that silent no-op into a failure.
+mv -n "$TARGET" "$BACKUP"
+if [ -e "$TARGET" ] && [ ! -L "$TARGET" ]; then
+  echo "codex AGENTS.md: could not move $TARGET aside (backup name taken)" >&2
+  exit 1
+fi
 echo "codex AGENTS.md: moved the existing file to $BACKUP"
