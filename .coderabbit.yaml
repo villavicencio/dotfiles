@@ -11,8 +11,8 @@
 # first review of a PR is still automatic; on the free plan this repo (under 10 stars)
 # gets no automatic reviews at all, so every round - the first included - is requested
 # with `@coderabbitai review`. Each later round is requested the same way. That
-# matches the fix -> push -> request -> re-review loop in the global CLAUDE.md "Code
-# Review" section without spending a review on every commit. `@coderabbitai rate limit`
+# matches the fix -> push -> request -> re-review loop in docs/agents/code-review.md
+# without spending a review on every commit. `@coderabbitai rate limit`
 # reports remaining capacity and does not consume a review.
 #
 # Observed 2026-08-24 (PR #170): a one-line comment fix was pushed, the automatic

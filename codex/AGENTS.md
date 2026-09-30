@@ -2,13 +2,13 @@
 
 Apply across every project. Repo `AGENTS.md` files add to or override these.
 Source: dotfiles `codex/AGENTS.md`, linked to `~/.codex/AGENTS.md`. Edit it there, on a branch.
-Detailed procedures behind these rules live in `~/Projects/Personal/dotfiles/claude/CLAUDE.md`. Read the named section when a task needs it; don't load it by default.
+Detailed procedures live in dotfiles `docs/agents/` (`~/Projects/Personal/dotfiles/docs/agents/`). Read the named file when a task needs it. Claude Code gets the same rules from `claude/CLAUDE.md`; change both together.
 
 ## Working style
 - Lead with the finding or answer. Skip preambles that narrate your next step ("Let me check…"), emphasis that carries no fact ("this is the whole game"), and framing ("The key insight is:"). If deleting a sentence loses nothing I need, delete it.
 - On non-trivial decisions, give the reasoning and trade-offs before acting. Raise architectural concerns you notice even when they're outside the task.
 - If something is already solved in `docs/solutions/` or the repo's `AGENTS.md`, use it instead of re-deriving it.
-- Time: I'm in Pacific time. Label PT vs UTC explicitly, derive weekdays from the system date, and don't call a time "late" or "overnight" without evidence. Sessions are often back-to-back; after `dv:pickup`, measure staleness in commits since the handoff's `head`, not file age.
+- Time: I'm in Pacific time. Label PT vs UTC explicitly, derive weekdays from the system date, and don't call a time "late" or "overnight" without evidence. Sessions are often back-to-back; after `dv:pickup`, measure staleness in commits since the handoff's `head` (validate it first: `session-continuity.md`), not file age.
 - Never tell me to sleep, rest, eat, or otherwise manage my time. End cleanly ("standing by") instead.
 
 ## Safety
@@ -39,7 +39,7 @@ Detailed procedures behind these rules live in `~/Projects/Personal/dotfiles/cla
 - Versions, model IDs, prices, API endpoints, deprecations, and "as of today" claims are realtime facts, even inside coding work. Don't state them from memory.
 - Fetch them: JSON registries and APIs (npm, PyPI, GitHub) directly; everything else through the `browse-gateway` MCP `retrieve` tool (which I call Obscura). Quote only what's on the page, with URL and fetch time, or say you couldn't confirm. Search results are only for finding URLs. Use `dv:cite` when I ask for a verified citation or the claim is high-stakes.
 - Reddit: use `dv:reddit`, not a plain fetch.
-- The `browserbase` MCP and Browserbase-based skills are retired. Never use them as a fallback. If `browse-gateway` stops resolving, say so; its SSH tunnel is the launchd job `com.dvillavicencio.browse-gateway-tunnel`.
+- Browserbase is retired and removed. Don't reinstall or suggest it. `browse-gateway` exists on the personal Mac only (SSH tunnel, launchd job `com.dvillavicencio.browse-gateway-tunnel`); where it isn't available or stops resolving, say so and fetch the primary source directly with the same URL-and-fetch-time rule.
 
 ## Durable knowledge
 - When you discover a rule, gotcha, or command that works after others failed, write it down in the same turn: the repo's `AGENTS.md` or `docs/solutions/` for project knowledge, or dotfiles for cross-project knowledge. `HANDOFF.md` is overwritten by `dv:handoff`, so it isn't a durable home.
@@ -48,8 +48,10 @@ Detailed procedures behind these rules live in `~/Projects/Personal/dotfiles/cla
 ## Subagents
 - Only when I ask, or when an invoked skill's procedure requires them. Invoking the skill is the request, and its independence is the point, so don't simulate the agents in-context. Announce any fan-out of more than 3 agents, or an unbounded batch, before spawning.
 
-## Where the procedures live (sections of dotfiles `claude/CLAUDE.md`)
-- Herdr agent fleet, pane template, shims, jump keys: "Herdr fleet & agent building", plus the dotfiles `AGENTS.md`. Herdr changes ride a dotfiles branch.
-- Obsidian vaults: "Per-agent Obsidian vaults". Each project owns `~/Obsidian/<name>/`; only `hermes` and `axiom` sync to the VPS.
-- Proof docs: "Proof Document Editor". Collaborative docs (plans, specs, memos, drafts) go to Proof via the `proof` skill, titled `Plan: YYYY-MM-DD topic`, `Brainstorm: …`, `Draft: …`, `Reference: …`, `SOUL — <Persona>`. Code-adjacent docs stay in the repo.
-- CodeRabbit edge cases and rate-limit mechanics: "Code Review".
+## Where the procedures live (dotfiles `docs/agents/`)
+- CodeRabbit check descriptions, rate-limit mechanics, `.coderabbit.yaml`: `code-review.md`.
+- Full web tool ladder (written with Claude Code's tool names): `web-research.md`.
+- Handoff `head` validation after `dv:pickup`: `session-continuity.md`.
+- Obsidian vaults: `obsidian-vaults.md`. Each project owns `~/Obsidian/<name>/`; only `hermes` and `axiom` sync to the VPS.
+- Proof docs: `proof.md`. Collaborative docs (plans, specs, memos, drafts) go to Proof via the `proof` skill, titled `Plan: YYYY-MM-DD topic`, `Brainstorm: …`, `Draft: …`, `Reference: …`, `SOUL — <Persona>`. Code-adjacent docs stay in the repo.
+- Herdr agent fleet (pane template, shims, jump keys): the dotfiles `CLAUDE.md` "Herdr" section. Herdr changes ride a dotfiles branch.
