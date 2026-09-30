@@ -131,9 +131,12 @@ anything beyond docs and config, wait for capacity.
 ## `.coderabbit.yaml` — every repo under review should have one
 
 Set `reviews.auto_review.auto_incremental_review: false`. By default **every push re-reviews**,
-spending the shared per-developer allowance on intermediate commits; with it false the first
-*eligible* review is still automatic — `ignore_title_keywords` (WIP / DO NOT MERGE) and drafts are
-excluded — and each later round is requested deliberately with an `@coderabbitai review` comment. This matches the fix → push → request → re-review loop above.
+spending the shared per-developer allowance on intermediate commits; with it false, each later
+round is requested deliberately with an `@coderabbitai review` comment. This matches the
+fix → push → request → re-review loop above. On a paid plan the first *eligible* review is still
+automatic (`ignore_title_keywords` such as WIP / DO NOT MERGE, and drafts, are excluded). **On the
+current free plan a repo under 10 stars gets no automatic review at all, the first included** (see
+"Rate limits" above), so request every round.
 Repos carrying this config: `skills`, `dotfiles`. Repos still on push-triggered re-review:
 `borealis`.
 

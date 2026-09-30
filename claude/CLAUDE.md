@@ -48,6 +48,9 @@ Full ladder: `docs/agents/web-research.md`.
 - When you discover a rule, gotcha, or command that works after others failed, write it down in the same turn: the project's `CLAUDE.md`/`AGENTS.md` or `docs/solutions/` for project knowledge, dotfiles for cross-project knowledge, memory for my preferences. `HANDOFF.md` is overwritten by `dv:handoff`, so it isn't a durable home.
 - Before closing a turn that did real work, scan your recap for "next time", "gotcha", "going forward", or "keep in mind". Each one either gets written down or is explicitly not a rule.
 
+## Documents
+- Collaborative docs (plans, specs, memos, drafts) go to Proof via the `proof` skill, titled `Plan: YYYY-MM-DD topic`, `Brainstorm: …`, `Draft: …`, `Reference: …`, `SOUL — <Persona>`. Code-adjacent docs (README, `docs/`, `CLAUDE.md`/`AGENTS.md`, `HANDOFF.md`) stay in the repo. API limits and naming table: `docs/agents/proof.md`.
+
 ## Subagents
 - Only when I ask, or when an invoked skill's procedure requires them. Invoking the skill is the request. Its subagents exist for independence (`dv:gauntlet`'s fresh-context validators, `dv:critique`'s three lenses), so never simulate them in-context; the output looks the same and is worthless.
 - Announce a fan-out of more than about 3 agents, or an unbounded batch, in one line before spawning.
@@ -55,4 +58,3 @@ Full ladder: `docs/agents/web-research.md`.
 ## Mac setup (personal Mac)
 - **Obsidian vaults:** each project owns `~/Obsidian/<name>/`; Claude Code project memory is symlinked into the vault's `memory/`. Bootstrap, config template, and sync rules: `docs/agents/obsidian-vaults.md`. Only `hermes` and `axiom` sync to the VPS.
 - **Herdr agent fleet:** administer it one way, not per project. Pane template (`claude --continue || claude; exec /bin/zsh -il` in a login shell), remote shims, and jump keys are in the dotfiles `CLAUDE.md` "Herdr" section; herdr changes ride a dotfiles branch, never an edit to `~/.config/herdr/`. A new local project agent also gets a vault, a project `CLAUDE.md`, and a jump key.
-- **Proof:** collaborative docs (plans, specs, memos, drafts) go to Proof via the `proof` skill, titled `Plan: YYYY-MM-DD topic`, `Brainstorm: …`, `Draft: …`, `Reference: …`, `SOUL — <Persona>`. Code-adjacent docs stay in the repo. API limits and naming table: `docs/agents/proof.md`.
