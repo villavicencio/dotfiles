@@ -259,11 +259,23 @@ cmd_launchagents() {
   [ -e "$plist" ] && err "control: boot off left $plist behind"
   # Real: a private server with the installed config (local.conf, then TPM).
   d="$(mktemp -d /tmp/dotfiles-tmuxchk.XXXXXX)"  # short: 104-byte socket path cap on macOS
-  ( unset TMUX; export TMUX_TMPDIR="$d"
-    tmux new-session -d -s check && sleep 3
-    echo "server profile @continuum-boot = [$(tmux show -gqv @continuum-boot)]"
-    tmux kill-server ) 2>&1
+  # Absence of the plist only counts if that server really started with the
+  # installed config (boot off, from local.conf) and TPM loaded the plugins
+  # (tmux-resurrect's bindings exist; continuum loads in the same TPM pass).
+  local real
+  real="$( unset TMUX; export TMUX_TMPDIR="$d"
+    if ! tmux new-session -d -s check; then echo "START_FAILED"; exit 0; fi
+    sleep 3
+    printf 'boot=%s plugins=%s\n' "$(tmux show -gqv @continuum-boot)" \
+      "$(tmux list-keys 2>/dev/null | grep -q tmux-resurrect && echo loaded || echo missing)"
+    tmux kill-server )"
   rm -rf "$d"
+  echo "installed-config tmux server: $real"
+  case "$real" in
+    START_FAILED*) err "a tmux server with the installed config failed to start; the LaunchAgent check proves nothing" ;;
+    "boot=off plugins=loaded") ok "installed config: plugins loaded with @continuum-boot off" ;;
+    *) err "installed config: expected plugins loaded with boot off, got [$real]" ;;
+  esac
   if [ -e "$plist" ]; then err "a tmux server with the installed config wrote $plist"; else ok "tmux with the installed config wrote no LaunchAgent"; fi
 }
 
