@@ -105,7 +105,9 @@ cmd_static() {
 # reduced to what the install could plausibly touch. The OrbStack and LM Studio
 # binaries are stubs; init.zsh does what OrbStack's does (puts ~/.orbstack/bin
 # on PATH).
-SEEDED=".zprofile .zshrc .zshenv .ssh/config Library/LaunchAgents/dev.hal.test.plist
+# ~/.zshenv is seeded too but left out here: the install replaces it on
+# purpose, and `post` checks the backup instead.
+SEEDED=".zprofile .zshrc .ssh/config Library/LaunchAgents/dev.hal.test.plist
 bin/lms-up.sh bin/container-watchdog.sh .lmstudio/bin/lms .orbstack/shell/init.zsh
 .orbstack/bin/docker"
 
@@ -240,12 +242,15 @@ cmd_launchagents() {
   # config, boot forced on, continuum's own handler: the plist must appear,
   # then go again with boot off.
   d="$(mktemp -d /tmp/dotfiles-tmuxchk.XXXXXX)"  # short: 104-byte socket path cap on macOS
-  ( unset TMUX; export TMUX_TMPDIR="$d"
+  if ! ( unset TMUX; export TMUX_TMPDIR="$d"; ctl=0
     tmux -f /dev/null new-session -d -s control
     tmux set -g @continuum-boot on; "$cont"
-    if [ -f "$plist" ]; then echo "ok: control: boot on writes $plist"; else echo "::error::control: boot on wrote no $plist; the check below proves nothing"; fi
+    if [ -f "$plist" ]; then echo "ok: control: boot on writes $plist"; else ctl=1; fi
     tmux set -g @continuum-boot off; "$cont"
-    tmux kill-server ) 2>&1
+    tmux kill-server
+    exit "$ctl" ) 2>&1; then
+    err "control: boot on wrote no $plist, so the check below proves nothing"
+  fi
   rm -rf "$d"
   [ -e "$plist" ] && err "control: boot off left $plist behind"
   # Real: a private server with the installed config (local.conf, then TPM).

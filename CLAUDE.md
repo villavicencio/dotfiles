@@ -1034,7 +1034,7 @@ How it differs from a desk Mac:
   `HOMEBREW_BUNDLE_NO_UPGRADE=1` and `HOMEBREW_NO_INSTALL_UPGRADE=1`, so installed formulae
   aren't upgraded under running services. A new formula can still upgrade a shared
   dependency it needs. The Homebrew network installer never runs: if brew is missing, the
-  install stops. No font casks. The container runtime (OrbStack, and brew's `docker` and
+  wrapper stops before Dotbot runs, with nothing changed. No font casks. The container runtime (OrbStack, and brew's `docker` and
   `colima`) is installed out of band and is in no Brewfile.
 - **Skipped:**
   - chsh.
@@ -1054,12 +1054,13 @@ How it differs from a desk Mac:
 
   | Link | Source | Effect |
   |---|---|---|
-  | `~/.config/zsh/.zprofile` | `zsh/zprofile.server` | With `ZDOTDIR` set, zsh no longer reads `~/.zprofile` or `~/.zshrc`. This file carries what hal's own versions did: brew shellenv (minus path_helper), OrbStack's `init.zsh`, and `~/.lmstudio/bin`, each only if present. hal's `~/.zprofile` and `~/.zshrc` are left untouched. |
+  | `~/.config/zsh/.zprofile` | `zsh/zprofile.server` | With `ZDOTDIR` set, zsh no longer reads `~/.zprofile` or `~/.zshrc`. This file carries what hal's own versions did: brew shellenv (minus path_helper), OrbStack's `init.zsh`, and `~/.lmstudio/bin`, each only if present. hal's `~/.zprofile` and `~/.zshrc` are left untouched. It also re-applies `zsh/zshenv`'s PATH order, which macOS's `/etc/zprofile` (`path_helper`) undoes in every login shell. |
   | `~/.config/git/gitconfig.platform` | `git/gitconfig.server` | Resets the credential helpers (osxkeychain and GCM can't work over SSH) to `/opt/homebrew/bin/gh` for github.com and gist.github.com, and sets `core.pager = less -FRX`. |
   | `~/.config/tmux/local.conf` | `tmux/local.server.conf` | Sets `@continuum-boot off`, so tmux-continuum never writes `~/Library/LaunchAgents/Tmux.Start.plist`, which opens iTerm at login. |
 
-- **`~/.zshenv`:** a `~/.zshenv` this install didn't write is copied to
-  `~/.zshenv.pre-dotfiles` before being replaced.
+- **`~/.zshenv`:** a `~/.zshenv` this install didn't write is kept as
+  `~/.zshenv.pre-dotfiles` before being replaced. A regular file is copied there, and a
+  symlink is moved there as a link.
 
 Verify with `ci/server-profile-checks.sh static` locally. CI's `macos-server` job runs the
 profile in a simulated hal home and checks the pre-existing files, the shell chain, git, and

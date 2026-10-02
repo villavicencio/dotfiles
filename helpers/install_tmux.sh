@@ -56,7 +56,8 @@ if [ "${DOTFILES_PROFILE:-desk}" = "server" ]; then
   # afterwards. (Desk installs keep the old behavior.)
   # Under /tmp, not $TMPDIR: macOS caps socket paths at 104 bytes and
   # $TMPDIR (/var/folders/…) plus tmux-UID/default comes close.
-  tpm_sock_dir="$(mktemp -d /tmp/dotfiles-tpm.XXXXXX)"
+  tpm_sock_dir="$(mktemp -d /tmp/dotfiles-tpm.XXXXXX)" && [ -n "$tpm_sock_dir" ] \
+    || handle_error "could not create a private tmux socket dir; not running TPM"
   ( unset TMUX; TMUX_TMPDIR="$tpm_sock_dir" "$TPM_INSTALL_DIR/bin/install_plugins" )
   tpm_rc=$?
   ( unset TMUX; TMUX_TMPDIR="$tpm_sock_dir" tmux kill-server >/dev/null 2>&1 )

@@ -7,7 +7,14 @@
 # the thing existing, for every login shell: SSH sessions, tmux panes, and
 # `zsh -l -c` from scripts. Desk installs link nothing at $ZDOTDIR/.zprofile.
 #
-# Runs after zsh/zshenv (PATH already user-scope first) and before zsh/zshrc.
+# Runs after zsh/zshenv and macOS's /etc/zprofile, and before zsh/zshrc.
+
+# Re-apply zsh/zshenv's PATH order. A login zsh runs /etc/zprofile after
+# zshenv, and its path_helper moves /etc/paths (and /etc/paths.d) entries to
+# the front, so ~/bin, ~/.local/bin, Homebrew and coreutils' gnubin end up
+# behind /usr/bin. zshenv only prepends (PATH is `typeset -U`, first entry
+# wins), so sourcing it again restores the order `zsh -c` already has.
+[[ -f "$ZDOTDIR/.zshenv" ]] && source "$ZDOTDIR/.zshenv"
 
 # Homebrew shellenv (hal's ~/.zprofile). HOMEBREW_* vars, fpath, MANPATH and
 # INFOPATH. The path_helper line is dropped for the reason zsh/zshrc gives: it

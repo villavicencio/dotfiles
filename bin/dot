@@ -204,8 +204,10 @@ cmd_doctor() {
   echo "Homebrew:"
   if command -v brew >/dev/null 2>&1; then
     # orphan taps: tapped but nothing in Brewfile references them (best-effort)
-    if HOMEBREW_NO_AUTO_UPDATE=1 brew bundle check --file="$REPO/brew/Brewfile" >/dev/null 2>&1; then
-      ok "brew bundle satisfied"
+    local brewfile="$REPO/brew/Brewfile"
+    [ "${DOTFILES_PROFILE:-desk}" = "server" ] && brewfile="$REPO/brew/Brewfile.server"
+    if HOMEBREW_NO_AUTO_UPDATE=1 brew bundle check --file="$brewfile" >/dev/null 2>&1; then
+      ok "brew bundle satisfied ($(basename "$brewfile"))"
     else
       warn "brew bundle has unmet entries (dot drift / brew bundle check for detail)"
     fi

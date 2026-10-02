@@ -41,15 +41,19 @@
 - shell:
     - command: |
         # Server profile only: hal is a box other tools already configured, so a
-        # ~/.zshenv that isn't the one this step writes is copied to
-        # ~/.zshenv.pre-dotfiles (or .pre-dotfiles.N) first, never lost. Desk
-        # installs clobber it as they always have.
-        if [ "${DOTFILES_PROFILE:-desk}" = "server" ] && [ -f ~/.zshenv ] \
-            && [ "$(cat ~/.zshenv)" != "$(printf 'export ZDOTDIR=%s/.config/zsh\n. "%s/.config/zsh"/.zshenv' "$HOME" "$HOME")" ]; then
+        # ~/.zshenv that isn't the one this step writes is kept as
+        # ~/.zshenv.pre-dotfiles (or .pre-dotfiles.N), never lost. A regular file
+        # is copied; a symlink is moved aside as a link, because the `>` below
+        # would otherwise write through it into its target. Desk installs
+        # clobber ~/.zshenv as they always have.
+        if [ "${DOTFILES_PROFILE:-desk}" = "server" ] && { [ -L ~/.zshenv ] || { [ -f ~/.zshenv ] \
+            && [ "$(cat ~/.zshenv)" != "$(printf 'export ZDOTDIR=%s/.config/zsh\n. "%s/.config/zsh"/.zshenv' "$HOME" "$HOME")" ]; }; }; then
           backup=~/.zshenv.pre-dotfiles; n=1
           while [ -e "$backup" ] || [ -L "$backup" ]; do backup=~/.zshenv.pre-dotfiles.$n; n=$((n + 1)); done
           if [ "${DOTFILES_DRY_RUN:-0}" = "1" ]; then
-            echo "[dry-run] would back up ~/.zshenv to $backup"
+            echo "[dry-run] would keep the existing ~/.zshenv as $backup"
+          elif [ -L ~/.zshenv ]; then
+            mv ~/.zshenv "$backup" && echo "moved the ~/.zshenv symlink aside to $backup" || exit 1
           else
             cp -p ~/.zshenv "$backup" && echo "backed up ~/.zshenv to $backup" || exit 1
           fi

@@ -31,6 +31,14 @@ case "${DOTFILES_PROFILE:-desk}" in
       echo "DOTFILES_PROFILE=server is a macOS profile (the Mac mini hal); this is $(uname)." >&2
       exit 1
     fi
+    # hal's Homebrew is preinstalled and owned by the service account, which
+    # can't install one (no admin). Check before Dotbot runs: without -x the
+    # layers are best-effort, so a missing brew caught only by the package
+    # helper would still leave a half-configured server behind.
+    if [ ! -x /opt/homebrew/bin/brew ] && [ ! -x /usr/local/bin/brew ]; then
+      echo "DOTFILES_PROFILE=server needs an existing Homebrew (/opt/homebrew or /usr/local); nothing was changed." >&2
+      exit 1
+    fi
     export DOTFILES_PROFILE=server
     PLATFORM_CONFIG="dotbot-conf/server.yaml"
     # No `clean` on the server. Dotbot only removes dead links in ~ that resolve
