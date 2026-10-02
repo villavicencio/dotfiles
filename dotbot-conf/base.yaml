@@ -110,6 +110,14 @@
     ~/.config/tmux/tmux.conf: tmux/tmux.conf
     ~/.config/tmux/tmux.general.conf: tmux/tmux.general.conf
     ~/.config/tmux/tmux.display.conf: tmux/tmux.display.conf
+    # Server profile only (the Mac mini hal): turns tmux-continuum's boot option
+    # off. Linked HERE, before install_tmux.sh below starts a tmux server with
+    # this config, so no server ever loads continuum with boot on and writes
+    # ~/Library/LaunchAgents/Tmux.Start.plist. Desk installs skip it and leave
+    # any machine-local ~/.config/tmux/local.conf alone.
+    ~/.config/tmux/local.conf:
+      path: tmux/local.server.conf
+      if: '[ "${DOTFILES_PROFILE:-desk}" = server ]'
     ~/.config/topgrade.toml: topgrade/topgrade.toml
     ~/.local/bin/dot: bin/dot
     # Whole-directory link: the tracked NvChad v2.5 config IS ~/.config/nvim.

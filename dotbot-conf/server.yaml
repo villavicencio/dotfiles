@@ -33,7 +33,8 @@
 # AGENTS.md, and migrate_codex_agents.sh moves a regular one aside (never
 # deletes it) if one ever appears.
 #
-# Added for the server: the git, zsh-login and tmux overlays below.
+# Added for the server: the git and zsh-login overlays below (the tmux one is
+# in base.yaml, ahead of TPM).
 
 - defaults:
     link:
@@ -64,10 +65,8 @@
     # shellenv, OrbStack's init, LM Studio's PATH entry), so those files stay
     # untouched and nothing they did is lost. Desk installs link nothing here.
     ~/.config/zsh/.zprofile: zsh/zprofile.server
-    # tmux/tmux.conf sources ~/.config/tmux/local.conf (the machine-local slot)
-    # before loading plugins. The server's turns continuum-boot off, so tmux
-    # never writes a Tmux.Start LaunchAgent (iTerm at login) on hal.
-    ~/.config/tmux/local.conf: tmux/local.server.conf
+    # The tmux overlay (~/.config/tmux/local.conf, continuum-boot off) is linked
+    # by base.yaml under this profile, because it must exist before TPM runs.
 
 - shell:
     - command: echo "Installation complete!"

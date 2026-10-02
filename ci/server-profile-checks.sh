@@ -234,6 +234,10 @@ cmd_launchagents() {
   local la="$HOME/Library/LaunchAgents" plist cont d
   plist="$la/Tmux.Start.plist"
   cont="$HOME/.config/tmux/plugins/tmux-continuum/scripts/handle_tmux_automatic_start.sh"
+  # First, the install's own result, before anything below can change it (the
+  # control ends by running continuum's boot-off handler, which deletes the
+  # plist).
+  expect "LaunchAgents after install" "dev.hal.test.plist" "$(ls -1 "$la" 2>/dev/null)"
   if [ ! -x "$cont" ]; then
     err "tmux-continuum not installed at $cont; the boot check can't run"
     return
@@ -261,7 +265,6 @@ cmd_launchagents() {
     tmux kill-server ) 2>&1
   rm -rf "$d"
   if [ -e "$plist" ]; then err "a tmux server with the installed config wrote $plist"; else ok "tmux with the installed config wrote no LaunchAgent"; fi
-  expect "LaunchAgents after install" "dev.hal.test.plist" "$(ls -1 "$la" 2>/dev/null)"
 }
 
 cmd_snapshot() {

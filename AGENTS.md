@@ -302,8 +302,9 @@ How it differs from a desk Mac:
 - **Packages:** `brew/Brewfile.server`, formulae only, installed by `brew bundle` with
   `HOMEBREW_BUNDLE_NO_UPGRADE=1` and `HOMEBREW_NO_INSTALL_UPGRADE=1`, so installed formulae
   aren't upgraded under running services. A new formula can still upgrade a shared
-  dependency it needs. The Homebrew network installer never runs: if brew is missing, the
-  wrapper stops before Dotbot runs, with nothing changed. No font casks. The container runtime (OrbStack, and brew's `docker` and
+  dependency it needs. The Homebrew network installer never runs: if brew is missing at
+  the `BREW_PREFIX` location (`/opt/homebrew` on Apple Silicon), the wrapper stops before
+  Dotbot runs, with nothing changed. No font casks. The container runtime (OrbStack, and brew's `docker` and
   `colima`) is installed out of band and is in no Brewfile.
 - **Skipped:**
   - chsh.
@@ -319,13 +320,14 @@ How it differs from a desk Mac:
   Its `install_plugins` reads the plugin list from whatever tmux server is current, so a
   server hal already runs without this config would make it abort ("Tmux Plugin Manager not
   configured") and fail the install.
-- **Overlays**, linked only by `server.yaml`:
+- **Overlays**, linked only under this profile (the tmux one by `base.yaml`, ahead of TPM;
+  the others by `server.yaml`):
 
   | Link | Source | Effect |
   |---|---|---|
   | `~/.config/zsh/.zprofile` | `zsh/zprofile.server` | With `ZDOTDIR` set, zsh no longer reads `~/.zprofile` or `~/.zshrc`. This file carries what hal's own versions did: brew shellenv (minus path_helper), OrbStack's `init.zsh`, and `~/.lmstudio/bin`, each only if present. hal's `~/.zprofile` and `~/.zshrc` are left untouched. It also re-applies `zsh/zshenv`'s PATH order, which macOS's `/etc/zprofile` (`path_helper`) undoes in every login shell. |
   | `~/.config/git/gitconfig.platform` | `git/gitconfig.server` | Resets the credential helpers (osxkeychain and GCM can't work over SSH) to `/opt/homebrew/bin/gh` for github.com and gist.github.com, and sets `core.pager = less -FRX`. |
-  | `~/.config/tmux/local.conf` | `tmux/local.server.conf` | Sets `@continuum-boot off`, so tmux-continuum never writes `~/Library/LaunchAgents/Tmux.Start.plist`, which opens iTerm at login. |
+  | `~/.config/tmux/local.conf` | `tmux/local.server.conf` | Sets `@continuum-boot off`. It is linked before the TPM step starts a tmux server, so tmux-continuum never loads with boot on and never writes `~/Library/LaunchAgents/Tmux.Start.plist`, which opens iTerm at login. |
 
 - **`~/.zshenv`:** a `~/.zshenv` this install didn't write is kept as
   `~/.zshenv.pre-dotfiles` before being replaced. A regular file is copied there, and a

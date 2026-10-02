@@ -22,15 +22,14 @@ if [ "$(uname)" = "Darwin" ] && [ "${DOTFILES_PROFILE:-desk}" = "server" ]; then
       echo "[dry-run] would run: brew bundle --no-upgrade --file=./brew/Brewfile.server (no Homebrew bootstrap, no font casks)"
       exit 0
     fi
-    found=""
-    for b in /opt/homebrew/bin/brew /usr/local/bin/brew; do
-        if [ -x "$b" ]; then found="$b"; break; fi
-    done
-    if [ -z "$found" ]; then
-        echo "ERROR: server profile needs an existing Homebrew (/opt/homebrew or /usr/local); not installing one." >&2
+    # Same prefix rule as zsh/zshenv's BREW_PREFIX (the install wrapper checks
+    # this too, before Dotbot runs; repeated for direct invocation).
+    if [ "$(uname -m)" = "arm64" ]; then prefix=/opt/homebrew; else prefix=/usr/local; fi
+    if [ ! -x "$prefix/bin/brew" ]; then
+        echo "ERROR: server profile needs an existing Homebrew at $prefix; not installing one." >&2
         exit 1
     fi
-    echo "Homebrew found at $found"
+    echo "Homebrew found at $prefix/bin/brew"
     BREWFILE_PATH=./brew/Brewfile.server HOMEBREW_BUNDLE_NO_UPGRADE=1 HOMEBREW_NO_INSTALL_UPGRADE=1 \
         bash helpers/install_from_brewfile.sh
     exit $?

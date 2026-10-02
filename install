@@ -35,8 +35,10 @@ case "${DOTFILES_PROFILE:-desk}" in
     # can't install one (no admin). Check before Dotbot runs: without -x the
     # layers are best-effort, so a missing brew caught only by the package
     # helper would still leave a half-configured server behind.
-    if [ ! -x /opt/homebrew/bin/brew ] && [ ! -x /usr/local/bin/brew ]; then
-      echo "DOTFILES_PROFILE=server needs an existing Homebrew (/opt/homebrew or /usr/local); nothing was changed." >&2
+    # Same prefix rule as zsh/zshenv's BREW_PREFIX.
+    if [ "$(uname -m)" = "arm64" ]; then server_brew_prefix=/opt/homebrew; else server_brew_prefix=/usr/local; fi
+    if [ ! -x "$server_brew_prefix/bin/brew" ]; then
+      echo "DOTFILES_PROFILE=server needs an existing Homebrew at $server_brew_prefix; nothing was changed." >&2
       exit 1
     fi
     export DOTFILES_PROFILE=server
