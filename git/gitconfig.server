@@ -1,0 +1,27 @@
+# Server overrides for git/gitconfig — DOTFILES_PROFILE=server, the headless
+# Mac mini `hal`. The macOS twin of git/gitconfig.linux.
+#
+# dotbot-conf/server.yaml links this file to ~/.config/git/gitconfig.platform,
+# which git/gitconfig [include]s after its own credential sections. Desk Macs
+# link nothing there, so they resolve exactly the config they always did.
+
+# hal is reached only over SSH, and an SSH session can't read the login
+# Keychain (docs/agents/, #202), so osxkeychain and GCM would fail or hang.
+# credential.helper is multi-valued: the empty value resets the list inherited
+# from git/gitconfig. Nothing is added back for other hosts: with no helper git
+# prompts. gh on hal is logged in with --insecure-storage
+# (~/.config/gh/hosts.yml), which works without the Keychain.
+[credential]
+    helper =
+# Absolute path for the reason git/gitconfig gives (callers with a minimal PATH).
+[credential "https://github.com"]
+    helper =
+    helper = !/opt/homebrew/bin/gh auth git-credential
+[credential "https://gist.github.com"]
+    helper =
+    helper = !/opt/homebrew/bin/gh auth git-credential
+
+# Same reason as git/gitconfig.linux: `vim -` as the pager turns git output in
+# agent and SSH pty sessions into vim buffers.
+[core]
+    pager = less -FRX

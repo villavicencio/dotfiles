@@ -128,7 +128,7 @@ cmd_check() {
 
   echo "dotbot --dry-run parse:"
   local cfg
-  for cfg in dotbot-conf/base.yaml dotbot-conf/darwin.yaml dotbot-conf/linux.yaml; do
+  for cfg in dotbot-conf/base.yaml dotbot-conf/darwin.yaml dotbot-conf/linux.yaml dotbot-conf/server.yaml; do
     [ -f "$REPO/$cfg" ] || continue
     local fake; fake="$(mktemp -d)"
     if PYTHONDONTWRITEBYTECODE=1 DOTFILES_DRY_RUN=1 HOME="$fake" \
@@ -156,11 +156,13 @@ cmd_doctor() {
   # the other platform's layer is parsed for source integrity only, since its
   # targets are never installed here (e.g. linux.yaml links
   # ~/.config/tmux/window-meta.json, which on macOS is a live regular file written
-  # by the tmux-window-namer skill).
+  # by the tmux-window-namer skill). The server profile's layer (the Mac mini hal)
+  # replaces darwin.yaml; run `DOTFILES_PROFILE=server dot doctor` there.
   local cfg out perr=0 active_platform
   case "$(uname)" in Darwin) active_platform="dotbot-conf/darwin.yaml" ;; *) active_platform="dotbot-conf/linux.yaml" ;; esac
+  [ "${DOTFILES_PROFILE:-desk}" = "server" ] && active_platform="dotbot-conf/server.yaml"
   out="$(mktemp)"
-  for cfg in dotbot-conf/base.yaml dotbot-conf/darwin.yaml dotbot-conf/linux.yaml; do
+  for cfg in dotbot-conf/base.yaml dotbot-conf/darwin.yaml dotbot-conf/linux.yaml dotbot-conf/server.yaml; do
     if [ ! -f "$REPO/$cfg" ]; then echo "MISSING_CONFIG $cfg" >>"$out"; perr=1; continue; fi
     local mode="sources"; { [ "$cfg" = "dotbot-conf/base.yaml" ] || [ "$cfg" = "$active_platform" ]; } && mode="full"
     # The parser prints PARSER_ERROR and exits non-zero on any import/parse/schema
@@ -202,8 +204,10 @@ cmd_doctor() {
   echo "Homebrew:"
   if command -v brew >/dev/null 2>&1; then
     # orphan taps: tapped but nothing in Brewfile references them (best-effort)
-    if HOMEBREW_NO_AUTO_UPDATE=1 brew bundle check --file="$REPO/brew/Brewfile" >/dev/null 2>&1; then
-      ok "brew bundle satisfied"
+    local brewfile="$REPO/brew/Brewfile"
+    [ "${DOTFILES_PROFILE:-desk}" = "server" ] && brewfile="$REPO/brew/Brewfile.server"
+    if HOMEBREW_NO_AUTO_UPDATE=1 brew bundle check --file="$brewfile" >/dev/null 2>&1; then
+      ok "brew bundle satisfied ($(basename "$brewfile"))"
     else
       warn "brew bundle has unmet entries (dot drift / brew bundle check for detail)"
     fi

@@ -2,7 +2,9 @@ name: install-matrix post-apply
 description: >
   R3 assertion 1 (no hardcoded user paths in install-pipeline files) + R4
   (zsh -i -c true exits cleanly). Runs after `./install`. Body is
-  identical across the linux and macos legs by construction.
+  identical across the linux, macos and macos-server legs by construction;
+  the steps that differ by install profile branch on $DOTFILES_PROFILE
+  (unset = desk), which the macos-server job sets to `server`.
 
 runs:
   using: composite
@@ -184,7 +186,9 @@ runs:
       # osxkeychain/GCM values, because the overlay resets the multi-valued
       # list with an empty entry rather than deleting lines from another file.
       # macOS asserts config values instead of running helpers, so a keychain
-      # prompt on a runner can't hang the job.
+      # prompt on a runner can't hang the job. The macOS server profile links
+      # git/gitconfig.server, which resets osxkeychain/GCM away, so it gets the
+      # same behavioural check as Linux.
       shell: bash
       run: |
         set -eo pipefail
@@ -204,8 +208,20 @@ runs:
             | sed -n "s/.*run_command: '\(.*\) get'\$/\1/p" || true
         }
         pager="$(git config --get core.pager || true)"
-        case "$(uname)" in
-          Linux)
+        case "${DOTFILES_PROFILE:-desk}/$(uname)" in
+          server/Darwin)
+            expect "platform overlay link" "$PWD/git/gitconfig.server" \
+              "$(readlink "$HOME/.config/git/gitconfig.platform")"
+            expect "helpers run for github.com" "/opt/homebrew/bin/gh auth git-credential" "$(helpers_run github.com)"
+            expect "helpers run for gist.github.com" "/opt/homebrew/bin/gh auth git-credential" "$(helpers_run gist.github.com)"
+            expect "helpers run for example.com" "" "$(helpers_run example.com)"
+            expect "core.pager" "less -FRX" "$pager"
+            for bin in /opt/homebrew/bin/gh delta vim less; do
+              if command -v "$bin" >/dev/null 2>&1; then echo "ok: $bin -> $(command -v "$bin")"
+              else echo "::error::$bin not found (named by git/gitconfig or git/gitconfig.server)"; fail=1; fi
+            done
+            ;;
+          desk/Linux)
             expect "platform overlay link" "$PWD/git/gitconfig.linux" \
               "$(readlink -f "$HOME/.config/git/gitconfig.platform")"
             expect "helpers run for github.com" "/usr/bin/gh auth git-credential" "$(helpers_run github.com)"
@@ -219,7 +235,7 @@ runs:
               else echo "::error::$bin not found (named by git/gitconfig or git/gitconfig.linux)"; fail=1; fi
             done
             ;;
-          Darwin)
+          desk/Darwin)
             if [ -e "$HOME/.config/git/gitconfig.platform" ] || [ -L "$HOME/.config/git/gitconfig.platform" ]; then
               echo "::error::~/.config/git/gitconfig.platform exists on macOS; it must stay unlinked"; fail=1
             fi
@@ -231,8 +247,31 @@ runs:
               "$(git config --global --get-urlmatch credential.helper https://gist.github.com)"
             expect "core.pager" "vim -" "$pager"
             ;;
+          *)
+            echo "::error::no R8 expectations for profile/OS ${DOTFILES_PROFILE:-desk}/$(uname)"; fail=1
+            ;;
         esac
         exit "$fail"
+
+    - name: R10 assertion (desk installs link no server-only file)
+      # The server profile links ~/.config/zsh/.zprofile (zsh/zprofile.server)
+      # and, on macOS, ~/.config/git/gitconfig.platform. A desk install must
+      # leave $ZDOTDIR/.zprofile absent so login shells on the Macs, WSL and
+      # CI read exactly what they did before the server profile existed.
+      # R8 already covers gitconfig.platform per platform; the server side of
+      # both is asserted by ci/server-profile-checks.sh post.
+      shell: bash
+      run: |
+        set -eo pipefail
+        if [ "${DOTFILES_PROFILE:-desk}" = server ]; then
+          echo "server profile: checked by ci/server-profile-checks.sh post"
+          exit 0
+        fi
+        if [ -e "$HOME/.config/zsh/.zprofile" ] || [ -L "$HOME/.config/zsh/.zprofile" ]; then
+          echo "::error::desk install created ~/.config/zsh/.zprofile -> $(readlink "$HOME/.config/zsh/.zprofile" || echo '(regular file)')"
+          exit 1
+        fi
+        echo "ok: ~/.config/zsh/.zprofile absent"
 
     - name: R9 assertion (nvim >= 0.12, config starts headless, pins untouched)
       # helpers/install_nvim.sh installs the pinned Neovim release on Linux (apt's is
@@ -240,10 +279,15 @@ runs:
       # verify fails ./install if any plugin is off-pin. This adds what that verify
       # cannot see: the nvim on PATH is new enough, the tracked config loads with no
       # startup errors, and the first-launch install did not leave the tracked
-      # lockfile rewritten.
+      # lockfile rewritten. The server profile links no nvim config and runs no
+      # bootstrap (ci/server-profile-checks.sh post asserts both), so it skips.
       shell: bash
       run: |
         set -eo pipefail
+        if [ "${DOTFILES_PROFILE:-desk}" = server ]; then
+          echo "server profile: no nvim config or plugin bootstrap; skipped"
+          exit 0
+        fi
         export PATH="$HOME/.local/bin:$PATH"   # Linux: where install_nvim.sh links nvim
         v="$(nvim --version | head -1)"
         echo "$v ($(command -v nvim))"

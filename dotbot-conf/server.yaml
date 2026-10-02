@@ -1,0 +1,73 @@
+# Server install layer — DOTFILES_PROFILE=server, the headless Mac mini `hal`.
+#
+# The install wrapper runs this IN PLACE OF dotbot-conf/darwin.yaml, after
+# dotbot-conf/base.yaml (run with `--except clean`). It is deliberately small:
+# hal is reached only over SSH as a standard (non-admin) account, and other
+# things already live there (LaunchAgents, OrbStack, LM Studio, and the
+# ~/.claude / ~/.codex / ~/.local/bin contents copied from the VPS).
+#
+# What darwin.yaml does that this layer does NOT, and why:
+#   chsh                     hal's login shell is already macOS's zsh, and chsh
+#                            would prompt for a password over SSH.
+#   install_nvm / install_node
+#                            node comes from brew/Brewfile.server.
+#   install_uv               uv comes from brew/Brewfile.server; ~/.local/bin
+#                            stays for the scripts copied from the VPS.
+#   install_claude_code      Claude Code is installed separately on hal; a
+#                            second (native-installer) copy would shadow it.
+#   install_claude_settings, ~/.claude/{CLAUDE.md,statusline-command.sh,hooks}
+#                            ~/.claude arrives from the VPS copy with its own
+#                            regular files there; linking would fail on them
+#                            (Dotbot only replaces symlinks) or replace them.
+#   install_herdr_agents, the tmux-attention / herdr hooks
+#                            herdr and its ssh shims are desk-only.
+#   the iTerm2 Dynamic Profile
+#                            no GUI terminal on a headless box.
+#
+# Also different in base.yaml under this profile: no `clean`, no
+# ~/.config/nvim link or plugin bootstrap, brew/Brewfile.server with
+# --no-upgrade and no Homebrew bootstrap, a backup of a foreign ~/.zshenv,
+# and TPM run against a private tmux socket (helpers/install_tmux.sh).
+#
+# Kept from darwin.yaml: the Codex AGENTS.md link. The copied ~/.codex has no
+# AGENTS.md, and migrate_codex_agents.sh moves a regular one aside (never
+# deletes it) if one ever appears.
+#
+# Added for the server: the git and zsh-login overlays below (the tmux one is
+# in base.yaml, ahead of TPM).
+
+- defaults:
+    link:
+      relink: true
+    shell:
+      quiet: true
+      stdout: true
+      stderr: true
+
+- create:
+    - ~/.codex
+
+- shell:
+    - [bash helpers/migrate_codex_agents.sh, "Moving aside an unlinked Codex AGENTS.md"]
+
+- link:
+    ~/.codex/AGENTS.md: codex/AGENTS.md
+    # Git platform overlay, the macOS-server twin of linux.yaml's. git/gitconfig
+    # [include]s this path after its credential sections: the overlay drops
+    # osxkeychain and GCM (an SSH session can't read the login Keychain) and
+    # makes /opt/homebrew/bin/gh the only helper, for github.com and
+    # gist.github.com. Desk Macs link nothing here. ~/.config/git is created by
+    # base.yaml.
+    ~/.config/git/gitconfig.platform: git/gitconfig.server
+    # Login-shell overlay. base.yaml sets ZDOTDIR=~/.config/zsh, after which
+    # zsh reads $ZDOTDIR/.zprofile and no longer ~/.zprofile or ~/.zshrc. This
+    # file carries what hal's own ~/.zprofile and ~/.zshrc provided (Homebrew's
+    # shellenv, OrbStack's init, LM Studio's PATH entry), so those files stay
+    # untouched and nothing they did is lost. Desk installs link nothing here.
+    ~/.config/zsh/.zprofile: zsh/zprofile.server
+    # The tmux overlay (~/.config/tmux/local.conf, continuum-boot off) is linked
+    # by base.yaml under this profile, because it must exist before TPM runs.
+
+- shell:
+    - command: echo "Installation complete!"
+      quiet: false
