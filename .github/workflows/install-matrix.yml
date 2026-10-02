@@ -2,7 +2,7 @@
 # Install matrix — validates the install pipeline on every PR against master.
 # =============================================================================
 #
-# Three top-level jobs (linux + macos + windows), not a strategy matrix —
+# Four top-level jobs (linux + macos + macos-server + windows), not a strategy matrix —
 # container-based Linux, bare macOS-15 and a PowerShell-only Windows leg mix
 # poorly inside one matrix, and the cleaner artifact is clearly-named jobs in
 # the PR check list.
@@ -51,6 +51,27 @@
 #     tracked install-pipeline files, all Dotbot-declared symlinks
 #     resolve to files inside the repo.
 # R4. `zsh -i -c true` exits cleanly post-install.
+#
+# macos-server leg — DOTFILES_PROFILE=server (the headless Mac mini `hal`)
+# ------------------------------------------------------------------------
+# Runs the server profile in a SIMULATED hal home ($RUNNER_TEMP/hal-home,
+# seeded with hal's pre-existing ~/.zprofile, ~/.zshrc, ~/.ssh/config, a
+# LaunchAgent, ~/bin scripts, OrbStack/LM Studio stubs and dangling vault
+# symlinks), reusing the pre-/post-apply composites (profile-aware via
+# $DOTFILES_PROFILE), plus ci/server-profile-checks.sh:
+# S1. Brewfile.server is formulae only, has the required set, names none of
+#     the excluded formulae (docker-desktop and every cask, colima, docker,
+#     …); an unknown DOTFILES_PROFILE fails before Dotbot runs.
+# S2. After the apply: every pre-existing file is byte-identical, dangling
+#     symlinks (outside AND inside the repo) survive — no `clean` on server;
+#     ~/.zshenv was backed up; chsh was never called (a recording shim is
+#     first on PATH and CI=false, so a CI-gated chsh step would reach it);
+#     no nvim config/nvm/uv/Claude Code/Claude settings/iTerm/herdr shims;
+#     no cask added; `zsh -lic` and `zsh -lc` resolve brew, lms, docker
+#     (OrbStack), node, gh as hal's own rc files did, with ~/.local/bin still
+#     ahead of Homebrew. Git is R8's server branch (gh overlay only).
+# S3. A second `./install` exits 0 and changes nothing in $HOME (outside
+#     ~/Library and ~/.cache logs) or in the installed formula/cask set.
 #
 # Windows leg (VIL-151) — install.ps1 is PowerShell, not Dotbot
 # ------------------------------------------------------------
@@ -200,7 +221,7 @@ jobs:
   # else — the permission bump is isolated to the notifier, not the code-executing
   # install jobs.
   notify-on-schedule-failure:
-    needs: [linux, macos, windows]
+    needs: [linux, macos, macos-server, windows]
     if: ${{ failure() && github.event_name == 'schedule' }}
     runs-on: ubuntu-24.04
     permissions:
@@ -293,6 +314,77 @@ jobs:
 
       - name: Post-apply assertions (R3 user-paths + R4 zsh init)
         uses: ./.github/actions/install-matrix-post-apply
+
+  # Server profile (DOTFILES_PROFILE=server) for the headless Mac mini `hal`.
+  # A separate job rather than a step on `macos`: the desk leg has already
+  # installed the full Brewfile by the time a step could run, which would hide
+  # anything Brewfile.server forgot. A fresh runner proves the server package
+  # set on its own, and it runs in parallel, so the workflow takes no longer.
+  macos-server:
+    runs-on: macos-15
+    timeout-minutes: 30
+    env:
+      HOMEBREW_NO_AUTO_UPDATE: '1'
+      HOMEBREW_NO_INSTALL_CLEANUP: '1'
+      HOMEBREW_BUNDLE_JOBS: '1'  # same Cellar-lock race as the macos leg
+      DOTFILES_PROFILE: server
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+        with:
+          submodules: recursive
+
+      - name: S1 — static checks (Brewfile.server, profile validation)
+        run: ci/server-profile-checks.sh static
+
+      - name: Switch to a simulated hal home
+        # Every later step sees HOME=$RUNNER_TEMP/hal-home. Homebrew keeps its
+        # download cache in the runner's real home. SEED_STATE (outside the
+        # simulated home) carries the seed hashes and the chsh shim.
+        run: |
+          set -euo pipefail
+          sim="$RUNNER_TEMP/hal-home"
+          mkdir -p "$sim"
+          {
+            echo "HOMEBREW_CACHE=$HOME/Library/Caches/Homebrew"
+            echo "SEED_STATE=$RUNNER_TEMP/hal-state"
+            echo "HOME=$sim"
+          } >> "$GITHUB_ENV"
+
+      - name: Seed hal's pre-existing files
+        run: ci/server-profile-checks.sh seed
+
+      - name: Pre-apply assertions (R2 + R3 symlink-resolution + checkout cleanup)
+        uses: ./.github/actions/install-matrix-pre-apply
+
+      - name: Apply (DOTFILES_PROFILE=server ./install)
+        env:
+          CI: 'false'  # so a chsh step gated only on CI would hit the shim
+        run: PATH="$SEED_STATE/shim:$PATH" ./install
+
+      - name: Post-apply assertions (R3-R10, profile-aware)
+        uses: ./.github/actions/install-matrix-post-apply
+
+      - name: S2 — server profile assertions
+        run: ci/server-profile-checks.sh post
+
+      - name: S3 — second run changes nothing
+        env:
+          CI: 'false'
+        run: |
+          set -euo pipefail
+          ci/server-profile-checks.sh snapshot "$SEED_STATE/snap.1"
+          PATH="$SEED_STATE/shim:$PATH" ./install
+          ci/server-profile-checks.sh snapshot "$SEED_STATE/snap.2"
+          if ! diff -u "$SEED_STATE/snap.1" "$SEED_STATE/snap.2"; then
+            echo "::error::a second DOTFILES_PROFILE=server ./install changed \$HOME or the brew package set"
+            exit 1
+          fi
+          if [ -e "$SEED_STATE/chsh.called" ]; then
+            echo "::error::chsh was called on the second run: $(cat "$SEED_STATE/chsh.called")"
+            exit 1
+          fi
+          echo "ok: second run changed nothing"
 
   # Windows leg (VIL-151). install.ps1 is PowerShell, not Dotbot, so the bash
   # composite actions above don't apply; the W1-W9 assertions described in the
