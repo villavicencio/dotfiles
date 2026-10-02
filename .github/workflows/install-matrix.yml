@@ -70,6 +70,8 @@
 #     no cask added; `zsh -lic` and `zsh -lc` resolve brew, lms, docker
 #     (OrbStack), node, gh as hal's own rc files did, with ~/.local/bin still
 #     ahead of Homebrew. Git is R8's server branch (gh overlay only).
+#     No LaunchAgent added: tmux-continuum's boot option would write
+#     Tmux.Start.plist (iTerm at login); checked with a positive control.
 # S3. A second `./install` exits 0 and changes nothing in $HOME (outside
 #     ~/Library and ~/.cache logs) or in the installed formula/cask set.
 #
@@ -380,6 +382,9 @@ jobs:
             echo "::error::a second DOTFILES_PROFILE=server ./install changed \$HOME or the brew package set"
             exit 1
           fi
+          # The second run is the first whose TPM step loads the plugins
+          # (tmux-continuum included); re-check that no LaunchAgent appeared.
+          ci/server-profile-checks.sh launchagents
           if [ -e "$SEED_STATE/chsh.called" ]; then
             echo "::error::chsh was called on the second run: $(cat "$SEED_STATE/chsh.called")"
             exit 1

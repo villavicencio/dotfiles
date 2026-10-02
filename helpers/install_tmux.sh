@@ -45,6 +45,25 @@ fi
 
 # Install TMux plugins
 log_message "Installing TMux plugins..."
-"$TPM_INSTALL_DIR/bin/install_plugins" || handle_error "Failed to install TMux plugins"
+if [ "${DOTFILES_PROFILE:-desk}" = "server" ]; then
+  # TPM's install_plugins reads its plugin list and TMUX_PLUGIN_MANAGER_PATH from
+  # whatever tmux server is current ($TMUX's, or the default socket's), only
+  # starting one, with this repo's config, if none is running. hal may already
+  # run tmux for its services, started without this config; TPM then aborts
+  # with "Tmux Plugin Manager not configured in tmux.conf" and the install
+  # fails. Give TPM a private server in a throwaway socket dir instead, so it
+  # always loads this config and never talks to a live server, and stop it
+  # afterwards. (Desk installs keep the old behavior.)
+  # Under /tmp, not $TMPDIR: macOS caps socket paths at 104 bytes and
+  # $TMPDIR (/var/folders/…) plus tmux-UID/default comes close.
+  tpm_sock_dir="$(mktemp -d /tmp/dotfiles-tpm.XXXXXX)"
+  ( unset TMUX; TMUX_TMPDIR="$tpm_sock_dir" "$TPM_INSTALL_DIR/bin/install_plugins" )
+  tpm_rc=$?
+  ( unset TMUX; TMUX_TMPDIR="$tpm_sock_dir" tmux kill-server >/dev/null 2>&1 )
+  rm -rf "$tpm_sock_dir"
+  [ "$tpm_rc" -eq 0 ] || handle_error "Failed to install TMux plugins"
+else
+  "$TPM_INSTALL_DIR/bin/install_plugins" || handle_error "Failed to install TMux plugins"
+fi
 
 log_message "TMux installation completed successfully."

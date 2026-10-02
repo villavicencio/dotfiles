@@ -10,6 +10,8 @@
 #   ci/server-profile-checks.sh post            after `./install`: rc chain,
 #                                               preserved files, skips (git
 #                                               is post-apply R8's)
+#   ci/server-profile-checks.sh launchagents    no LaunchAgent added (tmux-continuum
+#                                               boot), with a positive control
 #   ci/server-profile-checks.sh snapshot FILE   record $HOME + brew state, for
 #                                               the second-run idempotency diff
 #
@@ -185,6 +187,7 @@ cmd_post() {
   else err "nvim/lazy-lock.json was modified"; fi
 
   # Server links.
+  expect "tmux local.conf link" "$REPO/tmux/local.server.conf" "$(link_target "$HOME/.config/tmux/local.conf")"
   expect "zprofile link" "$REPO/zsh/zprofile.server" "$(link_target "$HOME/.config/zsh/.zprofile")"
   expect "git platform overlay link" "$REPO/git/gitconfig.server" "$(link_target "$HOME/.config/git/gitconfig.platform")"
   expect "codex AGENTS.md link" "$REPO/codex/AGENTS.md" "$(link_target "$HOME/.codex/AGENTS.md")"
@@ -219,6 +222,43 @@ cmd_post() {
   done
 }
 
+# ~/Library/LaunchAgents holds hal's live services. The install must add
+# nothing there; the likely offender is tmux-continuum's boot option, which
+# writes Tmux.Start.plist whenever a tmux server loads the plugin with
+# @continuum-boot on (tmux/tmux.general.conf sets it; the server's
+# local.conf turns it off).
+# shellcheck disable=SC2030,SC2031  # each private tmux server lives in its own subshell on purpose
+cmd_launchagents() {
+  local la="$HOME/Library/LaunchAgents" plist cont d
+  plist="$la/Tmux.Start.plist"
+  cont="$HOME/.config/tmux/plugins/tmux-continuum/scripts/handle_tmux_automatic_start.sh"
+  if [ ! -x "$cont" ]; then
+    err "tmux-continuum not installed at $cont; the boot check can't run"
+    return
+  fi
+  # Control: prove this check can see the plist. A private server with no
+  # config, boot forced on, continuum's own handler: the plist must appear,
+  # then go again with boot off.
+  d="$(mktemp -d /tmp/dotfiles-tmuxchk.XXXXXX)"  # short: 104-byte socket path cap on macOS
+  ( unset TMUX; export TMUX_TMPDIR="$d"
+    tmux -f /dev/null new-session -d -s control
+    tmux set -g @continuum-boot on; "$cont"
+    if [ -f "$plist" ]; then echo "ok: control: boot on writes $plist"; else echo "::error::control: boot on wrote no $plist; the check below proves nothing"; fi
+    tmux set -g @continuum-boot off; "$cont"
+    tmux kill-server ) 2>&1
+  rm -rf "$d"
+  [ -e "$plist" ] && err "control: boot off left $plist behind"
+  # Real: a private server with the installed config (local.conf, then TPM).
+  d="$(mktemp -d /tmp/dotfiles-tmuxchk.XXXXXX)"  # short: 104-byte socket path cap on macOS
+  ( unset TMUX; export TMUX_TMPDIR="$d"
+    tmux new-session -d -s check && sleep 3
+    echo "server profile @continuum-boot = [$(tmux show -gqv @continuum-boot)]"
+    tmux kill-server ) 2>&1
+  rm -rf "$d"
+  if [ -e "$plist" ]; then err "a tmux server with the installed config wrote $plist"; else ok "tmux with the installed config wrote no LaunchAgent"; fi
+  expect "LaunchAgents after install" "dev.hal.test.plist" "$(ls -1 "$la" 2>/dev/null)"
+}
+
 cmd_snapshot() {
   local out="${1:?usage: snapshot FILE}"
   {
@@ -239,8 +279,9 @@ cmd_snapshot() {
 case "${1:-}" in
   static)   cmd_static ;;
   seed)     cmd_seed ;;
-  post)     cmd_post ;;
+  post)     cmd_post; cmd_launchagents ;;
+  launchagents) cmd_launchagents ;;
   snapshot) shift; cmd_snapshot "$@" ;;
-  *) echo "usage: $0 static|seed|post|snapshot FILE" >&2; exit 2 ;;
+  *) echo "usage: $0 static|seed|post|launchagents|snapshot FILE" >&2; exit 2 ;;
 esac
 exit "$fail"

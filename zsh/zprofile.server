@@ -1,0 +1,28 @@
+# Login-shell profile for DOTFILES_PROFILE=server (the headless Mac mini `hal`).
+#
+# dotbot-conf/server.yaml links this to $ZDOTDIR/.zprofile. Once ~/.zshenv sets
+# ZDOTDIR, zsh stops reading ~/.zprofile and ~/.zshrc; those files belong to
+# other tools on hal (Homebrew's setup, OrbStack, LM Studio's `lms`) and are
+# left untouched. This file carries what they provided, each part guarded on
+# the thing existing, for every login shell: SSH sessions, tmux panes, and
+# `zsh -l -c` from scripts. Desk installs link nothing at $ZDOTDIR/.zprofile.
+#
+# Runs after zsh/zshenv (PATH already user-scope first) and before zsh/zshrc.
+
+# Homebrew shellenv (hal's ~/.zprofile). HOMEBREW_* vars, fpath, MANPATH and
+# INFOPATH. The path_helper line is dropped for the reason zsh/zshrc gives: it
+# would put /opt/homebrew/bin ahead of ~/.local/bin and ~/bin. zshrc repeats
+# this for interactive shells; fpath is de-duplicated so that's harmless.
+if [[ -x "$BREW_PREFIX/bin/brew" ]]; then
+  eval "$("$BREW_PREFIX/bin/brew" shellenv | grep -vE '^eval .*path_helper')"
+  typeset -U fpath
+fi
+
+# OrbStack shell integration (hal's ~/.zprofile): its docker CLI and completions.
+[[ -f "$HOME/.orbstack/shell/init.zsh" ]] && source "$HOME/.orbstack/shell/init.zsh" 2>/dev/null
+
+# LM Studio CLI (hal's ~/.zshrc, appended by `lms`). Appended, as lms does.
+[[ -d "$HOME/.lmstudio/bin" ]] && path+=("$HOME/.lmstudio/bin")
+
+# A login shell sourcing this must not inherit a failed [[ ]] as its status.
+true

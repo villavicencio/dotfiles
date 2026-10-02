@@ -16,6 +16,33 @@ case "$(uname)" in
   *)      echo "Unsupported OS: $(uname)" >&2; exit 1 ;;
 esac
 
+# Install profile. Unset or `desk` is the normal workstation install, unchanged.
+# `server` is the headless Mac mini `hal` (macOS only): base.yaml without its
+# `clean` step, then dotbot-conf/server.yaml in place of darwin.yaml, with the
+# helpers that read DOTFILES_PROFILE switching to the server package set and
+# skipping desk-only steps. Checked before anything else runs, so a typo never
+# reaches Dotbot. Exported like DOTFILES_DRY_RUN so every helper sees it.
+BASE_EXTRA_ARGS=()
+case "${DOTFILES_PROFILE:-desk}" in
+  desk)
+    export DOTFILES_PROFILE=desk ;;
+  server)
+    if [ "$(uname)" != "Darwin" ]; then
+      echo "DOTFILES_PROFILE=server is a macOS profile (the Mac mini hal); this is $(uname)." >&2
+      exit 1
+    fi
+    export DOTFILES_PROFILE=server
+    PLATFORM_CONFIG="dotbot-conf/server.yaml"
+    # No `clean` on the server. Dotbot only removes dead links in ~ that resolve
+    # into this repo, but hal also carries dangling links copied from the VPS
+    # (~/personal and friends) that resolve once Syncthing seeds the vault, and
+    # a first install there has no stale repo links to clean.
+    BASE_EXTRA_ARGS=(--except clean) ;;
+  *)
+    echo "Unknown DOTFILES_PROFILE='${DOTFILES_PROFILE}' (expected: desk, server)" >&2
+    exit 1 ;;
+esac
+
 # --dry-run is a genuine preview with vendored Dotbot >= v1.23.0:
 # - link / create / clean / shell plugins all support dry-run natively
 #   (they print what they would do without mutating)
@@ -54,7 +81,9 @@ DOTBOT="${BASEDIR}/${DOTBOT_DIR}/${DOTBOT_BIN}"
 # which the old single process honored across the whole install — so skip the
 # platform layer if base fails. `|| rc=$?` stops `set -e` from aborting between.
 rc=0
-"${DOTBOT}" -d "${BASEDIR}" -c "${BASE_CONFIG}" "$@" || rc=$?
+# BASE_EXTRA_ARGS goes last so a caller's own --except can't displace the
+# server's; `${arr[@]+…}` keeps an empty array safe under macOS bash 3.2.
+"${DOTBOT}" -d "${BASEDIR}" -c "${BASE_CONFIG}" "$@" ${BASE_EXTRA_ARGS[@]+"${BASE_EXTRA_ARGS[@]}"} || rc=$?
 if [ "$rc" -ne 0 ] && [ "$FAIL_FAST" -eq 1 ]; then
   exit "$rc"
 fi

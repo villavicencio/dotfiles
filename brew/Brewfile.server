@@ -1,0 +1,47 @@
+# =============================================================================
+# Brewfile.server — formulae for DOTFILES_PROFILE=server (the headless Mac mini
+# `hal`). Installed by helpers/install_packages.sh with --no-upgrade.
+#
+# Formulae only: no casks, fonts, Mac App Store apps or taps. The container
+# runtime (OrbStack, plus Homebrew's docker CLI and colima as a fallback) is
+# installed on hal out of band and is deliberately absent: a Brewfile must not
+# own it. `brew bundle` is never run with --cleanup, so nothing installed
+# outside this file is removed.
+#
+# Checked by ci/server-profile-checks.sh static (required set, exclusions).
+# =============================================================================
+
+# --- Shell: what zsh/zshenv, zsh/zshrc and zsh/alias.sh invoke ---
+brew "starship"             # zshrc runs `starship init zsh` unguarded
+brew "zoxide"               # zshrc init (guarded)
+brew "atuin"                # zshrc init (guarded); ^R history search
+brew "fzf"                  # zshrc key bindings (guarded)
+brew "eza"                  # alias.sh ls family (guarded)
+brew "bat"                  # zshenv LESSOPEN (guarded)
+brew "neovim"               # zshenv EDITOR=nvim; alias vim=nvim. No config is
+                            # linked on the server (see dotbot-conf/base.yaml)
+brew "tree"                 # functions.sh `tre`
+brew "coreutils"            # zshenv puts gnubin first on PATH; zshrc `sort -V`
+
+# --- Git: what git/gitconfig and git/gitconfig.server name ---
+brew "git"
+brew "gh"                   # /opt/homebrew/bin/gh is the only credential helper
+brew "git-delta"            # [pager] diff/show + interactive.diffFilter
+brew "gitleaks"             # secret scan, wired by pre-commit below
+brew "pre-commit"           # helpers/install_pre_commit.sh needs it on macOS
+
+# --- Server tools ---
+brew "gnu-sed"
+brew "grep"
+brew "findutils"
+brew "gawk"
+brew "jq"
+brew "ripgrep"
+brew "fd"
+brew "tmux"
+brew "node"                 # services' Node; no nvm on the server
+brew "uv"                   # services' Python (uv-managed 3.11); no ~/.local/bin/uv
+brew "syncthing"            # installed only; configuring it is the migration runbook's job
+brew "util-linux"
+brew "wget"
+brew "curl"

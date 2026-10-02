@@ -1,11 +1,12 @@
 # Dotfiles
 
-This repo is the single source of truth for two Macs and a Windows gaming PC:
+This repo is the single source of truth for two Macs, a headless Mac mini server and a Windows gaming PC:
 
 | Machine | OS | Hardware | Role |
 |---|---|---|---|
 | personal | macOS Tahoe | M-series | Primary, source of truth |
 | work | macOS Sequoia | M-series | corporate-managed |
+| hal | macOS 27 | Mac mini (Apple Silicon) | Headless server, SSH only; `DOTFILES_PROFILE=server ./install`, run as `hal` (see "Server profile (`hal`)") |
 | gaming-pc | Windows 11 Pro | Ryzen 7 5800X / RTX 3070 | Gaming; set up by `install.ps1`, not Dotbot (see "Setting up the Windows PC") |
 | gaming-pc WSL | Ubuntu 26.04 LTS (WSL 2) | same PC | The Linux layer; a separate clone inside WSL (see "Setting up WSL on the Windows PC"). Same release as CI's Linux leg (VIL-154) |
 
@@ -22,14 +23,15 @@ Managed by [Dotbot](https://github.com/anishathalye/dotbot). Run `./install` to 
 ## Structure
 
 ```
-brew/           Brewfile for all Homebrew packages and casks
+brew/           Brewfile for all Homebrew packages and casks; Brewfile.server for the server profile
 btop/           btop system monitor config
 docs/           Compound-engineering pipeline artifacts:
                 - docs/brainstorms/  Requirements docs from /ce-brainstorm
                 - docs/ideation/     Idea-survival outputs from /ce-ideate
                 - docs/plans/        Implementation plans from /ce-plan
                 - docs/solutions/    documented solutions to past problems (bugs, best practices, workflow patterns), organized by category with YAML frontmatter (module, tags, problem_type)
-ci/             CI assets (Dockerfile for install-matrix's linux leg, PSScriptAnalyzer settings for its windows leg)
+ci/             CI assets (Dockerfile for install-matrix's linux leg, PSScriptAnalyzer settings for its windows leg,
+                server-profile-checks.sh for its macos-server leg)
 git/            gitconfig, gitignore, gitattributes, gitconfig.linux (Linux overlay — see
                 "Git on Linux" under "Setting up WSL on the Windows PC")
 helpers/        Bash scripts called by the install pipeline
@@ -1012,6 +1014,56 @@ together:
 Helper scripts are in `helpers/`. Each is independently runnable.
 
 On Windows, `install.ps1` replaces all of the above — see the next section.
+
+### Server profile (`hal`)
+
+`DOTFILES_PROFILE=server ./install` sets up `hal`, a headless Mac mini (macOS 27, Apple
+Silicon) reached only over SSH. It runs as the standard account `hal`, which has no sudo and
+owns Homebrew at `/opt/homebrew`. An unset profile or `desk` is the normal install. Any other
+value fails before Dotbot runs, and so does `server` on anything but macOS.
+`DOTFILES_PROFILE=server ./install --dry-run` previews it.
+
+How it differs from a desk Mac:
+
+- **Layers:** `base.yaml` runs with `--except clean`, then `dotbot-conf/server.yaml` runs in
+  place of `darwin.yaml`. Dotbot's `clean` only removes dead links in `~` that resolve into
+  this repo (`dotbot/src/dotbot/plugins/clean.py`, v1.24.1). hal also carries dangling links
+  copied from the VPS, such as `~/personal`, and a first install has nothing to clean, so
+  `clean` doesn't run there at all.
+- **Packages:** `brew/Brewfile.server`, formulae only, installed by `brew bundle` with
+  `HOMEBREW_BUNDLE_NO_UPGRADE=1` and `HOMEBREW_NO_INSTALL_UPGRADE=1`, so installed formulae
+  aren't upgraded under running services. A new formula can still upgrade a shared
+  dependency it needs. The Homebrew network installer never runs: if brew is missing, the
+  install stops. No font casks. The container runtime (OrbStack, and brew's `docker` and
+  `colima`) is installed out of band and is in no Brewfile.
+- **Skipped:**
+  - chsh.
+  - The nvm, node, uv and Claude Code installers. node and uv come from the Brewfile, and
+    Claude Code is installed separately on hal.
+  - The Claude settings seed and the `~/.claude` links. `~/.claude` arrives from the VPS with
+    regular files in those places.
+  - The herdr shims and hooks, and the iTerm profile.
+  - The `~/.config/nvim` link and the plugin bootstrap. Without the bootstrap, the first
+    `nvim` would rewrite `nvim/lazy-lock.json`, so the server's nvim runs with no config.
+- **Kept:** Oh My Zsh, the shared zsh, git and tmux configs, the pre-commit hook, and the
+  Codex `AGENTS.md` link. TPM installs the plugins against a private, throwaway tmux socket.
+  Its `install_plugins` reads the plugin list from whatever tmux server is current, so a
+  server hal already runs without this config would make it abort ("Tmux Plugin Manager not
+  configured") and fail the install.
+- **Overlays**, linked only by `server.yaml`:
+
+  | Link | Source | Effect |
+  |---|---|---|
+  | `~/.config/zsh/.zprofile` | `zsh/zprofile.server` | With `ZDOTDIR` set, zsh no longer reads `~/.zprofile` or `~/.zshrc`. This file carries what hal's own versions did: brew shellenv (minus path_helper), OrbStack's `init.zsh`, and `~/.lmstudio/bin`, each only if present. hal's `~/.zprofile` and `~/.zshrc` are left untouched. |
+  | `~/.config/git/gitconfig.platform` | `git/gitconfig.server` | Resets the credential helpers (osxkeychain and GCM can't work over SSH) to `/opt/homebrew/bin/gh` for github.com and gist.github.com, and sets `core.pager = less -FRX`. |
+  | `~/.config/tmux/local.conf` | `tmux/local.server.conf` | Sets `@continuum-boot off`, so tmux-continuum never writes `~/Library/LaunchAgents/Tmux.Start.plist`, which opens iTerm at login. |
+
+- **`~/.zshenv`:** a `~/.zshenv` this install didn't write is copied to
+  `~/.zshenv.pre-dotfiles` before being replaced.
+
+Verify with `ci/server-profile-checks.sh static` locally. CI's `macos-server` job runs the
+profile in a simulated hal home and checks the pre-existing files, the shell chain, git, and
+that no LaunchAgent was added. It also checks that a second run changes nothing.
 
 ---
 

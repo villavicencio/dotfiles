@@ -13,14 +13,15 @@ conventions every change must follow, and how to verify a change before committi
 
 ## What this repo is
 
-Personal dotfiles — the single source of truth for two Macs, managed by
-[Dotbot](https://github.com/anishathalye/dotbot), and a Windows gaming PC, managed by
-`install.ps1` (PowerShell, not Dotbot).
+Personal dotfiles — the single source of truth for two Macs and a headless Mac mini server,
+managed by [Dotbot](https://github.com/anishathalye/dotbot), and a Windows gaming PC, managed
+by `install.ps1` (PowerShell, not Dotbot).
 
 | Machine | OS | Hardware | Role |
 |---|---|---|---|
 | personal | macOS Tahoe | M-series | Primary, source of truth |
 | work | macOS Sequoia | M-series | corporate-managed |
+| hal | macOS 27 | Mac mini (Apple Silicon) | Headless server, SSH only; `DOTFILES_PROFILE=server ./install`, run as `hal` (see "Server profile (`hal`)") |
 | gaming-pc | Windows 11 Pro | Ryzen 7 5800X / RTX 3070 | Gaming; `install.ps1` + `windows/` |
 | gaming-pc WSL | Ubuntu 26.04 LTS (WSL 2) | same PC | Linux layer; separate clone inside WSL |
 
@@ -38,7 +39,7 @@ The earlier Hetzner VPS target was retired
 ## Layout
 
 ```
-brew/       Brewfile — all Homebrew formulae and casks
+brew/       Brewfile — all Homebrew formulae and casks; Brewfile.server — the server profile's
 btop/       btop system monitor config
 ci/         CI assets (Dockerfile for the install-matrix Linux leg, PSScriptAnalyzer
             settings for its Windows leg)
@@ -194,6 +195,7 @@ Run these before committing. `bin/dot` (`~/.local/bin/dot` once installed) wraps
 | Startup budget | `dot bench` | median < 300 ms |
 | Dry-run is mutation-free | see below | 0 entries created |
 | Homebrew | `brew bundle check --file=brew/Brewfile` | satisfied |
+| Server profile | `ci/server-profile-checks.sh static` | exit 0 |
 
 **Dry-run must never mutate config.** `./install --dry-run` previews Dotbot directives
 without applying them. The only thing the wrapper does regardless is init the vendored
@@ -210,7 +212,8 @@ CI (`.github/workflows/install-matrix.yml`) runs the full installer on macOS + L
 Ubuntu 26.04 container from `ci/Dockerfile`, pinned by digest) and
 `install.ps1 -SkipPackages` on a hosted Windows runner (no full `winget import`; every
 `packages.json` ID is resolved instead, and a runner without winget fails the job rather
-than skipping checks), and asserts outcomes; keep all three legs green.
+than skipping checks), and asserts outcomes; a `macos-server` job runs
+`DOTFILES_PROFILE=server ./install` in a simulated hal home. Keep every leg green.
 The `windows` job's `EXPECTED_LINKS` list must match `$links` in `install.ps1`.
 
 ---
@@ -280,6 +283,56 @@ original against writes and renames (Terminal saves by renaming a temp file over
 that it is unchanged since it was read, renames it aside through the lock, and renames the temp
 file into place without replacing anything. Dot-source the script to test its functions
 without running it. Details: "System tweaks" in `CLAUDE.md`.
+
+### Server profile (`hal`)
+
+`DOTFILES_PROFILE=server ./install` sets up `hal`, a headless Mac mini (macOS 27, Apple
+Silicon) reached only over SSH. It runs as the standard account `hal`, which has no sudo and
+owns Homebrew at `/opt/homebrew`. An unset profile or `desk` is the normal install. Any other
+value fails before Dotbot runs, and so does `server` on anything but macOS.
+`DOTFILES_PROFILE=server ./install --dry-run` previews it.
+
+How it differs from a desk Mac:
+
+- **Layers:** `base.yaml` runs with `--except clean`, then `dotbot-conf/server.yaml` runs in
+  place of `darwin.yaml`. Dotbot's `clean` only removes dead links in `~` that resolve into
+  this repo (`dotbot/src/dotbot/plugins/clean.py`, v1.24.1). hal also carries dangling links
+  copied from the VPS, such as `~/personal`, and a first install has nothing to clean, so
+  `clean` doesn't run there at all.
+- **Packages:** `brew/Brewfile.server`, formulae only, installed by `brew bundle` with
+  `HOMEBREW_BUNDLE_NO_UPGRADE=1` and `HOMEBREW_NO_INSTALL_UPGRADE=1`, so installed formulae
+  aren't upgraded under running services. A new formula can still upgrade a shared
+  dependency it needs. The Homebrew network installer never runs: if brew is missing, the
+  install stops. No font casks. The container runtime (OrbStack, and brew's `docker` and
+  `colima`) is installed out of band and is in no Brewfile.
+- **Skipped:**
+  - chsh.
+  - The nvm, node, uv and Claude Code installers. node and uv come from the Brewfile, and
+    Claude Code is installed separately on hal.
+  - The Claude settings seed and the `~/.claude` links. `~/.claude` arrives from the VPS with
+    regular files in those places.
+  - The herdr shims and hooks, and the iTerm profile.
+  - The `~/.config/nvim` link and the plugin bootstrap. Without the bootstrap, the first
+    `nvim` would rewrite `nvim/lazy-lock.json`, so the server's nvim runs with no config.
+- **Kept:** Oh My Zsh, the shared zsh, git and tmux configs, the pre-commit hook, and the
+  Codex `AGENTS.md` link. TPM installs the plugins against a private, throwaway tmux socket.
+  Its `install_plugins` reads the plugin list from whatever tmux server is current, so a
+  server hal already runs without this config would make it abort ("Tmux Plugin Manager not
+  configured") and fail the install.
+- **Overlays**, linked only by `server.yaml`:
+
+  | Link | Source | Effect |
+  |---|---|---|
+  | `~/.config/zsh/.zprofile` | `zsh/zprofile.server` | With `ZDOTDIR` set, zsh no longer reads `~/.zprofile` or `~/.zshrc`. This file carries what hal's own versions did: brew shellenv (minus path_helper), OrbStack's `init.zsh`, and `~/.lmstudio/bin`, each only if present. hal's `~/.zprofile` and `~/.zshrc` are left untouched. |
+  | `~/.config/git/gitconfig.platform` | `git/gitconfig.server` | Resets the credential helpers (osxkeychain and GCM can't work over SSH) to `/opt/homebrew/bin/gh` for github.com and gist.github.com, and sets `core.pager = less -FRX`. |
+  | `~/.config/tmux/local.conf` | `tmux/local.server.conf` | Sets `@continuum-boot off`, so tmux-continuum never writes `~/Library/LaunchAgents/Tmux.Start.plist`, which opens iTerm at login. |
+
+- **`~/.zshenv`:** a `~/.zshenv` this install didn't write is copied to
+  `~/.zshenv.pre-dotfiles` before being replaced.
+
+Verify with `ci/server-profile-checks.sh static` locally. CI's `macos-server` job runs the
+profile in a simulated hal home and checks the pre-existing files, the shell chain, git, and
+that no LaunchAgent was added. It also checks that a second run changes nothing.
 
 ---
 

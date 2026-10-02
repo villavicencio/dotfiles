@@ -24,6 +24,14 @@ NVIM_SHA256_ARM64="1aa5ca085249580ae0f91eb14f27ec0919773ff2d99a163d03f3d6c21ac29
 # lua/configs/lspconfig.lua calls vim.lsp.enable (0.11+).
 NVIM_MIN_MINOR=12
 
+# Server profile (the Mac mini hal): no plugin bootstrap. base.yaml doesn't link
+# ~/.config/nvim there either; nvim itself comes from brew/Brewfile.server and
+# runs without this config.
+if [ "${DOTFILES_PROFILE:-desk}" = "server" ]; then
+  echo "install_nvim.sh: server profile — no nvim config or plugin bootstrap; skipping."
+  exit 0
+fi
+
 if [ "${DOTFILES_DRY_RUN:-0}" = "1" ]; then
   if [ "$(uname)" = "Linux" ]; then
     echo "[dry-run] would install Neovim v$NVIM_VERSION to ~/.local/opt + link ~/.local/bin/nvim"

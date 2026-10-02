@@ -4,7 +4,37 @@
 # macOS: uses Homebrew + Brewfile
 # Linux: uses apt + curated equivalents
 
-if [ "$(uname)" = "Darwin" ]; then
+if [ "$(uname)" = "Darwin" ] && [ "${DOTFILES_PROFILE:-desk}" = "server" ]; then
+    # Server profile (the Mac mini hal): Homebrew is already there, owned by the
+    # service account, and installing it needs an admin, which that account is
+    # not. So never run install_brew.sh's network installer: look for brew at
+    # its fixed prefixes (an SSH command's PATH may not include it) and stop if
+    # it is missing. No font casks (migrate_legacy_fonts.sh), and the server
+    # Brewfile is formulae only.
+    #
+    # No upgrades: brew bundle upgrades outdated entries by default, and on a
+    # live box that would swap node/uv under running services. Upgrades stay a
+    # deliberate step. HOMEBREW_NO_INSTALL_UPGRADE covers an entry `brew
+    # install` finds already installed; a NEW formula can still upgrade a shared
+    # dependency it needs, which Homebrew offers no switch for.
+    echo "macOS server profile — using Homebrew with brew/Brewfile.server"
+    if [ "${DOTFILES_DRY_RUN:-0}" = "1" ]; then
+      echo "[dry-run] would run: brew bundle --no-upgrade --file=./brew/Brewfile.server (no Homebrew bootstrap, no font casks)"
+      exit 0
+    fi
+    found=""
+    for b in /opt/homebrew/bin/brew /usr/local/bin/brew; do
+        if [ -x "$b" ]; then found="$b"; break; fi
+    done
+    if [ -z "$found" ]; then
+        echo "ERROR: server profile needs an existing Homebrew (/opt/homebrew or /usr/local); not installing one." >&2
+        exit 1
+    fi
+    echo "Homebrew found at $found"
+    BREWFILE_PATH=./brew/Brewfile.server HOMEBREW_BUNDLE_NO_UPGRADE=1 HOMEBREW_NO_INSTALL_UPGRADE=1 \
+        bash helpers/install_from_brewfile.sh
+    exit $?
+elif [ "$(uname)" = "Darwin" ]; then
     echo "macOS detected — using Homebrew"
     bash helpers/install_brew.sh
     # Clear legacy-font collisions and install the font casks as one recoverable
