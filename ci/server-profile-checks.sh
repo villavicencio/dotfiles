@@ -191,6 +191,11 @@ cmd_post() {
   # Server links.
   expect "tmux local.conf link" "$REPO/tmux/local.server.conf" "$(link_target "$HOME/.config/tmux/local.conf")"
   expect "zprofile link" "$REPO/zsh/zprofile.server" "$(link_target "$HOME/.config/zsh/.zprofile")"
+  # The OMZ installer targets zdot="${ZDOTDIR:-$HOME}" and writes its template
+  # .zshrc into $ZDOTDIR when its step runs under zsh (VIL-280); the helper
+  # removes a template it created, and the Dotbot link owns the path. A
+  # regular file here means the link step failed or was skipped.
+  expect "zshrc link" "$REPO/zsh/zshrc" "$(link_target "$HOME/.config/zsh/.zshrc")"
   expect "git platform overlay link" "$REPO/git/gitconfig.server" "$(link_target "$HOME/.config/git/gitconfig.platform")"
   expect "codex AGENTS.md link" "$REPO/codex/AGENTS.md" "$(link_target "$HOME/.codex/AGENTS.md")"
 
