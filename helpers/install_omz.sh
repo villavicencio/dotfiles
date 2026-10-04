@@ -107,7 +107,12 @@ install_omz_core() {
   # KEEP_ZSHRC=yes — never touch our managed ~/.zshrc
   ZSH="$OMZ_DIR" RUNZSH=no CHSH=no KEEP_ZSHRC=yes sh -c "$omz_installer" || installer_rc=1
   if [ "$zshrc_existed" -eq 0 ] && [ -f "$zshrc" ] && [ ! -L "$zshrc" ]; then
-    rm -f "$zshrc"
+    # This function runs under `if !`, where set -e is off: check the removal
+    # explicitly, or a failed rm would leave the collision for Dotbot.
+    if ! rm -f "$zshrc" || [ -e "$zshrc" ] || [ -L "$zshrc" ]; then
+      echo "could not remove the installer's template $zshrc"
+      return 1
+    fi
     echo "removed the installer's template $zshrc (the Dotbot link owns that path)"
   fi
   if [ "$installer_rc" -ne 0 ]; then

@@ -379,6 +379,7 @@ jobs:
       - name: S3 — second run changes nothing
         env:
           CI: 'false'
+          SHELL: /bin/zsh  # same shell as the first apply (VIL-280), so idempotency is checked on hal's path
         run: |
           set -euo pipefail
           ci/server-profile-checks.sh snapshot "$SEED_STATE/snap.1"
