@@ -87,13 +87,38 @@ install_omz_core() {
     echo "Failed to download the Oh My Zsh installer"
     return 1
   }
+  # The installer targets zdot="${ZDOTDIR:-$HOME}" and, finding no .zshrc
+  # there, writes its template. Dotbot runs this step with $SHELL, and a zsh
+  # step sources the ~/.zshenv the install just wrote, so ZDOTDIR is exported
+  # on hal (and any zsh login shell) even though this helper is bash: the
+  # template then lands in $ZDOTDIR/.zshrc, where the link step for
+  # zsh/zshrc fails with "already exists but is a regular file". Record the
+  # pre-state (-e AND -L: a dangling link counts as pre-existing) so the
+  # cleanup below removes only a file THIS run created — never a pre-existing
+  # file, never a symlink.
+  local zshrc="${ZDOTDIR:-$HOME}/.zshrc"
+  local zshrc_existed=0
+  if [ -e "$zshrc" ] || [ -L "$zshrc" ]; then
+    zshrc_existed=1
+  fi
+  local installer_rc=0
   # RUNZSH=no    — don't drop into a zsh subshell after install
   # CHSH=no      — don't change the login shell (Dotbot/install pipeline owns that)
   # KEEP_ZSHRC=yes — never touch our managed ~/.zshrc
-  ZSH="$OMZ_DIR" RUNZSH=no CHSH=no KEEP_ZSHRC=yes sh -c "$omz_installer" || {
+  ZSH="$OMZ_DIR" RUNZSH=no CHSH=no KEEP_ZSHRC=yes sh -c "$omz_installer" || installer_rc=1
+  if [ "$zshrc_existed" -eq 0 ] && [ -f "$zshrc" ] && [ ! -L "$zshrc" ]; then
+    # This function runs under `if !`, where set -e is off: check the removal
+    # explicitly, or a failed rm would leave the collision for Dotbot.
+    if ! rm -f "$zshrc" || [ -e "$zshrc" ] || [ -L "$zshrc" ]; then
+      echo "could not remove the installer's template $zshrc"
+      return 1
+    fi
+    echo "removed the installer's template $zshrc (the Dotbot link owns that path)"
+  fi
+  if [ "$installer_rc" -ne 0 ]; then
     echo "Oh My Zsh installation failed"
     return 1
-  }
+  fi
   checkout_complete "$OMZ_DIR" "oh-my-zsh.sh"
 }
 

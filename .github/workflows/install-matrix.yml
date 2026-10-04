@@ -362,6 +362,12 @@ jobs:
       - name: Apply (DOTFILES_PROFILE=server ./install)
         env:
           CI: 'false'  # so a chsh step gated only on CI would hit the shim
+          # hal's login shell. dotbot runs shell steps with $SHELL, and zsh
+          # sources the ~/.zshenv the install writes (exporting ZDOTDIR), so
+          # this exercises the exported-ZDOTDIR path the runner's default
+          # bash/sh never did (VIL-280: the OMZ installer's template .zshrc
+          # then lands in $ZDOTDIR, colliding with the zsh/zshrc link).
+          SHELL: /bin/zsh
         run: PATH="$SEED_STATE/shim:$PATH" ./install
 
       - name: Post-apply assertions (R3-R10, profile-aware)
@@ -373,6 +379,7 @@ jobs:
       - name: S3 — second run changes nothing
         env:
           CI: 'false'
+          SHELL: /bin/zsh  # same shell as the first apply (VIL-280), so idempotency is checked on hal's path
         run: |
           set -euo pipefail
           ci/server-profile-checks.sh snapshot "$SEED_STATE/snap.1"
