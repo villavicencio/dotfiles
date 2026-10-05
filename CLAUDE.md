@@ -103,7 +103,7 @@ override with the corporate email in the local file:
     email = <your-work-email>
 ```
 
-**SSH hosts:** `~/.ssh/config` is not tracked. Per-machine host aliases (e.g. `Host openclaw-prod` for the VPS, `Host work` for the work Mac) are added directly there. Aliases are required for IDEs that read `~/.ssh/config` to populate Remote-SSH host pickers (Antigravity, VS Code, Cursor) — `ssh root@openclaw-prod` working from the shell is not sufficient on its own.
+**SSH hosts:** `~/.ssh/config` is not tracked. Per-machine host aliases (e.g. `Host hal` for the Mac mini server, `Host work` for the work Mac) are added directly there. Aliases are required for IDEs that read `~/.ssh/config` to populate Remote-SSH host pickers (Antigravity, VS Code, Cursor) — `ssh hal` working from the shell is not sufficient on its own.
 
 ### Paths
 - Never hardcode `/Users/<username>/` — always use `$HOME`.
@@ -467,7 +467,12 @@ conversations across server restarts via `claude --resume <id>`.
   restart `hermes-tmux.service` casually — it drops Atlas's in-memory history
   (see ~/Projects/agents docs for Hermes rules).
 - **`atlas-tools ⚙` — a remote CLAUDE CODE surface, not a TUI attach** (added
-  2026-08-25, `prefix+t`). It reuses the existing `claude-code` ssh alias rather
+  2026-08-25, `prefix+t`). **Since 2026-10-04 the server is `hal`, not openclaw-prod:**
+  the Mac mini took over every server role and the VPS is being decommissioned. The
+  repo is at `/Users/hal/Projects/atlas-tools` on `hal` (`/home/node` links to
+  `/Users/hal` there, so the paths below still resolve). The pane command below still
+  names `root@openclaw-prod` and stops working when the VPS is deleted; repoint it to
+  `hal` before relying on `prefix+t`. It reuses the existing `claude-code` ssh alias rather
   than adding a third shim: detection keys on the ssh child's *process name*, and
   two panes may share one alias since the pane command supplies different args.
   `herdr agent rename` is what tells them apart (`axiom` vs `atlas-tools`).
