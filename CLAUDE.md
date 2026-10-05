@@ -103,7 +103,7 @@ override with the corporate email in the local file:
     email = <your-work-email>
 ```
 
-**SSH hosts:** `~/.ssh/config` is not tracked. Per-machine host aliases (e.g. `Host openclaw-prod` for the VPS, `Host work` for the work Mac) are added directly there. Aliases are required for IDEs that read `~/.ssh/config` to populate Remote-SSH host pickers (Antigravity, VS Code, Cursor) — `ssh root@openclaw-prod` working from the shell is not sufficient on its own.
+**SSH hosts:** `~/.ssh/config` is not tracked. Per-machine host aliases (e.g. `Host hal` for the Mac mini server, `Host work` for the work Mac) are added directly there. Aliases are required for IDEs that read `~/.ssh/config` to populate Remote-SSH host pickers (Antigravity, VS Code, Cursor) — `ssh hal` working from the shell is not sufficient on its own.
 
 ### Paths
 - Never hardcode `/Users/<username>/` — always use `$HOME`.
@@ -467,7 +467,10 @@ conversations across server restarts via `claude --resume <id>`.
   restart `hermes-tmux.service` casually — it drops Atlas's in-memory history
   (see ~/Projects/agents docs for Hermes rules).
 - **`atlas-tools ⚙` — a remote CLAUDE CODE surface, not a TUI attach** (added
-  2026-08-25, `prefix+t`). It reuses the existing `claude-code` ssh alias rather
+  2026-08-25, `prefix+t`). **Since 2026-10-04 the server is `hal`, not openclaw-prod:**
+  the Mac mini took over every server role and the VPS is being decommissioned. The
+  pane command below is the VPS-era one and stops working when the VPS is deleted;
+  repoint it to `hal` before relying on `prefix+t`. It reuses the existing `claude-code` ssh alias rather
   than adding a third shim: detection keys on the ssh child's *process name*, and
   two panes may share one alias since the pane command supplies different args.
   `herdr agent rename` is what tells them apart (`axiom` vs `atlas-tools`).
@@ -481,9 +484,11 @@ conversations across server restarts via `claude --resume <id>`.
 
   **A remote project needs no Mac-side checkout.** herdr's pane `cwd` is where the
   local ssh process starts and nothing more; the working directory is established
-  remotely by the ssh command. The repo lives only at
-  `/home/node/Projects/atlas-tools` on openclaw-prod, owned by `node`, and every
-  git/uv/test/lint/Claude Code command runs there.
+  remotely by the ssh command. The repo lives only on the server, at
+  `~/Projects/atlas-tools` in the service account's home (`hal` since 2026-10-04,
+  where `/home/node` is a link to that home, so the VPS-era paths above still
+  resolve; previously openclaw-prod as `node`), and every git/uv/test/lint/Claude
+  Code command runs there.
 
   `new-session -A` makes the pane **self-healing**: it attaches if the session
   exists and creates it otherwise, so a VPS reboot needs no systemd unit — the

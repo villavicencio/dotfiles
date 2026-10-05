@@ -397,8 +397,11 @@ that no LaunchAgent was added. It also checks that a second run changes nothing.
   and `vice` moved to the official Hermes Desktop app and were retired, along with
   the `hermes-agent` shim they were the only consumers of.)
   `atlas-tools ⚙` (`prefix+t`) is a remote **Claude Code** surface, not a TUI
-  attach: the repo lives only at `/home/node/Projects/atlas-tools` on
-  openclaw-prod as user `node`, and **no Mac-side checkout exists**. herdr's pane
+  attach: the repo lives only on the server, at `~/Projects/atlas-tools` in the
+  service account's home (`hal` since 2026-10-04, where `/home/node` links to that
+  home; previously openclaw-prod as `node`), and **no Mac-side checkout exists**. The
+  pane command still targets openclaw-prod and needs repointing to `hal` before the
+  VPS is deleted (see CLAUDE.md). herdr's pane
   `cwd` is always local — it is where the ssh process starts — so a remote working
   directory needs no local clone; the pane command establishes it remotely. It
   reuses the existing `claude-code` ssh alias (detection keys on the ssh child's
