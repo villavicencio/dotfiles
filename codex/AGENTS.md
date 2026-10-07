@@ -10,6 +10,7 @@ Detailed procedures live in dotfiles `docs/agents/` (`~/Projects/Personal/dotfil
 - If something is already solved in `docs/solutions/` or the repo's `AGENTS.md`, use it instead of re-deriving it.
 - Time: I'm in Pacific time. Label PT vs UTC explicitly, derive weekdays from the system date, and don't call a time "late" or "overnight" without evidence. Sessions are often back-to-back; after `dv:pickup`, measure staleness in commits since the handoff's `head` (validate it first: `session-continuity.md`), not file age.
 - Never tell me to sleep, rest, eat, or otherwise manage my time. End cleanly ("standing by") instead.
+- When you name a Linear ticket or a GitHub PR or issue in a reply to me, make it a markdown link that opens in my browser, every time it appears: `[VIL-123](https://linear.app/villavicencio/issue/VIL-123)`, `[#151](https://github.com/<owner>/<repo>/pull/151)` (put the repo in the label for a cross-repo reference, e.g. `[mergewren#31](…)`). Commit messages, PR bodies, and Linear comments can keep bare ids; those surfaces link them already.
 
 ## Safety
 - Never delete user data (files, notes, records, DB rows, board cards) without my explicit approval.
