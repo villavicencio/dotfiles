@@ -352,10 +352,14 @@ print('\n'.join(sorted(set(out))))" "$rep" 2>/dev/null)"
 
   # Desk Macs run the native Claude Code install (helpers/install_claude_code.sh).
   # A `claude` that resolves elsewhere is a Homebrew cask or npm copy winning on
-  # PATH, so `claude update` reports the wrong install method.
-  if [ "$(uname)" = "Darwin" ] && [ "${DOTFILES_PROFILE:-desk}" != "server" ] && [ -e "$HOME/.local/bin/claude" ]; then
+  # PATH, so `claude update` reports the wrong install method. A missing or
+  # dangling ~/.local/bin/claude fails too: the native install is part of
+  # darwin.yaml, so its absence is install drift, not a reason to skip.
+  if [ "$(uname)" = "Darwin" ] && [ "${DOTFILES_PROFILE:-desk}" != "server" ]; then
     local cl; cl="$(command -v claude 2>/dev/null)"
-    if [ "$(realpath "$cl" 2>/dev/null)" = "$(realpath "$HOME/.local/bin/claude" 2>/dev/null)" ]; then
+    if [ ! -e "$HOME/.local/bin/claude" ]; then
+      fail "native Claude Code missing at ~/.local/bin/claude (claude on PATH: ${cl:-none}); run helpers/install_claude_code.sh"
+    elif [ "$(realpath "$cl" 2>/dev/null)" = "$(realpath "$HOME/.local/bin/claude" 2>/dev/null)" ]; then
       ok "claude resolves to the native install"
     else
       fail "claude resolves to ${cl:-nothing}, not ~/.local/bin/claude: check PATH order and remove other installs (brew list --cask | grep claude)"

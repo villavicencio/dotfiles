@@ -9,21 +9,22 @@
 #
 # Runs after zsh/zshenv and macOS's /etc/zprofile, and before zsh/zshrc.
 
-# Re-apply zsh/zshenv's PATH order. A login zsh runs /etc/zprofile after
-# zshenv, and its path_helper moves /etc/paths (and /etc/paths.d) entries to
-# the front, so ~/bin, ~/.local/bin, Homebrew and coreutils' gnubin end up
-# behind /usr/bin. zshenv only prepends (PATH is `typeset -U`, first entry
-# wins), so sourcing it again restores the order `zsh -c` already has.
-[[ -f "$ZDOTDIR/.zshenv" ]] && source "$ZDOTDIR/.zshenv"
-
 # Homebrew shellenv (hal's ~/.zprofile). HOMEBREW_* vars, fpath, MANPATH and
-# INFOPATH. The path_helper line is dropped for the reason zsh/zshrc gives: it
-# would put /opt/homebrew/bin ahead of ~/.local/bin and ~/bin. zshrc repeats
-# this for interactive shells; fpath is de-duplicated so that's harmless.
+# INFOPATH. It also prepends /opt/homebrew/bin and sbin, which the re-source
+# below undoes. zshrc repeats both steps for interactive shells; fpath is
+# de-duplicated so that's harmless.
 if [[ -x "$BREW_PREFIX/bin/brew" ]]; then
-  eval "$("$BREW_PREFIX/bin/brew" shellenv | grep -vE '^eval .*path_helper')"
+  eval "$("$BREW_PREFIX/bin/brew" shellenv)"
   typeset -U fpath
 fi
+
+# Re-apply zsh/zshenv's PATH order, after shellenv so its prepend can't win.
+# A login zsh also runs /etc/zprofile after zshenv, and its path_helper moves
+# /etc/paths (and /etc/paths.d) entries to the front, so ~/bin, ~/.local/bin,
+# Homebrew and coreutils' gnubin end up behind /usr/bin. zshenv only prepends
+# (PATH is `typeset -U`, first entry wins), so sourcing it again restores the
+# order `zsh -c` already has.
+[[ -f "$ZDOTDIR/.zshenv" ]] && source "$ZDOTDIR/.zshenv"
 
 # OrbStack shell integration (hal's ~/.zprofile): its docker CLI and completions.
 [[ -f "$HOME/.orbstack/shell/init.zsh" ]] && source "$HOME/.orbstack/shell/init.zsh" 2>/dev/null

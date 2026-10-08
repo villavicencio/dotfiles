@@ -237,12 +237,14 @@ preferred.
 undo it: `brew shellenv` (Homebrew 7 prepends `/opt/homebrew/bin` with a plain `export PATH=`;
 the old `grep -v path_helper` filter caught nothing once that changed) and, in login shells, the
 `path_helper` in macOS's `/etc/zprofile`. So `zshrc` re-sources `zshenv` right after `brew
-shellenv`, the same way `zsh/zprofile.server` does on hal. Don't remove that line to save a fork.
+shellenv`; `zsh/zprofile.server` does the same on hal (shellenv first, then the re-source), so
+the order holds in hal's non-interactive login shells too. Don't remove either line to save a fork.
 When it broke (found 2026-10-08), a hand-installed `claude-code@latest` cask won every nested shell
 (tmux, herdr, the agent's Bash), so `claude update` reported "managed by Homebrew" while the
-native install sat behind it. `dot doctor` now fails when `claude` doesn't resolve to
-`~/.local/bin/claude`. Not covered: non-interactive login shells (`zsh -l -c`, the herdr pane
-template) never read `zshrc`, so they keep `path_helper`'s order. Write-up:
+native install sat behind it. On desk Macs, `dot doctor` now fails when `claude` doesn't resolve
+to `~/.local/bin/claude` or that native install is missing. Not covered: desk non-interactive
+login shells (`zsh -l -c`, the herdr pane template) never read `zshrc`, so they keep
+`path_helper`'s order (VIL-315). Write-up:
 `docs/solutions/runtime-errors/brew-shellenv-path-prepend-shadows-native-claude-2026-10-08.md`.
 
 ### tmux-window-namer skill (external plugin + repo-side tmux infra)
@@ -1073,7 +1075,7 @@ How it differs from a desk Mac:
 
   | Link | Source | Effect |
   |---|---|---|
-  | `~/.config/zsh/.zprofile` | `zsh/zprofile.server` | With `ZDOTDIR` set, zsh no longer reads `~/.zprofile` or `~/.zshrc`. This file carries what hal's own versions did: brew shellenv (minus path_helper), OrbStack's `init.zsh`, and `~/.lmstudio/bin`, each only if present. hal's `~/.zprofile` and `~/.zshrc` are left untouched. It also re-applies `zsh/zshenv`'s PATH order, which macOS's `/etc/zprofile` (`path_helper`) undoes in every login shell. |
+  | `~/.config/zsh/.zprofile` | `zsh/zprofile.server` | With `ZDOTDIR` set, zsh no longer reads `~/.zprofile` or `~/.zshrc`. This file carries what hal's own versions did: brew shellenv, OrbStack's `init.zsh`, and `~/.lmstudio/bin`, each only if present. hal's `~/.zprofile` and `~/.zshrc` are left untouched. After shellenv it re-applies `zsh/zshenv`'s PATH order, which shellenv's prepend and macOS's `/etc/zprofile` (`path_helper`) undo in every login shell. |
   | `~/.config/git/gitconfig.platform` | `git/gitconfig.server` | Resets the credential helpers (osxkeychain and GCM can't work over SSH) to `/opt/homebrew/bin/gh` for github.com and gist.github.com, and sets `core.pager = less -FRX`. |
   | `~/.config/tmux/local.conf` | `tmux/local.server.conf` | Sets `@continuum-boot off`. It is linked before the TPM step starts a tmux server, so tmux-continuum never loads with boot on and never writes `~/Library/LaunchAgents/Tmux.Start.plist`, which opens iTerm at login. |
 

@@ -59,12 +59,14 @@ ran Node 26 while nested shells ran nvm's Node 24.
 ## Fix
 
 - `zshrc` runs `brew shellenv` unfiltered, then re-sources `$ZDOTDIR/.zshenv`. zshenv only
-  prepends and PATH is unique, so this restores its order. It's the approach
-  `zprofile.server` already used for hal.
+  prepends and PATH is unique, so this restores its order.
+- `zprofile.server` had the two steps the other way round (re-source, then shellenv), so on hal
+  shellenv's prepend still won in non-interactive login shells, which never read `zshrc`. It now
+  runs shellenv first and re-sources after, like `zshrc`.
 - The `~/.local/bin/env` source line is gone. zshenv already provides `~/.local/bin`, and the
   aliased spelling was what made the bug intermittent.
 - `dot doctor` (desk Macs) fails when `command -v claude` doesn't resolve to the same file as
-  `~/.local/bin/claude`. Its shadowing scan counts distinct real files, so one binary reached
+  `~/.local/bin/claude`, and when that native install is missing or a dangling link. Its shadowing scan counts distinct real files, so one binary reached
   through two spellings no longer warns.
 - Removed the cask: `brew uninstall --cask claude-code@latest`.
 
@@ -74,15 +76,15 @@ resolve to their intended copies. `dot bench` median went from 183 ms to 193 ms 
 
 ## Not covered
 
-Non-interactive login shells (`zsh -l -c …`, including the herdr pane template) don't read
+On desk Macs, non-interactive login shells (`zsh -l -c …`, including the herdr pane template) don't read
 `zshrc`, so they keep `path_helper`'s order (`/usr/bin` before `~/.local/bin` and Homebrew). The
 desk `$ZDOTDIR/.zprofile` is OrbStack's regular file, not a repo link. Fixing those shells means
-owning that file on desk Macs too, the way the server profile does.
+owning that file on desk Macs too, the way the server profile does (VIL-315).
 
 ## How to check
 
 ```bash
 dot doctor                                   # "claude resolves to the native install"
 zsh -i -c 'whence -a claude'                 # ~/.local/bin/claude first
-/opt/homebrew/bin/brew shellenv zsh | grep PATH   # see what shellenv emits today
+brew shellenv zsh | grep PATH                 # see what shellenv emits today
 ```
