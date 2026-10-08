@@ -233,6 +233,18 @@ to `~/.local/bin/claude` (which `zshenv` puts ahead of Homebrew on `PATH`). The 
 not manage it; the Homebrew cask lags, so the native installer + Claude Code's auto-updater is
 preferred.
 
+**`zshenv`'s order only holds because `zshrc` re-applies it.** Two things run between them and
+undo it: `brew shellenv` (Homebrew 7 prepends `/opt/homebrew/bin` with a plain `export PATH=`;
+the old `grep -v path_helper` filter caught nothing once that changed) and, in login shells, the
+`path_helper` in macOS's `/etc/zprofile`. So `zshrc` re-sources `zshenv` right after `brew
+shellenv`, the same way `zsh/zprofile.server` does on hal. Don't remove that line to save a fork.
+When it broke (found 2026-10-08), a hand-installed `claude-code@latest` cask won every nested shell
+(tmux, herdr, the agent's Bash), so `claude update` reported "managed by Homebrew" while the
+native install sat behind it. `dot doctor` now fails when `claude` doesn't resolve to
+`~/.local/bin/claude`. Not covered: non-interactive login shells (`zsh -l -c`, the herdr pane
+template) never read `zshrc`, so they keep `path_helper`'s order. Write-up:
+`docs/solutions/runtime-errors/brew-shellenv-path-prepend-shadows-native-claude-2026-10-08.md`.
+
 ### tmux-window-namer skill (external plugin + repo-side tmux infra)
 The **tmux-window-namer skill itself now lives in an external Claude Code plugin**
 (the `dv` plugin), not this repo. What this repo keeps is the **tmux-side

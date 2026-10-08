@@ -343,10 +343,24 @@ print('\n'.join(sorted(set(out))))" "$rep" 2>/dev/null)"
   echo "toolchain shadowing (which -a):"
   local t
   for t in node ruby python3 claude; do
-    local n; n="$(command which -a "$t" 2>/dev/null | grep -c .)"
+    # Count distinct real files: a dir reachable by two spellings (~/.local/bin
+    # and ~/.local/share/../bin) lists one binary twice, which is not shadowing.
+    local n; n="$(command which -a "$t" 2>/dev/null | while IFS= read -r p; do realpath "$p" 2>/dev/null || printf '%s\n' "$p"; done | sort -u | grep -c .)"
     if [ "${n:-0}" -gt 1 ]; then warn "$t resolves in $n locations (shadowing): $(command which -a "$t" 2>/dev/null | tr '\n' ' ')"; fi
   done
   ok "toolchain shadow scan done"
+
+  # Desk Macs run the native Claude Code install (helpers/install_claude_code.sh).
+  # A `claude` that resolves elsewhere is a Homebrew cask or npm copy winning on
+  # PATH, so `claude update` reports the wrong install method.
+  if [ "$(uname)" = "Darwin" ] && [ "${DOTFILES_PROFILE:-desk}" != "server" ] && [ -e "$HOME/.local/bin/claude" ]; then
+    local cl; cl="$(command -v claude 2>/dev/null)"
+    if [ "$(realpath "$cl" 2>/dev/null)" = "$(realpath "$HOME/.local/bin/claude" 2>/dev/null)" ]; then
+      ok "claude resolves to the native install"
+    else
+      fail "claude resolves to ${cl:-nothing}, not ~/.local/bin/claude: check PATH order and remove other installs (brew list --cask | grep claude)"
+    fi
+  fi
 
   echo
   if [ "$_fail" -gt 0 ]; then

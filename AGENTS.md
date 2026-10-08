@@ -170,6 +170,9 @@ Current shims: `nvm node npm npx` (nvm's own commands).
 installs it via Anthropic's native installer to `~/.local/bin/claude`, which `zshenv`
 puts ahead of Homebrew on `PATH`. The Brewfile does not manage it — the Homebrew cask
 lags, so the native installer plus Claude Code's own auto-updater is preferred.)
+That order survives only because `zshrc` re-sources `zshenv` after `brew shellenv`, which
+(with login shells' `path_helper`) would otherwise put Homebrew and `/usr/bin` first. Keep
+that line; `dot doctor` fails if `claude` stops resolving to `~/.local/bin/claude`.
 
 ### Add a state-mutating install helper
 Keep the dry-run guard so direct invocation stays previewable:
