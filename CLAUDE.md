@@ -906,7 +906,15 @@ this repo, not just ticket work. Avoid committing directly to `master`.
   Fix the real findings and push; the new head is re-reviewed automatically. **Merge
   readiness:** the latest review-stack comment for the current head has no high or
   critical finding that is neither fixed nor explicitly waived with David. It doesn't read
-  thread replies, so record a declined finding in your summary to David, not on the PR.
+  thread replies, so record a declined finding in your summary to David and the PR body.
+  **Since MergeWren 0.4.0 (2026-10-09) each finding is also an inline review thread**, and
+  they stay open after the finding is fixed. Resolve a thread once its finding is listed
+  under "Resolved" in a later review, or once it is declined, so the unresolved-threads
+  check comes back empty before merging. A **`partial`** verdict means a file wasn't
+  reviewed, not that the review passed. `policy-excluded-path` means a file under
+  `coverage_expectation` was dropped, e.g. a `<base>.<suffix>` name such as
+  `zsh/zprofile.server` whose suffix OCR doesn't recognise (#208, fixed in MergeWren by
+  VIL-316). Get the same head re-run; a new push only reviews what changed after it.
   A comment saying "⚠️ The review did not complete" alerts Atlas; tell David instead of
   waiting. So does a comment whose verdict is **`failed`** or which says "Incomplete review" /
   "NOT COMPLETE": its "0 findings ✅" means *not reviewed*, not clean. Two causes seen so far

@@ -249,7 +249,9 @@ history — never create new GitHub issues).
   head (the `gh pr view … --jq` poll is in CLAUDE.md), fix the real findings and push; the
   new head is re-reviewed automatically. Merge when the current head's review has no high or
   critical finding that is neither fixed nor waived with David. It doesn't read thread
-  replies. "⚠️ The review did not complete" means tell David. CodeRabbit comments are
+  replies. Since MergeWren 0.4.0 each finding is also an inline thread: resolve it once
+  fixed (listed under "Resolved") or declined. A `partial` verdict means a file wasn't
+  reviewed, and so does "⚠️ The review did not complete": tell David. CodeRabbit comments are
   optional input: don't wait for them or re-trigger `@coderabbitai`.
 
 ---
