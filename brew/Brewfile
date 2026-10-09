@@ -62,6 +62,7 @@ brew "perl"                 # scripting + irssi
 brew "cpanminus"            # Perl module installer (cpanm)
 brew "go"                   # Go toolchain
 brew "yarn"                 # JS package manager
+brew "bun"                  # JS runtime; Claude Code plugins (compound-engineering, vercel) need it for their packages
 
 # --- Build toolchain (compiling from source) ---
 brew "autoconf"
