@@ -170,6 +170,10 @@ Current shims: `nvm node npm npx` (nvm's own commands).
 installs it via Anthropic's native installer to `~/.local/bin/claude`, which `zshenv`
 puts ahead of Homebrew on `PATH`. The Brewfile does not manage it — the Homebrew cask
 lags, so the native installer plus Claude Code's own auto-updater is preferred.)
+That order survives only because `zshrc` re-sources `zshenv` after `brew shellenv`, which
+(with login shells' `path_helper`) would otherwise put Homebrew and `/usr/bin` first. Keep
+that line. On desk Macs, `dot doctor` fails if `claude` doesn't resolve to
+`~/.local/bin/claude` or that native install is missing.
 
 ### Add a state-mutating install helper
 Keep the dry-run guard so direct invocation stays previewable:
@@ -325,7 +329,7 @@ How it differs from a desk Mac:
 
   | Link | Source | Effect |
   |---|---|---|
-  | `~/.config/zsh/.zprofile` | `zsh/zprofile.server` | With `ZDOTDIR` set, zsh no longer reads `~/.zprofile` or `~/.zshrc`. This file carries what hal's own versions did: brew shellenv (minus path_helper), OrbStack's `init.zsh`, and `~/.lmstudio/bin`, each only if present. hal's `~/.zprofile` and `~/.zshrc` are left untouched. It also re-applies `zsh/zshenv`'s PATH order, which macOS's `/etc/zprofile` (`path_helper`) undoes in every login shell. |
+  | `~/.config/zsh/.zprofile` | `zsh/zprofile.server` | With `ZDOTDIR` set, zsh no longer reads `~/.zprofile` or `~/.zshrc`. This file carries what hal's own versions did: brew shellenv, OrbStack's `init.zsh`, and `~/.lmstudio/bin`, each only if present. hal's `~/.zprofile` and `~/.zshrc` are left untouched. After shellenv it re-applies `zsh/zshenv`'s PATH order, which shellenv's prepend and macOS's `/etc/zprofile` (`path_helper`) undo in every login shell. |
   | `~/.config/git/gitconfig.platform` | `git/gitconfig.server` | Resets the credential helpers (osxkeychain and GCM can't work over SSH) to `/opt/homebrew/bin/gh` for github.com and gist.github.com, and sets `core.pager = less -FRX`. |
   | `~/.config/tmux/local.conf` | `tmux/local.server.conf` | Sets `@continuum-boot off`. It is linked before the TPM step starts a tmux server, so tmux-continuum never loads with boot on and never writes `~/Library/LaunchAgents/Tmux.Start.plist`, which opens iTerm at login. |
 

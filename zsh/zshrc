@@ -23,14 +23,22 @@ bindkey -M menuselect 'j' vi-down-line-or-history
 export USER="$USER" # Ensure USER is exported for completion system
 
 # `brew shellenv` sets HOMEBREW_PREFIX/CELLAR/REPOSITORY + FPATH + MANPATH/
-# INFOPATH, all of which we want. BUT it also emits an `eval path_helper -s`
-# line that, via macOS's path_helper, rebuilds PATH with /opt/homebrew/bin
-# prepended — undoing the user-scope-first ordering established in zshenv.
-# Filter out the path_helper eval (the real PATH clobberer here) and keep
-# everything else.
+# INFOPATH, all of which we want. It also prepends /opt/homebrew/bin and sbin
+# to PATH (Homebrew 7 does it with a plain `export PATH=`; older releases used
+# an `eval path_helper` line, which this file used to grep out). Either way
+# Homebrew lands ahead of ~/.local/bin, and the stale Homebrew `claude` cask
+# shadows the native install.
 if [[ -x "$BREW_PREFIX/bin/brew" ]]; then
-  eval "$("$BREW_PREFIX/bin/brew" shellenv | grep -vE '^eval .*path_helper')"
+  eval "$("$BREW_PREFIX/bin/brew" shellenv)"
 fi
+
+# Re-apply zsh/zshenv's PATH order. Two things undo it before this point:
+# the shellenv prepend above, and, in login shells (every iTerm tab), macOS's
+# /etc/zprofile, whose path_helper moves /etc/paths to the front so /usr/bin
+# beats gnubin and keg-only curl. zshenv only prepends and PATH is
+# `typeset -U` (first entry wins), so sourcing it again restores the order.
+# zsh/zprofile.server does the same for hal's login shells.
+[[ -f "$ZDOTDIR/.zshenv" ]] && source "$ZDOTDIR/.zshenv"
 
 # NVM configuration
 
@@ -218,9 +226,6 @@ export PERL_MM_OPT="INSTALL_BASE=${HOME}/perl5"
 if [[ -z "$TMUX" && "$TERM_PROGRAM" == "iTerm.app" ]]; then
   tmux ls >/dev/null 2>&1 || (tmux start-server && tmux new -s dummy -d && sleep 1 && tmux kill-session -t dummy)
 fi
-
-# Rustup env (optional)
-[[ -f "$HOME/.local/bin/env" ]] && . "$HOME/.local/bin/env"
 
 [[ "$TERM_PROGRAM" == "kiro" ]] && . "$(kiro --locate-shell-integration-path zsh)"
 

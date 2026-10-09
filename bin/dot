@@ -343,10 +343,32 @@ print('\n'.join(sorted(set(out))))" "$rep" 2>/dev/null)"
   echo "toolchain shadowing (which -a):"
   local t
   for t in node ruby python3 claude; do
-    local n; n="$(command which -a "$t" 2>/dev/null | grep -c .)"
+    # Count distinct real files: a dir reachable by two spellings (~/.local/bin
+    # and ~/.local/share/../bin) lists one binary twice, which is not shadowing.
+    local n; n="$(command which -a "$t" 2>/dev/null | while IFS= read -r p; do realpath "$p" 2>/dev/null || printf '%s\n' "$p"; done | sort -u | grep -c .)"
     if [ "${n:-0}" -gt 1 ]; then warn "$t resolves in $n locations (shadowing): $(command which -a "$t" 2>/dev/null | tr '\n' ' ')"; fi
   done
   ok "toolchain shadow scan done"
+
+  # Desk Macs run the native Claude Code install (helpers/install_claude_code.sh).
+  # A `claude` that resolves elsewhere is a Homebrew cask or npm copy winning on
+  # PATH, so `claude update` reports the wrong install method. A missing or
+  # dangling ~/.local/bin/claude fails too: the native install is part of
+  # darwin.yaml, so its absence is install drift, not a reason to skip.
+  if [ "$(uname)" = "Darwin" ] && [ "${DOTFILES_PROFILE:-desk}" != "server" ]; then
+    local cl; cl="$(command -v claude 2>/dev/null)"
+    local native; native="$(realpath "$HOME/.local/bin/claude" 2>/dev/null)"
+    local versions; versions="$(realpath "$HOME/.local/share/claude/versions" 2>/dev/null)"
+    if [ ! -e "$HOME/.local/bin/claude" ]; then
+      fail "native Claude Code missing at ~/.local/bin/claude (claude on PATH: ${cl:-none}); run helpers/install_claude_code.sh"
+    elif [ -z "$versions" ] || [ "${native#"$versions"/}" = "$native" ]; then
+      fail "native link ~/.local/bin/claude points at $native, not the native installer's ~/.local/share/claude/versions/; remove the link, then run helpers/install_claude_code.sh (it skips while the link exists)"
+    elif [ "$(realpath "$cl" 2>/dev/null)" = "$native" ]; then
+      ok "claude resolves to the native install"
+    else
+      fail "claude resolves to ${cl:-nothing}, not ~/.local/bin/claude: check PATH order and remove other installs (brew list --cask | grep claude)"
+    fi
+  fi
 
   echo
   if [ "$_fail" -gt 0 ]; then
