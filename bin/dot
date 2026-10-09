@@ -357,9 +357,13 @@ print('\n'.join(sorted(set(out))))" "$rep" 2>/dev/null)"
   # darwin.yaml, so its absence is install drift, not a reason to skip.
   if [ "$(uname)" = "Darwin" ] && [ "${DOTFILES_PROFILE:-desk}" != "server" ]; then
     local cl; cl="$(command -v claude 2>/dev/null)"
+    local native; native="$(realpath "$HOME/.local/bin/claude" 2>/dev/null)"
+    local versions; versions="$(realpath "$HOME/.local/share/claude/versions" 2>/dev/null)"
     if [ ! -e "$HOME/.local/bin/claude" ]; then
       fail "native Claude Code missing at ~/.local/bin/claude (claude on PATH: ${cl:-none}); run helpers/install_claude_code.sh"
-    elif [ "$(realpath "$cl" 2>/dev/null)" = "$(realpath "$HOME/.local/bin/claude" 2>/dev/null)" ]; then
+    elif [ -z "$versions" ] || [ "${native#"$versions"/}" = "$native" ]; then
+      fail "native link ~/.local/bin/claude points at $native, not the native installer's ~/.local/share/claude/versions/; run helpers/install_claude_code.sh"
+    elif [ "$(realpath "$cl" 2>/dev/null)" = "$native" ]; then
       ok "claude resolves to the native install"
     else
       fail "claude resolves to ${cl:-nothing}, not ~/.local/bin/claude: check PATH order and remove other installs (brew list --cask | grep claude)"

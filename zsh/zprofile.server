@@ -10,7 +10,7 @@
 # Runs after zsh/zshenv and macOS's /etc/zprofile, and before zsh/zshrc.
 
 # Homebrew shellenv (hal's ~/.zprofile). HOMEBREW_* vars, fpath, MANPATH and
-# INFOPATH. It also prepends /opt/homebrew/bin and sbin, which the re-source
+# INFOPATH. It also prepends $BREW_PREFIX/bin and sbin, which the re-source
 # below undoes. zshrc repeats both steps for interactive shells; fpath is
 # de-duplicated so that's harmless.
 if [[ -x "$BREW_PREFIX/bin/brew" ]]; then
