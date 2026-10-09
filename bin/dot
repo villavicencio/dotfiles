@@ -362,7 +362,7 @@ print('\n'.join(sorted(set(out))))" "$rep" 2>/dev/null)"
     if [ ! -e "$HOME/.local/bin/claude" ]; then
       fail "native Claude Code missing at ~/.local/bin/claude (claude on PATH: ${cl:-none}); run helpers/install_claude_code.sh"
     elif [ -z "$versions" ] || [ "${native#"$versions"/}" = "$native" ]; then
-      fail "native link ~/.local/bin/claude points at $native, not the native installer's ~/.local/share/claude/versions/; run helpers/install_claude_code.sh"
+      fail "native link ~/.local/bin/claude points at $native, not the native installer's ~/.local/share/claude/versions/; remove the link, then run helpers/install_claude_code.sh (it skips while the link exists)"
     elif [ "$(realpath "$cl" 2>/dev/null)" = "$native" ]; then
       ok "claude resolves to the native install"
     else
