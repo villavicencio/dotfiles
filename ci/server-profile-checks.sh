@@ -139,6 +139,16 @@ cmd_seed() {
   # Dotbot's clean would delete if it ran.
   ln -sfn /home/node/obsidian/hermes/personal "$HOME/personal"
   ln -sfn "$REPO/no-such-file-server-profile-check" "$HOME/stale-repo-link"
+  # Leftovers a host could carry from before this profile (VIL-280), both
+  # moved aside rather than kept in force:
+  # - a regular tmux local.conf. Worst case: it turns continuum's boot ON, so
+  #   if TPM ran with it, the launchagents check would see Tmux.Start.plist.
+  # - a desk install's ~/.config/nvim link into this repo.
+  mkdir -p "$HOME/.config/tmux"
+  printf '%s\n' '# pre-existing local.conf (simulated)' 'set -g @continuum-boot on' \
+    > "$HOME/.config/tmux/local.conf"
+  shasum -a 256 < "$HOME/.config/tmux/local.conf" > "$SEED_STATE/local.conf.sha256"
+  ln -sfn "$REPO/nvim" "$HOME/.config/nvim"
 
   # shellcheck disable=SC2086  # SEEDED is a word list on purpose
   ( cd "$HOME" && shasum -a 256 $SEEDED ) > "$SEED_STATE/seed.sha256"
@@ -187,6 +197,19 @@ cmd_post() {
   done
   if git -C "$REPO" diff --quiet -- nvim/lazy-lock.json; then ok "nvim/lazy-lock.json untouched"
   else err "nvim/lazy-lock.json was modified"; fi
+
+  # The seeded leftovers were moved aside, not deleted (the absent list above
+  # covers ~/.config/nvim itself).
+  local backups
+  backups="$(find "$HOME/.config/tmux" -maxdepth 1 -name 'local.conf.dotbot-backup.*' 2>/dev/null)"
+  if [ "$(printf '%s' "$backups" | grep -c .)" -ne 1 ]; then
+    err "expected one local.conf.dotbot-backup.* in ~/.config/tmux, found [$(printf '%s' "$backups" | tr '\n' '|')]"
+  elif [ "$(shasum -a 256 < "$backups")" = "$(cat "$SEED_STATE/local.conf.sha256")" ]; then
+    ok "pre-existing local.conf kept as $(basename "$backups")"
+  else
+    err "local.conf backup $backups differs from the seeded file"
+  fi
+  expect "desk nvim link moved aside" "$REPO/nvim" "$(link_target "$HOME/.config/nvim.pre-dotfiles")"
 
   # Server links.
   expect "tmux local.conf link" "$REPO/tmux/local.server.conf" "$(link_target "$HOME/.config/tmux/local.conf")"

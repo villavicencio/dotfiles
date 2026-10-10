@@ -326,7 +326,9 @@ How it differs from a desk Mac:
     regular files in those places.
   - The herdr shims and hooks, and the iTerm profile.
   - The `~/.config/nvim` link and the plugin bootstrap. Without the bootstrap, the first
-    `nvim` would rewrite `nvim/lazy-lock.json`, so the server's nvim runs with no config.
+    `nvim` would rewrite `nvim/lazy-lock.json`, so the server's nvim runs with no config. A
+    link into this repo left by an earlier desk install is moved to `~/.config/nvim.pre-dotfiles`
+    (`helpers/retire_desk_nvim_link.sh`); a real directory or a link elsewhere is left alone.
 - **Kept:** Oh My Zsh, the shared zsh, git and tmux configs, the pre-commit hook, and the
   Codex `AGENTS.md` link. TPM installs the plugins against a private, throwaway tmux socket.
   Its `install_plugins` reads the plugin list from whatever tmux server is current, so a
@@ -339,7 +341,7 @@ How it differs from a desk Mac:
   |---|---|---|
   | `~/.config/zsh/.zprofile` | `zsh/zprofile.server` | With `ZDOTDIR` set, zsh no longer reads `~/.zprofile` or `~/.zshrc`. This file carries what hal's own versions did: brew shellenv, OrbStack's `init.zsh`, and `~/.lmstudio/bin`, each only if present. hal's `~/.zprofile` and `~/.zshrc` are left untouched. After shellenv it re-applies `zsh/zshenv`'s PATH order, which shellenv's prepend and macOS's `/etc/zprofile` (`path_helper`) undo in every login shell. |
   | `~/.config/git/gitconfig.platform` | `git/gitconfig.server` | Resets the credential helpers (osxkeychain and GCM can't work over SSH) to `/opt/homebrew/bin/gh` for github.com and gist.github.com, and sets `core.pager = less -FRX`. |
-  | `~/.config/tmux/local.conf` | `tmux/local.server.conf` | Sets `@continuum-boot off`. It is linked before the TPM step starts a tmux server, so tmux-continuum never loads with boot on and never writes `~/Library/LaunchAgents/Tmux.Start.plist`, which opens iTerm at login. |
+  | `~/.config/tmux/local.conf` | `tmux/local.server.conf` | Sets `@continuum-boot off`. It is linked before the TPM step starts a tmux server, so tmux-continuum never loads with boot on and never writes `~/Library/LaunchAgents/Tmux.Start.plist`, which opens iTerm at login. A regular `local.conf` already there is renamed to `local.conf.dotbot-backup.<timestamp>` first (Dotbot's `backup`). If the link still isn't in place, `install_tmux.sh` fails without starting tmux. |
 
 - **`~/.zshenv`:** a `~/.zshenv` this install didn't write is kept as
   `~/.zshenv.pre-dotfiles` before being replaced. A regular file is copied there, and a
