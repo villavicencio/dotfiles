@@ -154,3 +154,4 @@
     ~/.config/tmux/scripts/save-window-meta.sh: tmux/scripts/save-window-meta.sh
     ~/.config/tmux/scripts/restore-window-meta.sh: tmux/scripts/restore-window-meta.sh
     ~/.config/tmux/scripts/location.sh: tmux/scripts/location.sh
+    ~/.config/tmux/scripts/clean-copy.sh: tmux/scripts/clean-copy.sh
