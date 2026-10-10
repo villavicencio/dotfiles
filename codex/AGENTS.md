@@ -18,7 +18,7 @@ Detailed procedures live in dotfiles `docs/agents/` (`~/Projects/Personal/dotfil
 
 ## Git
 - Changes to runtime behavior, config, or dependencies go on a branch (`feat/`, `fix/`, `chore/`, `docs/`) and merge via PR (or a local merge where a repo has no remote review). Docs, typos, and handoff commits can go straight to the default branch. When in doubt, branch. Stricter repo rules win.
-- After a PR merges, delete its branch locally and on origin as part of the merge, without asking, using the procedure in `docs/agents/code-review.md` ("After the merge"). Every delete there is conditional on the merged `headRefOid`, so a branch that moved after the merge refuses to delete. Keep it and say so. A worktree on the branch is cleared first, and only if it's clean. A local merge with no remote deletes the local branch only.
+- After a PR merges, delete its branch locally and on origin as part of the merge, without asking, using the procedure in `docs/agents/code-review.md` ("After the merge"). It deletes only when the branch holds nothing the merge didn't, and each delete is conditional on the commit it checked. A branch with new commits is kept; say so. A worktree on the branch is cleared first, and only if it's clean. A local merge with no remote deletes the local branch only.
 
 ## Code review and merging
 - PR review goes through CodeRabbit. Escalate to `dv:gauntlet` for large or risky diffs, for review of something that isn't a PR, or when CodeRabbit is throttled and the review can't wait (`dv:gauntlet report` is the report-only round). Don't hand-roll a review: no `codex exec review` loops, no ad-hoc reviewer panels.
