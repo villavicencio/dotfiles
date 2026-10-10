@@ -88,3 +88,12 @@ dot doctor                                   # "claude resolves to the native in
 zsh -i -c 'whence -a claude'                 # ~/.local/bin/claude first
 brew shellenv zsh | grep PATH                 # see what shellenv emits today
 ```
+VIL-315 was parked on 2026-10-09 because herdr, the main user of those shells, isn't in use.
+
+**A running Claude Code session keeps its old PATH.** Its Bash tool restores PATH from a shell
+snapshot (`~/.claude/shell-snapshots/`) taken when the session starts, and that PATH comes from the
+claude process's own environment. A session started before this fix keeps the old order
+(`/usr/bin/curl` ahead of the Homebrew keg curl), even though a fresh `zsh -i` gets the new one.
+That session can also still be running the uninstalled cask binary, which the open file stays
+mapped to (`lsof -p <pid>` lists a `txt` path under `Caskroom/`); that copy prints "Update available! Run: brew upgrade
+claude-code@latest". Restart the session before you judge whether the fix worked.
