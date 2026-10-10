@@ -66,8 +66,18 @@ if [ "${DOTFILES_PROFILE:-desk}" = "server" ]; then
     || handle_error "could not create a private tmux socket dir; not running TPM"
   ( unset TMUX; TMUX_TMPDIR="$tpm_sock_dir" "$TPM_INSTALL_DIR/bin/install_plugins" )
   tpm_rc=$?
+  # kill-server exits 1 when no server was left running, so its status says
+  # nothing; check the socket instead. A private server that outlived the install
+  # would keep running its plugins (continuum's autosave) with nobody attached.
   ( unset TMUX; TMUX_TMPDIR="$tpm_sock_dir" tmux kill-server >/dev/null 2>&1 )
-  rm -rf "$tpm_sock_dir"
+  tries=0
+  while ( unset TMUX; TMUX_TMPDIR="$tpm_sock_dir" tmux list-sessions >/dev/null 2>&1 ); do
+    tries=$((tries + 1))
+    [ "$tries" -lt 10 ] || handle_error "the private tmux server in $tpm_sock_dir is still running; stop it with: TMUX_TMPDIR=$tpm_sock_dir tmux kill-server"
+    sleep 0.5
+  done
+  # A leftover temp dir is harmless, so this warns rather than failing the install.
+  rm -rf "$tpm_sock_dir" || log_message "Warning: could not remove $tpm_sock_dir"
   [ "$tpm_rc" -eq 0 ] || handle_error "Failed to install TMux plugins"
 else
   "$TPM_INSTALL_DIR/bin/install_plugins" || handle_error "Failed to install TMux plugins"
