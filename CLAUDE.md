@@ -123,7 +123,8 @@ is a link to `zsh/zshrc`. On a machine you don't commit from (e.g. hal), that sh
 as `M zsh/zshrc` and blocks `git pull`. A machine-specific line goes in `~/env.sh` (sourced
 last, untracked); only then discard it from `zsh/zshrc`. Seen 2026-10-09 on hal as the `hal`
 account: iTerm2's shell-integration installer appended
-`test -e /Users/hal/.config/zsh/.iterm2_shell_integration.zsh && source …`.
+`test -e /Users/<account>/.config/zsh/.iterm2_shell_integration.zsh && source …`, with the
+literal home path.
 
 ### Secret hygiene
 Every commit is scanned by gitleaks via a `pre-commit` hook. Config lives in
