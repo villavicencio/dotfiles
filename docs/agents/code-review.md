@@ -162,7 +162,7 @@ on the OID it checked. The branch name comes from the PR, never typed by hand.
 # Fails closed: every check runs before anything changes, every failure returns 1, and the
 # step that can delete files (removing a worktree) runs only after origin accepted the delete.
 cleanup_merged_branch() {
-  local N=$1 base=$2 b oid cross tip cherry wl main wts w s rc
+  local N=$1 base=$2 b oid cross tip cherry merges wl main wts w s rc
   read -r b oid cross < <(gh pr view "$N" --json state,headRefName,headRefOid,isCrossRepository \
     -q 'select(.state=="MERGED") | "\(.headRefName) \(.headRefOid) \(.isCrossRepository)"')
   [ -n "$oid" ] || { echo "PR $N is not merged (or gh failed): stop"; return 1; }
@@ -176,6 +176,9 @@ cleanup_merged_branch() {
       || { echo "can't fetch PR $N's merged head: stop"; return 1; }
     cherry=$(git cherry "$oid" "$tip") || { echo "git cherry failed: stop"; return 1; }
     case $cherry in *+*) echo "$b has commits that aren't in PR $N: keeping it"; return 1 ;; esac
+    # git cherry skips merge commits, and one can carry its own conflict resolution.
+    merges=$(git rev-list --merges "$oid..$tip") || return 1
+    [ -z "$merges" ] || { echo "$b has a merge commit that isn't in PR $N: keeping it"; return 1; }
   fi
   # Worktrees on $b: all clean before anything changes. A linked one will be removed, which
   # deletes ignored files too (.env, build output), so for those ignored files count as dirty.
@@ -188,6 +191,13 @@ cleanup_merged_branch() {
     else s=$(git -C "$w" status --porcelain --ignored) || return 1; fi
     [ -z "$s" ] || { echo "$w has changes, untracked or ignored files: keeping $b"; return 1; }
   done < <(printf '%s\n' "$wts")
+  # The primary worktree will switch to $base: that has to be possible before origin changes.
+  if printf '%s\n' "$wts" | grep -qxF -- "$main"; then
+    printf '%s\n' "$wl" | awk -v m="$main" -v r="branch refs/heads/$base" '/^worktree /{w=substr($0,10)} $0==r && w!=m{f=1} END{exit !f}' \
+      && { echo "$base is checked out in another worktree, so $main can't leave $b: stop"; return 1; }
+    git rev-parse -q --verify "refs/heads/$base" >/dev/null || git rev-parse -q --verify "refs/remotes/origin/$base" >/dev/null \
+      || { echo "no $base branch to switch $main to: stop"; return 1; }
+  fi
   # Origin first: GitHub's auto-delete may already have removed it (exit 2). Delete only
   # while it still points at the merged head; any other ls-remote exit is a failed lookup.
   git ls-remote --exit-code origin "refs/heads/$b" >/dev/null; rc=$?
@@ -223,11 +233,14 @@ works in bash and zsh.
   local branch holds the pre-rebase commits. Those aren't the merged head, but they hold no
   new work. `git cherry <merged head> <local tip>` marks each local commit `-` when an
   equivalent patch is in the merged head and `+` when it isn't. One `+` keeps the branch.
+  `git cherry` skips merge commits, and a merge can carry its own conflict resolution, so
+  any merge commit missing from the merged head keeps the branch too.
 - **Worktrees.** Every worktree on the branch must be clean before anything changes. A
   linked worktree is removed, and `git worktree remove` deletes ignored files (`.env`, build
   output), so for linked worktrees `--ignored` output counts as dirty too. The primary
-  worktree can't be removed; it switches to the default branch. Worktrees are touched only
-  after origin accepted the delete, and are re-checked right before.
+  worktree can't be removed; it switches to the default branch, so before origin changes the
+  function checks that the default branch exists and isn't checked out in another worktree.
+  Worktrees are touched only after origin accepted the delete, and are re-checked right before.
 - **Why `update-ref -d` and not `git branch -D`:** a squash or rebase merge leaves the branch
   unmerged in git's eyes, so `-d` refuses and `-D` deletes whatever the tip is by then.
   `update-ref -d <ref> <old>` refuses unless the tip is still `<old>`. It also deletes a
@@ -235,7 +248,7 @@ works in bash and zsh.
 - **zsh gotcha when editing this:** `$var:r`, `:h`, `:t` and `:e` are zsh modifiers, so
   `$new:refs/heads/x` silently becomes something else. Brace the variable (`${new}:…`).
   `"refs/heads/$b:$oid"` is safe because `:$` isn't a modifier.
-- **Tested 2026-10-10** in a scratch repo with `gh` stubbed, under bash and zsh: 13
+- **Tested 2026-10-10** in a scratch repo with `gh` stubbed, under bash and zsh: 15
   scenarios. Both copies are deleted:
   - on the happy path;
   - when origin already auto-deleted the branch;
@@ -247,6 +260,8 @@ works in bash and zsh.
   - the PR isn't merged;
   - the head is in a fork;
   - the local branch has a new commit, with or without a stale copy alongside;
+  - a stale copy also carries a merge commit with its own change;
+  - the PR branch is in the primary worktree while the default branch is checked out in another;
   - origin moved, whether or not a worktree exists (the worktree survives too);
   - a linked worktree has a modified, untracked or ignored file.
 - **Local merge, no remote, no PR:** there is no `MERGED` state or origin tip to check.
