@@ -17,11 +17,13 @@ runs:
         # machine hostnames — PII that used to leak via the live-synced iTerm
         # prefs plist (usernames, `<host>-MacBook-Pro.local`). docs/** is
         # exempt: narrative solution/plan docs legitimately quote real paths as
-        # examples (owner decision D6).
+        # examples (owner decision D6). HANDOFF.md is exempt for the same reason:
+        # it's a session narrative, and dv:handoff writes the absolute worktree
+        # path into its frontmatter by design.
         #
         # Fail-closed scope check: a refactor that drops the pathspec would let
         # this silently no-op.
-        if [ -z "$(git ls-files -- ':!docs/**')" ]; then
+        if [ -z "$(git ls-files -- ':!docs/**' ':!HANDOFF.md')" ]; then
           echo "::error::scoping returned no files — file-list bug"
           exit 1
         fi
@@ -43,7 +45,7 @@ runs:
         # different user — is NOT allowlisted), then the second grep re-checks
         # the remainder. A line mixing an allowed path with a real one is still
         # caught. `runner` = GitHub macOS runner home; `Shared` = macOS shared dir.
-        hits="$(git grep -nE '/Users/[A-Za-z0-9][A-Za-z0-9._-]*|[A-Za-z0-9]+-MacBook' -- ':!docs/**' \
+        hits="$(git grep -nE '/Users/[A-Za-z0-9][A-Za-z0-9._-]*|[A-Za-z0-9]+-MacBook' -- ':!docs/**' ':!HANDOFF.md' \
                 | sed -E 's#/Users/(runner|Shared)([^A-Za-z0-9._-])#\2#g; s#/Users/(runner|Shared)$##g' \
                 | grep -E '/Users/[A-Za-z0-9]|[A-Za-z0-9]+-MacBook' || true)"
         if [ -n "$hits" ]; then
