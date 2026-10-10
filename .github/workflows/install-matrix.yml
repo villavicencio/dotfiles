@@ -339,16 +339,34 @@ jobs:
       - name: S1 — static checks (Brewfile.server, profile validation)
         run: ci/server-profile-checks.sh static
 
+      - name: Pin Homebrew's cache to the runner's real home
+        # An absolute path, set before HOME moves to the simulated home below.
+        # The cache step's post-job save runs after that move, so a `~` path
+        # there would point into the simulated home and save nothing.
+        run: echo "HOMEBREW_CACHE=$HOME/Library/Caches/Homebrew" >> "$GITHUB_ENV"
+
+      - name: Cache Homebrew downloads + API
+        # The macos leg's cache, keyed on Brewfile.server. The `server-brew-`
+        # prefix keeps the two legs' restore-keys from matching each other.
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae  # v5.0.5
+        with:
+          path: |
+            ${{ env.HOMEBREW_CACHE }}/downloads
+            ${{ env.HOMEBREW_CACHE }}/api
+          key: ${{ runner.os }}-${{ runner.arch }}-server-brew-${{ hashFiles('brew/Brewfile.server', 'helpers/**') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ runner.arch }}-server-brew-
+
       - name: Switch to a simulated hal home
         # Every later step sees HOME=$RUNNER_TEMP/hal-home. Homebrew keeps its
-        # download cache in the runner's real home. SEED_STATE (outside the
-        # simulated home) carries the seed hashes and the chsh shim.
+        # download cache in the runner's real home (HOMEBREW_CACHE, pinned
+        # above). SEED_STATE (outside the simulated home) carries the seed
+        # hashes and the chsh shim.
         run: |
           set -euo pipefail
           sim="$RUNNER_TEMP/hal-home"
           mkdir -p "$sim"
           {
-            echo "HOMEBREW_CACHE=$HOME/Library/Caches/Homebrew"
             echo "SEED_STATE=$RUNNER_TEMP/hal-state"
             echo "HOME=$sim"
           } >> "$GITHUB_ENV"

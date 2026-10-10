@@ -1,5 +1,15 @@
-import sys, os
+import sys, os, subprocess
 cfgp, repo, mode = sys.argv[1], sys.argv[2], sys.argv[3]
+
+def if_passes(test):
+    # An entry's `if:` decides whether Dotbot links it at all (the server-only
+    # tmux local.conf, the desk-only ~/.config/nvim). Evaluate it the way Dotbot
+    # does (plugins/link.py _test_success): $SHELL -c from the repo root, output
+    # discarded. Without this, a desk Mac's own local.conf read as a conflict.
+    with open(os.devnull, "r+") as dn:
+        return subprocess.call(test, shell=True, executable=os.environ.get("SHELL"),
+                               cwd=repo, stdin=dn, stdout=dn, stderr=dn) == 0
+
 try:
     # System python3 has no PyYAML; use dotbot's vendored copy (same as the docs
     # index generator) so this check actually runs instead of silently passing.
@@ -22,6 +32,8 @@ try:
                 print("MISSING_SOURCE", src); continue
             if mode != "full":
                 continue                      # inactive config: source integrity only
+            if isinstance(v, dict) and v.get("if") is not None and not if_passes(v["if"]):
+                continue                      # Dotbot skips this link here: no target to check
             t = os.path.expanduser(target)
             if not os.path.lexists(t):
                 continue                      # not installed yet — fine
