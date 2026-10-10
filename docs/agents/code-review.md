@@ -148,3 +148,45 @@ check reading `Review skipped: incremental reviews are disabled` — another cle
 that means no review ran.
 
 **Naming a ticket id in a PR body can auto-close that issue on merge** — see the Linear rules in the global CLAUDE.md.
+
+## After the merge: delete the branch
+
+A merged PR's branch is deleted locally and on origin as part of the merge, without asking
+(global rule, VIL-340). The standing approval covers only a branch whose tips are still the
+merged head. Every delete below is conditional on that OID, so a push or commit that lands
+between the check and the delete makes it refuse instead of destroying new work.
+
+```bash
+N=<pr>; b=<branch>; base=<default branch>
+oid=$(gh pr view "$N" --json state,headRefOid -q 'select(.state=="MERGED") | .headRefOid')
+[ -n "$oid" ] || { echo "PR $N is not merged: stop"; exit 1; }
+# Local tip: absent, or exactly the merged head. Anything else isn't used up: keep it, say so.
+tip=$(git rev-parse -q --verify "refs/heads/$b")
+[ -z "$tip" ] || [ "$tip" = "$oid" ] || { echo "$b has commits after the merged head: keeping it"; exit 1; }
+git worktree list --porcelain     # is $b checked out anywhere? Handle that first (below).
+# Origin: GitHub's auto-delete may already have removed it (ls-remote exits 2). Otherwise
+# delete only while it still points at the merged head. Any other exit is a failed lookup.
+git ls-remote --exit-code origin "refs/heads/$b" >/dev/null; rc=$?
+case $rc in
+  0) git push --force-with-lease="refs/heads/$b:$oid" origin --delete "$b" ;;
+  2) echo "origin already deleted $b" ;;
+  *) echo "ls-remote failed ($rc): stop"; exit 1 ;;
+esac
+[ -z "$tip" ] || git update-ref -d "refs/heads/$b" "$oid"   # refuses unless still at $oid
+git fetch --prune
+```
+
+- **Checked out somewhere — clear it before the local delete.** `update-ref -d` deletes a
+  checked-out branch without complaint and leaves that worktree on an unborn branch, where
+  `git branch -D` would have refused. A *linked* worktree: `git worktree remove <path>`,
+  only if `git -C <path> status --porcelain` is empty. The *primary* worktree can't be
+  removed: `git switch "$base"` there, again only if it's clean. A dirty worktree stays,
+  and so does the branch; say so.
+- **Why not `git branch -D`:** a squash or rebase merge leaves the branch unmerged in git's
+  eyes, so `-d` refuses and `-D` deletes whatever the tip is by then. `update-ref -d <ref>
+  <oid>` is the delete that checks the tip. (Verified 2026-10-10 in a scratch repo: wrong
+  expected OID → `cannot lock ref … but expected …`, exit 1; a stale lease likewise fails the
+  remote delete.)
+- **Local merge, no remote, no PR:** there is no `MERGED` state or origin tip to check.
+  Confirm `git merge-base --is-ancestor "$b" "$base"`, then `git branch -d "$b"`, which
+  refuses an unmerged branch on its own. Local branch only.

@@ -18,7 +18,7 @@ Detailed procedures live in dotfiles `docs/agents/` (`~/Projects/Personal/dotfil
 
 ## Git
 - Changes to runtime behavior, config, or dependencies go on a branch (`feat/`, `fix/`, `chore/`, `docs/`) and merge via PR (or a local merge where a repo has no remote review). Docs, typos, and handoff commits can go straight to the default branch. When in doubt, branch. Stricter repo rules win.
-- After a PR merges, delete its branch locally and on origin as part of the merge, without asking. First confirm the PR is `MERGED` and its `headRefOid` equals both the local tip and the origin tip (`git ls-remote origin refs/heads/<b>`). If a worktree has the branch checked out, remove it first, and only if it's clean; a dirty one stays, and so does the branch. Then `git push origin --delete <b>`, `git branch -D <b>` (a squash merge makes `-d` refuse), `git fetch --prune`. A branch with commits after the merged head isn't used up: keep it and say so. A local merge in a repo with no remote deletes the local branch only.
+- After a PR merges, delete its branch locally and on origin as part of the merge, without asking, using the procedure in `docs/agents/code-review.md` ("After the merge"). Every delete there is conditional on the merged `headRefOid`, so a branch that moved after the merge refuses to delete. Keep it and say so. A worktree on the branch is cleared first, and only if it's clean. A local merge with no remote deletes the local branch only.
 
 ## Code review and merging
 - PR review goes through CodeRabbit. Escalate to `dv:gauntlet` for large or risky diffs, for review of something that isn't a PR, or when CodeRabbit is throttled and the review can't wait (`dv:gauntlet report` is the report-only round). Don't hand-roll a review: no `codex exec review` loops, no ad-hoc reviewer panels.
@@ -51,7 +51,7 @@ Detailed procedures live in dotfiles `docs/agents/` (`~/Projects/Personal/dotfil
 - Only when I ask, or when an invoked skill's procedure requires them. Invoking the skill is the request, and its independence is the point, so don't simulate the agents in-context. Announce any fan-out of more than 3 agents, or an unbounded batch, before spawning.
 
 ## Where the procedures live (dotfiles `docs/agents/`)
-- CodeRabbit check descriptions, rate-limit mechanics, `.coderabbit.yaml`: `code-review.md`.
+- CodeRabbit check descriptions, rate-limit mechanics, `.coderabbit.yaml`, deleting a merged branch: `code-review.md`.
 - Full web tool ladder (written with Claude Code's tool names): `web-research.md`.
 - Handoff `head` validation after `dv:pickup`: `session-continuity.md`.
 - Obsidian vaults: `obsidian-vaults.md`. Each project owns `~/Obsidian/<name>/`; only `hermes` and `axiom` sync to the VPS.
