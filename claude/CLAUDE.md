@@ -13,11 +13,12 @@ Detailed procedures live in dotfiles `docs/agents/` (`~/Projects/Personal/dotfil
 - When you name a Linear ticket or a GitHub PR or issue in a reply to me, make it a markdown link that opens in my browser, every time it appears: `[VIL-123](https://linear.app/villavicencio/issue/VIL-123)`, `[#151](https://github.com/<owner>/<repo>/pull/151)` (put the repo in the label for a cross-repo reference, e.g. `[mergewren#31](…)`). Commit messages, PR bodies, and Linear comments can keep bare ids; those surfaces link them already.
 
 ## Safety
-- Never delete user data (files, notes, records, DB rows, board cards) without my explicit approval, even if it looks out of scope. Asking is cheap; an unauthorized deletion isn't.
+- Never delete user data (files, notes, records, DB rows, board cards) without my explicit approval, even if it looks out of scope. Asking is cheap; an unauthorized deletion isn't. The one standing approval is a merged PR's branch (see Git); it covers nothing else.
 - Never rewrite or force-push shared git history without asking.
 
 ## Git
 - Changes to runtime behavior, config, or dependencies go on a branch (`feat/`, `fix/`, `chore/`, `docs/`) and merge via PR (or a local merge where a repo has no remote review). Docs, typos, and handoff commits can go straight to the default branch. When in doubt, branch. Stricter repo rules win.
+- After a PR merges, delete its branch locally and on origin as part of the merge, without asking. First confirm the PR is `MERGED` and its `headRefOid` equals both the local tip and the origin tip (`git ls-remote origin refs/heads/<b>`). If a worktree has the branch checked out, remove it first, and only if it's clean; a dirty one stays, and so does the branch. Then `git push origin --delete <b>`, `git branch -D <b>` (a squash merge makes `-d` refuse), `git fetch --prune`. A branch with commits after the merged head isn't used up: keep it and say so. A local merge in a repo with no remote deletes the local branch only.
 
 ## Code review and merging
 Full procedure, check-description table, and rate-limit mechanics: `docs/agents/code-review.md`. Repos with their own reviewer (dotfiles uses review-stack) follow their own rules.
