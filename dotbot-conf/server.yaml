@@ -25,7 +25,8 @@
 #                            no GUI terminal on a headless box.
 #
 # Also different in base.yaml under this profile: no `clean`, no
-# ~/.config/nvim link or plugin bootstrap, brew/Brewfile.server with
+# ~/.config/nvim link or plugin bootstrap (and this layer moves a desk
+# install's old link aside), brew/Brewfile.server with
 # --no-upgrade and no Homebrew bootstrap, a backup of a foreign ~/.zshenv,
 # and TPM run against a private tmux socket (helpers/install_tmux.sh).
 #
@@ -49,6 +50,9 @@
 
 - shell:
     - [bash helpers/migrate_codex_agents.sh, "Moving aside an unlinked Codex AGENTS.md"]
+    # A desk install's ~/.config/nvim link would keep loading the repo config
+    # without its plugin bootstrap; move it aside (see the helper).
+    - [bash helpers/retire_desk_nvim_link.sh, "Moving aside a desk ~/.config/nvim link"]
 
 - link:
     ~/.codex/AGENTS.md: codex/AGENTS.md

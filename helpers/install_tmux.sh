@@ -56,6 +56,12 @@ if [ "${DOTFILES_PROFILE:-desk}" = "server" ]; then
   # afterwards. (Desk installs keep the old behavior.)
   # Under /tmp, not $TMPDIR: macOS caps socket paths at 104 bytes and
   # $TMPDIR (/var/folders/…) plus tmux-UID/default comes close.
+  # TPM loads tmux-continuum, which writes ~/Library/LaunchAgents/Tmux.Start.plist
+  # unless local.conf turns @continuum-boot off. base.yaml links the server's
+  # local.conf (backing up a regular file first); if that link didn't land, a
+  # leftover local.conf could leave boot on, so don't start a server at all.
+  [ "$HOME/.config/tmux/local.conf" -ef ./tmux/local.server.conf ] \
+    || handle_error "$HOME/.config/tmux/local.conf is not linked to tmux/local.server.conf; not running TPM (it could write a Tmux.Start.plist LaunchAgent)"
   tpm_sock_dir="$(mktemp -d /tmp/dotfiles-tpm.XXXXXX)" && [ -n "$tpm_sock_dir" ] \
     || handle_error "could not create a private tmux socket dir; not running TPM"
   ( unset TMUX; TMUX_TMPDIR="$tpm_sock_dir" "$TPM_INSTALL_DIR/bin/install_plugins" )
