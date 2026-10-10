@@ -18,8 +18,8 @@ cleanup = true
 # Skip vim: its Neovim step runs a plugin update against ~/.config/nvim. On a desk
 # Mac that is this repo's nvim/, so the step rewrites the tracked
 # nvim/lazy-lock.json (9 pins moved this way by 2026-10-09). The server profile
-# (hal) links this file but not ~/.config/nvim, so there the step would update
-# an untracked config; skipping it costs nothing. Plugin bumps are deliberate
+# (hal) links this file but not ~/.config/nvim, and its nvim runs with no config,
+# so skipping the step there costs nothing. Plugin bumps are deliberate
 # commits instead: `:Lazy update`, check the config still loads, commit the lockfile.
 disable = [
   "jetbrains_aqua",
