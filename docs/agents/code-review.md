@@ -163,7 +163,7 @@ on the OID it checked. The branch name comes from the PR, never typed by hand.
 # can succeed), every failure returns 1, and the step that can delete files (removing a
 # worktree) runs only after origin accepted the delete.
 cleanup_merged_branch() {
-  local N=$1 base=$2 b oid cross tip cherry merges wl main wts w s rc
+  local N=$1 base=$2 b oid cross tip cherry merges wl main wts w s rc gd deleted=0
   read -r b oid cross < <(gh pr view "$N" --json state,headRefName,headRefOid,isCrossRepository \
     -q 'select(.state=="MERGED") | "\(.headRefName) \(.headRefOid) \(.isCrossRepository)"')
   [ -n "$oid" ] || { echo "PR $N is not merged (or gh failed): stop"; return 1; }
@@ -194,7 +194,8 @@ cleanup_merged_branch() {
       # `git worktree remove` refuses a locked worktree and one with submodules.
       printf '%s\n' "$wl" | awk -v t="$w" '/^worktree /{c=(substr($0,10)==t)} c && /^locked/{f=1} END{exit !f}' \
         && { echo "$w is locked: keeping $b"; return 1; }
-      [ ! -e "$w/.gitmodules" ] || { echo "$w has submodules: keeping $b"; return 1; }
+      gd=$(git -C "$w" rev-parse --absolute-git-dir) || return 1
+      [ ! -e "$gd/modules" ] || { echo "$w has initialized submodules: keeping $b"; return 1; }
     fi
     [ -z "$s" ] || { echo "$w has changes, untracked or ignored files: keeping $b"; return 1; }
   done < <(printf '%s\n' "$wts")
@@ -210,22 +211,25 @@ cleanup_merged_branch() {
   git ls-remote --exit-code origin "refs/heads/$b" >/dev/null; rc=$?
   case $rc in
     0) git push --force-with-lease="refs/heads/$b:$oid" origin --delete "$b" \
-         || { echo "origin refused the delete (moved since the merge?): keeping $b"; return 1; } ;;
+         || { echo "origin refused the delete (moved since the merge?): keeping $b"; return 1; }
+       deleted=1 ;;
     2) echo "origin already deleted $b" ;;
     *) echo "ls-remote failed ($rc): stop"; return 1 ;;
   esac
   # Worktrees: re-check, then remove a linked one, or switch the primary (git can't remove it).
+  # If any step fails, put origin's branch back at the merged head, so a failure never leaves
+  # origin deleted while the local branch stays.
   while IFS= read -r w; do
     [ -n "$w" ] || continue
     if [ "$w" = "$main" ]; then
-      s=$(git -C "$w" status --porcelain) || return 1
-      [ -z "$s" ] || { echo "$w changed mid-run: origin is deleted, local $b kept"; return 1; }
-      git -C "$w" switch "$base" || return 1
+      s=$(git -C "$w" status --porcelain) && [ -z "$s" ] && git -C "$w" switch "$base"
     else
-      s=$(git -C "$w" status --porcelain --ignored) || return 1
-      [ -z "$s" ] || { echo "$w changed mid-run: origin is deleted, local $b kept"; return 1; }
-      git worktree remove "$w" || return 1
-    fi
+      s=$(git -C "$w" status --porcelain --ignored) && [ -z "$s" ] && git worktree remove "$w"
+    fi || {
+      echo "couldn't clear $w: keeping $b"
+      [ "$deleted" = 0 ] || { git push -q origin "${oid}:refs/heads/$b" && echo "restored origin/$b"; }
+      return 1
+    }
   done < <(printf '%s\n' "$wts")
   # Local: refuses unless the tip is still the one checked above (branch -D deletes whatever).
   [ -z "$tip" ] || git update-ref -d "refs/heads/$b" "$tip" || return 1
@@ -247,23 +251,29 @@ works in bash and zsh.
   output), so for linked worktrees `--ignored` output counts as dirty too. The primary
   worktree can't be removed; it switches to the default branch, so before origin changes the
   function checks that the default branch exists and isn't checked out in another worktree.
-  It also refuses a linked worktree that is locked or has submodules, both of which
-  `git worktree remove` refuses, so no worktree step can fail after origin is deleted.
+  It also refuses a linked worktree that is locked or has initialized submodules (the
+  worktree's own `modules` git dir, which is what `git worktree remove` checks; an empty
+  `.gitmodules` doesn't count). A worktree step can still fail for reasons nothing can
+  predict, such as permissions, so on any failure the function pushes origin's branch
+  back at the merged head. A failed run never leaves origin deleted with the local branch kept.
   Worktrees are touched only after origin accepted the delete, and are re-checked right before.
 - **Why `update-ref -d` and not `git branch -D`:** a squash or rebase merge leaves the branch
   unmerged in git's eyes, so `-d` refuses and `-D` deletes whatever the tip is by then.
   `update-ref -d <ref> <old>` refuses unless the tip is still `<old>`. It also deletes a
   checked-out branch without complaint, which is why worktrees are cleared first.
-- **zsh gotcha when editing this:** `$var:r`, `:h`, `:t` and `:e` are zsh modifiers, so
-  `$new:refs/heads/x` silently becomes something else. Brace the variable (`${new}:…`).
-  `"refs/heads/$b:$oid"` is safe because `:$` isn't a modifier.
-- **Tested 2026-10-10** in a scratch repo with `gh` stubbed, under bash and zsh: 17
+- **zsh gotcha when editing this:** `$var:r`, `:h`, `:t` and `:e` are zsh modifiers, even
+  inside double quotes, so `"$oid:refs/heads/x"` silently becomes something else. Brace the
+  variable (`"${oid}:refs/…"`). `"refs/heads/$b:$oid"` is safe because `:$` isn't a
+  modifier. The rollback push hit exactly this in testing. To check, grep the function for
+  `\$[A-Za-z_]+:[A-Za-z]`.
+- **Tested 2026-10-10** in a scratch repo with `gh` stubbed, under bash and zsh: 19
   scenarios. Both copies are deleted:
   - on the happy path;
   - when origin already auto-deleted the branch;
   - for a stale copy after a rebase;
   - after removing a clean linked worktree;
-  - after switching the primary worktree off the branch.
+  - after switching the primary worktree off the branch;
+  - with an empty `.gitmodules` and no initialized submodules.
 
   Everything is kept when:
   - the PR isn't merged;
@@ -272,7 +282,9 @@ works in bash and zsh.
   - a stale copy also carries a merge commit with its own change;
   - the PR branch is in the primary worktree while the default branch is checked out in another;
   - origin moved, whether or not a worktree exists (the worktree survives too);
-  - a linked worktree has a modified, untracked or ignored file, is locked, or has submodules.
+  - a linked worktree has a modified, untracked or ignored file, is locked, or has an
+    initialized submodule;
+  - removing the worktree fails after origin was deleted (origin is pushed back).
 - **Local merge, no remote, no PR:** there is no `MERGED` state or origin tip to check.
   Confirm `git merge-base --is-ancestor "$b" "$base"`, then `git branch -d "$b"`, which
   refuses an unmerged branch on its own. Local branch only.
