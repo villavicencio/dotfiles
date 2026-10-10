@@ -21,9 +21,10 @@
 #   - the shared left margin. Each line's indent is measured in screen columns
 #     (the first line starts at the selection's start column), and the
 #     smallest one comes off every line, so relative indentation is kept.
-#     The first line gains spaces only when it starts no further right than
-#     the deepest indent below it, so a drag that starts mid-sentence doesn't
-#     paste the columns before it as indent;
+#     The first line never gains spaces (the columns before the selection
+#     could be text), so when it starts deeper than the shallowest line below
+#     it, it comes out further left than on screen. Lines 2..n always keep
+#     their indentation relative to each other;
 #   - blank lines at the start and end.
 # Limits: a first-line table row whose left border lies before the selection
 # start loses its right border, and a tab counts as one column. Without the
@@ -59,15 +60,13 @@ filter() {
       my $col = length($ind) + ($i == 0 ? $x0 : 0);
       $min = $col if !defined $min || $col < $min;
     }
-    # Line 1 keeps its column relative to the margin, but gains spaces only
-    # when it starts no further right than the deepest indent below it: a
-    # drag that starts mid-sentence must not paste the columns before it.
+    # Line 1 sheds the margin but never gains spaces: the columns before the
+    # selection start are not in the selection, and nothing shows whether they
+    # were indentation or text.
     my ($ind0) = $l[0] =~ /^( *)/;
-    my $deepest = 0;
-    for (@l[1 .. $#l]) { my ($i) = /^( *)/; $deepest = length $i if $_ ne "" && length $i > $deepest }
     my $keep = length($ind0) + $x0 - $min;
     $keep = 0 if $keep < 0;
-    $keep = length($ind0) if $keep > length($ind0) && length($ind0) + $x0 > $deepest;
+    $keep = length($ind0) if $keep > length($ind0);
     $l[0] =~ s/^ */" " x $keep/e;
     for (@l[1 .. $#l]) { substr($_, 0, $min) = "" if length >= $min }
     print join("\n", @l);
