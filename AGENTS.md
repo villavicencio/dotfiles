@@ -123,6 +123,8 @@ diffs** are scanned — not the full tree or history.
 After any third-party installer touches shell config (gcloud, rustup, …), run `git diff`
 and fix hardcoded `/Users/<name>` → `$HOME`, unstable paths (`~/Downloads`, `/tmp`), and
 POSIX `. ` sourcing → the `[[ -f … ]] &&` guard pattern before committing.
+An installer that appends to `.zshrc` edits this repo's `zsh/zshrc` (the `$ZDOTDIR` link); a
+machine-specific line goes in `~/env.sh` instead (e.g. iTerm2 shell integration on hal).
 
 ---
 

@@ -118,6 +118,13 @@ always run `git diff` and fix hardcoded paths before committing. Common offender
 - Paths in unstable locations (`~/Downloads/`, `/tmp/`)
 - POSIX `. ` sourcing instead of zsh `source` or `[[ -f ... ]] &&` guard pattern
 
+An installer that "adds itself to your `.zshrc`" writes into this repo: `~/.config/zsh/.zshrc`
+is a link to `zsh/zshrc`. On a machine you don't commit from (e.g. hal), that shows up later
+as `M zsh/zshrc` and blocks `git pull`. A machine-specific line goes in `~/env.sh` (sourced
+last, untracked); only then discard it from `zsh/zshrc`. Seen 2026-10-09 on hal as the `hal`
+account: iTerm2's shell-integration installer appended
+`test -e /Users/hal/.config/zsh/.iterm2_shell_integration.zsh && source …`.
+
 ### Secret hygiene
 Every commit is scanned by gitleaks via a `pre-commit` hook. Config lives in
 `.pre-commit-config.yaml` at repo root, the hook is wired by `helpers/install_pre_commit.sh`,
