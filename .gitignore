@@ -27,3 +27,7 @@ iterm/com.googlecode.iterm2.plist*
 # so even a misdirected backup can never be staged. helpers/restore-iterm-app-prefs.sh
 # also refuses to write it inside the repo, but this covers any path that slips through.
 iterm2-prefs.pre-dynamic-profile.plist
+
+# Codex-migrated copies of repo commands (e.g. skills/source-command-ticket, from
+# .claude/commands/ticket.md). Local only: a tracked copy would drift from the source.
+.agents/
