@@ -240,6 +240,15 @@ to `~/.local/bin/claude` (which `zshenv` puts ahead of Homebrew on `PATH`). The 
 not manage it; the Homebrew cask lags, so the native installer + Claude Code's auto-updater is
 preferred.
 
+That auto-updater ignores `"autoUpdates": false` in `~/.claude.json`, a legacy key; this Mac
+also carries `"autoUpdatesProtectedForNative": true` next to it. It checks at startup and
+periodically while a session runs. On 2026-10-09, 2.1.295 landed with no shell activity, from a
+long-running session, and 2.1.296 landed 15 s after a `claude --continue` launch. Topgrade
+wasn't involved. `~/.claude/daemon.log` only records the daemon noticing the new binary
+("self-restarting for upgrade"). The documented off switch is `env.DISABLE_AUTOUPDATER = "1"`
+in `settings.json` (`DISABLE_UPDATES` also blocks `claude update`), and `claude doctor`
+shows which setting is in effect (code.claude.com/docs/en/setup, read 2026-10-10).
+
 **`zshenv`'s order only holds because `zshrc` re-applies it.** Two things run between them and
 undo it: `brew shellenv` (Homebrew 7 prepends `/opt/homebrew/bin` with a plain `export PATH=`;
 the old `grep -v path_helper` filter caught nothing once that changed) and, in login shells, the

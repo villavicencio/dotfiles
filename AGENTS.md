@@ -171,7 +171,9 @@ Current shims: `nvm node npm npx` (nvm's own commands).
 (`claude` needs no shim — it is not an npm global; `helpers/install_claude_code.sh`
 installs it via Anthropic's native installer to `~/.local/bin/claude`, which `zshenv`
 puts ahead of Homebrew on `PATH`. The Brewfile does not manage it — the Homebrew cask
-lags, so the native installer plus Claude Code's own auto-updater is preferred.)
+lags, so the native installer plus Claude Code's own auto-updater is preferred. The legacy
+`"autoUpdates": false` in `~/.claude.json` does not stop it; `env.DISABLE_AUTOUPDATER = "1"`
+in `settings.json` does.)
 That order survives only because `zshrc` re-sources `zshenv` after `brew shellenv`, which
 (with login shells' `path_helper`) would otherwise put Homebrew and `/usr/bin` first. Keep
 that line. On desk Macs, `dot doctor` fails if `claude` doesn't resolve to
