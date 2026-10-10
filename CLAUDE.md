@@ -806,6 +806,10 @@ otherwise only surface as a confusing runtime failure of doctor/bench.
 `topgrade/topgrade.toml` uses the `disable` array under `[misc]` to skip steps.
 Variant names must be exact (e.g., `jetbrains_idea`, not `jetbrains`). Run
 `topgrade` with an invalid name to see the full list of valid variants.
+`--only <step>` overrides `disable`, so `topgrade --dry-run --only vim` still runs a disabled
+step. To check that a step is off, run a full `topgrade --dry-run` and look for its `―― <Name>`
+header. `vim` is disabled because its Neovim step rewrote the tracked `nvim/lazy-lock.json`
+(#211).
 
 **Running topgrade from an agent shell (no TTY).** Claude Code's `!` command mode and its
 Bash tool have no controlling terminal, so any step that shells out to `sudo` fails with
@@ -955,6 +959,13 @@ reviewers do have findings on markdown, as CodeRabbit did on #171. So `mergeStat
 CLEAN` is not by itself the merge signal — wait for the review-stack comment for the current
 head and triage its findings first. `CLEAN` only tells you nothing is *blocking*; a review
 that hasn't posted yet also reads clean.
+
+**Markdown still has to pass R3, which a markdown-only push never runs.** The post-apply R3
+check scans every tracked file except `docs/**` and `HANDOFF.md` for a literal home path
+(`/Users/` followed by a name) and for hostnames. That includes this file, `AGENTS.md` and
+`claude/*.md`. A literal path pushed straight to master goes unnoticed until the next PR
+that does run the matrix fails on all three Unix legs for a file it never touched (#211,
+fixed by #213). Write `/Users/<account>/`, `~` or `$HOME` instead.
 
 ### Claude Code permissions: one allowlist, not two
 

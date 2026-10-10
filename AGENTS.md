@@ -239,7 +239,9 @@ tickets. Avoid committing directly to `master`.
   triggers `linux`/`macos`/`windows`; don't wait for a run that will never start. review-stack still
   reviews every head of a non-draft PR, markdown included, so wait for its comment for the
   current head and triage the findings — `mergeStateStatus: CLEAN` also reads clean while
-  the review hasn't posted yet.
+  the review hasn't posted yet. Markdown still has to pass R3 (no literal `/Users/<name>`
+  paths outside `docs/**` and `HANDOFF.md`), which a markdown-only push never runs: write
+  `/Users/<account>/`, `~` or `$HOME`.
 
 Issue tracking: Linear, project `Dotfiles`, team `Villavicencio` (key `VIL`) —
 https://linear.app/villavicencio/project/dotfiles-74974922348e (migrated off the
