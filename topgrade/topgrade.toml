@@ -15,6 +15,14 @@ cleanup = true
 # still updates via Brew; only the in-VM runtime step is skipped.
 # Skip microsoft_office: not used; msupdate fires `XPC Connection invalidated`
 # every run when no Office app is foregrounded — pure noise.
+# Skip vim: its Neovim step runs a plugin update against ~/.config/nvim. Where
+# that is Dotbot's link to this repo's nvim/ (a desk install that found no real
+# directory there), the step rewrites the tracked nvim/lazy-lock.json; 9 pins
+# moved this way by 2026-10-09. The server profile links this file but no nvim
+# config, so there the step has nothing to update. A desk Mac that kept its own
+# real ~/.config/nvim loses topgrade's plugin updates for that config; update it
+# with `:Lazy update` instead. Repo plugin bumps are deliberate commits:
+# `:Lazy update`, check the config still loads, commit the lockfile.
 disable = [
   "jetbrains_aqua",
   "jetbrains_clion",
@@ -37,6 +45,7 @@ disable = [
   "containers",
   "colima",
   "microsoft_office",
+  "vim",
 ]
 
 # Running topgrade from a no-TTY shell (Claude Code's `!` mode / Bash tool): the
