@@ -15,10 +15,12 @@ cleanup = true
 # still updates via Brew; only the in-VM runtime step is skipped.
 # Skip microsoft_office: not used; msupdate fires `XPC Connection invalidated`
 # every run when no Office app is foregrounded — pure noise.
-# Skip vim: its Neovim step runs a plugin update against ~/.config/nvim, which
-# is this repo's nvim/, so it rewrites the tracked nvim/lazy-lock.json (9 pins
-# moved this way by 2026-10-09). Plugin bumps are deliberate commits instead:
-# `:Lazy update`, check the config still loads, commit the lockfile.
+# Skip vim: its Neovim step runs a plugin update against ~/.config/nvim. On a desk
+# Mac that is this repo's nvim/, so the step rewrites the tracked
+# nvim/lazy-lock.json (9 pins moved this way by 2026-10-09). The server profile
+# (hal) links this file but not ~/.config/nvim, so there the step would update
+# an untracked config; skipping it costs nothing. Plugin bumps are deliberate
+# commits instead: `:Lazy update`, check the config still loads, commit the lockfile.
 disable = [
   "jetbrains_aqua",
   "jetbrains_clion",
