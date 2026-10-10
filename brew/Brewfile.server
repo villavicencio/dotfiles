@@ -41,6 +41,7 @@ brew "fd"
 brew "tmux"
 brew "node"                 # services' Node; no nvm on the server
 brew "uv"                   # services' Python (uv-managed 3.11); no ~/.local/bin/uv
+brew "bun"                  # Claude Code plugins (compound-engineering, vercel) need it for their packages
 brew "syncthing"            # installed only; configuring it is the migration runbook's job
 brew "util-linux"
 brew "wget"
