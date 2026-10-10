@@ -237,7 +237,7 @@ cleanup_merged_branch() {
 _cmb_restore_origin() {
   [ "$1" = 1 ] || return 0
   if git push -q origin "${3}:refs/heads/$2"; then echo "restored origin/$2"
-  else echo "RESTORE FAILED: origin/$2 is deleted; run: git push origin ${3}:refs/heads/$2"; fi
+  else printf 'RESTORE FAILED: origin/%s is deleted; run: git push origin %q\n' "$2" "${3}:refs/heads/$2"; fi
 }
 ```
 
@@ -261,7 +261,7 @@ worktree of the repo. It works in bash and zsh.
   predict, such as permissions. So after origin is deleted, any failure (a worktree step,
   or the local delete because the branch moved mid-run) pushes origin's branch back at the
   merged head. If that push fails too, the function prints `RESTORE FAILED` with the exact
-  `git push` that restores it. The local branch still holds the commit either way.
+  `git push` that restores it, shell-quoted with `printf %q`. The local branch still holds the commit either way.
   Worktrees are touched only after origin accepted the delete, and are re-checked right before.
 - **Why `update-ref -d` and not `git branch -D`:** a squash or rebase merge leaves the branch
   unmerged in git's eyes, so `-d` refuses and `-D` deletes whatever the tip is by then.
@@ -270,8 +270,9 @@ worktree of the repo. It works in bash and zsh.
 - **zsh gotcha when editing this:** `$var:r`, `:h`, `:t` and `:e` are zsh modifiers, even
   inside double quotes, so `"$oid:refs/heads/x"` silently becomes something else. Brace the
   variable (`"${oid}:refs/…"`). `"refs/heads/$b:$oid"` is safe because `:$` isn't a
-  modifier. The rollback push hit exactly this in testing. To check, grep the function for
-  `grep -nE '\$[A-Za-z_0-9]+:[A-Za-z]'`.
+  modifier. The rollback push hit exactly this in testing. To check, run this from the repo
+  root. It should print nothing:
+  `sed -n '/^cleanup_merged_branch()/,/^}/p;/^_cmb_restore_origin()/,/^}/p' docs/agents/code-review.md | grep -nE '\$[A-Za-z_0-9]+:[A-Za-z]'`
 - **Tested 2026-10-10** in a scratch repo with `gh` stubbed, under bash and zsh: 20
   scenarios. Both copies are deleted:
   - on the happy path;
