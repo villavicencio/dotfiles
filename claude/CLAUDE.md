@@ -13,11 +13,12 @@ Detailed procedures live in dotfiles `docs/agents/` (`~/Projects/Personal/dotfil
 - When you name a Linear ticket or a GitHub PR or issue in a reply to me, make it a markdown link that opens in my browser, every time it appears: `[VIL-123](https://linear.app/villavicencio/issue/VIL-123)`, `[#151](https://github.com/<owner>/<repo>/pull/151)` (put the repo in the label for a cross-repo reference, e.g. `[mergewren#31](…)`). Commit messages, PR bodies, and Linear comments can keep bare ids; those surfaces link them already.
 
 ## Safety
-- Never delete user data (files, notes, records, DB rows, board cards) without my explicit approval, even if it looks out of scope. Asking is cheap; an unauthorized deletion isn't.
+- Never delete user data (files, notes, records, DB rows, board cards) without my explicit approval, even if it looks out of scope. Asking is cheap; an unauthorized deletion isn't. The one standing approval is a merged PR's branch (see Git); it covers nothing else.
 - Never rewrite or force-push shared git history without asking.
 
 ## Git
 - Changes to runtime behavior, config, or dependencies go on a branch (`feat/`, `fix/`, `chore/`, `docs/`) and merge via PR (or a local merge where a repo has no remote review). Docs, typos, and handoff commits can go straight to the default branch. When in doubt, branch. Stricter repo rules win.
+- After a PR merges, delete its branch locally and on origin as part of the merge, without asking, using the procedure in `docs/agents/code-review.md` ("After the merge"). It deletes only when the branch holds nothing the merge didn't, and each delete is conditional on the commit it checked. A branch with new commits is kept; say so. A worktree on the branch is cleared first, and only if it's clean. A local merge with no remote deletes the local branch only.
 
 ## Code review and merging
 Full procedure, check-description table, and rate-limit mechanics: `docs/agents/code-review.md`. Repos with their own reviewer (dotfiles uses review-stack) follow their own rules.

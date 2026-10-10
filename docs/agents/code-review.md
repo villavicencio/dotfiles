@@ -148,3 +148,151 @@ check reading `Review skipped: incremental reviews are disabled` — another cle
 that means no review ran.
 
 **Naming a ticket id in a PR body can auto-close that issue on merge** — see the Linear rules in the global CLAUDE.md.
+
+## After the merge: delete the branch
+
+A merged PR's branch is deleted locally and on origin as part of the merge, without asking
+(global rule, VIL-340). The standing approval covers only the PR's own head branch, and
+only while it holds nothing the merge didn't. Run this function. Every check runs before
+anything changes, any failure returns before the next step, and each delete is conditional
+on the OID it checked. The branch name comes from the PR, never typed by hand.
+
+```bash
+# Delete a merged PR's branch locally and on origin. Usage: cleanup_merged_branch <pr> <base>
+# Fails closed: every check runs before anything changes (including that each worktree step
+# can succeed), every failure returns 1, and the step that can delete files (removing a
+# worktree) runs only after origin accepted the delete.
+cleanup_merged_branch() {
+  local N=$1 base=$2 b oid cross tip cherry merges wl main wts w s rc gd deleted=0
+  read -r b oid cross < <(gh pr view "$N" --json state,headRefName,headRefOid,isCrossRepository \
+    -q 'select(.state=="MERGED") | "\(.headRefName) \(.headRefOid) \(.isCrossRepository)"')
+  [ -n "$oid" ] || { echo "PR $N is not merged (or gh failed): stop"; return 1; }
+  [ "$cross" = false ] || { echo "PR $N's head is in a fork: no branch of ours to delete"; return 1; }
+  # Local tip: absent, the merged head, or a stale copy of it (the PR was rebased or updated
+  # on GitHub). A stale copy has no commit that isn't patch-equivalent to one in the merged
+  # head (`git cherry` marks those `-`). Any `+` commit is new work: keep the branch.
+  tip=$(git rev-parse -q --verify "refs/heads/$b")
+  if [ -n "$tip" ] && [ "$tip" != "$oid" ]; then
+    git cat-file -e "$oid^{commit}" 2>/dev/null || git fetch -q origin "refs/pull/$N/head" \
+      || { echo "can't fetch PR $N's merged head: stop"; return 1; }
+    cherry=$(git cherry "$oid" "$tip") || { echo "git cherry failed: stop"; return 1; }
+    case $cherry in *+*) echo "$b has commits that aren't in PR $N: keeping it"; return 1 ;; esac
+    # git cherry skips merge commits, and one can carry its own conflict resolution.
+    merges=$(git rev-list --merges "$oid..$tip") || return 1
+    [ -z "$merges" ] || { echo "$b has a merge commit that isn't in PR $N: keeping it"; return 1; }
+  fi
+  # Worktrees on $b: all clean before anything changes. A linked one will be removed, which
+  # deletes ignored files too (.env, build output), so for those ignored files count as dirty.
+  wl=$(git worktree list --porcelain) || { echo "git worktree list failed: stop"; return 1; }
+  main=$(printf '%s\n' "$wl" | awk '/^worktree /{print substr($0,10); exit}')
+  wts=$(printf '%s\n' "$wl" | awk -v r="branch refs/heads/$b" '/^worktree /{w=substr($0,10)} $0==r{print w}')
+  while IFS= read -r w; do
+    [ -n "$w" ] || continue
+    if [ "$w" = "$main" ]; then s=$(git -C "$w" status --porcelain) || return 1
+    else
+      s=$(git -C "$w" status --porcelain --ignored) || return 1
+      # `git worktree remove` refuses a locked worktree and one with submodules.
+      printf '%s\n' "$wl" | awk -v t="$w" '/^worktree /{c=(substr($0,10)==t)} c && /^locked/{f=1} END{exit !f}' \
+        && { echo "$w is locked: keeping $b"; return 1; }
+      gd=$(git -C "$w" rev-parse --absolute-git-dir) || return 1
+      [ ! -e "$gd/modules" ] || { echo "$w has initialized submodules: keeping $b"; return 1; }
+    fi
+    [ -z "$s" ] || { echo "$w has changes, untracked or ignored files: keeping $b"; return 1; }
+  done < <(printf '%s\n' "$wts")
+  # The primary worktree will switch to $base: that has to be possible before origin changes.
+  if printf '%s\n' "$wts" | grep -qxF -- "$main"; then
+    printf '%s\n' "$wl" | awk -v m="$main" -v r="branch refs/heads/$base" '/^worktree /{w=substr($0,10)} $0==r && w!=m{f=1} END{exit !f}' \
+      && { echo "$base is checked out in another worktree, so $main can't leave $b: stop"; return 1; }
+    git rev-parse -q --verify "refs/heads/$base" >/dev/null || git rev-parse -q --verify "refs/remotes/origin/$base" >/dev/null \
+      || { echo "no $base branch to switch $main to: stop"; return 1; }
+  fi
+  # Origin first: GitHub's auto-delete may already have removed it (exit 2). Delete only
+  # while it still points at the merged head; any other ls-remote exit is a failed lookup.
+  git ls-remote --exit-code origin "refs/heads/$b" >/dev/null; rc=$?
+  case $rc in
+    0) git push --force-with-lease="refs/heads/$b:$oid" origin --delete "$b" \
+         || { echo "origin refused the delete (moved since the merge?): keeping $b"; return 1; }
+       deleted=1 ;;
+    2) echo "origin already deleted $b" ;;
+    *) echo "ls-remote failed ($rc): stop"; return 1 ;;
+  esac
+  # Worktrees: re-check, then remove a linked one, or switch the primary (git can't remove it).
+  # If any step fails, put origin's branch back at the merged head, so a failure never leaves
+  # origin deleted while the local branch stays.
+  while IFS= read -r w; do
+    [ -n "$w" ] || continue
+    if [ "$w" = "$main" ]; then
+      s=$(git -C "$w" status --porcelain) && [ -z "$s" ] && git -C "$w" switch "$base"
+    else
+      s=$(git -C "$w" status --porcelain --ignored) && [ -z "$s" ] && git worktree remove "$w"
+    fi || { echo "couldn't clear $w: keeping $b"; _cmb_restore_origin "$deleted" "$b" "$oid"; return 1; }
+  done < <(printf '%s\n' "$wts")
+  # Local: refuses unless the tip is still the one checked above (branch -D deletes whatever).
+  if [ -n "$tip" ] && ! git update-ref -d "refs/heads/$b" "$tip"; then
+    echo "local $b moved mid-run: keeping it"; _cmb_restore_origin "$deleted" "$b" "$oid"; return 1
+  fi
+  git fetch --prune
+}
+# Put origin's branch back at the merged head after a failure, if this run deleted it.
+_cmb_restore_origin() {
+  [ "$1" = 1 ] || return 0
+  if git push -q origin "${3}:refs/heads/$2"; then echo "restored origin/$2"
+  else printf 'RESTORE FAILED: origin/%s is deleted; run: git push origin %q\n' "$2" "${3}:refs/heads/$2"; fi
+}
+```
+
+Define both functions, then call `cleanup_merged_branch <pr> <default branch>` from any
+worktree of the repo. It works in bash and zsh.
+
+- **Stale local copy.** After `gh pr update-branch --rebase`, or any rewrite on GitHub, the
+  local branch holds the pre-rebase commits. Those aren't the merged head, but they hold no
+  new work. `git cherry <merged head> <local tip>` marks each local commit `-` when an
+  equivalent patch is in the merged head and `+` when it isn't. One `+` keeps the branch.
+  `git cherry` skips merge commits, and a merge can carry its own conflict resolution, so
+  any merge commit missing from the merged head keeps the branch too.
+- **Worktrees.** Every worktree on the branch must be clean before anything changes. A
+  linked worktree is removed, and `git worktree remove` deletes ignored files (`.env`, build
+  output), so for linked worktrees `--ignored` output counts as dirty too. The primary
+  worktree can't be removed; it switches to the default branch, so before origin changes the
+  function checks that the default branch exists and isn't checked out in another worktree.
+  It also refuses a linked worktree that is locked or has initialized submodules (the
+  worktree's own `modules` git dir, which is what `git worktree remove` checks; an empty
+  `.gitmodules` doesn't count). A worktree step can still fail for reasons nothing can
+  predict, such as permissions. So after origin is deleted, any failure (a worktree step,
+  or the local delete because the branch moved mid-run) pushes origin's branch back at the
+  merged head. If that push fails too, the function prints `RESTORE FAILED` with the exact
+  `git push` that restores it, shell-quoted with `printf %q`. The local branch still holds the commit either way.
+  Worktrees are touched only after origin accepted the delete, and are re-checked right before.
+- **Why `update-ref -d` and not `git branch -D`:** a squash or rebase merge leaves the branch
+  unmerged in git's eyes, so `-d` refuses and `-D` deletes whatever the tip is by then.
+  `update-ref -d <ref> <old>` refuses unless the tip is still `<old>`. It also deletes a
+  checked-out branch without complaint, which is why worktrees are cleared first.
+- **zsh gotcha when editing this:** `$var:r`, `:h`, `:t` and `:e` are zsh modifiers, even
+  inside double quotes, so `"$oid:refs/heads/x"` silently becomes something else. Brace the
+  variable (`"${oid}:refs/…"`). `"refs/heads/$b:$oid"` is safe because `:$` isn't a
+  modifier. The rollback push hit exactly this in testing. To check, run this from the repo
+  root. It should print nothing:
+  `sed -n '/^cleanup_merged_branch()/,/^}/p;/^_cmb_restore_origin()/,/^}/p' docs/agents/code-review.md | grep -nE '\$[A-Za-z_0-9]+:[A-Za-z]'`
+- **Tested 2026-10-10** in a scratch repo with `gh` stubbed, under bash and zsh: 20
+  scenarios. Both copies are deleted:
+  - on the happy path;
+  - when origin already auto-deleted the branch;
+  - for a stale copy after a rebase;
+  - after removing a clean linked worktree;
+  - after switching the primary worktree off the branch;
+  - with an empty `.gitmodules` and no initialized submodules.
+
+  Everything is kept when:
+  - the PR isn't merged;
+  - the head is in a fork;
+  - the local branch has a new commit, with or without a stale copy alongside;
+  - a stale copy also carries a merge commit with its own change;
+  - the PR branch is in the primary worktree while the default branch is checked out in another;
+  - origin moved, whether or not a worktree exists (the worktree survives too);
+  - a linked worktree has a modified, untracked or ignored file, is locked, or has an
+    initialized submodule;
+  - removing the worktree fails after origin was deleted (origin is pushed back);
+  - the local branch moves between the checks and the local delete (origin is pushed back).
+- **Local merge, no remote, no PR:** there is no `MERGED` state or origin tip to check.
+  Confirm `git merge-base --is-ancestor "$b" "$base"`, then `git branch -d "$b"`, which
+  refuses an unmerged branch on its own. Local branch only.
