@@ -26,7 +26,8 @@ wt done <topic>           # after the PR merges: remove the worktree and delete 
   every repo's root. In a clone where that doesn't apply, `wt new` appends `/.claude/worktrees/`
   to the clone's `.git/info/exclude` and says so.
 - **Which branch it checks out.** An existing local branch is checked out as is. A branch that
-  exists only on origin is fetched and tracked. Otherwise it creates a new branch from
+  exists only on origin is fetched with an explicit refspec (so it works in a clone that fetches
+  only the default branch) and tracked. Otherwise it creates a new branch from
   `origin/<default>`, with no upstream; the first push sets one with `-u`. It asks origin
   which branch is the default (the cached `origin/HEAD` only when origin doesn't answer) and
   fetches it first. If that fetch fails it uses the cached ref and says so. If no default
@@ -48,7 +49,8 @@ wt done <topic>           # after the PR merges: remove the worktree and delete 
 **`wt done`:**
 - **Run it from outside the worktree.** It refuses while your shell is inside the worktree, or
   while any process has its working directory there. It checks with `lsof`, or `/proc` where
-  there's no `lsof`, and refuses outright when it has neither. Exit the worktree's Claude
+  there's no `lsof`, and refuses outright when it has neither or when `lsof`'s listing doesn't
+  include `wt` itself (the sign it didn't work). Exit the worktree's Claude
   session first.
 - **With a merged PR** for the branch, it runs `cleanup_merged_branch`
   (`bin/lib/cleanup-merged-branch.sh`, the same function as `code-review.md`'s "After the
@@ -60,7 +62,8 @@ wt done <topic>           # after the PR merges: remove the worktree and delete 
 - **What counts as work.** Copies `wt new` made that are still byte-identical to the main
   checkout's file are deleted first. Anything else that would go with the directory blocks
   removal: changes, untracked files, ignored files, or a copy that was edited. If removal stops
-  while the worktree still exists, the copies are put back. `cleanup_merged_branch` ends with
+  while the worktree still exists, the copies are put back, except where something already
+  stands at that path; `wt done` names any copy it couldn't restore. `cleanup_merged_branch` ends with
   `git fetch --prune`, which can fail after the worktree and branches are already gone; `wt done`
   then says so and puts nothing back.
 

@@ -185,7 +185,7 @@ anything changes, any failure returns before the next step, and each delete is c
 on the OID it checked. The branch name comes from the PR, never typed by hand.
 
 ```bash
-source ~/Projects/Personal/dotfiles/bin/lib/cleanup-merged-branch.sh   # where the clone lives on a desk Mac
+source <dotfiles clone>/bin/lib/cleanup-merged-branch.sh   # ~/Projects/Personal/dotfiles on the desk Macs
 cleanup_merged_branch <pr> <default branch>
 ```
 

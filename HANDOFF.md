@@ -18,7 +18,7 @@ This session started from the 2026-10-09 handoff. It worked through four things:
   - `HANDOFF.md` is now exempt, like `docs/**`: its frontmatter records the absolute worktree path by design.
   - A literal hal path in CLAUDE.md became a placeholder.
 - **#214:** `.agents/` is gitignored. It holds a Codex-migrated copy of `/ticket` that had already drifted from the source.
-- **#212 (VIL-340, Done):** the rule is in `claude/CLAUDE.md` and `codex/AGENTS.md`, and the procedure is the `cleanup_merged_branch <pr> <base>` function in `docs/agents/code-review.md` ("After the merge").
+- **#212 (VIL-340, Done):** the rule is in `claude/CLAUDE.md` and `codex/AGENTS.md`, and the procedure is the `cleanup_merged_branch <pr> <base>` function, now in `bin/lib/cleanup-merged-branch.sh` (sourced as `docs/agents/code-review.md`, "After the merge", describes).
   - The function was tested in bash and zsh across 20 scenarios, and it deleted the branches of #211–#214.
   - The review ran 9 rounds; David waived 65d5365#2 (the reason is on the PR).
 - **`e933443`, CLAUDE.md/AGENTS.md:** topgrade's `--only` overrides `disable`, and markdown pushed straight to master still has to pass R3.
@@ -34,7 +34,7 @@ This session started from the 2026-10-09 handoff. It worked through four things:
 - **The iTerm "merge" was a restore.** The 6-key live file matched the 93-key tracked one value for value (apart from int vs float). The only real changes were an added `"Rewritable": true` and 87 deleted keys. A backup of the 6-key file is in this session's scratchpad (lost on reboot). What added `Rewritable` is unknown.
 - **Branch cleanup checks before it deletes.** Pre-checks run before anything changes, origin is deleted with a lease, worktrees are cleared next, and the local branch goes last via `update-ref -d <old>`. Any failure after origin is deleted pushes origin back.
   - Clearing worktrees before touching origin was ruled out: it would change the worktree even when origin refuses (91a2115#3).
-- **The procedure lives in `docs/agents/code-review.md`.** The global files carry a two-line rule pointing to it, so the two copies can't drift apart.
+- **The procedure lives in `bin/lib/cleanup-merged-branch.sh`**, explained in `docs/agents/code-review.md`. The global files carry a two-line rule pointing to it, so no copies can drift apart.
 - **Herdr is paused, not retired** (David). `chore/herdr-retire-atlas-tools` and `chore/herdr-retire-axiom` stay, locally and on origin. Their PRs (#184, #183) were closed without merging, so the cleanup rule never touches them.
 
 ## What Didn't Work

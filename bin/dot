@@ -91,7 +91,7 @@ cmd_check() {
     local f
     while IFS= read -r f; do
       [ -n "$f" ] || continue
-      head -1 "$REPO/$f" | grep -qE '^#!.*(bash|sh)' || continue
+      head -1 "$REPO/$f" | grep -qE '^#!.*(bash|sh)|^# shellcheck shell=(bash|sh)' || continue
       if shellcheck -S warning "$REPO/$f" >/dev/null 2>&1; then :; else
         echo "  $(red FAIL) $f"; shellcheck -S warning "$REPO/$f" 2>&1 | head -5; rc=1
       fi
