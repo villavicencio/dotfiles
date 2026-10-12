@@ -51,7 +51,7 @@ wt done <topic>           # after the PR merges: remove the worktree and delete 
 - **Run it from outside the worktree.** It refuses while your shell is inside the worktree, or
   while any process has its working directory there. It checks with `lsof`, or `/proc` where
   there's no `lsof`, and refuses outright when it has neither or when `lsof`'s listing doesn't
-  include `wt` itself (the sign it didn't work). Exit the worktree's Claude
+  include `wt` itself (the sign it didn't work), or when reading that listing fails. Exit the worktree's Claude
   session first.
 - **With a merged PR** for the branch, it runs `cleanup_merged_branch`
   (`bin/lib/cleanup-merged-branch.sh`, the same function as `code-review.md`'s "After the
