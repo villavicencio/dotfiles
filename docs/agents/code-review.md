@@ -220,7 +220,7 @@ Run it from any worktree of the repo, in bash or zsh. The function lives only in
   variable (`"${oid}:refs/…"`). `"refs/heads/$b:$oid"` is safe because `:$` isn't a
   modifier. The rollback push hit exactly this in testing. To check, run this from the repo
   root. It should print nothing:
-  `sed -n '/^cleanup_merged_branch()/,/^}/p;/^_cmb_restore_origin()/,/^}/p' docs/agents/code-review.md | grep -nE '\$[A-Za-z_0-9]+:[A-Za-z]'`
+  `grep -nE '\$[A-Za-z_0-9]+:[A-Za-z]' bin/lib/cleanup-merged-branch.sh`
 - **Tested 2026-10-10** in a scratch repo with `gh` stubbed, under bash and zsh: 20
   scenarios. Both copies are deleted:
   - on the happy path;

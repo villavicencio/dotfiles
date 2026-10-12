@@ -41,8 +41,11 @@ valid_topic() {
 default_branch() {
   local m=$1 d
   git -C "$m" remote get-url origin >/dev/null 2>&1 || return 0
-  d=$(git -C "$m" symbolic-ref -q --short refs/remotes/origin/HEAD) && { printf '%s\n' "${d#origin/}"; return 0; }
-  git -C "$m" ls-remote --symref origin HEAD 2>/dev/null | awk '/^ref:/{sub("refs/heads/","",$2); print $2; exit}'
+  # Ask origin first: the cached origin/HEAD is only as current as the last `remote set-head`.
+  d=$(git -C "$m" ls-remote --symref origin HEAD 2>/dev/null | awk '/^ref:/{sub("refs/heads/","",$2); print $2; exit}')
+  [ -n "$d" ] && { printf '%s\n' "$d"; return 0; }
+  d=$(git -C "$m" symbolic-ref -q --short refs/remotes/origin/HEAD) && printf '%s\n' "${d#origin/}"
+  return 0
 }
 
 # Gitignored files in the main checkout that .worktreeinclude names (Claude Code's own
@@ -73,12 +76,12 @@ open_tab() {
 }
 
 cmd_new() {
-  local topic="" type=feat tab=1 a
+  local topic="" type=feat tab=1 a n=0
   for a in "$@"; do
     case "$a" in
       --no-tab) tab=0 ;;
       -*) die "unknown option: $a" ;;
-      *) if [ -z "$topic" ]; then topic=$a; else type=$a; fi ;;
+      *) n=$((n + 1)); case $n in 1) topic=$a ;; 2) type=$a ;; *) die "usage: wt new <topic> [type] [--no-tab]" ;; esac ;;
     esac
   done
   valid_topic "$topic" || die "usage: wt new <topic> [type] [--no-tab]  (topic: letters, digits, . _ -)"
@@ -125,15 +128,20 @@ cmd_new() {
 
   # Copy local-only files. The list is recorded in the worktree's own git dir so that
   # `wt done` can tell an untouched copy from work made in the worktree.
-  local gd f n=0
-  gd=$(git -C "$dir" rev-parse --absolute-git-dir) || die "can't read $dir's git dir"
-  : > "$gd/wt-carried"
+  # A failed copy doesn't undo the worktree: it's usable, and the file can be copied by hand.
+  local gd f copied=0 failed=0
+  gd=$(git -C "$dir" rev-parse --absolute-git-dir) || die "worktree created, but can't read its git dir; nothing was copied"
+  : > "$gd/wt-carried" || die "worktree created, but can't write $gd/wt-carried; nothing was copied"
   while IFS= read -r f; do
     [ -n "$f" ] && [ ! -e "$dir/$f" ] || continue
-    mkdir -p "$(dirname "$dir/$f")" && cp -p "$m/$f" "$dir/$f" || die "couldn't copy $f"
-    printf '%s\n' "$f" >> "$gd/wt-carried"; n=$((n + 1))
+    if mkdir -p "$(dirname "$dir/$f")" && cp -p "$m/$f" "$dir/$f"; then
+      printf '%s\n' "$f" >> "$gd/wt-carried"; copied=$((copied + 1))
+    else
+      rm -f "$dir/$f"; note "couldn't copy $f; copy it by hand"; failed=$((failed + 1))
+    fi
   done < <(carry_list "$m")
-  [ "$n" = 0 ] || note "copied $n file(s) named by .worktreeinclude"
+  [ "$copied" = 0 ] || note "copied $copied file(s) named by .worktreeinclude"
+  [ "$failed" = 0 ] || note "$failed file(s) weren't copied (above)"
 
   note "worktree: $dir"
   if [ "$tab" = 1 ] && [ "${TERM_PROGRAM:-}" = iTerm.app ] && [ -z "${SSH_CONNECTION:-}" ] \
@@ -152,8 +160,9 @@ drop_carried() {
   [ -f "$gd/wt-carried" ] || return 0
   while IFS= read -r f; do
     [ -n "$f" ] && [ -f "$dir/$f" ] && [ ! -L "$dir/$f" ] && [ -f "$m/$f" ] || continue
-    cmp -s "$m/$f" "$dir/$f" && rm -f "$dir/$f" && printf '%s\n' "$f"
+    if cmp -s "$m/$f" "$dir/$f"; then rm -f "$dir/$f" && printf '%s\n' "$f"; fi
   done < "$gd/wt-carried"
+  return 0
 }
 
 restore_carried() {
@@ -184,11 +193,18 @@ cmd_done() {
 
   # A shell or Claude session still sitting in the worktree would be left in a deleted dir.
   case "$(pwd -P)/" in "$(cd "$dir" && pwd -P)/"*) die "you're inside $dir: cd to the main checkout first" ;; esac
+  local busy="" pd c
   if command -v lsof >/dev/null 2>&1; then
-    local busy
     busy=$(lsof -d cwd -Fpn 2>/dev/null | awk -v d="$dir" '/^p/{p=substr($0,2)} /^n/{n=substr($0,2); if(n==d||index(n,d"/")==1) print p}' | sort -u | tr '\n' ' ')
-    [ -z "$busy" ] || die "processes still have their cwd in $dir (PIDs: ${busy% }). Exit those sessions or cd out first"
+  elif [ -d /proc/self ]; then
+    for pd in /proc/[0-9]*; do
+      c=$(readlink "$pd/cwd" 2>/dev/null) || continue
+      case "$c/" in "$dir/"*) busy="$busy${pd#/proc/} " ;; esac
+    done
+  else
+    die "can't check for processes still in $dir (no lsof or /proc)"
   fi
+  [ -z "$busy" ] || die "processes still have their cwd in $dir (PIDs: ${busy% }). Exit those sessions or cd out first"
 
   if [ -n "$b" ] && command -v gh >/dev/null 2>&1; then
     # cleanup_merged_branch re-reads the PR and checks the branch against its merged head.
@@ -203,8 +219,12 @@ cmd_done() {
     . "$REPO/bin/lib/cleanup-merged-branch.sh" || die "can't load $REPO/bin/lib/cleanup-merged-branch.sh"
     note "PR #$pr merged; cleaning up $b"
     if (cd "$m" && cleanup_merged_branch "$pr" "$def"); then return 0; fi
-    printf '%s\n' "$dropped" | restore_carried "$m" "$dir"
-    die "cleanup stopped (reason above); the worktree is untouched"
+    # Its last step (`git fetch --prune`) can fail after the worktree and branches are gone.
+    if git -C "$m" worktree list --porcelain | grep -qxF "worktree $dir"; then
+      printf '%s\n' "$dropped" | restore_carried "$m" "$dir"
+      die "cleanup stopped (reason above); the worktree is still there"
+    fi
+    die "the worktree is removed, but cleanup reported a failure after that (above)"
   fi
 
   if [ "$keep" = 0 ]; then

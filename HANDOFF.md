@@ -48,7 +48,7 @@ This session started from the 2026-10-09 handoff. It worked through four things:
 3. **Watch iTerm:** if `iterm/profile-dynamic.json` shows `M` again with `"Rewritable": true` and a handful of keys, find what writes it before restoring.
 
 ## Gotchas & Watch-outs
-- **After every merge, run the cleanup function** from `docs/agents/code-review.md`. Define both functions it contains, then call `cleanup_merged_branch <pr> master`. It refuses on anything unsafe and says why.
+- **After every merge, run the cleanup function** (`docs/agents/code-review.md`, "After the merge"): `source bin/lib/cleanup-merged-branch.sh`, then `cleanup_merged_branch <pr> master`. It refuses on anything unsafe and says why.
 - **zsh modifiers bite inside double quotes.** `"$oid:refs/heads/x"` silently becomes something else. Brace the variable (`"${oid}:…"`). The Bash tool runs zsh here.
 - **In zsh, an unquoted `$sh` doesn't word-split.** `for sh in bash "zsh -f"; do $sh …` looks for a command literally named `zsh -f`.
 - **`gh pr update-branch --rebase` rewrites the PR on GitHub.** The local branch becomes a stale copy; reset it to origin before editing (after checking with `git cherry`).
