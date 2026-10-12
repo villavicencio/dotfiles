@@ -1390,7 +1390,9 @@ Expected on a fresh install, not failures:
   a curated subset of the Brewfile.
 - **No Node (nvm) and no uv on Linux.** `install_nvm.sh`, `install_node.sh` and
   `install_uv.sh` run only from `darwin.yaml`, so `node`/`npm`/`uv` are missing in WSL even
-  in an interactive zsh. VIL-157 decides whether to wire them into `linux.yaml`.
+  in an interactive zsh. This is intended (VIL-157, canceled 2026-10-12): nothing in WSL needs
+  them yet, and Claude Code's native installer doesn't need Node. Wire them into `linux.yaml` if that
+  changes.
 
 Why the Linux layer needed changes for this (both invisible in CI):
 

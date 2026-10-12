@@ -30,7 +30,7 @@ platform layer (`dotbot-conf/darwin.yaml` on Darwin, `dotbot-conf/linux.yaml` on
 The active Linux target is WSL Ubuntu 26.04 on the gaming PC (since 2026-09-24, reinstalled
 on 26.04 2026-09-25; setup in `CLAUDE.md` "Setting up WSL on the Windows PC"). CI's Linux
 leg runs the same release (VIL-154). On 26.04 `sudo` is sudo-rs; CI runs as root, so only
-the WSL install exercises it. Linux installs no Node or uv yet (VIL-157).
+the WSL install exercises it. Linux installs no Node or uv, by design (VIL-157).
 The earlier Hetzner VPS target was retired
 2026-05-21 — see `docs/solutions/cross-machine/vps-dotfiles-target.md`.
 
