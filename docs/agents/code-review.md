@@ -49,9 +49,36 @@ the diff itself routes through one of the two tools above.
   |---|---|---|
   | `Review completed` | pass | **yes** |
   | `Review skipped: incremental reviews are disabled` | pass | **no** — request one with `@coderabbitai review` |
+  | `Review skipped: manual review required for this OSS repository` | pass | **no** — posted when the PR opens on a repo under 10 stars; request one |
   | `Review rate limited` | pass | **no** — throttled |
+  | `GitHub unavailable during review post` | pass | **no** — the review ran but its comments never posted; retry with `@coderabbitai full review` |
   | `Review failed — the head commit changed during the review` | — | **no** — a push aborted it |
   | `Review in progress` / `pending` | pending | unfinished |
+
+  `GitHub unavailable during review post` leaves no review object and no threads, so the
+  unresolved-threads check below comes back empty and the PR reads `CLEAN` (skills#44,
+  2026-10-07). A plain `@coderabbitai review` is refused on a head CodeRabbit already reviewed;
+  `@coderabbitai full review` reviews the current head again and uses the hourly slot. Whether
+  the refused request also uses it hasn't been checked.
+- **After requesting a review, read only statuses posted after the request.** A watcher that
+  stops at the first status it finds can read one left over from when the PR opened: on skills#43
+  and browse-gateway#149 (2026-10-06) it reported `manual review required for this OSS
+  repository` while CodeRabbit was already reviewing, and the real review then found 5 issues.
+  Record the time just before you post the request, then read the newest CodeRabbit status
+  created after it:
+
+  ```bash
+  t=$(date -u +%Y-%m-%dT%H:%M:%SZ); gh pr comment <N> --body '@coderabbitai review'
+  gh api repos/<owner>/<repo>/commits/<head-sha>/statuses -q "[.[]
+    | select(.context|test(\"CodeRabbit\";\"i\")) | select(.created_at > \"$t\")]
+    | sort_by(.created_at) | last | .description // \"PENDING\""
+  ```
+
+  `gh api -q` has no `--arg`, so the time is spliced into a double-quoted filter.
+
+  `PENDING` (no status since the request) means CodeRabbit hasn't picked it up yet, not that it
+  finished. The table above says which description to trust; this says which status to read it
+  from.
 
   Poll the reviews API instead and it fires early or never: the bot posts as `coderabbitai` on
   some PRs and `coderabbitai[bot]` on others, and its replies to your thread replies register as
