@@ -1,7 +1,7 @@
 # shellcheck shell=bash
 # cleanup_merged_branch: delete a merged PR's branch locally and on origin.
 # Source this file (bash or zsh), then run it from any worktree of the repo:
-#   source <dotfiles clone>/bin/lib/cleanup-merged-branch.sh   (~/Projects/Personal/dotfiles on the desk Macs)
+#   source <dotfiles clone>/bin/lib/cleanup-merged-branch.sh   # ~/Projects/Personal/dotfiles on the desk Macs
 #   cleanup_merged_branch <pr> <default branch>
 # Why each check exists: docs/agents/code-review.md, "After the merge". bin/wt's
 # `wt done` calls it too. This file is the only copy; edit it here.

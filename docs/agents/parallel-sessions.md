@@ -27,7 +27,8 @@ wt done <topic>           # after the PR merges: remove the worktree and delete 
   to the clone's `.git/info/exclude` and says so.
 - **Which branch it checks out.** An existing local branch is checked out as is. A branch that
   exists only on origin is fetched with an explicit refspec (so it works in a clone that fetches
-  only the default branch) and tracked. Otherwise it creates a new branch from
+  only the default branch), and its upstream is set to `origin/<branch>`; if that config write
+  fails, `wt new` says so and the first push needs `-u`. Otherwise it creates a new branch from
   `origin/<default>`, with no upstream; the first push sets one with `-u`. It asks origin
   which branch is the default (the cached `origin/HEAD` only when origin doesn't answer) and
   fetches it first. If that fetch fails it uses the cached ref and says so. If no default
