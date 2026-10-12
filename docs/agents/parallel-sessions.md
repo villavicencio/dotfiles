@@ -25,8 +25,8 @@ wt done <topic>           # after the PR merges: remove the worktree and delete 
 - **Keeping it out of `git status`.** The global `git/gitignore` ignores `.claude/worktrees/` at
   every repo's root. In a clone where that doesn't apply, `wt new` appends `/.claude/worktrees/`
   to the clone's `.git/info/exclude` and says so.
-- **Which branch it checks out.** An existing local branch is checked out as is. For any other
-  name it asks origin first, and stops if origin can't be asked (offline, say) rather than
+- **Which branch it checks out.** An existing local branch is checked out as is, without asking
+  origin. For any other name it asks origin first, and stops if origin can't be asked (offline, say) rather than
   create a branch that may already exist there. A branch that exists only on origin is fetched with an explicit refspec (so it works in a clone that fetches
   only the default branch), and its upstream is set to `origin/<branch>`; if that config write
   fails, `wt new` says so and the first push needs `-u`. Otherwise it creates a new branch from
@@ -67,8 +67,10 @@ wt done <topic>           # after the PR merges: remove the worktree and delete 
   byte-identical to the main checkout's file are moved into the worktree's git dir
   (`wt-held/`), which goes when the worktree does. Anything else that would go with the
   directory blocks removal: changes, untracked files, ignored files, or a copy that was edited.
-  If removal stops while the worktree still exists, the held copies are moved back. A copy is
-  left in `wt-held/`, and named, only when something now stands at its path.
+  If removal stops while the worktree still exists (a failed check, library load or
+  `git status`), the held copies are moved back. A copy is left in `wt-held/`, and named, only
+  when something now stands at its path or the move fails, and `wt done` then refuses to run
+  again until `wt-held/` is empty, since removing the worktree would delete what's in it.
   `cleanup_merged_branch` ends with `git fetch --prune`, which can fail after the worktree and
   branches are already gone; `wt done` then says so, and there is nothing to move back.
 

@@ -110,12 +110,12 @@ cmd_new() {
   fi
 
   local rrc=2
-  if git -C "$m" remote get-url origin >/dev/null 2>&1; then
+  if ! git -C "$m" rev-parse -q --verify "refs/heads/$b" >/dev/null \
+     && git -C "$m" remote get-url origin >/dev/null 2>&1; then
     git -C "$m" ls-remote --exit-code --heads origin "$b" >/dev/null 2>&1; rrc=$?
     # 2 means origin answered and has no such branch; anything else is a failed lookup, which
     # must not turn into a new branch shadowing one on origin.
-    case $rrc in 0|2) ;; *) git -C "$m" rev-parse -q --verify "refs/heads/$b" >/dev/null \
-      || die "couldn't ask origin whether $b exists (ls-remote exit $rrc); try again online" ;; esac
+    case $rrc in 0|2) ;; *) die "couldn't ask origin whether $b exists (ls-remote exit $rrc); try again online" ;; esac
   fi
   if git -C "$m" rev-parse -q --verify "refs/heads/$b" >/dev/null; then
     git -C "$m" worktree add -q "$dir" "$b" || die "git worktree add failed"
@@ -247,7 +247,15 @@ cmd_done() {
     die "$b has no merged PR. Merge it first, or run 'wt done $topic --keep-branch' to remove the worktree and keep the branch"
   fi
 
-  local held s
+  # Copies an earlier run couldn't move back would be deleted with the worktree's git dir.
+  local held s gd left
+  gd=$(git -C "$dir" rev-parse --absolute-git-dir) || die "can't read $dir's git dir"
+  if [ -d "$gd/wt-held" ]; then
+    left=$(find "$gd/wt-held" ! -type d 2>/dev/null | sed "s|^$gd/wt-held/||") || die "can't read $gd/wt-held"
+    [ -z "$left" ] || die "an earlier 'wt done' left copies in $gd/wt-held that it couldn't move back:
+$left
+Move each back into $dir (or delete it) before running 'wt done' again"
+  fi
   held=$(hold_carried "$m" "$dir") || die "couldn't read $dir's carried-file list"
 
   if [ "$keep" = 0 ]; then
