@@ -25,8 +25,9 @@ wt done <topic>           # after the PR merges: remove the worktree and delete 
 - **Keeping it out of `git status`.** The global `git/gitignore` ignores `.claude/worktrees/` at
   every repo's root. In a clone where that doesn't apply, `wt new` appends `/.claude/worktrees/`
   to the clone's `.git/info/exclude` and says so.
-- **Which branch it checks out.** An existing local branch is checked out as is. A branch that
-  exists only on origin is fetched with an explicit refspec (so it works in a clone that fetches
+- **Which branch it checks out.** An existing local branch is checked out as is. For any other
+  name it asks origin first, and stops if origin can't be asked (offline, say) rather than
+  create a branch that may already exist there. A branch that exists only on origin is fetched with an explicit refspec (so it works in a clone that fetches
   only the default branch), and its upstream is set to `origin/<branch>`; if that config write
   fails, `wt new` says so and the first push needs `-u`. Otherwise it creates a new branch from
   `origin/<default>`, with no upstream; the first push sets one with `-u`. It asks origin
@@ -37,7 +38,8 @@ wt done <topic>           # after the PR merges: remove the worktree and delete 
   `node_modules`). `wt new` copies the ones named in the repo's `.worktreeinclude`, which is
   Claude Code's own convention for `--worktree`: gitignore syntax, and only files that are also
   gitignored are copied. The list of copies goes in the worktree's git dir
-  (`.git/worktrees/<topic>/wt-carried`).
+  (`.git/worktrees/<topic>/wt-carried`). If listing the files fails, or a copy fails, `wt new`
+  says so and finishes with the worktree as made; copy what's missing by hand.
 - **Opening the session.** In iTerm2 on this Mac (not over SSH), it opens a new tab in the
   current window running `claude --continue || claude` in the worktree. Otherwise, or with
   `--no-tab`, it prints the `cd … && claude` line.
@@ -61,13 +63,14 @@ wt done <topic>           # after the PR merges: remove the worktree and delete 
 - **Without one, it refuses.** `wt done <topic> --keep-branch` removes only the worktree and
   keeps the branch. There is no flag that deletes an unmerged branch; do that by hand if you
   mean it.
-- **What counts as work.** Copies `wt new` made that are still byte-identical to the main
-  checkout's file are deleted first. Anything else that would go with the directory blocks
-  removal: changes, untracked files, ignored files, or a copy that was edited. If removal stops
-  while the worktree still exists, the copies are put back, except where something already
-  stands at that path; `wt done` names any copy it couldn't restore. `cleanup_merged_branch` ends with
-  `git fetch --prune`, which can fail after the worktree and branches are already gone; `wt done`
-  then says so and puts nothing back.
+- **What counts as work.** Once the PR check passes, copies `wt new` made that are still
+  byte-identical to the main checkout's file are moved into the worktree's git dir
+  (`wt-held/`), which goes when the worktree does. Anything else that would go with the
+  directory blocks removal: changes, untracked files, ignored files, or a copy that was edited.
+  If removal stops while the worktree still exists, the held copies are moved back. A copy is
+  left in `wt-held/`, and named, only when something now stands at its path.
+  `cleanup_merged_branch` ends with `git fetch --prune`, which can fail after the worktree and
+  branches are already gone; `wt done` then says so, and there is nothing to move back.
 
 **Not done yet:** a distinct `PORT` per worktree for dev servers.
 

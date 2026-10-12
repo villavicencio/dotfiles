@@ -197,7 +197,7 @@ Run these before committing. `bin/dot` (`~/.local/bin/dot` once installed) wraps
 
 | Check | Command | Passing bar |
 |---|---|---|
-| Shell syntax | `zsh -n zsh/*.sh zsh/zshrc zsh/zshenv` / `bash -n helpers/*.sh bin/wt bin/lib/*.sh` | no output |
+| Shell syntax | `for f in zsh/*.sh zsh/zshrc zsh/zshenv; do zsh -n "$f"; done` / `for f in helpers/*.sh bin/wt bin/lib/*.sh; do bash -n "$f"; done` (`-n` checks only its first file; later ones become that script's arguments) | no output |
 | Lint | `shellcheck -S warning helpers/*.sh bin/dot bin/wt bin/lib/*.sh` | clean |
 | All static | `dot check` | mirrors CI; exit 0 |
 | Health | `dot doctor` | exit 0 (read-only; makes no changes) |
