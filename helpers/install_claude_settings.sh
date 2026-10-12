@@ -95,7 +95,7 @@ if [ "${1:-}" = "--capture" ]; then
   [ "$PYTHON_FOUND" -eq 1 ] || { echo "Error: no working python3/python on PATH, and no working uv to run one" >&2; exit 1; }
 
   STRIP_KEYS="$STRIP_KEYS" SRC="$(native_path "$SRC")" DEST="$(native_path "$DEST")" \
-    SRC_REL="$SRC_REL" PYTHON="${PYTHON[*]}" "${PYTHON[@]}" - <<'PY' || exit 1
+    SRC_REL="$SRC_REL" PYTHON_CMD="${PYTHON[*]}" "${PYTHON[@]}" - <<'PY' || exit 1
 import json, collections, os, sys
 
 src, dest = os.environ["SRC"], os.environ["DEST"]
@@ -122,7 +122,7 @@ if unmerged:
         "       them. Run this first, then re-capture (on Windows it only folds\n"
         "       allowedTools; it registers no herdr hooks there):\n"
         "           %s helpers/migrate_claude_settings.py\n"
-        "       Unmerged: %s" % (len(unmerged), os.environ["PYTHON"], ", ".join(unmerged[:5])),
+        "       Unmerged: %s" % (len(unmerged), os.environ["PYTHON_CMD"], ", ".join(unmerged[:5])),
         file=sys.stderr,
     )
     raise SystemExit(1)
