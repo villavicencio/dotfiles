@@ -1000,7 +1000,9 @@ warns whenever the legacy key reappears, and
 Related but distinct: the auto-mode classifier **does** independently block
 agent edits to `~/.claude/settings.json` itself, regardless of allow rules. That
 is intended — it stops an agent widening its own permissions — and is not the
-same mechanism. Permission-file edits are a human job.
+same mechanism. Permission-file edits are a human job. The classifier also blocks secret-store
+writes such as `gh secret delete` ("Secret-Store Writes", seen 2026-10-12 on VIL-284), so hand
+the exact command to David to run with `!` instead of retrying.
 
 **`Write(path)` rules are inert — file-permission checks match `Edit(path)` only**, and an
 `Edit(…)` rule covers every file-editing tool (Write, Edit, NotebookEdit). Claude Code warns at
