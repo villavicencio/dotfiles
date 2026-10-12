@@ -133,7 +133,8 @@ cmd_new() {
   gd=$(git -C "$dir" rev-parse --absolute-git-dir) || die "worktree created, but can't read its git dir; nothing was copied"
   : > "$gd/wt-carried" || die "worktree created, but can't write $gd/wt-carried; nothing was copied"
   while IFS= read -r f; do
-    [ -n "$f" ] && [ ! -e "$dir/$f" ] || continue
+    # -L too: cp would follow a dangling symlink the branch tracks there and write its target.
+    [ -n "$f" ] && [ ! -e "$dir/$f" ] && [ ! -L "$dir/$f" ] || continue
     if mkdir -p "$(dirname "$dir/$f")" && cp -p "$m/$f" "$dir/$f"; then
       printf '%s\n' "$f" >> "$gd/wt-carried"; copied=$((copied + 1))
     else
@@ -220,7 +221,7 @@ cmd_done() {
     note "PR #$pr merged; cleaning up $b"
     if (cd "$m" && cleanup_merged_branch "$pr" "$def"); then return 0; fi
     # Its last step (`git fetch --prune`) can fail after the worktree and branches are gone.
-    if git -C "$m" worktree list --porcelain | grep -qxF "worktree $dir"; then
+    if [ -e "$dir" ]; then
       printf '%s\n' "$dropped" | restore_carried "$m" "$dir"
       die "cleanup stopped (reason above); the worktree is still there"
     fi
