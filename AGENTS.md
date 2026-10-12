@@ -67,8 +67,9 @@ claude/     Claude Code config, delivered into ~/.claude/ two different ways:
             settings.json                  → COPY-SEEDED, never symlinked (see gotchas)
 codex/      Codex global instructions — AGENTS.md symlinked to ~/.codex/AGENTS.md
             (kept short on purpose, like claude/CLAUDE.md; both point at docs/agents/)
-bin/        Repo CLI — bin/dot (symlinked to ~/.local/bin/dot)
+bin/        Repo CLI — bin/dot and bin/wt (symlinked to ~/.local/bin/)
             bin/lib/*.py — Python helpers for doctor/bench, deliberately NOT heredocs
+            bin/lib/cleanup-merged-branch.sh — merged-branch cleanup, sourced by agents and `wt done`
 windows/    Windows layer, applied by install.ps1 (repo root): packages.json (winget),
             gitconfig (overrides chained after git/gitconfig), powershell/profile.ps1,
             terminal/dotfiles.json (Windows Terminal fragment), claude-settings.json
@@ -197,7 +198,7 @@ Run these before committing. `bin/dot` (`~/.local/bin/dot` once installed) wraps
 | Check | Command | Passing bar |
 |---|---|---|
 | Shell syntax | `zsh -n zsh/*.sh zsh/zshrc zsh/zshenv` / `bash -n helpers/*.sh` | no output |
-| Lint | `shellcheck -S warning helpers/*.sh bin/dot` | clean |
+| Lint | `shellcheck -S warning helpers/*.sh bin/dot bin/wt` | clean |
 | All static | `dot check` | mirrors CI; exit 0 |
 | Health | `dot doctor` | exit 0 (read-only; makes no changes) |
 | Startup budget | `dot bench` | median < 300 ms |

@@ -1,0 +1,234 @@
+#!/usr/bin/env bash
+#
+# wt — one git worktree per parallel Claude Code session. Symlinked to ~/.local/bin/wt.
+#
+#   wt new <topic> [type] [--no-tab]   worktree .claude/worktrees/<topic> on branch <type>/<topic>
+#                                      (type defaults to feat), then a new iTerm2 tab running Claude
+#   wt done <topic> [--keep-branch]    remove the worktree; with a merged PR, delete its branch too
+#   wt help
+#
+# Worktrees live where Claude Code puts its own (`claude --worktree`, EnterWorktree):
+# <main checkout>/.claude/worktrees/<name>. Workflow and the reasons behind each rule:
+# docs/agents/parallel-sessions.md.
+#
+# No heredocs here, for the reason given at the top of bin/dot.
+set -uo pipefail
+
+_self="${BASH_SOURCE[0]}"
+while [ -L "$_self" ]; do
+  _link="$(readlink "$_self")"
+  case "$_link" in /*) _self="$_link" ;; *) _self="$(dirname "$_self")/$_link" ;; esac
+done
+REPO="$(cd "$(dirname "$_self")/.." && pwd -P)"
+
+die()  { printf 'wt: %s\n' "$*" >&2; exit 1; }
+note() { printf 'wt: %s\n' "$*"; }
+
+usage() { sed -n '3,8p' "$_self" | sed 's/^# \{0,1\}//'; }
+
+# The main checkout (first entry of `git worktree list`), resolved from anywhere in the repo.
+main_checkout() {
+  git rev-parse --git-dir >/dev/null 2>&1 || die "not inside a git repository"
+  git worktree list --porcelain | awk '/^worktree /{print substr($0,10); exit}'
+}
+
+valid_topic() {
+  case "$1" in ''|-*|*[!A-Za-z0-9._-]*|.*) return 1 ;; esac
+  [ "${#1}" -le 60 ]
+}
+
+# origin's default branch, without changing any config. Empty when there's no origin.
+default_branch() {
+  local m=$1 d
+  git -C "$m" remote get-url origin >/dev/null 2>&1 || return 0
+  d=$(git -C "$m" symbolic-ref -q --short refs/remotes/origin/HEAD) && { printf '%s\n' "${d#origin/}"; return 0; }
+  git -C "$m" ls-remote --symref origin HEAD 2>/dev/null | awk '/^ref:/{sub("refs/heads/","",$2); print $2; exit}'
+}
+
+# Gitignored files in the main checkout that .worktreeinclude names (Claude Code's own
+# convention: gitignore syntax, and only files that are also gitignored are copied).
+carry_list() {
+  local m=$1
+  [ -f "$m/.worktreeinclude" ] || return 0
+  comm -12 <(git -C "$m" ls-files -o -i --exclude-standard | LC_ALL=C sort) \
+           <(git -C "$m" ls-files -o -i --exclude-from="$m/.worktreeinclude" | LC_ALL=C sort)
+}
+
+open_tab() {
+  local dir=$1 topic=$2 cmd
+  printf -v cmd 'cd %q && { claude --continue || claude; }' "$dir"
+  osascript \
+    -e 'on run argv' \
+    -e 'tell application "iTerm2"' \
+    -e 'tell current window' \
+    -e 'set t to (create tab with default profile)' \
+    -e 'tell current session of t' \
+    -e 'set name to item 2 of argv' \
+    -e 'write text (item 1 of argv)' \
+    -e 'end tell' \
+    -e 'end tell' \
+    -e 'end tell' \
+    -e 'end run' \
+    "$cmd" "$topic" >/dev/null
+}
+
+cmd_new() {
+  local topic="" type=feat tab=1 a
+  for a in "$@"; do
+    case "$a" in
+      --no-tab) tab=0 ;;
+      -*) die "unknown option: $a" ;;
+      *) if [ -z "$topic" ]; then topic=$a; else type=$a; fi ;;
+    esac
+  done
+  valid_topic "$topic" || die "usage: wt new <topic> [type] [--no-tab]  (topic: letters, digits, . _ -)"
+  case "$type" in ''|*[!a-z]*) die "type must be lowercase letters, e.g. feat, fix, chore, docs" ;; esac
+
+  local m b dir base def
+  m=$(main_checkout) && [ -n "$m" ] || die "can't find the main checkout"
+  b="$type/$topic"
+  git check-ref-format --branch "$b" >/dev/null 2>&1 || die "not a valid branch name: $b"
+  dir="$m/.claude/worktrees/$topic"
+  # Claude Code refuses worktrees under a symlinked .claude or .claude/worktrees; so does wt.
+  [ ! -L "$m/.claude" ] && [ ! -L "$m/.claude/worktrees" ] || die "$m/.claude or .claude/worktrees is a symlink"
+  [ ! -e "$dir" ] && [ ! -L "$dir" ] || die "$dir already exists (git worktree list shows what's there)"
+
+  # Keep the worktrees out of `git status`. The global gitignore covers this on dotfiles
+  # machines; anywhere else, add it to this clone's own exclude file.
+  if ! git -C "$m" check-ignore -q --no-index ".claude/worktrees/$topic"; then
+    local ex
+    ex="$(git -C "$m" rev-parse --path-format=absolute --git-common-dir)/info/exclude"
+    mkdir -p "$(dirname "$ex")" && printf '/.claude/worktrees/\n' >> "$ex" \
+      || die "couldn't add /.claude/worktrees/ to $ex"
+    note "added /.claude/worktrees/ to $ex"
+  fi
+
+  if git -C "$m" rev-parse -q --verify "refs/heads/$b" >/dev/null; then
+    git -C "$m" worktree add -q "$dir" "$b" || die "git worktree add failed"
+    note "checked out existing branch $b"
+  elif git -C "$m" ls-remote --exit-code --heads origin "$b" >/dev/null 2>&1; then
+    git -C "$m" fetch -q origin "$b" || die "couldn't fetch origin/$b"
+    git -C "$m" worktree add -q --track -b "$b" "$dir" "origin/$b" || die "git worktree add failed"
+    note "checked out $b from origin"
+  else
+    def=$(default_branch "$m")
+    if [ -n "$def" ]; then
+      git -C "$m" fetch -q origin "$def" || note "fetch of origin/$def failed; using the cached ref"
+      base="origin/$def"
+    else
+      base=$(git -C "$m" rev-parse --abbrev-ref HEAD)
+      note "no default branch for origin (no remote, or it didn't answer): branching from the main checkout's $base"
+    fi
+    git -C "$m" worktree add -q --no-track -b "$b" "$dir" "$base" || die "git worktree add failed"
+    note "new branch $b from $base"
+  fi
+
+  # Copy local-only files. The list is recorded in the worktree's own git dir so that
+  # `wt done` can tell an untouched copy from work made in the worktree.
+  local gd f n=0
+  gd=$(git -C "$dir" rev-parse --absolute-git-dir) || die "can't read $dir's git dir"
+  : > "$gd/wt-carried"
+  while IFS= read -r f; do
+    [ -n "$f" ] && [ ! -e "$dir/$f" ] || continue
+    mkdir -p "$(dirname "$dir/$f")" && cp -p "$m/$f" "$dir/$f" || die "couldn't copy $f"
+    printf '%s\n' "$f" >> "$gd/wt-carried"; n=$((n + 1))
+  done < <(carry_list "$m")
+  [ "$n" = 0 ] || note "copied $n file(s) named by .worktreeinclude"
+
+  note "worktree: $dir"
+  if [ "$tab" = 1 ] && [ "${TERM_PROGRAM:-}" = iTerm.app ] && [ -z "${SSH_CONNECTION:-}" ] \
+     && command -v osascript >/dev/null 2>&1; then
+    open_tab "$dir" "$topic" && { note "opened an iTerm2 tab (drag it into the project's tab group)"; return 0; }
+    note "couldn't open an iTerm2 tab"
+  fi
+  printf '  cd %q && claude\n' "$dir"
+}
+
+# Delete the copies `wt new` made that are still identical to the main checkout's file.
+# Prints the paths it removed, so a failed `wt done` can put them back.
+drop_carried() {
+  local m=$1 dir=$2 gd f
+  gd=$(git -C "$dir" rev-parse --absolute-git-dir) || return 1
+  [ -f "$gd/wt-carried" ] || return 0
+  while IFS= read -r f; do
+    [ -n "$f" ] && [ -f "$dir/$f" ] && [ ! -L "$dir/$f" ] && [ -f "$m/$f" ] || continue
+    cmp -s "$m/$f" "$dir/$f" && rm -f "$dir/$f" && printf '%s\n' "$f"
+  done < "$gd/wt-carried"
+}
+
+restore_carried() {
+  local m=$1 dir=$2 f
+  while IFS= read -r f; do
+    [ -n "$f" ] || continue
+    mkdir -p "$(dirname "$dir/$f")" && cp -p "$m/$f" "$dir/$f"
+  done
+}
+
+cmd_done() {
+  local topic="" keep=0 a
+  for a in "$@"; do
+    case "$a" in
+      --keep-branch) keep=1 ;;
+      -*) die "unknown option: $a" ;;
+      *) [ -z "$topic" ] || die "usage: wt done <topic> [--keep-branch]"; topic=$a ;;
+    esac
+  done
+  valid_topic "$topic" || die "usage: wt done <topic> [--keep-branch]"
+
+  local m dir wl b pr def dropped
+  m=$(main_checkout) && [ -n "$m" ] || die "can't find the main checkout"
+  dir="$m/.claude/worktrees/$topic"
+  wl=$(git -C "$m" worktree list --porcelain) || die "git worktree list failed"
+  printf '%s\n' "$wl" | grep -qxF "worktree $dir" || die "$dir is not a worktree of this repo"
+  b=$(printf '%s\n' "$wl" | awk -v t="worktree $dir" '$0==t{c=1;next} /^worktree /{c=0} c&&/^branch /{sub("branch refs/heads/","");print}')
+
+  # A shell or Claude session still sitting in the worktree would be left in a deleted dir.
+  case "$(pwd -P)/" in "$(cd "$dir" && pwd -P)/"*) die "you're inside $dir: cd to the main checkout first" ;; esac
+  if command -v lsof >/dev/null 2>&1; then
+    local busy
+    busy=$(lsof -d cwd -Fpn 2>/dev/null | awk -v d="$dir" '/^p/{p=substr($0,2)} /^n/{n=substr($0,2); if(n==d||index(n,d"/")==1) print p}' | sort -u | tr '\n' ' ')
+    [ -z "$busy" ] || die "processes still have their cwd in $dir (PIDs: ${busy% }). Exit those sessions or cd out first"
+  fi
+
+  if [ -n "$b" ] && command -v gh >/dev/null 2>&1; then
+    # cleanup_merged_branch re-reads the PR and checks the branch against its merged head.
+    pr=$(cd "$m" && gh pr list --head "$b" --state merged --limit 1 --json number -q '.[0].number // empty' 2>/dev/null)
+  fi
+
+  dropped=$(drop_carried "$m" "$dir") || die "couldn't read $dir's carried-file list"
+
+  if [ -n "${pr:-}" ] && [ "$keep" = 0 ]; then
+    def=$(default_branch "$m"); [ -n "$def" ] || def=$(git -C "$m" rev-parse --abbrev-ref HEAD)
+    # shellcheck source=bin/lib/cleanup-merged-branch.sh
+    . "$REPO/bin/lib/cleanup-merged-branch.sh" || die "can't load $REPO/bin/lib/cleanup-merged-branch.sh"
+    note "PR #$pr merged; cleaning up $b"
+    if (cd "$m" && cleanup_merged_branch "$pr" "$def"); then return 0; fi
+    printf '%s\n' "$dropped" | restore_carried "$m" "$dir"
+    die "cleanup stopped (reason above); the worktree is untouched"
+  fi
+
+  if [ "$keep" = 0 ]; then
+    printf '%s\n' "$dropped" | restore_carried "$m" "$dir"
+    if [ -z "$b" ]; then die "$dir is on a detached HEAD; use --keep-branch to remove just the worktree"; fi
+    die "$b has no merged PR. Merge it first, or run 'wt done $topic --keep-branch' to remove the worktree and keep the branch"
+  fi
+
+  # --keep-branch: remove only the worktree. git refuses changes and untracked files itself;
+  # ignored files would go with the directory, so they count as work here.
+  local s
+  s=$(git -C "$dir" status --porcelain --ignored) || die "git status failed in $dir"
+  if [ -n "$s" ]; then
+    printf '%s\n' "$dropped" | restore_carried "$m" "$dir"
+    printf '%s\n' "$s" >&2
+    die "$dir has changes, untracked or ignored files: commit, move or delete them first"
+  fi
+  git -C "$m" worktree remove "$dir" || { printf '%s\n' "$dropped" | restore_carried "$m" "$dir"; die "git worktree remove failed"; }
+  note "removed $dir${b:+; kept branch $b}"
+}
+
+case "${1:-help}" in
+  new)  shift; cmd_new "$@" ;;
+  done) shift; cmd_done "$@" ;;
+  help|-h|--help) usage ;;
+  *) usage >&2; exit 1 ;;
+esac

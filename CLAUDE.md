@@ -52,9 +52,11 @@ windows/        Windows layer, applied by install.ps1 at the repo root (NOT Dotb
                           Terminal default profile) — the `defaults write` counterpart;
                           a separate opt-in step, NOT run by install.ps1
   install_nvim.ps1        nvim plugin bootstrap — the helpers/install_nvim.sh counterpart
-bin/            Repo CLI — bin/dot (symlinked to ~/.local/bin/dot)
+bin/            Repo CLI — bin/dot, and bin/wt (one worktree per parallel session,
+                docs/agents/parallel-sessions.md); both symlinked into ~/.local/bin
   lib/*.py      Python helpers for doctor/bench. Real files, NOT heredocs — see
                 "No heredocs in bin/dot" below
+  lib/cleanup-merged-branch.sh  the merged-branch cleanup function (docs/agents/code-review.md)
 tmux/           tmux config
 topgrade/       Topgrade system updater config
 vale/           Vale prose linter config
