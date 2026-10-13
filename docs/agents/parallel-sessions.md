@@ -34,7 +34,9 @@ wt done <topic>           # after the PR merges: remove the worktree and delete 
   fails, `wt new` says so and the first push needs `-u`. Otherwise it creates a new branch from
   `origin/<default>`, with no upstream; the first push sets one with `-u`. It asks origin
   which branch is the default (the cached `origin/HEAD` only when origin doesn't answer) and
-  fetches it first. If that fetch fails it uses the cached ref and says so. If no default
+  fetches it first with an explicit refspec, so `origin/<default>` exists even when the clone's
+  fetch config names a different branch. If that fetch fails it uses the cached ref and says
+  so, and stops if there is none. If no default
   branch can be found, it branches from the main checkout's current branch and says so.
 - **Local-only files.** A new worktree has none of the main checkout's gitignored files (`.env`,
   `node_modules`). `wt new` copies the ones named in the repo's `.worktreeinclude`, which is
@@ -62,7 +64,9 @@ wt done <topic>           # after the PR merges: remove the worktree and delete 
   (`bin/lib/cleanup-merged-branch.sh`, the same function as `code-review.md`'s "After the
   merge"). That removes the worktree and deletes the branch locally and on origin, only if the
   branch holds nothing the merge didn't.
-- **Without one, it refuses.** `wt done <topic> --keep-branch` removes only the worktree and
+- **It needs `gh` to check.** If `gh` isn't installed or the lookup fails, `wt done` stops and
+  says so rather than treat the branch as unmerged; `--keep-branch` doesn't need `gh`.
+- **Without a merged PR, it refuses.** `wt done <topic> --keep-branch` removes only the worktree and
   keeps the branch. There is no flag that deletes an unmerged branch; do that by hand if you
   mean it.
 - **What counts as work.** Once the PR check passes, copies `wt new` made that are still

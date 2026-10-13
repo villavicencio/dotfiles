@@ -131,7 +131,9 @@ cmd_new() {
   else
     def=$(default_branch "$m")
     if [ -n "$def" ]; then
-      git -C "$m" fetch -q origin "$def" || note "fetch of origin/$def failed; using the cached ref"
+      # Explicit refspec, so origin/$def exists even if the fetch config names another branch.
+      git -C "$m" fetch -q origin "+refs/heads/$def:refs/remotes/origin/$def" \
+        || note "fetch of origin/$def failed; using the cached ref"
       base="origin/$def"
     else
       base=$(git -C "$m" rev-parse --abbrev-ref HEAD)
@@ -223,8 +225,10 @@ cmd_done() {
     local ls
     # Fail closed: lsof must exit 0 and its listing must include this process. It sees this
     # account's processes; another account's can't be read without root, here or in /proc.
-    ls=$(lsof -d cwd -Fpn 2>/dev/null) && printf '%s\n' "$ls" | grep -qx "p$$" \
-      || die "lsof couldn't list processes, so can't check for any still in $dir"
+    # A pattern match, not `printf | grep -q`: grep -q stops at the first match, and under
+    # pipefail the writer's SIGPIPE would read as failure.
+    ls=$(lsof -d cwd -Fpn 2>/dev/null) || die "lsof couldn't list processes, so can't check for any still in $dir"
+    case $'\n'"$ls"$'\n' in *$'\n'"p$$"$'\n'*) ;; *) die "lsof's listing doesn't include wt itself, so can't trust it to check $dir" ;; esac
     busy=$(printf '%s\n' "$ls" | awk -v d="$dir" '/^p/{p=substr($0,2)} /^n/{n=substr($0,2); if(n==d||index(n,d"/")==1) print p}' | sort -u | tr '\n' ' ') \
       || die "couldn't read lsof's listing, so can't check for processes still in $dir"
   elif [ -d /proc/self ]; then
@@ -237,9 +241,11 @@ cmd_done() {
   fi
   [ -z "$busy" ] || die "processes still have their cwd in $dir (PIDs: ${busy% }). Exit those sessions or cd out first"
 
-  if [ -n "$b" ] && command -v gh >/dev/null 2>&1; then
-    # cleanup_merged_branch re-reads the PR and checks the branch against its merged head.
-    pr=$(cd "$m" && gh pr list --head "$b" --state merged --limit 1 --json number -q '.[0].number // empty' 2>/dev/null)
+  # cleanup_merged_branch re-reads the PR and checks the branch against its merged head.
+  if [ -n "$b" ] && [ "$keep" = 0 ]; then
+    command -v gh >/dev/null 2>&1 || die "gh isn't installed, so can't check $b for a merged PR (--keep-branch removes just the worktree)"
+    pr=$(cd "$m" && gh pr list --head "$b" --state merged --limit 1 --json number -q '.[0].number // empty') \
+      || die "couldn't ask GitHub whether $b's PR merged (gh failed, above)"
   fi
 
   if [ -z "${pr:-}" ] && [ "$keep" = 0 ]; then
