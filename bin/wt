@@ -5,6 +5,7 @@
 #   wt new <topic> [type] [--no-tab]   worktree .claude/worktrees/<topic> on branch <type>/<topic>
 #                                      (type defaults to feat), then a new iTerm2 tab running Claude
 #   wt done <topic> [--keep-branch]    remove the worktree; with a merged PR, delete its branch too
+#   wt port [topic]                    this worktree's dev-server port (opt in: git config wt.portBase N)
 #   wt help
 #
 # Worktrees live where Claude Code puts its own (`claude --worktree`, EnterWorktree):
@@ -24,7 +25,7 @@ REPO="$(cd "$(dirname "$_self")/.." && pwd -P)"
 die()  { printf 'wt: %s\n' "$*" >&2; exit 1; }
 note() { printf 'wt: %s\n' "$*"; }
 
-usage() { sed -n '3,8p' "$_self" | sed 's/^# \{0,1\}//'; }
+usage() { sed -n '3,9p' "$_self" | sed 's/^# \{0,1\}//'; }
 
 # The main checkout (first entry of `git worktree list`), resolved from anywhere in the repo.
 main_checkout() {
@@ -60,9 +61,31 @@ carry_list() {
   LC_ALL=C comm -12 <(printf '%s\n' "$ign") <(printf '%s\n' "$inc") | sed '/^$/d'
 }
 
+# Dev-server ports (opt in per clone: `git config wt.portBase 3000`). The main checkout keeps
+# the base; each worktree gets the lowest base+N (N >= 1) that no other worktree holds and
+# nothing listens on, recorded as wt-port in its git dir, so it goes when the worktree does.
+# Exported into the session rather than written to .env: Next.js can't read PORT from .env.
+port_in_use() { command -v lsof >/dev/null 2>&1 && lsof -nP -iTCP:"$1" -sTCP:LISTEN >/dev/null 2>&1; }
+
+pick_port() {
+  local m=$1 base cd used i p
+  base=$(git -C "$m" config --get wt.portBase) || return 0
+  case $base in ''|*[!0-9]*) note "wt.portBase isn't a number ($base); no port assigned" >&2; return 0 ;; esac
+  cd=$(git -C "$m" rev-parse --path-format=absolute --git-common-dir) || return 0
+  used=" $(cat "$cd"/worktrees/*/wt-port 2>/dev/null | tr '\n' ' ') "
+  for ((i = 1; i < 100; i++)); do
+    p=$((base + i)); [ "$p" -le 65535 ] || break
+    case $used in *" $p "*) continue ;; esac
+    port_in_use "$p" && continue
+    printf '%s\n' "$p"; return 0
+  done
+  note "no free port from $((base + 1)) to $((base + 99)); none assigned" >&2
+}
+
 open_tab() {
-  local dir=$1 topic=$2 cmd
+  local dir=$1 topic=$2 port=$3 cmd
   printf -v cmd 'cd %q && { claude --continue || claude; }' "$dir"
+  [ -z "$port" ] || printf -v cmd 'cd %q && export PORT=%s && { claude --continue || claude; }' "$dir" "$port"
   osascript \
     -e 'on run argv' \
     -e 'tell application "iTerm2"' \
@@ -164,13 +187,45 @@ cmd_new() {
   [ "$copied" = 0 ] || note "copied $copied file(s) named by .worktreeinclude"
   [ "$failed" = 0 ] || note "$failed file(s) weren't copied (above)"
 
+  local port
+  port=$(pick_port "$m")
+  if [ -n "$port" ]; then
+    if printf '%s\n' "$port" > "$gd/wt-port"; then note "PORT=$port for this worktree (wt port prints it)"
+    else note "couldn't record port $port in $gd/wt-port; none assigned"; port=""; fi
+  fi
+
   note "worktree: $dir"
   if [ "$tab" = 1 ] && [ "${TERM_PROGRAM:-}" = iTerm.app ] && [ -z "${SSH_CONNECTION:-}" ] \
      && command -v osascript >/dev/null 2>&1; then
-    open_tab "$dir" "$topic" && { note "opened an iTerm2 tab (drag it into the project's tab group)"; return 0; }
+    open_tab "$dir" "$topic" "$port" && { note "opened an iTerm2 tab (drag it into the project's tab group)"; return 0; }
     note "couldn't open an iTerm2 tab"
   fi
-  printf '  cd %q && claude\n' "$dir"
+  if [ -n "$port" ]; then printf '  cd %q && export PORT=%s && claude\n' "$dir" "$port"
+  else printf '  cd %q && claude\n' "$dir"; fi
+}
+
+# The dev-server port for a worktree: the named one, else the one you're in. In the main
+# checkout it's wt.portBase itself, so `PORT=$(wt port) npm run dev` works anywhere.
+cmd_port() {
+  [ $# -le 1 ] || die "usage: wt port [topic]"
+  local m gd p dir
+  m=$(main_checkout) && [ -n "$m" ] || die "can't find the main checkout"
+  if [ $# = 1 ]; then
+    valid_topic "$1" || die "usage: wt port [topic]"
+    dir="$m/.claude/worktrees/$1"
+    [ -d "$dir" ] || die "no worktree $dir"
+  else
+    dir=$(git rev-parse --show-toplevel) || die "not in a git repo"
+  fi
+  if [ "$dir" = "$m" ]; then
+    p=$(git -C "$m" config --get wt.portBase) || die "no port: this clone hasn't opted in (git config wt.portBase 3000)"
+  else
+    gd=$(git -C "$dir" rev-parse --absolute-git-dir) || die "can't read $dir's git dir"
+    [ -f "$gd/wt-port" ] || die "no port recorded for $dir (made before wt.portBase was set?)"
+    p=$(cat "$gd/wt-port")
+  fi
+  case $p in ''|*[!0-9]*) die "port isn't a number: $p" ;; esac
+  printf '%s\n' "$p"
 }
 
 # Move the copies `wt new` made that are still byte-identical to the main checkout's file
@@ -315,6 +370,7 @@ Move each back into $dir (or delete it) before running 'wt done' again"
 case "${1:-help}" in
   new)  shift; cmd_new "$@" ;;
   done) shift; cmd_done "$@" ;;
+  port) shift; cmd_port "$@" ;;
   help|-h|--help) usage ;;
   *) usage >&2; exit 1 ;;
 esac
