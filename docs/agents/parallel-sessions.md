@@ -1,6 +1,7 @@
 # Parallel Claude Code sessions
 
 How to run several Claude Code sessions on one repo at once without them colliding (VIL-299).
+Runbook view: `davidv.sh/ops/parallel-sessions` (repo `~/Projects/davidv.sh`); update it, and its Verified badge, when this file changes.
 
 **One session = one worktree = one branch.** Never run two sessions in the same directory: they
 share one working tree, one index and one `HANDOFF.md`, so each one's edits and handoffs land
