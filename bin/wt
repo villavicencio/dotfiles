@@ -255,13 +255,18 @@ cmd_done() {
     while read -r n oid; do
       [ -n "$n" ] || continue
       if [ "$oid" = "$tip" ]; then pr=$n; break; fi
+      # A head that can't be fetched or compared is a failed check, not a mismatch.
       git -C "$m" cat-file -e "$oid^{commit}" 2>/dev/null \
-        || git -C "$m" fetch -q origin "refs/pull/$n/head" 2>/dev/null || continue
-      c=$(git -C "$m" cherry "$oid" "$tip" 2>/dev/null) || continue
-      case $c in *+*) ;; *) pr=$n; break ;; esac
+        || git -C "$m" fetch -q origin "refs/pull/$n/head" \
+        || die "couldn't fetch PR #$n's head to compare with $b's tip"
+      c=$(git -C "$m" cherry "$oid" "$tip") || die "git cherry failed comparing $b with PR #$n"
+      case $c in *+*) continue ;; esac
+      # git cherry skips merge commits, and one can carry its own conflict resolution.
+      c=$(git -C "$m" rev-list --merges "$oid..$tip") || die "git rev-list failed comparing $b with PR #$n"
+      [ -n "$c" ] || { pr=$n; break; }
     done < <(printf '%s\n' "$prs")
     if [ -z "${pr:-}" ] && [ -n "$prs" ]; then
-      die "$b has merged PRs (#$(printf '%s\n' "$prs" | awk '{printf "%s%s", s, $1; s=", #"}')), but none holds its current tip: the name was reused. Merge its new PR first, or run 'wt done $topic --keep-branch'"
+      die "$b has merged PRs (#$(printf '%s\n' "$prs" | awk '{printf "%s%s", s, $1; s=", #"}')), but none holds its current tip (the 20 most recent checked): the name was reused. Merge its new PR first, or run 'wt done $topic --keep-branch'"
     fi
   fi
 
