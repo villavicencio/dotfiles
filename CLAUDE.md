@@ -1004,7 +1004,11 @@ agent edits to `~/.claude/settings.json` itself, regardless of allow rules. That
 is intended — it stops an agent widening its own permissions — and is not the
 same mechanism. Permission-file edits are a human job. The classifier also blocks secret-store
 writes such as `gh secret delete` ("Secret-Store Writes", seen 2026-10-12 on VIL-284), so hand
-the exact command to David to run with `!` instead of retrying.
+the exact command to David to run with `!` instead of retrying. It also blocks moving a secret
+from a local file to anywhere David can read it remotely: printing it into the chat ("Credential
+Materialization") or writing it into an Apple Note ("Credential Leakage"), both seen 2026-10-12
+with davidv.sh's `OPS_SECRET`. Opening the magic link on the Mac (`open -a Safari …`) and
+`pbcopy` were allowed. Away from the Mac, David reads the value from the Vercel dashboard himself.
 
 **`Write(path)` rules are inert — file-permission checks match `Edit(path)` only**, and an
 `Edit(…)` rule covers every file-editing tool (Write, Edit, NotebookEdit). Claude Code warns at
