@@ -11,7 +11,7 @@
 # can succeed), every failure returns 1, and the step that can delete files (removing a
 # worktree) runs only after origin accepted the delete.
 cleanup_merged_branch() {
-  local N=$1 base=$2 b oid cross tip cherry merges wl main wts w s rc gd deleted=0
+  local N=$1 base=$2 b oid cross tip cherry merges wl main wts w s rc rl gd deleted=0
   read -r b oid cross < <(gh pr view "$N" --json state,headRefName,headRefOid,isCrossRepository \
     -q 'select(.state=="MERGED") | "\(.headRefName) \(.headRefOid) \(.isCrossRepository)"')
   [ -n "$oid" ] || { echo "PR $N is not merged (or gh failed): stop"; return 1; }
@@ -54,15 +54,16 @@ cleanup_merged_branch() {
     git rev-parse -q --verify "refs/heads/$base" >/dev/null || git rev-parse -q --verify "refs/remotes/origin/$base" >/dev/null \
       || { echo "no $base branch to switch $main to: stop"; return 1; }
   fi
-  # Origin first: GitHub's auto-delete may already have removed it (exit 2). Delete only
-  # while it still points at the merged head; any other ls-remote exit is a failed lookup.
-  git ls-remote --exit-code origin "refs/heads/$b" >/dev/null; rc=$?
+  # Origin first: GitHub's auto-delete may already have removed it. Delete only
+  # while it still points at the merged head; a failed ls-remote stops. Its pattern matches the
+  # tail of each ref (feat/x also matches other/feat/x), so compare the listed names exactly.
+  rl=$(git ls-remote origin "refs/heads/$b") || { echo "ls-remote failed: stop"; return 1; }
+  if printf '%s\n' "$rl" | awk -v r="refs/heads/$b" '$2==r{f=1} END{exit !f}'; then rc=0; else rc=2; fi
   case $rc in
     0) git push --force-with-lease="refs/heads/$b:$oid" origin --delete "$b" \
          || { echo "origin refused the delete (moved since the merge?): keeping $b"; return 1; }
        deleted=1 ;;
     2) echo "origin already deleted $b" ;;
-    *) echo "ls-remote failed ($rc): stop"; return 1 ;;
   esac
   # Worktrees: re-check, then remove a linked one, or switch the primary (git can't remove it).
   # If any step fails, put origin's branch back at the merged head, so a failure never leaves
