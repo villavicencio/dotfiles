@@ -60,7 +60,7 @@ wt done <topic>           # after the PR merges: remove the worktree and delete 
   its listing doesn't include `wt` itself, or when reading that listing fails. It can see only
   your own account's processes; another account's are invisible without root. Exit the worktree's Claude
   session first.
-- **Which PR counts.** Among the branch's 20 most recently merged PRs, the first whose head is
+- **Which PR counts.** Among the branch's merged PRs (the 20 newest by creation date, as `gh pr list` returns them), the first whose head is
   the branch's tip, or one the tip only lags (the PR was rebased or updated on GitHub): every
   commit on the tip has a patch-equivalent in it and no merge commit is left over, the same
   test `cleanup_merged_branch` applies. A branch name reused after an earlier PR merged has
