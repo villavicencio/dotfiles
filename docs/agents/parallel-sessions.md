@@ -26,9 +26,11 @@ wt done <topic>           # after the PR merges: remove the worktree and delete 
   every repo's root. In a clone where that doesn't apply, `wt new` appends `/.claude/worktrees/`
   to the clone's `.git/info/exclude` and says so.
 - **Which branch it checks out.** An existing local branch is checked out as is, without asking
-  origin. For any other name it asks origin first, and stops if origin can't be asked (offline, say) rather than
-  create a branch that may already exist there. A branch that exists only on origin is fetched with an explicit refspec (so it works in a clone that fetches
-  only the default branch), and its upstream is set to `origin/<branch>`; if that config write
+  origin. For any other name, in a clone with an `origin` remote, it asks origin first and stops
+  if origin can't be asked (offline, say) rather than create a branch that may already exist
+  there. A clone with no `origin` skips the lookup and branches from the main checkout's current
+  branch. A branch that exists only on origin is fetched with an explicit refspec (so it works in
+  a clone that fetches only the default branch), and its upstream is set to `origin/<branch>`; if that config write
   fails, `wt new` says so and the first push needs `-u`. Otherwise it creates a new branch from
   `origin/<default>`, with no upstream; the first push sets one with `-u`. It asks origin
   which branch is the default (the cached `origin/HEAD` only when origin doesn't answer) and

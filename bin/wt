@@ -251,7 +251,7 @@ cmd_done() {
   local held s gd left
   gd=$(git -C "$dir" rev-parse --absolute-git-dir) || die "can't read $dir's git dir"
   if [ -d "$gd/wt-held" ]; then
-    left=$(find "$gd/wt-held" ! -type d 2>/dev/null | sed "s|^$gd/wt-held/||") || die "can't read $gd/wt-held"
+    left=$(cd "$gd/wt-held" && find . ! -type d) || die "can't read $gd/wt-held"
     [ -z "$left" ] || die "an earlier 'wt done' left copies in $gd/wt-held that it couldn't move back:
 $left
 Move each back into $dir (or delete it) before running 'wt done' again"
