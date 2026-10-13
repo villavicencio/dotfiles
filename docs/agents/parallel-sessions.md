@@ -60,6 +60,10 @@ wt done <topic>           # after the PR merges: remove the worktree and delete 
   its listing doesn't include `wt` itself, or when reading that listing fails. It can see only
   your own account's processes; another account's are invisible without root. Exit the worktree's Claude
   session first.
+- **Which PR counts.** A merged PR whose head is the branch's tip, or one the tip only lags
+  (the PR was rebased or updated on GitHub, so every commit on the tip has a patch-equivalent
+  in it). A branch name reused after an earlier PR merged has commits that PR lacks, so that PR
+  doesn't count; `wt done` names the old PRs and refuses as if there were none.
 - **With a merged PR** for the branch, it runs `cleanup_merged_branch`
   (`bin/lib/cleanup-merged-branch.sh`, the same function as `code-review.md`'s "After the
   merge"). That removes the worktree and deletes the branch locally and on origin, only if the

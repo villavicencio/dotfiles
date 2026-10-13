@@ -57,7 +57,7 @@ carry_list() {
   # Captured first: a failure inside a process substitution would go unseen.
   ign=$(git -C "$m" ls-files -o -i --exclude-standard | LC_ALL=C sort) || return 1
   inc=$(git -C "$m" ls-files -o -i --exclude-from="$m/.worktreeinclude" | LC_ALL=C sort) || return 1
-  comm -12 <(printf '%s\n' "$ign") <(printf '%s\n' "$inc") | sed '/^$/d'
+  LC_ALL=C comm -12 <(printf '%s\n' "$ign") <(printf '%s\n' "$inc") | sed '/^$/d'
 }
 
 open_tab() {
@@ -109,13 +109,15 @@ cmd_new() {
     note "added /.claude/worktrees/ to $ex"
   fi
 
-  local rrc=2
+  local rrc=2 rls
   if ! git -C "$m" rev-parse -q --verify "refs/heads/$b" >/dev/null \
      && git -C "$m" remote get-url origin >/dev/null 2>&1; then
-    git -C "$m" ls-remote --exit-code --heads origin "$b" >/dev/null 2>&1; rrc=$?
-    # 2 means origin answered and has no such branch; anything else is a failed lookup, which
-    # must not turn into a new branch shadowing one on origin.
-    case $rrc in 0|2) ;; *) die "couldn't ask origin whether $b exists (ls-remote exit $rrc); try again online" ;; esac
+    # A failed lookup must not turn into a new branch shadowing one on origin. ls-remote matches
+    # its pattern against the tail of each ref (feat/x also matches other/feat/x), so compare
+    # the listed names exactly.
+    rls=$(git -C "$m" ls-remote --heads origin "refs/heads/$b" 2>/dev/null) \
+      || die "couldn't ask origin whether $b exists; try again online"
+    if printf '%s\n' "$rls" | awk -v r="refs/heads/$b" '$2==r{f=1} END{exit !f}'; then rrc=0; fi
   fi
   if git -C "$m" rev-parse -q --verify "refs/heads/$b" >/dev/null; then
     git -C "$m" worktree add -q "$dir" "$b" || die "git worktree add failed"
@@ -211,7 +213,7 @@ cmd_done() {
   done
   valid_topic "$topic" || die "usage: wt done <topic> [--keep-branch]"
 
-  local m dir wl b pr def
+  local m dir wl b pr def prs tip n oid c
   m=$(main_checkout) && [ -n "$m" ] || die "can't find the main checkout"
   dir="$m/.claude/worktrees/$topic"
   wl=$(git -C "$m" worktree list --porcelain) || die "git worktree list failed"
@@ -244,8 +246,23 @@ cmd_done() {
   # cleanup_merged_branch re-reads the PR and checks the branch against its merged head.
   if [ -n "$b" ] && [ "$keep" = 0 ]; then
     command -v gh >/dev/null 2>&1 || die "gh isn't installed, so can't check $b for a merged PR (--keep-branch removes just the worktree)"
-    pr=$(cd "$m" && gh pr list --head "$b" --state merged --limit 1 --json number -q '.[0].number // empty') \
+    prs=$(cd "$m" && gh pr list --head "$b" --state merged --limit 20 --json number,headRefOid \
+      -q '.[] | "\(.number) \(.headRefOid)"') \
       || die "couldn't ask GitHub whether $b's PR merged (gh failed, above)"
+    tip=$(git -C "$m" rev-parse -q --verify "refs/heads/$b") || die "can't read $b's tip"
+    # A reused branch name can have an older merged PR. Take the PR whose head is this tip, or
+    # one the tip only lags (a rebase or update on GitHub): no commit of the tip's missing from it.
+    while read -r n oid; do
+      [ -n "$n" ] || continue
+      if [ "$oid" = "$tip" ]; then pr=$n; break; fi
+      git -C "$m" cat-file -e "$oid^{commit}" 2>/dev/null \
+        || git -C "$m" fetch -q origin "refs/pull/$n/head" 2>/dev/null || continue
+      c=$(git -C "$m" cherry "$oid" "$tip" 2>/dev/null) || continue
+      case $c in *+*) ;; *) pr=$n; break ;; esac
+    done < <(printf '%s\n' "$prs")
+    if [ -z "${pr:-}" ] && [ -n "$prs" ]; then
+      die "$b has merged PRs (#$(printf '%s\n' "$prs" | awk '{printf "%s%s", s, $1; s=", #"}')), but none holds its current tip: the name was reused. Merge its new PR first, or run 'wt done $topic --keep-branch'"
+    fi
   fi
 
   if [ -z "${pr:-}" ] && [ "$keep" = 0 ]; then
