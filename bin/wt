@@ -62,23 +62,52 @@ carry_list() {
 }
 
 # Dev-server ports (opt in per clone: `git config wt.portBase 3000`). The main checkout keeps
-# the base; each worktree gets the lowest base+N (N >= 1) that no other worktree holds and
+# the base; each worktree gets the lowest base+N (N 1..99) that no other worktree holds and
 # nothing listens on, recorded as wt-port in its git dir, so it goes when the worktree does.
 # Exported into the session rather than written to .env: Next.js can't read PORT from .env.
-port_in_use() { command -v lsof >/dev/null 2>&1 && lsof -nP -iTCP:"$1" -sTCP:LISTEN >/dev/null 2>&1; }
 
-pick_port() {
-  local m=$1 base cd used i p
+# A port number, 1..65535, decimal with no leading zero (bash reads 08 as bad octal).
+valid_port() {
+  case $1 in [1-9]|[1-9][0-9]|[1-9][0-9][0-9]|[1-9][0-9][0-9][0-9]|[1-9][0-9][0-9][0-9][0-9]) [ "$1" -le 65535 ] ;; *) return 1 ;; esac
+}
+
+# Ports with a TCP listener: this account's from lsof, one per line. Fails when lsof is
+# missing or errors; lsof also exits 1 when it simply finds nothing, which is told apart by
+# an empty stderr.
+listening_ports() {
+  local out err rc
+  command -v lsof >/dev/null 2>&1 || return 1
+  err=$(mktemp) || return 1
+  out=$(lsof -nP -iTCP -sTCP:LISTEN -Fn 2>"$err"); rc=$?
+  if [ "$rc" != 0 ] && [ -s "$err" ]; then rm -f "$err"; return 1; fi
+  rm -f "$err"
+  printf '%s\n' "$out" | awk '/^n/{sub(/.*:/, ""); print}'
+}
+
+# Choose and record the worktree's port, under a lock in the common git dir so two
+# `wt new` runs can't take the same one. Prints the port; prints nothing when none applies.
+assign_port() {
+  local m=$1 gd=$2 base cd lock used live i p tries=0
   base=$(git -C "$m" config --get wt.portBase) || return 0
-  case $base in ''|*[!0-9]*) note "wt.portBase isn't a number ($base); no port assigned" >&2; return 0 ;; esac
+  valid_port "$base" || { note "wt.portBase isn't a port number ($base); no port assigned" >&2; return 0; }
+  live=$(listening_ports) || { note "can't list listening ports (lsof missing or failed); no port assigned" >&2; return 0; }
   cd=$(git -C "$m" rev-parse --path-format=absolute --git-common-dir) || return 0
-  used=" $(cat "$cd"/worktrees/*/wt-port 2>/dev/null | tr '\n' ' ') "
+  lock="$cd/wt-port.lock"
+  until mkdir "$lock" 2>/dev/null; do
+    tries=$((tries + 1))
+    [ "$tries" -lt 50 ] || { note "$lock is held (another wt new, or left by a crash: remove it); no port assigned" >&2; return 0; }
+    sleep 0.1
+  done
+  used=" $(cat "$cd"/worktrees/*/wt-port 2>/dev/null | tr '\n' ' ') $(printf '%s' "$live" | tr '\n' ' ') "
   for ((i = 1; i < 100; i++)); do
     p=$((base + i)); [ "$p" -le 65535 ] || break
     case $used in *" $p "*) continue ;; esac
-    port_in_use "$p" && continue
-    printf '%s\n' "$p"; return 0
+    # Another account's listener is invisible to lsof; a connection attempt still sees it.
+    if command -v nc >/dev/null 2>&1 && nc -z 127.0.0.1 "$p" >/dev/null 2>&1; then continue; fi
+    if printf '%s\n' "$p" > "$gd/wt-port"; then rmdir "$lock"; printf '%s\n' "$p"; return 0; fi
+    rmdir "$lock"; note "couldn't record port $p in $gd/wt-port; none assigned" >&2; return 0
   done
+  rmdir "$lock"
   note "no free port from $((base + 1)) to $((base + 99)); none assigned" >&2
 }
 
@@ -188,11 +217,8 @@ cmd_new() {
   [ "$failed" = 0 ] || note "$failed file(s) weren't copied (above)"
 
   local port
-  port=$(pick_port "$m")
-  if [ -n "$port" ]; then
-    if printf '%s\n' "$port" > "$gd/wt-port"; then note "PORT=$port for this worktree (wt port prints it)"
-    else note "couldn't record port $port in $gd/wt-port; none assigned"; port=""; fi
-  fi
+  port=$(assign_port "$m" "$gd")
+  [ -z "$port" ] || note "PORT=$port for this worktree (wt port prints it)"
 
   note "worktree: $dir"
   if [ "$tab" = 1 ] && [ "${TERM_PROGRAM:-}" = iTerm.app ] && [ -z "${SSH_CONNECTION:-}" ] \
@@ -224,7 +250,7 @@ cmd_port() {
     [ -f "$gd/wt-port" ] || die "no port recorded for $dir (made before wt.portBase was set?)"
     p=$(cat "$gd/wt-port")
   fi
-  case $p in ''|*[!0-9]*) die "port isn't a number: $p" ;; esac
+  valid_port "$p" || die "not a port number: $p"
   printf '%s\n' "$p"
 }
 

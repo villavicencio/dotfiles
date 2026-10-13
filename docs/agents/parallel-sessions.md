@@ -46,14 +46,21 @@ wt port [topic]           # the worktree's dev-server port (this one, or the nam
   gitignored are copied. The list of copies goes in the worktree's git dir
   (`.git/worktrees/<topic>/wt-carried`). If listing the files fails, or a copy fails, `wt new`
   says so and finishes with the worktree as made; copy what's missing by hand.
-- **Dev-server ports** (opt in per clone: `git config wt.portBase 3000`). The main checkout keeps
-  the base port; each worktree gets the lowest `base+N` (N from 1 to 99) that no other worktree
-  holds and nothing is listening on (checked with `lsof`). It's recorded as `wt-port` in the
-  worktree's git dir, so it goes with `wt done`, and `wt new` exports it as `PORT` in the
-  session it opens. It isn't written to `.env`: Next.js reads `PORT` only from the environment
+- **Dev-server ports** (opt in per clone: `git config wt.portBase 3000`, a port number with no
+  leading zero). The main checkout keeps the base port; each worktree gets the lowest `base+N`
+  (N from 1 to 99) that no other worktree holds and nothing is listening on. Listeners are
+  this account's from `lsof`, plus a `nc -z` connection test that also sees other accounts'
+  on 127.0.0.1. The choice runs under a lock (`<git-common-dir>/wt-port.lock`), so two
+  `wt new` runs can't take the same port; a lock left by a crash makes `wt new` say so after
+  5 seconds, and you remove it. If the base isn't a port number, `lsof` is missing or fails,
+  or nothing is free, `wt new` says so and assigns none. The port is recorded as `wt-port` in
+  the worktree's git dir, so it goes with `wt done`, and exported as `PORT` in the session
+  `wt new` opens. It isn't written to `.env`: Next.js reads `PORT` only from the environment
   ("`PORT` cannot be set in `.env`", nextjs.org/docs/app/api-reference/cli/next, read
-  2026-10-12). In any other shell, `PORT=$(wt port) npm run dev`; in the main checkout `wt port`
-  prints the base. A dev server that doesn't read `PORT` needs it passed as a flag, e.g. `--port "$PORT"`.
+  2026-10-12). In any other shell, `port=$(wt port) && PORT=$port npm run dev`, which stops
+  instead of starting on the default port when the worktree has none; in the main checkout
+  `wt port` prints the base. A dev server that doesn't read `PORT` needs it passed as a flag,
+  e.g. `--port "$PORT"`.
 - **Opening the session.** In iTerm2 on this Mac (not over SSH), it opens a new tab in the
   current window running `claude --continue || claude` in the worktree, with `PORT` exported
   when one was assigned. Otherwise, or with
