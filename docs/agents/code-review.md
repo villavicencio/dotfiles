@@ -2,7 +2,7 @@
 
 <!-- Moved out of claude/CLAUDE.md on 2026-09-30 so it loads on demand instead of in every session. The global CLAUDE.md and codex/AGENTS.md keep the one-line rules and point here. -->
 
-Repos with their own review rules (dotfiles uses review-stack since 2026-09-24) override this.
+Repos with their own review rules override this: dotfiles (review-stack since 2026-09-24) and bryancola.com (MergeWren, review-stack), and any repo whose `CLAUDE.md`/`AGENTS.md` names its own reviewer as the gate. In those repos, don't request or wait for CodeRabbit (`@coderabbitai review` spends the per-developer quota for nothing); a CodeRabbit check that appears there on its own is informational, not a gate.
 
 **PR review runs through CodeRabbit; `dv:gauntlet` is the escalation, not the default**
 (reconciled across dotfiles / borealis / skills, 2026-08-24). Before this, the global rule named
