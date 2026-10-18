@@ -115,7 +115,7 @@ The runner handles ticket files like this:
 
 1. As `david` (SSH: `ssh david@hal`), from the dotfiles clone once this is on master:
    `~/Projects/Personal/dotfiles/pilot/install.sh`
-2. As `admin` on hal (admin's password for sudo), run the three commands `install.sh` prints:
+2. As `admin` on hal (admin's password for sudo), run the commands `install.sh` prints:
    copy the plist into `/Library/LaunchDaemons/`, `chown root:wheel`, then
    `launchctl bootstrap system` (after a `bootout`, so the sequence is safe to repeat).
 

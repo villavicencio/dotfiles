@@ -165,7 +165,10 @@ def next_ticket():
 
 
 def shelve_back(path):
-    return Path(shutil.move(str(path), RUNS / "queue" / path.name))
+    dest = RUNS / "queue" / path.name
+    if dest.exists():   # a new ticket arrived under the same name; keep both
+        dest = dest.with_name(f"{path.stem}.requeued-{int(time.time())}{path.suffix}")
+    return Path(shutil.move(str(path), dest))
 
 
 def shelve(path, where):
@@ -225,12 +228,25 @@ def prepare_worktree(repo, branch, wt, env):
 
 # ---------------------------------------------------------------- processes
 
+CHILD_PGIDS = set()   # process groups started by run_limited and still running
+
+
+def on_sigterm(*_):
+    for pgid in list(CHILD_PGIDS):
+        try:
+            os.killpg(pgid, signal.SIGTERM)
+        except ProcessLookupError:
+            pass
+    sys.exit(143)
+
+
 def run_limited(cmd, cwd, env, timeout, stdin_text=None, watch_memory=False):
     """Run cmd in its own process group; kill the group on timeout, on the
     kill switch, or (watch_memory) when free memory falls below ABORT_FREE_PCT."""
     p = subprocess.Popen(cmd, cwd=cwd, env=env, text=True,
                          stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                          stderr=subprocess.PIPE, start_new_session=True)
+    CHILD_PGIDS.add(p.pid)
     reason = []
 
     def watchdog():
@@ -261,7 +277,10 @@ def run_limited(cmd, cwd, env, timeout, stdin_text=None, watch_memory=False):
 
     t = threading.Thread(target=watchdog, daemon=True)
     t.start()
-    out, err = p.communicate(stdin_text)
+    try:
+        out, err = p.communicate(stdin_text)
+    finally:
+        CHILD_PGIDS.discard(p.pid)
     t.join(timeout=1)
     return p.returncode, out, err, (reason[0] if reason else None)
 
@@ -503,17 +522,21 @@ def run_stages(ticket, run_id, branch, base, wt, rundir, env, finish, summary):
         return finish("leak-blocked", leak=leak, failed=failed, worker=worker)
     git(["push", "origin", f"HEAD:refs/heads/{branch}"], wt, env)
     summary["pushed"] = True
-    r = subprocess.run(
-        ["gh", "pr", "create", "--draft", "--repo", f"{OWNER}/{ticket['repo']}",
-         "--base", base, "--head", branch, "--title", title,
-         "--body-file", str(prdir / "body.md")],
-        env=env, capture_output=True, text=True, timeout=120)
-    pr_url = r.stdout.strip() if r.returncode == 0 else None
+    try:
+        r = subprocess.run(
+            ["gh", "pr", "create", "--draft", "--repo", f"{OWNER}/{ticket['repo']}",
+             "--base", base, "--head", branch, "--title", title,
+             "--body-file", str(prdir / "body.md")],
+            env=env, capture_output=True, text=True, timeout=120)
+        pr_url = r.stdout.strip() if r.returncode == 0 else None
+        pr_error = r.stderr.strip()[-2000:]
+    except (OSError, subprocess.TimeoutExpired) as e:
+        pr_url, pr_error = None, str(e)
     extra = dict(failed=failed, pr=pr_url, worker=worker,
                  planner_cost_usd=plan_obj.get("_cost_usd"))
     if not pr_url:
         # The branch is pushed; the PR can be opened by hand from pr/body.md.
-        return finish("pr-failed", pr_error=r.stderr.strip()[-2000:], **extra)
+        return finish("pr-failed", pr_error=pr_error, **extra)
     return finish("failed" if failed else "passed", **extra)
 
 
@@ -564,6 +587,9 @@ def main():
         return 0
     pidfile = RUNS / "runner.pid"
     pidfile.write_text(str(os.getpid()))
+    # On SIGTERM (kill.sh, launchd): stop the planner or worker, then exit
+    # through the finally below, which removes the pid file.
+    signal.signal(signal.SIGTERM, on_sigterm)
     try:
         return run_queue(args)
     finally:
