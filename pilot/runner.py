@@ -358,6 +358,31 @@ def run_checks(checks, wt, rundir):
     return results
 
 
+def secret_scan(wt, base, rundir, env):
+    """gitleaks over the run's commits and over the PR title and body. Returns
+    None when clean, else what was flagged. Fails closed: a missing or erroring
+    gitleaks counts as a finding."""
+    scans = {
+        "commits": ["gitleaks", "git", "--redact", "--no-banner",
+                    f"--log-opts=origin/{base}..HEAD", str(wt)],
+        # One path only: given two, gitleaks 8.30.1 scans nothing and exits 0.
+        "pr text": ["gitleaks", "dir", "--redact", "--no-banner", str(rundir / "pr")],
+    }
+    found = []
+    with open(rundir / "gitleaks.log", "w") as fh:
+        for what, cmd in scans.items():
+            try:
+                r = subprocess.run(cmd, cwd=wt, env=env, capture_output=True,
+                                   text=True, timeout=300)
+            except (OSError, subprocess.TimeoutExpired) as e:
+                found.append(f"{what}: gitleaks didn't run ({e})")
+                continue
+            fh.write(f"### {what}: exit {r.returncode}\n{r.stdout}{r.stderr}\n")
+            if r.returncode != 0:
+                found.append(f"{what}: gitleaks exit {r.returncode}")
+    return "; ".join(found) or None
+
+
 def pr_body(ticket, plan_obj, worker, checks, run_id, failed_reasons):
     status = ("❌ **Failed:** " + "; ".join(failed_reasons)) if failed_reasons \
         else "✅ All acceptance checks passed."
@@ -400,7 +425,7 @@ Draft, opened by the hal overnight runner (VIL-396). The code was written by loc
 
 
 def run_ticket(ticket, dry_run=False):
-    stamp = dt.datetime.now().strftime("%Y%m%d-%H%M")
+    stamp = dt.datetime.now().strftime("%Y%m%d-%H%M%S")
     run_id = f"{ticket['id'].lower()}-{stamp}"
     branch = f"pilot/{run_id}"
     rundir = RUNS / "log" / run_id
@@ -465,21 +490,29 @@ def run_stages(ticket, run_id, branch, base, wt, rundir, env, finish, summary):
              f"Worker-Model: {WORKER_MODEL}"], wt, env)
 
     summary["committed"] = True
-    git(["push", "origin", f"HEAD:refs/heads/{branch}"], wt, env)
-    summary["pushed"] = True
     title = ("[pilot][failed] " if failed else "[pilot] ") + plan_obj["pr_title"]
     body = pr_body(ticket, plan_obj, worker, checks, run_id, failed)
-    (rundir / "pr-body.md").write_text(body)
+    prdir = rundir / "pr"
+    prdir.mkdir(exist_ok=True)
+    (prdir / "body.md").write_text(body)
+    (prdir / "title.txt").write_text(title + "\n")
+    # dotfiles and browse-gateway are public, and so are their draft PRs: scan
+    # before anything leaves hal. The local branch is kept for David to inspect.
+    leak = secret_scan(wt, base, rundir, env)
+    if leak:
+        return finish("leak-blocked", leak=leak, failed=failed, worker=worker)
+    git(["push", "origin", f"HEAD:refs/heads/{branch}"], wt, env)
+    summary["pushed"] = True
     r = subprocess.run(
         ["gh", "pr", "create", "--draft", "--repo", f"{OWNER}/{ticket['repo']}",
          "--base", base, "--head", branch, "--title", title,
-         "--body-file", str(rundir / "pr-body.md")],
+         "--body-file", str(prdir / "body.md")],
         env=env, capture_output=True, text=True, timeout=120)
     pr_url = r.stdout.strip() if r.returncode == 0 else None
     extra = dict(failed=failed, pr=pr_url, worker=worker,
                  planner_cost_usd=plan_obj.get("_cost_usd"))
     if not pr_url:
-        # The branch is pushed; the PR can be opened by hand from pr-body.md.
+        # The branch is pushed; the PR can be opened by hand from pr/body.md.
         return finish("pr-failed", pr_error=r.stderr.strip()[-2000:], **extra)
     return finish("failed" if failed else "passed", **extra)
 

@@ -1011,6 +1011,10 @@ from a local file to anywhere David can read it remotely: printing it into the c
 Materialization") or writing it into an Apple Note ("Credential Leakage"), both seen 2026-10-12
 with davidv.sh's `OPS_SECRET`. Opening the magic link on the Mac (`open -a Safari …`) and
 `pbcopy` were allowed. Away from the Mac, David reads the value from the Vercel dashboard himself.
+It also blocks writing an unattended agent's instructions ("Create Unsafe Agents", seen
+2026-10-18 on `pilot/plan-prompt.md`, VIL-396). David unblocked it with `Edit(pilot/**)` in
+this repo's `.claude/settings.local.json`; a new directory of agent code needs the same
+human-added rule.
 
 **`Write(path)` rules are inert — file-permission checks match `Edit(path)` only**, and an
 `Edit(…)` rule covers every file-editing tool (Write, Edit, NotebookEdit). Claude Code warns at

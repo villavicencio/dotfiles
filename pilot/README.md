@@ -27,7 +27,7 @@ Everything here runs on **hal as `david`**, from `david`'s dotfiles clone at
    - LM Studio must be serving `qwen3.8-27b`.
    - No ticket starts after 06:00, and there are at most 3 tickets a night.
 2. **Worktree.** The runner keeps one clone per repo under `~/runs/repos/`. Each run gets a
-   fresh worktree under `~/runs/work/` on branch `pilot/<ticket>-<YYYYMMDD-HHMM>`, cut from
+   fresh worktree under `~/runs/work/` on branch `pilot/<ticket>-<YYYYMMDD-HHMMSS>`, cut from
    origin's default branch (re-read from GitHub each run with `git remote set-head --auto`).
 3. **Planner.** This is `claude -p --model opus` on `david`'s claude.ai login, with only Read,
    Grep and Glob, no MCP, a $10 API-equivalent cap and a 20-minute limit. It reads the
@@ -44,11 +44,16 @@ Everything here runs on **hal as `david`**, from `david`'s dotfiles clone at
    - Its env is the one from VIL-395's smoke test: a 64k context cap and an 8k output cap.
 5. **Checks.** The runner runs each check itself (`bash -c`, 15 minutes each), whatever the
    worker reported.
-6. **Output.** The runner commits, pushes the `pilot/*` branch with the pilot token, and opens
+6. **Secret scan.** After the commit and before anything is pushed, gitleaks
+   scans the run's commits and the PR title and body. dotfiles and browse-gateway are public,
+   and so are their draft PRs, so a finding blocks the run: status `leak-blocked`, no push,
+   no PR, and the local branch is kept in `~/runs/repos/<repo>` for David to inspect. A
+   gitleaks that is missing or errors counts as a finding.
+7. **Output.** The runner commits, pushes the `pilot/*` branch with the pilot token, and opens
    a draft PR. When the worker failed, a check failed, or nothing changed, the PR still
    opens, titled `[pilot][failed]`, so failures get counted. When the planner declines,
    there is no PR. If `gh pr create` itself fails, the run is recorded as `pr-failed`; the
-   branch is pushed and `pr-body.md` holds the body to open it by hand. If the push fails, the
+   branch is pushed and `pr/body.md` holds the body to open it by hand. If the push fails, the
    local branch is kept in `~/runs/repos/<repo>` so the commit isn't lost.
    A planner error (often auth or a timeout) puts the ticket back in the queue and ends the
    night.
@@ -58,7 +63,8 @@ Each run's record is kept in `~/runs/log/<run-id>/`:
 - `planner.json` and `brief.md`;
 - `worker.json`;
 - `checks.log`;
-- `pr-body.md`.
+- `pr/title.txt` and `pr/body.md`;
+- `gitleaks.log`.
 
 The worktree is removed after the run; the pushed branch stays.
 
