@@ -6,11 +6,12 @@ scripts:
     m=$ORCA_ROOT_PATH
     cd "$ORCA_WORKTREE_PATH"
     git submodule update --init dotbot
-    # The files .worktreeinclude names that are also gitignored, as `wt new` copies them.
-    if [ -f "$m/.worktreeinclude" ]; then
+    # Copy from the main checkout the files .worktreeinclude names that are also gitignored,
+    # as `wt new` does. The list is this worktree's copy, like orca.yaml itself.
+    if [ -f .worktreeinclude ]; then
       t=$(mktemp -d)
       git -C "$m" ls-files -o -i --exclude-standard > "$t/ign"
-      git -C "$m" ls-files -o -i --exclude-from="$m/.worktreeinclude" > "$t/inc"
+      git -C "$m" ls-files -o -i --exclude-from="$PWD/.worktreeinclude" > "$t/inc"
       LC_ALL=C sort -o "$t/ign" "$t/ign"
       LC_ALL=C sort -o "$t/inc" "$t/inc"
       LC_ALL=C comm -12 "$t/ign" "$t/inc" > "$t/carry"

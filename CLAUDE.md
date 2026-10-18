@@ -303,7 +303,9 @@ Orca runs `scripts.setup` from `orca.yaml` in each worktree it creates, with `OR
 (the main checkout) and `ORCA_WORKTREE_PATH` set. It reads the file from the **new worktree**,
 so a change only applies to worktrees cut from a branch that has it. The script checks out the
 `dotbot` submodule (a new worktree has none, so `./install --dry-run` fails without it) and
-copies the gitignored files `.worktreeinclude` names, the same set `wt new` copies. Today that
+copies from the main checkout the gitignored files that the worktree's own `.worktreeinclude`
+names (`wt new` reads the main checkout's copy instead, so it copies nothing until the file is
+on the main checkout's branch). Today that
 is `.claude/settings.local.json`; without it a session falls back to the tracked allowlist.
 The pre-commit hook needs nothing: hooks live in the shared `.git/hooks`.
 
