@@ -24,9 +24,10 @@ scripts:
     fi
   archive: |
     # git refuses to remove a worktree holding an initialized submodule, and Orca removes
-    # without --force. Deinit dotbot and drop this worktree's private clone of it.
+    # without --force. Drop this worktree's dotbot clone and leave an empty dir, as in a
+    # fresh checkout. Not `git submodule deinit`: it unsets submodule.dotbot.* in the
+    # config every checkout shares, unregistering dotbot in the main checkout too.
     set -eu
     cd "$ORCA_WORKTREE_PATH"
-    git submodule deinit -f dotbot
     gd=$(git rev-parse --absolute-git-dir)
-    case $gd in */worktrees/*) rm -rf "$gd/modules" ;; esac
+    case $gd in */worktrees/*) rm -rf dotbot "$gd/modules" && mkdir dotbot ;; esac

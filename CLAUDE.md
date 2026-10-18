@@ -314,6 +314,21 @@ live `~/.config`, `~/.claude` and `~/.local/bin` links at whichever checkout ran
 dangle once the worktree is removed. Don't launch nvim there either (first launch rewrites
 `nvim/lazy-lock.json`).
 
+**Removing a worktree needs the archive script or Force.** `git worktree remove` refuses a
+worktree with an initialized submodule ("working trees containing submodules cannot be moved
+or removed"), and Orca removes without `--force`. The CLI then reports `removed: true,
+removing: true` while the worktree stays, stuck in Orca's "removing" state. `scripts.archive`
+clears the way by deleting the worktree's dotbot clone and its `<gitdir>/modules`. Two limits,
+both from Orca's code (2026-10-18): Orca reads the archive hook from the **main checkout's**
+`orca.yaml`, so it runs only while the main checkout's branch has the file; and
+`orca worktree rm` skips it unless passed `--run-hooks`. Otherwise use Force delete (CLI:
+`--force`), which is safe here: the submodule clone lives in the worktree's own git dir.
+
+**Never `git submodule deinit` in a worktree.** It unsets `submodule.dotbot.*` in the shared
+`.git/config`, so the main checkout's dotbot reads as uninitialized (`-a7fe585 dotbot`) even
+though its files are intact. `git -C <main checkout> submodule init dotbot` restores it, and so
+does the next `./install`.
+
 Orca's file parser isn't full YAML: keys under `scripts:` take two spaces and script lines
 four, as in Orca's own template. Orca worktrees live under `~/orca/workspaces/`, not
 `.claude/worktrees/`, so `wt done` doesn't manage them; remove them from Orca.
