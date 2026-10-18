@@ -22,3 +22,11 @@ scripts:
       done < "$t/carry"
       rm -rf "$t"
     fi
+  archive: |
+    # git refuses to remove a worktree holding an initialized submodule, and Orca removes
+    # without --force. Deinit dotbot and drop this worktree's private clone of it.
+    set -eu
+    cd "$ORCA_WORKTREE_PATH"
+    git submodule deinit -f dotbot
+    gd=$(git rev-parse --absolute-git-dir)
+    case $gd in */worktrees/*) rm -rf "$gd/modules" ;; esac
