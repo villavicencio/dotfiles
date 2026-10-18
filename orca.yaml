@@ -17,7 +17,11 @@ scripts:
       LC_ALL=C comm -12 "$t/ign" "$t/inc" > "$t/carry"
       while IFS= read -r f; do
         if [ -n "$f" ] && [ ! -e "$f" ] && [ ! -L "$f" ]; then
-          mkdir -p "$(dirname "$f")" && cp -p "$m/$f" "$f" && echo "copied $f"
+          if mkdir -p "$(dirname "$f")" && cp -p "$m/$f" "$f"; then
+            echo "copied $f"
+          else
+            rm -f "$f"; echo "couldn't copy $f; copy it by hand" >&2
+          fi
         fi
       done < "$t/carry"
       rm -rf "$t"
@@ -27,7 +31,19 @@ scripts:
     # without --force. Drop this worktree's dotbot clone and leave an empty dir, as in a
     # fresh checkout. Not `git submodule deinit`: it unsets submodule.dotbot.* in the
     # config every checkout shares, unregistering dotbot in the main checkout too.
+    # Refuses (blocking the removal) when dotbot has uncommitted changes or another commit.
     set -eu
     cd "$ORCA_WORKTREE_PATH"
     gd=$(git rev-parse --absolute-git-dir)
-    case $gd in */worktrees/*) rm -rf dotbot "$gd/modules" && mkdir dotbot ;; esac
+    case $gd in */worktrees/*) ;; *) exit 0 ;; esac
+    if [ -e dotbot/.git ]; then
+      st=$(git submodule status dotbot)
+      case $st in
+        +*) echo "dotbot is on a different commit than this branch records; not removing it" >&2; exit 1 ;;
+      esac
+      if [ -n "$(git -C dotbot status --porcelain)" ]; then
+        echo "dotbot has uncommitted changes; not removing it" >&2; exit 1
+      fi
+    fi
+    rm -rf dotbot "$gd/modules"
+    mkdir dotbot

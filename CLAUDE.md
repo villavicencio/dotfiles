@@ -302,7 +302,8 @@ If a leaked loop ever shows up, kill it via `pkill -f claude-spinner-marker`.
 Orca runs `scripts.setup` from `orca.yaml` in each worktree it creates, with `ORCA_ROOT_PATH`
 (the main checkout) and `ORCA_WORKTREE_PATH` set. It reads the file from the **new worktree**,
 so a change only applies to worktrees cut from a branch that has it. The script checks out the
-`dotbot` submodule (a new worktree has none, so `./install --dry-run` fails without it) and
+`dotbot` submodule (a new worktree has none; `./install` checks it out itself, but direct
+`dotbot/bin/dotbot` runs such as the dry-run check under "`--dry-run`" need it there) and
 copies from the main checkout the gitignored files that the worktree's own `.worktreeinclude`
 names (`wt new` reads the main checkout's copy instead, so it copies nothing until the file is
 on the main checkout's branch). Today that
@@ -321,8 +322,10 @@ removing: true` while the worktree stays, stuck in Orca's "removing" state. `scr
 clears the way by deleting the worktree's dotbot clone and its `<gitdir>/modules`. Two limits,
 both from Orca's code (2026-10-18): Orca reads the archive hook from the **main checkout's**
 `orca.yaml`, so it runs only while the main checkout's branch has the file; and
-`orca worktree rm` skips it unless passed `--run-hooks`. Otherwise use Force delete (CLI:
-`--force`), which is safe here: the submodule clone lives in the worktree's own git dir.
+`orca worktree rm` skips it unless passed `--run-hooks`. The hook refuses, blocking the
+removal, when dotbot has uncommitted changes or sits on another commit. Otherwise use Force
+delete (CLI: `--force`). It discards any uncommitted work in the worktree, dotbot included,
+but nothing outside it: the submodule clone lives in the worktree's own git dir.
 
 **Never `git submodule deinit` in a worktree.** It unsets `submodule.dotbot.*` in the shared
 `.git/config`, so the main checkout's dotbot reads as uninitialized (`-a7fe585 dotbot`) even
