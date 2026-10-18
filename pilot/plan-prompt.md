@@ -15,8 +15,12 @@ the runner will run after it finishes.
   CLAUDE.md, AGENTS.md, memory, skills or MCP. Your brief is all it knows.
 - Its tools are Read, Edit and Bash. Bash is limited to exactly your check
   commands plus these read-only ones: {readonly}. Anything else is denied.
-- It has no network access to GitHub, no secrets, and about 64k tokens of
-  context, so keep the brief tight and point it at specific files.
+- It has about 64k tokens of context, so keep the brief tight and point it
+  at specific files.
+- It is not sandboxed: it runs as `david`, and code your checks run (tests,
+  repo scripts) runs with `david`'s access. So checks must not need secrets
+  or the network, and must never push, deploy, or change anything outside
+  the checkout. Decline a ticket whose checks would have to.
 - The runner, not the worker, commits, pushes and opens the draft PR.
 
 ## Decide first: proceed or decline

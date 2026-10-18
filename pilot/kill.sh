@@ -13,7 +13,10 @@ fi
 mkdir -p "$RUNS" && date > "$RUNS/DISABLED"
 echo "pilot: disabled ($RUNS/DISABLED)"
 pid=$(cat "$RUNS/runner.pid" 2>/dev/null)
-if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then
+# The runner removes runner.pid on exit; a leftover one could name a reused
+# PID, so signal it only if that process is still runner.py.
+cmd=$(ps -p "${pid:-0}" -o command= 2>/dev/null)
+if [ -n "$pid" ] && case "$cmd" in *pilot/runner.py*) true ;; *) false ;; esac; then
   # The planner and worker run in their own process groups (start_new_session),
   # so kill those first, then the runner.
   for child in $(pgrep -P "$pid"); do kill -TERM -- "-$child" 2>/dev/null; done

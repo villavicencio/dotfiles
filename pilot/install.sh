@@ -30,9 +30,10 @@ plutil -lint "$out" >/dev/null
 echo "rendered $out"
 cat <<MSG
 
-Next, as admin on hal (admin's password):
+Next, as admin on hal (admin's password). Safe to repeat after a change:
   sudo cp $out /Library/LaunchDaemons/dev.hal.pilot.plist
   sudo chown root:wheel /Library/LaunchDaemons/dev.hal.pilot.plist
+  sudo launchctl bootout system/dev.hal.pilot 2>/dev/null   # only if already loaded
   sudo launchctl bootstrap system /Library/LaunchDaemons/dev.hal.pilot.plist
 
 Run once now, outside the schedule:

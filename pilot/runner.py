@@ -164,6 +164,10 @@ def next_ticket():
     return None
 
 
+def shelve_back(path):
+    return Path(shutil.move(str(path), RUNS / "queue" / path.name))
+
+
 def shelve(path, where):
     dest = RUNS / "queue" / where
     dest.mkdir(parents=True, exist_ok=True)
@@ -211,9 +215,10 @@ def prepare_worktree(repo, branch, wt, env):
     git(["config", "core.hooksPath", str(hooks)], clone, env)
     git(["remote", "set-url", "origin", url], clone, env)
     git(["fetch", "--prune", "origin"], clone, env)
+    # fetch doesn't move origin/HEAD when the default branch changes; ask the remote.
+    git(["remote", "set-head", "origin", "--auto"], clone, env)
     git(["worktree", "prune"], clone, env)
-    default = git(["symbolic-ref", "--short", "refs/remotes/origin/HEAD"],
-                  clone, env, check=False) or "origin/master"
+    default = git(["symbolic-ref", "--short", "refs/remotes/origin/HEAD"], clone, env)
     git(["worktree", "add", "-b", branch, str(wt), default], clone, env)
     return default.split("/", 1)[1]
 
@@ -402,7 +407,8 @@ def run_ticket(ticket, dry_run=False):
     rundir.mkdir(parents=True, exist_ok=True)
     wt = RUNS / "work" / run_id
     env = git_env(read_secret("gh-token"))
-    summary = {"run_id": run_id, "ticket": ticket["id"], "repo": ticket["repo"]}
+    summary = {"run_id": run_id, "ticket": ticket["id"], "repo": ticket["repo"],
+               "committed": False, "pushed": False}
 
     def finish(status, **extra):
         summary.update(status=status, **extra)
@@ -415,15 +421,19 @@ def run_ticket(ticket, dry_run=False):
         log(f"{run_id}: worktree {wt} on {branch} from {base}")
         if dry_run:
             return finish("dry-run")
-        return run_stages(ticket, run_id, branch, base, wt, rundir, env, finish)
+        return run_stages(ticket, run_id, branch, base, wt, rundir, env, finish,
+                          summary)
     except Exception as e:
         return finish("runner-error", error=str(e))
     finally:
-        cleanup_worktree(ticket["repo"], wt, branch, env)
+        # An unpushed commit is the run's only copy of the work: keep its branch.
+        keep = summary["committed"] and not summary["pushed"]
+        if keep:
+            log(f"{run_id}: push didn't happen; keeping local branch {branch}")
+        cleanup_worktree(ticket["repo"], wt, branch, env, keep_branch=keep)
 
 
-def run_stages(ticket, run_id, branch, base, wt, rundir, env, finish):
-
+def run_stages(ticket, run_id, branch, base, wt, rundir, env, finish, summary):
     try:
         plan_obj = plan(ticket, wt, rundir)
     except Exception as e:
@@ -454,7 +464,9 @@ def run_stages(ticket, run_id, branch, base, wt, rundir, env, finish):
              f"{plan_obj['pr_title']}\n\n{ticket['id']}\n\nPilot-Run: {run_id}\n"
              f"Worker-Model: {WORKER_MODEL}"], wt, env)
 
+    summary["committed"] = True
     git(["push", "origin", f"HEAD:refs/heads/{branch}"], wt, env)
+    summary["pushed"] = True
     title = ("[pilot][failed] " if failed else "[pilot] ") + plan_obj["pr_title"]
     body = pr_body(ticket, plan_obj, worker, checks, run_id, failed)
     (rundir / "pr-body.md").write_text(body)
@@ -464,13 +476,15 @@ def run_stages(ticket, run_id, branch, base, wt, rundir, env, finish):
          "--body-file", str(rundir / "pr-body.md")],
         env=env, capture_output=True, text=True, timeout=120)
     pr_url = r.stdout.strip() if r.returncode == 0 else None
+    extra = dict(failed=failed, pr=pr_url, worker=worker,
+                 planner_cost_usd=plan_obj.get("_cost_usd"))
     if not pr_url:
-        log(f"{run_id}: gh pr create failed: {r.stderr.strip()}")
-    return finish("failed" if failed else "passed", failed=failed, pr=pr_url,
-                  worker=worker, planner_cost_usd=plan_obj.get("_cost_usd"))
+        # The branch is pushed; the PR can be opened by hand from pr-body.md.
+        return finish("pr-failed", pr_error=r.stderr.strip()[-2000:], **extra)
+    return finish("failed" if failed else "passed", **extra)
 
 
-def cleanup_worktree(repo, wt, branch, env):
+def cleanup_worktree(repo, wt, branch, env, keep_branch=False):
     """Remove the run's worktree and local branch; the pushed branch and the
     run log under ~/runs/log/ stay."""
     clone = RUNS / "repos" / repo
@@ -478,7 +492,8 @@ def cleanup_worktree(repo, wt, branch, env):
         return
     if wt.exists():
         git(["worktree", "remove", "--force", str(wt)], clone, env, check=False)
-    git(["branch", "-D", branch], clone, env, check=False)
+    if not keep_branch:
+        git(["branch", "-D", branch], clone, env, check=False)
 
 
 # ---------------------------------------------------------------- main
@@ -514,8 +529,15 @@ def main():
     except BlockingIOError:
         log("another runner holds the lock; exiting")
         return 0
-    (RUNS / "runner.pid").write_text(str(os.getpid()))
+    pidfile = RUNS / "runner.pid"
+    pidfile.write_text(str(os.getpid()))
+    try:
+        return run_queue(args)
+    finally:
+        pidfile.unlink(missing_ok=True)
 
+
+def run_queue(args):
     done = 0
     limit = 1 if (args.once or args.ticket) else MAX_TICKETS_PER_NIGHT
     while done < limit:
@@ -537,8 +559,14 @@ def main():
             if not args.dry_run:
                 ticket["path"] = shelve(ticket["path"], "taken")
         log(f"starting {ticket['id']} on {ticket['repo']}")
-        run_ticket(ticket, dry_run=args.dry_run)
+        s = run_ticket(ticket, dry_run=args.dry_run)
         done += 1
+        if s["status"] == "planner-error":
+            # Usually systemic (auth, timeouts): put the ticket back and stop.
+            if not args.ticket:
+                shelve_back(ticket["path"])
+            log("planner failed; ticket requeued, stopping for the night")
+            break
     return 0
 
 

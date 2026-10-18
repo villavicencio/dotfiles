@@ -28,7 +28,7 @@ Everything here runs on **hal as `david`**, from `david`'s dotfiles clone at
    - No ticket starts after 06:00, and there are at most 3 tickets a night.
 2. **Worktree.** The runner keeps one clone per repo under `~/runs/repos/`. Each run gets a
    fresh worktree under `~/runs/work/` on branch `pilot/<ticket>-<YYYYMMDD-HHMM>`, cut from
-   origin's default branch.
+   origin's default branch (re-read from GitHub each run with `git remote set-head --auto`).
 3. **Planner.** This is `claude -p --model opus` on `david`'s claude.ai login, with only Read,
    Grep and Glob, no MCP, a $10 API-equivalent cap and a 20-minute limit. It reads the
    repo's CLAUDE.md and AGENTS.md and returns JSON (`--json-schema`) with:
@@ -47,7 +47,11 @@ Everything here runs on **hal as `david`**, from `david`'s dotfiles clone at
 6. **Output.** The runner commits, pushes the `pilot/*` branch with the pilot token, and opens
    a draft PR. When the worker failed, a check failed, or nothing changed, the PR still
    opens, titled `[pilot][failed]`, so failures get counted. When the planner declines,
-   there is no PR.
+   there is no PR. If `gh pr create` itself fails, the run is recorded as `pr-failed`; the
+   branch is pushed and `pr-body.md` holds the body to open it by hand. If the push fails, the
+   local branch is kept in `~/runs/repos/<repo>` so the commit isn't lost.
+   A planner error (often auth or a timeout) puts the ticket back in the queue and ends the
+   night.
 
 Each run's record is kept in `~/runs/log/<run-id>/`:
 - `run.json` (the summary);
@@ -73,8 +77,14 @@ The rules for using them:
 - The planner's env drops the `ANTHROPIC_*` overrides, and the worker's drops
   `ANTHROPIC_API_KEY`.
 
-**Accepted risk** (David, 2026-10-16, recorded on VIL-396): the worker runs as `david`, so its
-Read tool can read anything `david` can.
+**Accepted risk** (David, 2026-10-16, widened 2026-10-18; recorded on VIL-396): the worker runs
+as `david`, and it can run code as `david`, not just read files. Its Bash allowlist doesn't
+contain that: the check commands run code from the checkout (tests, repo scripts), and the
+worker can edit that code first. Code run that way, by the worker or by the runner's own
+check pass, has `david`'s access: `~/.ssh`, `david`'s `gh` login, the Claude login and the
+network. Emptying `GH_TOKEN` wouldn't help, because `gh` then falls back to the stored login.
+The real fix is OS isolation, either a Seatbelt profile or a separate `pilot` account. Revisit
+before the pilot runs past two weeks or on more repos.
 
 ## The queue
 
@@ -101,7 +111,7 @@ The runner handles ticket files like this:
    `~/Projects/Personal/dotfiles/pilot/install.sh`
 2. As `admin` on hal (admin's password for sudo), run the three commands `install.sh` prints:
    copy the plist into `/Library/LaunchDaemons/`, `chown root:wheel`, then
-   `launchctl bootstrap system`.
+   `launchctl bootstrap system` (after a `bootout`, so the sequence is safe to repeat).
 
 The schedule is a LaunchDaemon, not a LaunchAgent, because `david` has no GUI session on hal
 (`gui/502` doesn't exist), so a LaunchAgent would never load.
