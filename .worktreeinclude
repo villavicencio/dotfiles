@@ -1,0 +1,4 @@
+# Gitignored files to copy from the main checkout into a new worktree. Gitignore syntax;
+# only files that are also gitignored are copied. Read by `claude --worktree`, `wt new`
+# and the setup script in orca.yaml.
+.claude/settings.local.json

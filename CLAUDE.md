@@ -57,6 +57,8 @@ bin/            Repo CLI — bin/dot, and bin/wt (one worktree per parallel sess
   lib/*.py      Python helpers for doctor/bench. Real files, NOT heredocs — see
                 "No heredocs in bin/dot" below
   lib/cleanup-merged-branch.sh  the merged-branch cleanup function (docs/agents/code-review.md)
+orca.yaml       Orca's setup script for each new worktree (see "Orca worktrees" below)
+.worktreeinclude  gitignored files copied into new worktrees (claude --worktree, wt new, orca.yaml)
 tmux/           tmux config
 topgrade/       Topgrade system updater config
 vale/           Vale prose linter config
@@ -295,6 +297,24 @@ when (a) the sentinel file is removed, (b) Claude Code's PID is gone, or
 sentinel-still-exists so it does not race the main-thread state writer — see
 `docs/solutions/runtime-errors/tmux-attention-hook-race-condition-and-askuserquestion-state-2026-04-19.md`.
 If a leaked loop ever shows up, kill it via `pkill -f claude-spinner-marker`.
+
+### Orca worktrees — `orca.yaml` setup script
+Orca runs `scripts.setup` from `orca.yaml` in each worktree it creates, with `ORCA_ROOT_PATH`
+(the main checkout) and `ORCA_WORKTREE_PATH` set. It reads the file from the **new worktree**,
+so a change only applies to worktrees cut from a branch that has it. The script checks out the
+`dotbot` submodule (a new worktree has none, so `./install --dry-run` fails without it) and
+copies the gitignored files `.worktreeinclude` names, the same set `wt new` copies. Today that
+is `.claude/settings.local.json`; without it a session falls back to the tracked allowlist.
+The pre-commit hook needs nothing: hooks live in the shared `.git/hooks`.
+
+**Never run `./install` from a worktree, in the setup script or by hand.** Dotbot points the
+live `~/.config`, `~/.claude` and `~/.local/bin` links at whichever checkout ran it, and they
+dangle once the worktree is removed. Don't launch nvim there either (first launch rewrites
+`nvim/lazy-lock.json`).
+
+Orca's file parser isn't full YAML: keys under `scripts:` take two spaces and script lines
+four, as in Orca's own template. Orca worktrees live under `~/orca/workspaces/`, not
+`.claude/worktrees/`, so `wt done` doesn't manage them; remove them from Orca.
 
 ### OMZ plugin sync
 When adding an Oh My Zsh plugin to the `plugins=()` list in `zshrc`, also add the corresponding

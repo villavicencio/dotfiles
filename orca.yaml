@@ -1,0 +1,23 @@
+scripts:
+  setup: |
+    # Runs in each new Orca worktree. Never ./install here: Dotbot would point the live
+    # ~/.config links at this worktree, and they'd dangle once it's removed.
+    set -eu
+    m=$ORCA_ROOT_PATH
+    cd "$ORCA_WORKTREE_PATH"
+    git submodule update --init dotbot
+    # The files .worktreeinclude names that are also gitignored, as `wt new` copies them.
+    if [ -f "$m/.worktreeinclude" ]; then
+      t=$(mktemp -d)
+      git -C "$m" ls-files -o -i --exclude-standard > "$t/ign"
+      git -C "$m" ls-files -o -i --exclude-from="$m/.worktreeinclude" > "$t/inc"
+      LC_ALL=C sort -o "$t/ign" "$t/ign"
+      LC_ALL=C sort -o "$t/inc" "$t/inc"
+      LC_ALL=C comm -12 "$t/ign" "$t/inc" > "$t/carry"
+      while IFS= read -r f; do
+        if [ -n "$f" ] && [ ! -e "$f" ] && [ ! -L "$f" ]; then
+          mkdir -p "$(dirname "$f")" && cp -p "$m/$f" "$f" && echo "copied $f"
+        fi
+      done < "$t/carry"
+      rm -rf "$t"
+    fi
