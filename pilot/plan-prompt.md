@@ -21,7 +21,7 @@ the runner will run after it finishes.
   repo scripts) runs with `david`'s access. So checks must not need secrets
   or the network, and must never push, deploy, or change anything outside
   the checkout. Decline a ticket whose checks would have to.
-- The runner, not the worker, commits, pushes and opens the draft PR.
+- The runner, not the worker, commits, pushes and opens the PR.
 
 ## Decide first: proceed or decline
 

@@ -2,7 +2,8 @@
 
 The runner for the hal Local Coding Pilot (Linear project P-VIL-11, ticket VIL-396).
 Opus writes the brief and the acceptance checks. Local `qwen3.8-27b` on hal does the work.
-Each run ends as a **draft PR** that MergeWren reviews. Nothing merges without David.
+Each run ends as a PR titled `[pilot]` that MergeWren reviews. Nothing merges without David.
+The PR is not a draft, because MergeWren's watcher skips drafts (`watch.py`, `not pull.get("draft")`).
 
 Everything here runs on **hal as `david`**, from `david`'s dotfiles clone at
 `~/Projects/Personal/dotfiles`. None of it runs on the desk Macs, and Dotbot installs none of it.
@@ -11,7 +12,7 @@ Everything here runs on **hal as `david`**, from `david`'s dotfiles clone at
 
 | File | What it does |
 |---|---|
-| `runner.py` | The runner: gates, worktree, planner, worker, checks, commit, push, draft PR |
+| `runner.py` | The runner: gates, worktree, planner, worker, checks, commit, push, PR |
 | `plan-prompt.md` | The planner's instructions. `{id}`, `{repo}`, `{title}`, `{body}` and `{readonly}` are filled in by `runner.py` |
 | `pre-push` | Copied into every runner clone. It refuses any push except to `refs/heads/pilot/*`, and every branch delete |
 | `kill.sh` | Kill switch: creates `~/runs/DISABLED` and stops a running run. `--on` removes the file |
@@ -46,12 +47,12 @@ Everything here runs on **hal as `david`**, from `david`'s dotfiles clone at
    worker reported.
 6. **Secret scan.** After the commit and before anything is pushed, gitleaks
    scans the run's commits and the PR title and body. dotfiles and browse-gateway are public,
-   and so are their draft PRs, so a finding blocks the run: status `leak-blocked`, no push,
+   and so are their PRs, so a finding blocks the run: status `leak-blocked`, no push,
    no PR, and the local branch is kept in `~/runs/repos/<repo>` for David to inspect. A
    gitleaks that is missing or errors counts as a finding.
 7. **Output.** The runner commits, pushes the `pilot/*` branch with the pilot token, and opens
-   a draft PR. When the worker failed, a check failed, or nothing changed, the PR still
-   opens, titled `[pilot][failed]`, so failures get counted. When the planner declines,
+   a PR (not a draft, so MergeWren reviews it). When the worker failed, a check failed, or
+   nothing changed, the PR still opens, titled `[pilot][failed]`, so failures get counted. When the planner declines,
    there is no PR. If `gh pr create` itself fails, the run is recorded as `pr-failed`; the
    branch is pushed and `pr/body.md` holds the body to open it by hand. If the push fails, the
    local branch is kept in `~/runs/repos/<repo>` so the commit isn't lost.

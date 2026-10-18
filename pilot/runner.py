@@ -9,7 +9,7 @@ queued ticket it:
   3. has Opus (david's claude.ai login) write the brief and acceptance checks;
   4. has the local Qwen worker (`claude -p --bare` against LM Studio) do the work;
   5. runs the acceptance checks itself;
-  6. commits, pushes the `pilot/*` branch and opens a DRAFT PR, marked failed
+  6. commits, pushes the `pilot/*` branch and opens a PR, marked failed
      when the checks fail, so failures get counted.
 
 Nothing here merges, pushes a default branch, or touches `~/.ssh` or david's
@@ -415,7 +415,7 @@ def pr_body(ticket, plan_obj, worker, checks, run_id, failed_reasons):
 
 {status}
 
-Draft, opened by the hal overnight runner (VIL-396). The code was written by local `{WORKER_MODEL}`; the brief and checks by Opus. Nothing merges without David.
+Opened by the hal overnight runner (VIL-396). Not a draft, so MergeWren reviews it. The code was written by local `{WORKER_MODEL}`; the brief and checks by Opus. Nothing merges without David.
 
 ### Acceptance checks
 | | Check | Command | Time |
@@ -515,7 +515,7 @@ def run_stages(ticket, run_id, branch, base, wt, rundir, env, finish, summary):
     prdir.mkdir(exist_ok=True)
     (prdir / "body.md").write_text(body)
     (prdir / "title.txt").write_text(title + "\n")
-    # dotfiles and browse-gateway are public, and so are their draft PRs: scan
+    # dotfiles and browse-gateway are public, and so are their PRs: scan
     # before anything leaves hal. The local branch is kept for David to inspect.
     leak = secret_scan(wt, base, rundir, env)
     if leak:
@@ -524,7 +524,7 @@ def run_stages(ticket, run_id, branch, base, wt, rundir, env, finish, summary):
     summary["pushed"] = True
     try:
         r = subprocess.run(
-            ["gh", "pr", "create", "--draft", "--repo", f"{OWNER}/{ticket['repo']}",
+            ["gh", "pr", "create", "--repo", f"{OWNER}/{ticket['repo']}",
              "--base", base, "--head", branch, "--title", title,
              "--body-file", str(prdir / "body.md")],
             env=env, capture_output=True, text=True, timeout=120)
