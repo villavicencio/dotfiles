@@ -57,6 +57,8 @@ iterm/      iTerm2 preferences
 lazygit/    lazygit config
 nvim/       Neovim config (NvChad v2.5; the whole dir is linked as ~/.config/nvim,
             %LOCALAPPDATA%\nvim on Windows). Plugins pinned in lazy-lock.json
+pilot/      hal overnight coding-pilot runner (VIL-396); runs on hal as david, not
+            installed by Dotbot. See pilot/README.md
 starship/   Starship prompt config (command_timeout is a global top-level key)
 tmux/       tmux config + status-bar scripts + window-meta persistence
 topgrade/   Topgrade system-updater config

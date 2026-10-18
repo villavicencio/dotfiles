@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- hal pilot runner (VIL-396). A LaunchDaemon, not a LaunchAgent: david has
+     no GUI session on hal, so gui/502 doesn't exist. install.sh renders
+     @HOME@ and @USER@; admin copies the result to /Library/LaunchDaemons/. -->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>dev.hal.pilot</string>
+  <key>UserName</key>
+  <string>@USER@</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/opt/homebrew/bin/python3</string>
+    <string>@HOME@/Projects/Personal/dotfiles/pilot/runner.py</string>
+  </array>
+  <key>WorkingDirectory</key>
+  <string>@HOME@/runs</string>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>HOME</key>
+    <string>@HOME@</string>
+    <key>PATH</key>
+    <string>@HOME@/.local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+  </dict>
+  <!-- 01:30 local time (hal is on America/Los_Angeles). -->
+  <key>StartCalendarInterval</key>
+  <dict>
+    <key>Hour</key>
+    <integer>1</integer>
+    <key>Minute</key>
+    <integer>30</integer>
+  </dict>
+  <key>StandardOutPath</key>
+  <string>@HOME@/runs/log/runner.log</string>
+  <key>StandardErrorPath</key>
+  <string>@HOME@/runs/log/runner.log</string>
+</dict>
+</plist>

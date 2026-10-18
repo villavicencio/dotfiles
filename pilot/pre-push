@@ -1,0 +1,16 @@
+#!/bin/sh
+# hal pilot guard (VIL-396): this clone may push only pilot/* branches, and
+# may never delete a remote branch. Installed by runner.py into each clone
+# under ~/runs/repos/, with core.hooksPath pinned to it.
+zero=0000000000000000000000000000000000000000
+status=0
+while read -r local_ref local_sha remote_ref remote_sha; do
+  case "$remote_ref" in
+    refs/heads/pilot/*) ;;
+    *) echo "pilot pre-push: refusing to push $remote_ref (only refs/heads/pilot/*)" >&2; status=1 ;;
+  esac
+  if [ "$local_sha" = "$zero" ]; then
+    echo "pilot pre-push: refusing to delete $remote_ref" >&2; status=1
+  fi
+done
+exit $status

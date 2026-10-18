@@ -41,6 +41,8 @@ lazygit/        lazygit config
 npm/            npm global package list (npm-requirements.txt)
 nvim/           Neovim config (NvChad v2.5; the whole dir is linked as ~/.config/nvim,
                 %LOCALAPPDATA%\nvim on Windows). Plugins pinned in lazy-lock.json
+pilot/          hal overnight coding-pilot runner (VIL-396); runs on hal as david, not
+                installed by Dotbot. See pilot/README.md
 starship/       Starship prompt config (command_timeout is a global top-level key)
 windows/        Windows layer, applied by install.ps1 at the repo root (NOT Dotbot):
   packages.json           winget package list — the Brewfile counterpart
