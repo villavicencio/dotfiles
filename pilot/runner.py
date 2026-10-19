@@ -260,12 +260,20 @@ def on_sigterm(*_):
     sys.exit(143)
 
 
-def run_limited(cmd, cwd, env, timeout, stdin_text=None, watch_memory=False):
+def run_limited(cmd, cwd, env, timeout, stdin_text=None, watch_memory=False,
+                stdout_path=None):
     """Run cmd in its own process group; kill the group on timeout, on the
-    kill switch, or (watch_memory) when free memory falls below ABORT_FREE_PCT."""
-    p = subprocess.Popen(cmd, cwd=cwd, env=env, text=True,
-                         stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                         stderr=subprocess.PIPE, start_new_session=True)
+    kill switch, or (watch_memory) when free memory falls below ABORT_FREE_PCT.
+    With stdout_path, stdout goes straight to that file as it is written, so a
+    killed process still leaves its output; the returned stdout is then ""."""
+    sink = open(stdout_path, "w") if stdout_path else subprocess.PIPE
+    try:
+        p = subprocess.Popen(cmd, cwd=cwd, env=env, text=True,
+                             stdin=subprocess.PIPE, stdout=sink,
+                             stderr=subprocess.PIPE, start_new_session=True)
+    finally:
+        if stdout_path:
+            sink.close()
     CHILD_PGIDS.add(p.pid)
     reason = []
 
@@ -302,7 +310,36 @@ def run_limited(cmd, cwd, env, timeout, stdin_text=None, watch_memory=False):
     finally:
         CHILD_PGIDS.discard(p.pid)
     t.join(timeout=1)
-    return p.returncode, out, err, (reason[0] if reason else None)
+    return p.returncode, out or "", err, (reason[0] if reason else None)
+
+
+def parse_stream(lines):
+    """Summarize a `--output-format stream-json` transcript. The final `result`
+    event is only there when claude exits on its own; for a killed worker,
+    turns, tokens and the last reply come from the assistant messages."""
+    result, msgs, last_text = None, {}, ""
+    for line in lines:
+        try:
+            ev = json.loads(line)
+        except ValueError:
+            continue
+        if ev.get("type") == "result":
+            result = ev
+        elif ev.get("type") == "assistant":
+            m = ev.get("message") or {}
+            msgs[m.get("id")] = m.get("usage") or {}   # last copy per message wins
+            text = "".join(b.get("text", "") for b in m.get("content") or []
+                           if b.get("type") == "text")
+            last_text = text or last_text
+    if result:
+        return result
+    usage = {}
+    for u in msgs.values():
+        for k in ("input_tokens", "cache_read_input_tokens",
+                  "cache_creation_input_tokens", "output_tokens"):
+            usage[k] = usage.get(k, 0) + (u.get(k) or 0)
+    return {"is_error": True, "num_turns": len(msgs), "usage": usage,
+            "result": last_text}
 
 
 def parse_claude_json(out):
@@ -357,22 +394,27 @@ def work(brief, checks, wt, rundir):
     })
     allowed = ["Read", "Edit", *WORKER_READONLY_BASH,
                *[f"Bash({c['cmd']})" for c in checks]]
+    # stream-json (which needs --verbose) writes each event as it happens, so
+    # a worker killed at the time limit still leaves its transcript.
     # --allowedTools is variadic, so it goes last; the prompt comes on stdin.
     cmd = ["claude", "-p", "--bare", "--tools", "Read,Edit,Bash",
            "--permission-mode", "dontAsk", "--no-session-persistence",
-           "--output-format", "json", "--allowedTools", *allowed]
-    rc, out, err, killed = run_limited(cmd, wt, env, WORKER_TIMEOUT_S, brief,
-                                       watch_memory=True)
-    (rundir / "worker.json").write_text(out)
+           "--output-format", "stream-json", "--verbose",
+           "--allowedTools", *allowed]
+    transcript = rundir / "worker.jsonl"
+    t0 = time.monotonic()
+    rc, _, err, killed = run_limited(cmd, wt, env, WORKER_TIMEOUT_S, brief,
+                                     watch_memory=True, stdout_path=transcript)
     (rundir / "worker.stderr").write_text(err)
-    res = parse_claude_json(out)
+    with open(transcript, errors="replace") as fh:
+        res = parse_stream(fh)
     usage = res.get("usage") or {}
     return {
         "ok": not killed and rc == 0 and not res.get("is_error"),
         "killed": killed,
         "exit": rc,
         "turns": res.get("num_turns"),
-        "duration_s": round(res.get("duration_ms", 0) / 1000),
+        "duration_s": round(time.monotonic() - t0),
         "input_tokens": (usage.get("input_tokens", 0)
                          + usage.get("cache_read_input_tokens", 0)
                          + usage.get("cache_creation_input_tokens", 0)),
@@ -524,7 +566,13 @@ def run_stages(ticket, run_id, branch, base, wt, rundir, env, finish, summary):
         return finish("disabled")
 
     worker = work(plan_obj["brief"], plan_obj["checks"], wt, rundir)
-    checks = run_checks(plan_obj["checks"], wt, rundir) if not worker["killed"] else []
+    changed = bool(git(["status", "--porcelain"], wt, env))
+    # A worker stopped at the time limit may have finished the change and then
+    # kept going, so its edits still get checked. The kill switch and low
+    # memory mean stop now, so those skip the checks.
+    timed_out = (worker["killed"] or "").startswith("timeout")
+    run_them = not worker["killed"] or (timed_out and changed)
+    checks = run_checks(plan_obj["checks"], wt, rundir) if run_them else []
 
     failed = []
     if not worker["ok"]:
