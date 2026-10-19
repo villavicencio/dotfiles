@@ -398,36 +398,42 @@ def run_checks(checks, wt, rundir):
 
 
 def secret_scan(wt, base, rundir, env):
-    """gitleaks over the run's commits and over the PR title and body. Returns
-    None when clean, else what was flagged. Fails closed: a missing or erroring
-    gitleaks counts as a finding."""
-    # The worker can edit the checkout, so nothing it controls may configure the
-    # scan: a trusted config from pilot/, inline gitleaks:allow comments ignored,
-    # and an empty directory in place of the checkout's .gitleaksignore.
-    empty = rundir / "gitleaks-empty"
-    empty.mkdir(exist_ok=True)
-    trusted = ["--config", str(HERE / "gitleaks.toml"), "--ignore-gitleaks-allow",
-               "--gitleaks-ignore-path", str(empty), "--redact", "--no-banner"]
-    scans = {
-        "commits": ["gitleaks", "git", *trusted,
-                    f"--log-opts=origin/{base}..HEAD", str(wt)],
-        # One path only: given two, gitleaks 8.30.1 scans nothing and exits 0.
-        "pr text": ["gitleaks", "dir", *trusted, str(rundir / "pr")],
-    }
-    # Not the git/gh env: gitleaks has no use for GH_TOKEN.
-    env = {k: v for k, v in env.items() if k != "GH_TOKEN"}
+    """gitleaks over everything the push and the PR would publish: the run's
+    commits (messages and patches) and the PR title and body. Returns None when
+    clean, else what was flagged. Fails closed: a missing or erroring gitleaks
+    counts as a finding."""
+    # The worker can edit the checkout, and gitleaks always reads the scanned
+    # tree's own .gitleaksignore (even with --gitleaks-ignore-path; tested on
+    # 8.30.1). So the scan never runs on the checkout: the runner writes what
+    # would be published into a directory it owns and scans that, with a trusted
+    # config and gitleaks:allow comments ignored.
+    scan = rundir / "scan"
+    scan.mkdir(exist_ok=True)
     found = []
+    try:
+        log = subprocess.run(
+            ["git", "-c", "core.quotepath=off", "log", "-p", "--no-color",
+             "--format=commit %H%n%B", f"origin/{base}..HEAD"],
+            cwd=wt, env=env, capture_output=True, text=True, errors="replace",
+            timeout=300, check=True).stdout
+    except (OSError, subprocess.SubprocessError) as e:
+        return f"commits: couldn't export the run's commits ({e})"
+    (scan / "commits.patch").write_text(log)
+    for name in ("title.txt", "body.md"):
+        shutil.copyfile(rundir / "pr" / name, scan / f"pr-{name}")
+    cmd = ["gitleaks", "dir", "--config", str(HERE / "gitleaks.toml"),
+           "--ignore-gitleaks-allow", "--redact", "--no-banner", str(scan)]
+    # Not the git/gh env: gitleaks has no use for GH_TOKEN.
+    clean_env = {k: v for k, v in env.items() if k != "GH_TOKEN"}
     with open(rundir / "gitleaks.log", "w") as fh:
-        for what, cmd in scans.items():
-            try:
-                r = subprocess.run(cmd, cwd=wt, env=env, capture_output=True,
-                                   text=True, timeout=300)
-            except (OSError, subprocess.TimeoutExpired) as e:
-                found.append(f"{what}: gitleaks didn't run ({e})")
-                continue
-            fh.write(f"### {what}: exit {r.returncode}\n{r.stdout}{r.stderr}\n")
-            if r.returncode != 0:
-                found.append(f"{what}: gitleaks exit {r.returncode}")
+        try:
+            r = subprocess.run(cmd, cwd=scan, env=clean_env, capture_output=True,
+                               text=True, timeout=300)
+        except (OSError, subprocess.TimeoutExpired) as e:
+            return f"gitleaks didn't run ({e})"
+        fh.write(f"exit {r.returncode}\n{r.stdout}{r.stderr}\n")
+        if r.returncode != 0:
+            found.append(f"gitleaks exit {r.returncode} on the commits or PR text")
     return "; ".join(found) or None
 
 

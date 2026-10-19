@@ -50,9 +50,11 @@ Everything here runs on **hal as `david`**, from `david`'s dotfiles clone at
    scans the run's commits and the PR title and body. dotfiles and browse-gateway are public,
    and so are their PRs, so a finding blocks the run: status `leak-blocked`, no push,
    no PR, and the local branch is kept in `~/runs/repos/<repo>` for David to inspect. A
-   gitleaks that is missing or errors counts as a finding. Nothing the worker can edit
-   configures the scan: it uses `pilot/gitleaks.toml` (default rules, no allowlist), ignores
-   `gitleaks:allow` comments, and points `--gitleaks-ignore-path` at an empty directory.
+   gitleaks that is missing or errors counts as a finding. The scan never runs on the
+   checkout, because gitleaks always reads a scanned tree's own `.gitleaksignore`. The runner
+   writes the commits (messages and patches) and the PR text into `~/runs/log/<run>/scan/`
+   and scans that with `pilot/gitleaks.toml` (default rules, no allowlist), ignoring
+   `gitleaks:allow` comments.
 7. **Output.** The runner commits, pushes the `pilot/*` branch with the pilot token, and opens
    a PR (not a draft, so the reviewer picks it up). When the worker failed, a check failed, or
    nothing changed, the PR still opens, titled `[pilot][failed]`, so failures get counted. When the planner declines,
