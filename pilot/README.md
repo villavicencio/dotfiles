@@ -2,8 +2,9 @@
 
 The runner for the hal Local Coding Pilot (Linear project P-VIL-11, ticket VIL-396).
 Opus writes the brief and the acceptance checks. Local `qwen3.8-27b` on hal does the work.
-Each run ends as a PR titled `[pilot]` that MergeWren reviews. Nothing merges without David.
-The PR is not a draft, because MergeWren's watcher skips drafts (`watch.py`, `not pull.get("draft")`).
+Each run ends as a PR titled `[pilot]`, reviewed by the repo's automatic reviewer. Nothing merges
+without David. The PR is not a draft, because review-stack's watcher skips drafts (mergewren
+`src/review_stack/watch.py`, `not pull.get("draft")`).
 
 Everything here runs on **hal as `david`**, from `david`'s dotfiles clone at
 `~/Projects/Personal/dotfiles`. None of it runs on the desk Macs, and Dotbot installs none of it.
@@ -49,9 +50,11 @@ Everything here runs on **hal as `david`**, from `david`'s dotfiles clone at
    scans the run's commits and the PR title and body. dotfiles and browse-gateway are public,
    and so are their PRs, so a finding blocks the run: status `leak-blocked`, no push,
    no PR, and the local branch is kept in `~/runs/repos/<repo>` for David to inspect. A
-   gitleaks that is missing or errors counts as a finding.
+   gitleaks that is missing or errors counts as a finding. Nothing the worker can edit
+   configures the scan: it uses `pilot/gitleaks.toml` (default rules, no allowlist), ignores
+   `gitleaks:allow` comments, and points `--gitleaks-ignore-path` at an empty directory.
 7. **Output.** The runner commits, pushes the `pilot/*` branch with the pilot token, and opens
-   a PR (not a draft, so MergeWren reviews it). When the worker failed, a check failed, or
+   a PR (not a draft, so the reviewer picks it up). When the worker failed, a check failed, or
    nothing changed, the PR still opens, titled `[pilot][failed]`, so failures get counted. When the planner declines,
    there is no PR. If `gh pr create` itself fails, the run is recorded as `pr-failed`; the
    branch is pushed and `pr/body.md` holds the body to open it by hand. If the push fails, the

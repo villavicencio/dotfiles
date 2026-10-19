@@ -20,7 +20,15 @@ if [ -n "$pid" ] && case "$cmd" in *pilot/runner.py*) true ;; *) false ;; esac; 
   # The planner and worker run in their own process groups (start_new_session),
   # so kill those first, then the runner.
   for child in $(pgrep -P "$pid"); do kill -TERM -- "-$child" 2>/dev/null; done
-  kill -TERM "$pid" && echo "pilot: stopped runner $pid and its children"
+  kill -TERM "$pid"
+  # The runner stops its children on SIGTERM (up to 10 s each); give it 30 s.
+  i=0
+  while kill -0 "$pid" 2>/dev/null && [ $i -lt 30 ]; do sleep 1; i=$((i + 1)); done
+  if kill -0 "$pid" 2>/dev/null; then
+    kill -KILL "$pid" && echo "pilot: runner $pid didn't exit; killed it"
+  else
+    echo "pilot: stopped runner $pid and its children"
+  fi
 else
   echo "pilot: no runner running"
 fi

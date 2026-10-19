@@ -231,12 +231,32 @@ def prepare_worktree(repo, branch, wt, env):
 CHILD_PGIDS = set()   # process groups started by run_limited and still running
 
 
-def on_sigterm(*_):
-    for pgid in list(CHILD_PGIDS):
+def stop_groups(pgids, grace=10):
+    """SIGTERM each group, wait up to `grace` seconds, then SIGKILL what's left."""
+    for pgid in pgids:
         try:
             os.killpg(pgid, signal.SIGTERM)
         except ProcessLookupError:
             pass
+    deadline = time.monotonic() + grace
+    alive = set(pgids)
+    while alive and time.monotonic() < deadline:
+        for pgid in list(alive):
+            try:
+                os.killpg(pgid, 0)
+            except ProcessLookupError:
+                alive.discard(pgid)
+        time.sleep(0.5)
+    for pgid in alive:
+        try:
+            os.killpg(pgid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+
+
+def on_sigterm(*_):
+    # Stop the children before unwinding reaches worktree cleanup.
+    stop_groups(list(CHILD_PGIDS))
     sys.exit(143)
 
 
@@ -381,12 +401,21 @@ def secret_scan(wt, base, rundir, env):
     """gitleaks over the run's commits and over the PR title and body. Returns
     None when clean, else what was flagged. Fails closed: a missing or erroring
     gitleaks counts as a finding."""
+    # The worker can edit the checkout, so nothing it controls may configure the
+    # scan: a trusted config from pilot/, inline gitleaks:allow comments ignored,
+    # and an empty directory in place of the checkout's .gitleaksignore.
+    empty = rundir / "gitleaks-empty"
+    empty.mkdir(exist_ok=True)
+    trusted = ["--config", str(HERE / "gitleaks.toml"), "--ignore-gitleaks-allow",
+               "--gitleaks-ignore-path", str(empty), "--redact", "--no-banner"]
     scans = {
-        "commits": ["gitleaks", "git", "--redact", "--no-banner",
+        "commits": ["gitleaks", "git", *trusted,
                     f"--log-opts=origin/{base}..HEAD", str(wt)],
         # One path only: given two, gitleaks 8.30.1 scans nothing and exits 0.
-        "pr text": ["gitleaks", "dir", "--redact", "--no-banner", str(rundir / "pr")],
+        "pr text": ["gitleaks", "dir", *trusted, str(rundir / "pr")],
     }
+    # Not the git/gh env: gitleaks has no use for GH_TOKEN.
+    env = {k: v for k, v in env.items() if k != "GH_TOKEN"}
     found = []
     with open(rundir / "gitleaks.log", "w") as fh:
         for what, cmd in scans.items():
@@ -415,7 +444,7 @@ def pr_body(ticket, plan_obj, worker, checks, run_id, failed_reasons):
 
 {status}
 
-Opened by the hal overnight runner (VIL-396). Not a draft, so MergeWren reviews it. The code was written by local `{WORKER_MODEL}`; the brief and checks by Opus. Nothing merges without David.
+Opened by the hal overnight runner (VIL-396). Not a draft, so the repo's automatic reviewer picks it up. The code was written by local `{WORKER_MODEL}`; the brief and checks by Opus. Nothing merges without David.
 
 ### Acceptance checks
 | | Check | Command | Time |
@@ -571,6 +600,8 @@ def main():
     ap.add_argument("--dry-run", action="store_true",
                     help="gates and worktree only; no models, no push")
     ap.add_argument("--ticket", type=Path, help="run this ticket file, not the queue")
+    ap.add_argument("--max", type=int, default=MAX_TICKETS_PER_NIGHT,
+                    help=f"most tickets to run (default {MAX_TICKETS_PER_NIGHT})")
     ap.add_argument("--ignore-window", action="store_true",
                     help="start tickets even after the morning cutoff")
     args = ap.parse_args()
@@ -598,7 +629,7 @@ def main():
 
 def run_queue(args):
     done = 0
-    limit = 1 if (args.once or args.ticket) else MAX_TICKETS_PER_NIGHT
+    limit = 1 if (args.once or args.ticket) else args.max
     while done < limit:
         if not args.ignore_window and dt.datetime.now().time() >= STOP_STARTING_AT \
                 and dt.datetime.now().time() < dt.time(18, 0):

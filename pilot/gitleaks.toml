@@ -1,0 +1,6 @@
+# Trusted gitleaks config for the pilot's pre-push scan (runner.py secret_scan).
+# It lives here, outside the worker-editable checkout, so the worker can't add an
+# allowlist to the checkout's .gitleaks.toml and wave a leaked token through.
+# Default rules only, with no allowlist.
+[extend]
+useDefault = true
