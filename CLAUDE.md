@@ -41,6 +41,8 @@ lazygit/        lazygit config
 npm/            npm global package list (npm-requirements.txt)
 nvim/           Neovim config (NvChad v2.5; the whole dir is linked as ~/.config/nvim,
                 %LOCALAPPDATA%\nvim on Windows). Plugins pinned in lazy-lock.json
+pilot/          hal overnight coding-pilot runner (VIL-396); runs on hal as david, not
+                installed by Dotbot. See pilot/README.md
 starship/       Starship prompt config (command_timeout is a global top-level key)
 windows/        Windows layer, applied by install.ps1 at the repo root (NOT Dotbot):
   packages.json           winget package list — the Brewfile counterpart
@@ -1009,6 +1011,10 @@ from a local file to anywhere David can read it remotely: printing it into the c
 Materialization") or writing it into an Apple Note ("Credential Leakage"), both seen 2026-10-12
 with davidv.sh's `OPS_SECRET`. Opening the magic link on the Mac (`open -a Safari …`) and
 `pbcopy` were allowed. Away from the Mac, David reads the value from the Vercel dashboard himself.
+It also blocks writing an unattended agent's instructions ("Create Unsafe Agents", seen
+2026-10-18 on `pilot/plan-prompt.md`, VIL-396). David unblocked it with `Edit(pilot/**)` in
+this repo's `.claude/settings.local.json`; a new directory of agent code needs the same
+human-added rule.
 
 **`Write(path)` rules are inert — file-permission checks match `Edit(path)` only**, and an
 `Edit(…)` rule covers every file-editing tool (Write, Edit, NotebookEdit). Claude Code warns at
