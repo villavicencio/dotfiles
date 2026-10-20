@@ -7,7 +7,11 @@
 # visits attach to the same one. When Atlas exits, the window drops to hal's
 # shell instead of closing. Closing the tab leaves Atlas running.
 #
-# On hal, `atlas` is Hermes's own wrapper (`hermes profile alias default --name
+# On hal as `david` (`ssh hal`, the phone) there's no Orca, so `atlas` runs the
+# same console command directly. Elsewhere without Orca it just fails: the
+# direct path needs a local `hal` account.
+#
+# On hal as `hal`, `atlas` is Hermes's own wrapper (`hermes profile alias default --name
 # atlas` writes ~/.local/bin/atlas = `hermes -p default`). A function would win
 # over it, so this one is only defined where that wrapper doesn't exist (and is
 # dropped on a re-source once the wrapper appears).
@@ -20,16 +24,19 @@ if [[ -e "$HOME/.local/bin/atlas" ]]; then
 fi
 
 function atlas() {
-  local dep
-  for dep in orca jq; do
-    command -v "$dep" >/dev/null 2>&1 || { print -u2 -- "atlas: $dep is not installed"; return 1; }
-  done
+  local -a console=(sudo -u hal -i tmux -L atlas new -A -s atlas 'atlas; exec zsh -il')
+  if ! command -v orca >/dev/null 2>&1; then
+    id hal >/dev/null 2>&1 || { print -u2 -- "atlas: orca is not installed"; return 1; }
+    "${console[@]}"
+    return
+  fi
+  command -v jq >/dev/null 2>&1 || { print -u2 -- "atlas: jq is not installed"; return 1; }
   local env=${ATLAS_ORCA_ENV:-hal-svc} out wt handle
   out=$(orca worktree list --environment "$env" --json 2>&1)
   wt=$(print -r -- "$out" | jq -r '[.result.worktrees[]? | select(.path | endswith("/Projects/hermes"))][0].id // empty' 2>/dev/null)
   [[ -n $wt ]] || { print -u2 -- "atlas: no hermes workspace on Orca environment $env"; print -u2 -r -- "$out"; return 1; }
   out=$(orca terminal create --environment "$env" --worktree "id:$wt" --title Atlas \
-    --command "sudo -u hal -i tmux -L atlas new -A -s atlas 'atlas; exec zsh -il'" --focus --json 2>&1)
+    --command "${(j: :)${(@q-)console}}" --focus --json 2>&1)
   handle=$(print -r -- "$out" | jq -r '.result.terminal.handle // empty' 2>/dev/null)
   [[ -n $handle ]] || { print -u2 -- "atlas: Orca didn't open the terminal"; print -u2 -r -- "$out"; return 1; }
   # create can leave the tab in the background; switch brings it forward
