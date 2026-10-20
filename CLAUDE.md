@@ -323,9 +323,12 @@ clears the way by deleting the worktree's dotbot clone and its `<gitdir>/modules
 both from Orca's code (2026-10-18): Orca reads the archive hook from the **main checkout's**
 `orca.yaml`, so it runs only while the main checkout's branch has the file; and
 `orca worktree rm` skips it unless passed `--run-hooks`. The hook refuses, blocking the
-removal, when the dotbot clone holds anything upstream doesn't: uncommitted changes, a stash,
-or a checked-out or branch commit that no remote-tracking ref reaches. It doesn't compare
-against the recorded gitlink, which a staged `git add dotbot` would move. Otherwise use Force
+removal, unless deleting the worktree's dotbot clone loses nothing: no uncommitted changes,
+and its checked-out commit, local branch tips and stash all already exist in the **main
+checkout's** dotbot clone, a separate object store that survives the removal. It refuses when
+the main checkout's dotbot isn't checked out. It deliberately doesn't trust the recorded
+gitlink (a staged `git add dotbot` moves it) or remote-tracking refs (they outlive a deleted
+or force-pushed branch, and miss a tag-only pin). Otherwise use Force
 delete (CLI: `--force`). It discards any uncommitted work in the worktree, dotbot included,
 but nothing outside it: the submodule clone lives in the worktree's own git dir.
 
