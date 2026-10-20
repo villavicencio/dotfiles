@@ -9,14 +9,21 @@
 #
 # On hal, `atlas` is Hermes's own wrapper (`hermes profile alias default --name
 # atlas` writes ~/.local/bin/atlas = `hermes -p default`). A function would win
-# over it, so this one is only defined where that wrapper doesn't exist.
+# over it, so this one is only defined where that wrapper doesn't exist (and is
+# dropped on a re-source once the wrapper appears).
 #
 # The hermes workspace is found by path suffix, so no home path is written here.
 # ATLAS_ORCA_ENV overrides the Orca environment (default: hal-svc).
-[[ -e "$HOME/.local/bin/atlas" ]] && return 0
+if [[ -e "$HOME/.local/bin/atlas" ]]; then
+  unfunction atlas 2>/dev/null
+  return 0
+fi
 
 function atlas() {
-  command -v orca >/dev/null 2>&1 || { print -u2 -- "atlas: orca is not installed"; return 1; }
+  local dep
+  for dep in orca jq; do
+    command -v "$dep" >/dev/null 2>&1 || { print -u2 -- "atlas: $dep is not installed"; return 1; }
+  done
   local env=${ATLAS_ORCA_ENV:-hal-svc} out wt handle
   out=$(orca worktree list --environment "$env" --json 2>&1)
   wt=$(print -r -- "$out" | jq -r '[.result.worktrees[]? | select(.path | endswith("/Projects/hermes"))][0].id // empty' 2>/dev/null)
@@ -26,5 +33,10 @@ function atlas() {
   handle=$(print -r -- "$out" | jq -r '.result.terminal.handle // empty' 2>/dev/null)
   [[ -n $handle ]] || { print -u2 -- "atlas: Orca didn't open the terminal"; print -u2 -r -- "$out"; return 1; }
   # create can leave the tab in the background; switch brings it forward
-  orca terminal switch --environment "$env" --terminal "$handle" --json >/dev/null 2>&1
+  out=$(orca terminal switch --environment "$env" --terminal "$handle" --json 2>&1)
+  [[ $(print -r -- "$out" | jq -r '.ok' 2>/dev/null) == true ]] || {
+    print -u2 -- "atlas: opened the tab ($handle) but couldn't bring it forward"
+    print -u2 -r -- "$out"
+    return 1
+  }
 }
