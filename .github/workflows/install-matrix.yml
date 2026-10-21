@@ -300,11 +300,8 @@ jobs:
         # Restore-keys deliberately omits a Brewfile-hash subset — that
         # would let a stale cache survive a Brewfile change. Helper
         # changes also bust the cache via hashFiles('helpers/**').
-        # Bottles only, never Homebrew's api/ index: with HOMEBREW_NO_AUTO_UPDATE
-        # set, a restored index is never refreshed, and the prefix restore-key
-        # carries it forward run after run. A cask Homebrew added after the
-        # first save then reads as "No Cask with this name exists" (#230,
-        # the vercel cask, 2026-10-21). Each run fetches a fresh index instead.
+        # Bottles only, not Homebrew's api/ index: the index comes fresh from the
+        # refresh step below, and a cached copy would only be one more stale one.
         uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae  # v5.0.5
         with:
           path: |
@@ -312,6 +309,14 @@ jobs:
           key: ${{ runner.os }}-${{ runner.arch }}-brew-${{ hashFiles('brew/Brewfile', 'helpers/**') }}
           restore-keys: |
             ${{ runner.os }}-${{ runner.arch }}-brew-
+
+      - name: Refresh Homebrew's index
+        # HOMEBREW_NO_AUTO_UPDATE keeps brew on the index the runner image
+        # shipped with, so the image's build date decides which formulae and
+        # casks exist. Real machines auto-update; without this step a package
+        # Homebrew renamed or moved (vercel-cli -> cask "vercel", #230) fails
+        # here while the old name keeps passing.
+        run: brew update --quiet
 
       - name: Pre-apply assertions (R2 + R3 symlink-resolution + checkout cleanup)
         uses: ./.github/actions/install-matrix-pre-apply
@@ -361,6 +366,14 @@ jobs:
           key: ${{ runner.os }}-${{ runner.arch }}-server-brew-${{ hashFiles('brew/Brewfile.server', 'helpers/**') }}
           restore-keys: |
             ${{ runner.os }}-${{ runner.arch }}-server-brew-
+
+      - name: Refresh Homebrew's index
+        # HOMEBREW_NO_AUTO_UPDATE keeps brew on the index the runner image
+        # shipped with, so the image's build date decides which formulae and
+        # casks exist. Real machines auto-update; without this step a package
+        # Homebrew renamed or moved (vercel-cli -> cask "vercel", #230) fails
+        # here while the old name keeps passing.
+        run: brew update --quiet
 
       - name: Switch to a simulated hal home
         # Every later step sees HOME=$RUNNER_TEMP/hal-home. Homebrew keeps its
