@@ -368,6 +368,13 @@ that no LaunchAgent was added. It also checks that a second run changes nothing.
 
 ## Invariants & gotchas (do not "fix" these)
 
+- **`atlas` and `syd` (`zsh/functions/`) decide when sourced whether to exist.** `syd`
+  (`hermes -p syd --tui "$@"`) is defined only where `~/.hermes/profiles/syd` exists, which is
+  the personal Mac. Both drop their function when a Hermes wrapper of the same name is in
+  `~/.local/bin`. On hal, `atlas` keys on a local `hal` account, not on `orca` being on PATH
+  (#229). Usage is in `README.md` ("Hermes agents"), and the details are in CLAUDE.md
+  ("Hermes commands").
+
 - **No heredocs in `bin/dot` — do not inline `bin/lib/*.py` back into `python3 - <<'PY'`.**
   Bash backs a small heredoc with a pipe and writes the *whole* document before forking the
   reader, so a blocked write never clears: the process that would drain the pipe does not

@@ -371,6 +371,32 @@ Orca's file parser isn't full YAML: keys under `scripts:` take two spaces and sc
 four, as in Orca's own template. Orca worktrees live under `~/orca/workspaces/`, not
 `.claude/worktrees/`, so `wt done` doesn't manage them; remove them from Orca.
 
+### Hermes commands — `atlas` and `syd`
+`zsh/functions/atlas.sh` and `zsh/functions/syd.sh` are loaded on every machine by the glob in
+`zsh/functions.sh`. Each one decides when it is sourced whether to define its function. The
+user-facing table is in `README.md` ("Hermes agents").
+
+- **`atlas`** opens Atlas, Hermes's `default` profile, which runs as the `hal` account. The
+  console is `sudo -u hal -i tmux -L atlas new -A -s atlas 'atlas; exec zsh -il'`.
+  - On a desk Mac, it opens that console in an Orca tab. The tab is in the workspace on the
+    `hal-svc` environment whose path ends in `/Projects/hermes`; `ATLAS_ORCA_ENV` overrides the
+    environment. It needs `orca` and `jq`.
+  - On hal as `david`, it runs the console in place. The test is whether a local `hal` account
+    exists, not whether `orca` is on PATH. Orca's tabs on hal put an `orca` CLI there too, and
+    that one talks to hal's own Orca server, which has no `hal-svc` environment (#229).
+- **`syd`** is `hermes -p syd --tui "$@"`. It's defined only where `~/.hermes/profiles/syd`
+  exists, so hal and the work Mac don't get it. Hermes ignores `--tui` for subcommands, so
+  `syd sessions list` works.
+- **Both step aside for a Hermes wrapper of the same name.** `hermes profile alias <profile>
+  [--name <name>]` writes `~/.local/bin/<name>`, which a function would shadow. Each file
+  checks for that wrapper and drops its function (`unfunction`) when it exists. On hal as `hal`,
+  `atlas` is that wrapper.
+- **Each Orca project belongs to one machine.** The `hermes` project is on hal (`hal-svc`), and
+  `syd` is local, so Syd can't start from the `hermes` project. A plus-sign terminal is a plain
+  shell. A setup script doesn't change that, because it only runs when Orca creates a worktree.
+  Orca's built-in Hermes agent runs `hermes --tui`, the default profile, and adds `--yolo` when
+  Orca's auto-approve option is on. So it can't start Syd, and it shouldn't be used for it.
+
 ### OMZ plugin sync
 When adding an Oh My Zsh plugin to the `plugins=()` list in `zshrc`, also add the corresponding
 `git clone` to `helpers/install_omz.sh` so it gets installed on fresh machines.
