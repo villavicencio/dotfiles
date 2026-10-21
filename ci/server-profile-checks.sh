@@ -54,7 +54,7 @@ ALLOWED_CASKS_RE='vercel'
 # rest is desk-only.
 EXCLUDED="docker-desktop colima docker mosh herdr irssi handbrake yt-dlp aria2
 mac-cleanup-py pam-reattach terminal-notifier corelocationcli lolcat
-screenfetch jrnl pyenv pyenv-virtualenv go yarn perl cpanminus vercel-cli"
+screenfetch jrnl pyenv pyenv-virtualenv go yarn perl cpanminus vercel-cli vercel"
 
 cmd_static() {
   if [ ! -f "$BREWFILE" ]; then
