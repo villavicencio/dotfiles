@@ -377,6 +377,22 @@ def plan(ticket, wt, rundir):
     return plan_obj
 
 
+def bash_rules(checks):
+    """The worker's Bash rules, appended to the brief. A rule matches only the
+    exact command, so a check with `| head` or `2>&1` added is denied; on
+    2026-10-21 a worker spent part of its hour on 14 such denials."""
+    exact = "\n".join(f"- `{c['cmd']}`" for c in checks) or "- (none)"
+    prefixes = ", ".join(f"`{r[5:-3]}`" for r in WORKER_READONLY_BASH)
+    return (
+        "\n\n## Your Bash permissions\n\n"
+        "Bash runs only these commands, exactly as written (no added pipes, "
+        "redirects, `2>&1`, `head`, `cd` or `&&`):\n"
+        f"{exact}\n\n"
+        f"Plus read-only commands starting with: {prefixes}. Anything else is "
+        "denied, so don't probe for other commands. Use Read instead of `cat`, "
+        "`head` or `sed`, and Edit to change files.\n")
+
+
 def work(brief, checks, wt, rundir):
     env = dict(os.environ)
     env.pop("ANTHROPIC_API_KEY", None)
@@ -387,10 +403,22 @@ def work(brief, checks, wt, rundir):
         "ANTHROPIC_DEFAULT_OPUS_MODEL": WORKER_MODEL,
         "ANTHROPIC_DEFAULT_SONNET_MODEL": WORKER_MODEL,
         "ANTHROPIC_DEFAULT_HAIKU_MODEL": WORKER_MODEL,
-        "CLAUDE_CODE_MAX_CONTEXT_TOKENS": "65536",
-        "CLAUDE_CODE_MAX_OUTPUT_TOKENS": "8000",
+        # No auto-compaction: on 2026-10-21 the worker started compacting at about
+        # 30k tokens of context and produced nothing for 10 minutes, which is
+        # likely how every mergewren run on 2026-10-18 used up its hour. LM Studio
+        # loads the model with 234k of context, so the cap is raised instead; a
+        # worker that still runs out fails fast rather than hanging.
+        "CLAUDE_CODE_MAX_CONTEXT_TOKENS": "131072",
+        "DISABLE_AUTO_COMPACT": "1",
+        # Qwen thinks before it acts, and its thinking counts as output. With an
+        # 8k cap, a turn on 2026-10-21 thought for 9 minutes (28k characters),
+        # hit the cap with no tool call, and was told to resume, losing that
+        # thinking. 32k lets a long turn finish (about 25 minutes at worst, at
+        # hal's ~20 tokens/s), so one request may take that long: API_TIMEOUT_MS
+        # is 30 minutes, inside the worker's 60-minute limit.
+        "CLAUDE_CODE_MAX_OUTPUT_TOKENS": "32000",
         "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1",
-        "API_TIMEOUT_MS": "600000",
+        "API_TIMEOUT_MS": "1800000",
     })
     allowed = ["Read", "Edit", *WORKER_READONLY_BASH,
                *[f"Bash({c['cmd']})" for c in checks]]
@@ -559,6 +587,9 @@ def run_stages(ticket, run_id, branch, base, wt, rundir, env, finish, summary):
         plan_obj = plan(ticket, wt, rundir)
     except Exception as e:
         return finish("planner-error", error=str(e))
+    if plan_obj["proceed"]:
+        # What the worker actually gets: brief.md and the PR body show this too.
+        plan_obj["brief"] += bash_rules(plan_obj.get("checks") or [])
     (rundir / "brief.md").write_text(plan_obj["brief"])
     if not plan_obj["proceed"]:
         return finish("declined", reason=plan_obj["reason"])

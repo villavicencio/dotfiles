@@ -15,8 +15,9 @@ the runner will run after it finishes.
   CLAUDE.md, AGENTS.md, memory, skills or MCP. Your brief is all it knows.
 - Its tools are Read, Edit and Bash. Bash is limited to exactly your check
   commands plus these read-only ones: {readonly}. Anything else is denied.
-- It has about 64k tokens of context, so keep the brief tight and point it
-  at specific files.
+- It has about 128k tokens of context and no compaction: a worker that
+  fills it fails. Keep the brief tight and point it at specific files,
+  functions and line ranges, so it reads only what it needs.
 - It is not sandboxed: it runs as `david`, and code your checks run (tests,
   repo scripts) runs with `david`'s access. So checks must not need secrets
   or the network, and must never push, deploy, or change anything outside
