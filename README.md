@@ -86,18 +86,20 @@ operations — no new dependencies:
 | `dot install [args…]` | passthrough to `./install`. |
 | `dot update` | `topgrade`. |
 
-## Hermes agents: `atlas` and `syd`
+## Hermes agents: `atlas`, `axiom` and `syd`
 
-Two shell commands start the Hermes agents. They live in `zsh/functions/atlas.sh` and
-`zsh/functions/syd.sh`.
+Three shell commands start the Hermes agents. They live in `zsh/functions/atlas.sh`,
+`axiom.sh` and `syd.sh`.
 
 | Command | Agent | What it does |
 |---|---|---|
 | `atlas` | Atlas: Hermes's `default` profile, on hal, run by the `hal` account | **On a desk Mac:** opens a tab in Orca's `hermes` project (on hal) and enters Atlas's tmux session as `hal`. `sudo` asks for `david`'s password on hal, once per visit. **On hal as `david`:** enters the same session in the current terminal. **On hal as `hal`:** Hermes's own `atlas` wrapper. |
+| `axiom` | Axiom: the `axiom` profile, on hal, run by the `hal` account | Same as `atlas`, in Orca's `axiom` project and Axiom's own tmux session, which runs `hermes -p axiom --tui`. |
 | `syd` | Syd: the `syd` profile, on the personal Mac only | Runs `hermes -p syd --tui` in the current terminal and passes on any arguments. |
 
 The first `atlas` starts Atlas, and later ones attach to it. Quitting Atlas leaves you at
-hal's shell, and closing the tab leaves Atlas running. `atlas` takes no arguments.
+hal's shell, and closing the tab leaves Atlas running. `atlas` takes no arguments. `axiom`
+works the same way.
 
 ```bash
 syd                  # new session in the TUI
@@ -107,8 +109,8 @@ syd sessions list    # list sessions
 ```
 
 In Orca, a new terminal (the plus sign) is a plain shell, so type the command. Don't use
-Orca's built-in Hermes agent for Syd. It runs `hermes --tui`, which starts the default
-profile.
+Orca's built-in Hermes agent for Syd or Axiom. It runs `hermes --tui`, which starts the
+default profile.
 
 ## Layout
 
