@@ -398,10 +398,11 @@ def work(brief, checks, wt, rundir):
         # 8k cap, a turn on 2026-10-21 thought for 9 minutes (28k characters),
         # hit the cap with no tool call, and was told to resume, losing that
         # thinking. 32k lets a long turn finish (about 25 minutes at worst, at
-        # hal's ~20 tokens/s).
+        # hal's ~20 tokens/s), so one request may take that long: API_TIMEOUT_MS
+        # is 30 minutes, inside the worker's 60-minute limit.
         "CLAUDE_CODE_MAX_OUTPUT_TOKENS": "32000",
         "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1",
-        "API_TIMEOUT_MS": "600000",
+        "API_TIMEOUT_MS": "1800000",
     })
     allowed = ["Read", "Edit", *WORKER_READONLY_BASH,
                *[f"Bash({c['cmd']})" for c in checks]]

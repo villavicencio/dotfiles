@@ -45,7 +45,8 @@ Everything here runs on **hal as `david`**, from `david`'s dotfiles clone at
      appears.
    - Its env is the one from VIL-395's smoke test, with a 128k context cap, a 32k output cap
      and auto-compaction off. Qwen's thinking counts as output: with the old 8k cap, one turn
-     thought for 9 minutes, hit the cap without acting, and had to start over. With the 64k cap, the worker began compacting at about 30k
+     thought for 9 minutes, hit the cap without acting, and had to start over. A 32k turn can
+     take about 25 minutes, so the API request timeout is 30 minutes. With the 64k cap, the worker began compacting at about 30k
      tokens and then produced nothing for 10 minutes (VIL-251, 2026-10-21), which is likely
      why all six mergewren runs on 2026-10-18 hit the time limit. LM Studio loads
      `qwen3.8-27b` with 234k of context, so a worker that still fills 128k fails rather than
