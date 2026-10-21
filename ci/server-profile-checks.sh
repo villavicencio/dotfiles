@@ -54,7 +54,7 @@ ALLOWED_CASKS_RE='vercel'
 # rest is desk-only.
 EXCLUDED="docker-desktop colima docker mosh herdr irssi handbrake yt-dlp aria2
 mac-cleanup-py pam-reattach terminal-notifier corelocationcli lolcat
-screenfetch jrnl pyenv pyenv-virtualenv go yarn perl cpanminus"
+screenfetch jrnl pyenv pyenv-virtualenv go yarn perl cpanminus vercel-cli"
 
 cmd_static() {
   if [ ! -f "$BREWFILE" ]; then
@@ -78,6 +78,13 @@ cmd_static() {
   done
   for f in $EXCLUDED; do
     printf '%s\n' "$have" | grep -qxF "$f" && err "Brewfile.server names excluded formula: $f"
+  done
+  # Every allowed cask must be present too: the allowlist names what the
+  # server needs, not only what it may have.
+  local casks c
+  casks="$(entries cask)"
+  for c in $(printf '%s\n' "$ALLOWED_CASKS_RE" | tr '|' ' '); do
+    printf '%s\n' "$casks" | grep -qxF "$c" || err "Brewfile.server lacks required cask: $c"
   done
   ok "Brewfile.server: $(printf '%s\n' "$have" | grep -c .) formulae checked"
 

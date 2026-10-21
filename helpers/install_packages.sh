@@ -19,7 +19,7 @@ if [ "$(uname)" = "Darwin" ] && [ "${DOTFILES_PROFILE:-desk}" = "server" ]; then
     # dependency it needs, which Homebrew offers no switch for.
     echo "macOS server profile — using Homebrew with brew/Brewfile.server"
     if [ "${DOTFILES_DRY_RUN:-0}" = "1" ]; then
-      echo "[dry-run] would run: brew bundle --no-upgrade --file=./brew/Brewfile.server (no Homebrew bootstrap, no font casks)"
+      echo "[dry-run] would swap an old vercel formula for the vercel cask, then run: brew bundle --no-upgrade --file=./brew/Brewfile.server (no Homebrew bootstrap, no font casks)"
       exit 0
     fi
     # Same prefix rule as zsh/zshenv's BREW_PREFIX (the install wrapper checks
@@ -30,6 +30,8 @@ if [ "$(uname)" = "Darwin" ] && [ "${DOTFILES_PROFILE:-desk}" = "server" ]; then
         exit 1
     fi
     echo "Homebrew found at $prefix/bin/brew"
+    # The old vercel formula blocks the cask the Brewfile names; swap it first.
+    bash helpers/migrate_vercel_cask.sh || exit $?
     BREWFILE_PATH=./brew/Brewfile.server HOMEBREW_BUNDLE_NO_UPGRADE=1 HOMEBREW_NO_INSTALL_UPGRADE=1 \
         bash helpers/install_from_brewfile.sh
     exit $?
@@ -43,6 +45,8 @@ elif [ "$(uname)" = "Darwin" ]; then
     # if migration rolled back, do NOT proceed to brew bundle (which would hit the
     # same unresolved collision and mask the failure).
     bash helpers/migrate_legacy_fonts.sh || exit $?
+    # Same reason: the old vercel formula blocks the cask the Brewfile names.
+    bash helpers/migrate_vercel_cask.sh || exit $?
     bash helpers/install_from_brewfile.sh
 else
     echo "Linux detected — using apt"
