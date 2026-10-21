@@ -321,18 +321,20 @@ removed"), and Orca's plain delete doesn't pass `--force`. The CLI then reports 
 removing: true` while the worktree stays, stuck in Orca's "removing" state. Use Force delete
 (CLI: `orca worktree rm --force`). It deletes the whole worktree directory, gitignored files
 included, and the worktree's dotbot clone with its own branches, tags and stash. Nothing outside
-the worktree is touched. No status command proves that's safe, so before Force:
+the worktree is touched. No status command proves that's safe, so before Force, check **the
+worktree you're removing**, not the main checkout (`W` is its path, from `orca worktree list`):
 
-- `git status --porcelain --ignored --untracked-files=all` lists every untracked and ignored
-  file that goes with the directory, one per line. Without `--untracked-files=all`, git
+- `git -C "$W" status --porcelain --ignored --untracked-files=all` lists every untracked and
+  ignored file that goes with the directory, one per line. Run from the main checkout without
+  `-C`, it would inspect the main checkout instead. Without `--untracked-files=all`, git
   collapses a directory into one `?? dir/` or `!! dir/` line and hides what's in it (`wt done`
   runs that shorter form, which is enough for its yes/no check). Files inside `dotbot/` aren't
   listed; see the next point. The `.claude/settings.local.json` setup copied in is expected; if
-  `cmp` against the main checkout's copy shows it changed (rules approved in this worktree),
-  copy back what you want to keep.
-- If you changed anything inside `dotbot/`, push it or copy it out first. A clean
-  `git -C dotbot status` doesn't show commits, tags or stash entries that exist only in this
-  clone.
+  `cmp "$W/.claude/settings.local.json" <main checkout>/.claude/settings.local.json` shows it
+  changed (rules approved in this worktree), copy back what you want to keep.
+- If you changed anything inside `$W/dotbot/`, push it or copy it out first. A clean
+  `git -C "$W/dotbot" status` doesn't show commits, tags or stash entries that exist only in
+  that clone.
 - The worktree's branch isn't at risk: Orca keeps any branch it can't prove is already merged
   (`orca worktree rm --help`).
 
