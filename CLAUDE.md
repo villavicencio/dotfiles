@@ -342,8 +342,9 @@ W=$(orca worktree show --worktree "name:<display name>" --json | jq -r .result.w
 - If you changed anything inside `$W/dotbot/`, push it or copy it out first. A clean
   `git -C "$W/dotbot" status` doesn't show commits, tags or stash entries that exist only in
   that clone.
-- The worktree's branch isn't at risk: Orca keeps any branch it can't prove is already merged
-  (`orca worktree rm --help`).
+- The branch's commits aren't at risk: Orca deletes the branch only when it can prove it's
+  already merged, and keeps it otherwise (`orca worktree rm --help`). If you want the branch
+  name kept even when merged, note it first: `git -C "$W" branch --show-current`.
 
 **There is deliberately no `scripts.archive` to clear the submodule first.** #225 tried one,
 and four review rounds each found a new way an automatic delete could lose work: a staged
