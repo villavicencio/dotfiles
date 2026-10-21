@@ -116,6 +116,12 @@ override with the corporate email in the local file:
 - Never hardcode `/opt/homebrew/` or `/usr/local/` — always use `$BREW_PREFIX`.
 - `excludesfile` and `attributesfile` in gitconfig point to `~/.config/git/` (XDG standard, symlinked by Dotbot). Do not change them back to repo-relative paths.
 - Google Cloud SDK is installed at `~/.google-cloud-sdk/` (not the default location).
+- **`date`, `sed`, `ls` and the other coreutils are the GNU versions** in every shell that reads
+  `zshenv`, agent shells included: it puts `$BREW_PREFIX/opt/coreutils/libexec/gnubin` first on
+  PATH. BSD-only flags fail there: `date -j -f …` prints `invalid option -- 'j'` and returns
+  nothing. Use the GNU form (`date -u -d '2026-10-21T03:31:00Z' +%s`), or call `/bin/date` for
+  BSD behavior. Seen 2026-10-21: a scheduled job computed an empty target time from `date -j`,
+  skipped its wait, and fired an hour early.
 
 ### Post-installer audit
 After running any third-party installer that modifies shell config (gcloud, rustup, etc.),
