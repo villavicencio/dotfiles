@@ -7,7 +7,10 @@
 # machine that still has the formula, its `vercel` link sits where the cask
 # installs its binary, so `brew bundle` can't install the cask. This unlinks
 # the formula, installs the cask, and only then uninstalls the formula. If the
-# cask install fails, the formula is relinked, so `vercel` keeps working.
+# cask install fails, the formula is relinked, so `vercel` keeps working, except
+# when a half-installed cask can't be removed or `brew list --cask` fails: then
+# it stops with the formula unlinked and prints the commands to finish by hand,
+# rather than relink over a cask that may own bin/vercel.
 #
 # A machine with neither is left alone, and one with both (an earlier cleanup
 # failed) only loses the formula, so reruns finish the job. A failing `brew list` is an error, never read as "not installed".
@@ -68,7 +71,7 @@ if ! brew install --cask vercel; then
   # A cask that failed after registering may own bin/vercel now. Remove it
   # before relinking, so the formula never overwrites the cask's link. If it
   # won't go, or Homebrew can't say whether it's there, stop without relinking.
-  fix="brew uninstall --cask --force vercel; brew link --overwrite ${linked:-vercel}"
+  fix="brew uninstall --cask --force vercel && brew link --overwrite ${linked:-vercel}"
   casks="$(brew list --cask -1)" || {
     echo "ERROR: the vercel cask didn't install, and brew list --cask failed, so it's unknown whether a half-installed cask owns bin/vercel; check, then run: $fix" >&2
     exit 1
