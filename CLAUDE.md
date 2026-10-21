@@ -323,8 +323,11 @@ removing: true` while the worktree stays, stuck in Orca's "removing" state. Use 
 included, and the worktree's dotbot clone with its own branches, tags and stash. Nothing outside
 the worktree is touched. No status command proves that's safe, so before Force:
 
-- `git status --porcelain --ignored` lists everything that goes with the directory, the same
-  check `wt done` makes. The `.claude/settings.local.json` setup copied in is expected; if
+- `git status --porcelain --ignored --untracked-files=all` lists every untracked and ignored
+  file that goes with the directory, one per line. Without `--untracked-files=all`, git
+  collapses a directory into one `?? dir/` or `!! dir/` line and hides what's in it (`wt done`
+  runs that shorter form, which is enough for its yes/no check). Files inside `dotbot/` aren't
+  listed; see the next point. The `.claude/settings.local.json` setup copied in is expected; if
   `cmp` against the main checkout's copy shows it changed (rules approved in this worktree),
   copy back what you want to keep.
 - If you changed anything inside `dotbot/`, push it or copy it out first. A clean
