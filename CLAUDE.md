@@ -322,7 +322,12 @@ removing: true` while the worktree stays, stuck in Orca's "removing" state. Use 
 (CLI: `orca worktree rm --force`). It deletes the whole worktree directory, gitignored files
 included, and the worktree's dotbot clone with its own branches, tags and stash. Nothing outside
 the worktree is touched. No status command proves that's safe, so before Force, check **the
-worktree you're removing**, not the main checkout (`W` is its path, from `orca worktree list`):
+worktree you're removing**, not the main checkout. Set `W` to its path first, using the name
+Orca shows for it:
+
+```bash
+W=$(orca worktree show --worktree "name:<display name>" --json | jq -r .result.worktree.path)
+```
 
 - `git -C "$W" status --porcelain --ignored --untracked-files=all` lists every untracked and
   ignored file that goes with the directory, one per line. Run from the main checkout without
