@@ -431,8 +431,7 @@ def work(brief, checks, wt, rundir):
            "--allowedTools", *allowed]
     transcript = rundir / "worker.jsonl"
     t0 = time.monotonic()
-    rc, _, err, killed = run_limited(cmd, wt, env, WORKER_TIMEOUT_S,
-                                     brief + bash_rules(checks),
+    rc, _, err, killed = run_limited(cmd, wt, env, WORKER_TIMEOUT_S, brief,
                                      watch_memory=True, stdout_path=transcript)
     (rundir / "worker.stderr").write_text(err)
     with open(transcript, errors="replace") as fh:
@@ -588,6 +587,9 @@ def run_stages(ticket, run_id, branch, base, wt, rundir, env, finish, summary):
         plan_obj = plan(ticket, wt, rundir)
     except Exception as e:
         return finish("planner-error", error=str(e))
+    if plan_obj["proceed"]:
+        # What the worker actually gets: brief.md and the PR body show this too.
+        plan_obj["brief"] += bash_rules(plan_obj.get("checks") or [])
     (rundir / "brief.md").write_text(plan_obj["brief"])
     if not plan_obj["proceed"]:
         return finish("declined", reason=plan_obj["reason"])
