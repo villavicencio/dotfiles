@@ -315,22 +315,21 @@ live `~/.config`, `~/.claude` and `~/.local/bin` links at whichever checkout ran
 dangle once the worktree is removed. Don't launch nvim there either (first launch rewrites
 `nvim/lazy-lock.json`).
 
-**Removing a worktree needs the archive script or Force.** `git worktree remove` refuses a
-worktree with an initialized submodule ("working trees containing submodules cannot be moved
-or removed"), and Orca removes without `--force`. The CLI then reports `removed: true,
-removing: true` while the worktree stays, stuck in Orca's "removing" state. `scripts.archive`
-clears the way by deleting the worktree's dotbot clone and its `<gitdir>/modules`. Two limits,
-both from Orca's code (2026-10-18): Orca reads the archive hook from the **main checkout's**
-`orca.yaml`, so it runs only while the main checkout's branch has the file; and
-`orca worktree rm` skips it unless passed `--run-hooks`. The hook refuses, blocking the
-removal, unless deleting the worktree's dotbot clone loses nothing: no uncommitted changes,
-and its checked-out commit, local branch tips and stash all already exist in the **main
-checkout's** dotbot clone, a separate object store that survives the removal. It refuses when
-the main checkout's dotbot isn't checked out. It deliberately doesn't trust the recorded
-gitlink (a staged `git add dotbot` moves it) or remote-tracking refs (they outlive a deleted
-or force-pushed branch, and miss a tag-only pin). Otherwise use Force
-delete (CLI: `--force`). It discards any uncommitted work in the worktree, dotbot included,
-but nothing outside it: the submodule clone lives in the worktree's own git dir.
+**Removing an Orca worktree takes Force delete.** `git worktree remove` refuses a worktree
+with an initialized submodule ("working trees containing submodules cannot be moved or
+removed"), and Orca's plain delete doesn't pass `--force`. The CLI then reports `removed: true,
+removing: true` while the worktree stays, stuck in Orca's "removing" state. Use Force delete
+(CLI: `orca worktree rm --force`). It discards any uncommitted work in the worktree, dotbot
+included, but nothing outside it: the submodule clone lives in the worktree's own git dir.
+Check `git status` first, and `git -C dotbot status` if you touched dotbot.
+
+**There is deliberately no `scripts.archive` to clear the submodule first.** #225 tried one,
+and four review rounds each found a new way an automatic delete could lose work: a staged
+gitlink, remote-tracking refs that outlive their branch, a tag-only pin, branch and tag names,
+objects the main clone holds unreferenced. A script can't prove a git clone is safe to
+delete; Force with a human check is the simpler contract. If one is ever added, two facts from
+Orca's code (2026-10-18): Orca reads the archive hook from the **main checkout's** `orca.yaml`,
+not the worktree's, and `orca worktree rm` skips it unless passed `--run-hooks`.
 
 **Never `git submodule deinit` in a worktree.** It unsets `submodule.dotbot.*` in the shared
 `.git/config`, so the main checkout's dotbot reads as uninitialized (`-a7fe585 dotbot`) even

@@ -72,10 +72,10 @@ bin/        Repo CLI — bin/dot and bin/wt (symlinked to ~/.local/bin/)
             bin/lib/cleanup-merged-branch.sh — merged-branch cleanup, sourced by agents and `wt done`
 orca.yaml   Orca's setup script for each new worktree: checks out the dotbot submodule and
             copies the files .worktreeinclude names. Never ./install from a worktree (the
-            live links would point into it and dangle when it's removed). Its archive script
-            clears the submodule so Orca can remove the worktree; never `git submodule deinit`
-            in a worktree (it unregisters dotbot in the shared .git/config). Details: CLAUDE.md
-            "Orca worktrees"
+            live links would point into it and dangle when it's removed). Removing an Orca
+            worktree takes Force delete (git refuses one with a submodule checked out); there
+            is deliberately no archive script. Never `git submodule deinit` in a worktree (it
+            unregisters dotbot in the shared .git/config). Details: CLAUDE.md "Orca worktrees"
 .worktreeinclude  gitignored files copied into new worktrees (claude --worktree, wt new, orca.yaml)
 windows/    Windows layer, applied by install.ps1 (repo root): packages.json (winget),
             gitconfig (overrides chained after git/gitconfig), powershell/profile.ps1,

@@ -27,38 +27,3 @@ scripts:
       done < "$t/carry"
       rm -rf "$t"
     fi
-  archive: |
-    # git refuses to remove a worktree holding an initialized submodule, and Orca removes
-    # without --force. Drop this worktree's dotbot clone and leave an empty dir, as in a
-    # fresh checkout. Not `git submodule deinit`: it unsets submodule.dotbot.* in the
-    # config every checkout shares, unregistering dotbot in the main checkout too.
-    # Refuses (blocking the removal) unless deleting the clone loses nothing: no
-    # uncommitted changes, and the checked-out commit, every local branch tip and any
-    # stash must already be in the main checkout's dotbot clone, a separate object store
-    # that outlives this one. Each git call is an assignment, so a failure exits under
-    # set -e instead of reading as clean.
-    set -eu
-    m=$ORCA_ROOT_PATH
-    cd "$ORCA_WORKTREE_PATH"
-    gd=$(git rev-parse --absolute-git-dir)
-    case $gd in */worktrees/*) ;; *) exit 0 ;; esac
-    if [ -e dotbot/.git ]; then
-      dirty=$(git -C dotbot status --porcelain)
-      if [ -n "$dirty" ]; then
-        echo "dotbot has uncommitted changes; not removing it" >&2; exit 1
-      fi
-      # Without its own .git, git -C would find the superproject repo instead.
-      if [ ! -e "$m/dotbot/.git" ]; then
-        echo "the main checkout's dotbot isn't checked out; not removing this one" >&2; exit 1
-      fi
-      head=$(git -C dotbot rev-parse HEAD)
-      tips=$(git -C dotbot for-each-ref --format='%(objectname)' refs/heads refs/stash)
-      for c in $head $tips; do
-        if ! git -C "$m/dotbot" cat-file -e "$c^{commit}" 2>/dev/null; then
-          echo "dotbot holds commit $c that the main checkout's clone doesn't; not removing it" >&2
-          exit 1
-        fi
-      done
-    fi
-    rm -rf dotbot "$gd/modules"
-    mkdir dotbot
