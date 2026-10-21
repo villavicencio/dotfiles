@@ -296,15 +296,19 @@ jobs:
         with:
           submodules: recursive
 
-      - name: Cache Homebrew downloads + API
+      - name: Cache Homebrew downloads
         # Restore-keys deliberately omits a Brewfile-hash subset — that
         # would let a stale cache survive a Brewfile change. Helper
         # changes also bust the cache via hashFiles('helpers/**').
+        # Bottles only, never Homebrew's api/ index: with HOMEBREW_NO_AUTO_UPDATE
+        # set, a restored index is never refreshed, and the prefix restore-key
+        # carries it forward run after run. A cask Homebrew added after the
+        # first save then reads as "No Cask with this name exists" (#230,
+        # the vercel cask, 2026-10-21). Each run fetches a fresh index instead.
         uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae  # v5.0.5
         with:
           path: |
             ~/Library/Caches/Homebrew/downloads
-            ~/Library/Caches/Homebrew/api
           key: ${{ runner.os }}-${{ runner.arch }}-brew-${{ hashFiles('brew/Brewfile', 'helpers/**') }}
           restore-keys: |
             ${{ runner.os }}-${{ runner.arch }}-brew-
@@ -346,14 +350,14 @@ jobs:
         # there would point into the simulated home and save nothing.
         run: echo "HOMEBREW_CACHE=$HOME/Library/Caches/Homebrew" >> "$GITHUB_ENV"
 
-      - name: Cache Homebrew downloads + API
+      - name: Cache Homebrew downloads
         # The macos leg's cache, keyed on Brewfile.server. The `server-brew-`
         # prefix keeps the two legs' restore-keys from matching each other.
+        # Bottles only, not api/: see the macos leg's cache step.
         uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae  # v5.0.5
         with:
           path: |
             ${{ env.HOMEBREW_CACHE }}/downloads
-            ${{ env.HOMEBREW_CACHE }}/api
           key: ${{ runner.os }}-${{ runner.arch }}-server-brew-${{ hashFiles('brew/Brewfile.server', 'helpers/**') }}
           restore-keys: |
             ${{ runner.os }}-${{ runner.arch }}-server-brew-

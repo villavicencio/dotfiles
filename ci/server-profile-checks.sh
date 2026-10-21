@@ -62,10 +62,11 @@ cmd_static() {
     BREWFILE=/dev/null
   fi
   # Formulae only, plus the casks in ALLOWED_CASKS_RE: no other casks, Mac App
-  # Store apps, VS Code extensions, taps.
+  # Store apps, VS Code extensions, taps. An allowed cask is exempt only on a line
+  # of its own (a trailing comment is fine), so nothing can ride along after it.
   local other
   other="$(grep -nE '^[[:space:]]*(cask|mas|vscode|whalebrew|tap|go|cargo|uv)[[:space:]]' "$BREWFILE" |
-    grep -vE "^[0-9]+:[[:space:]]*cask[[:space:]]+\"($ALLOWED_CASKS_RE)\"" || true)"
+    grep -vE "^[0-9]+:[[:space:]]*cask[[:space:]]+\"($ALLOWED_CASKS_RE)\"[[:space:]]*(#.*)?$" || true)"
   if [ -z "$other" ]; then ok "Brewfile.server has formulae only (plus allowed casks)"; else err "non-formula entries in Brewfile.server: $other"; fi
   # Any entry kind, not just brew: comments may mention it, entries may not.
   sed -nE 's/^[[:space:]]*[a-z]+[[:space:]]+"([^"]+)".*/\1/p' "$BREWFILE" | grep -qxF docker-desktop \
