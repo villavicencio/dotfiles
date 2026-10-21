@@ -10,7 +10,7 @@ if [ "$(uname)" = "Darwin" ] && [ "${DOTFILES_PROFILE:-desk}" = "server" ]; then
     # not. So never run install_brew.sh's network installer: look for brew at
     # its fixed prefixes (an SSH command's PATH may not include it) and stop if
     # it is missing. No font casks (migrate_legacy_fonts.sh), and the server
-    # Brewfile is formulae only.
+    # Brewfile is formulae only, plus the CLI-only vercel cask.
     #
     # No upgrades: brew bundle upgrades outdated entries by default, and on a
     # live box that would swap node/uv under running services. Upgrades stay a

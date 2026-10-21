@@ -1099,7 +1099,8 @@ How it differs from a desk Mac:
   this repo (`dotbot/src/dotbot/plugins/clean.py`, v1.24.1). hal also carries dangling links
   copied from the VPS, such as `~/personal`, and a first install has nothing to clean, so
   `clean` doesn't run there at all.
-- **Packages:** `brew/Brewfile.server`, formulae only, installed by `brew bundle` with
+- **Packages:** `brew/Brewfile.server`, formulae only plus one CLI-only cask (`vercel`, which
+  Homebrew moved out of core; CI allows exactly that one), installed by `brew bundle` with
   `HOMEBREW_BUNDLE_NO_UPGRADE=1` and `HOMEBREW_NO_INSTALL_UPGRADE=1`, so installed formulae
   aren't upgraded under running services. A new formula can still upgrade a shared
   dependency it needs. The Homebrew network installer never runs: if brew is missing at
