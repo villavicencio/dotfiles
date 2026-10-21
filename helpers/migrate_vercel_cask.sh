@@ -7,7 +7,10 @@
 # machine that still has the formula, its `vercel` link sits where the cask
 # installs its binary, so `brew bundle` can't install the cask. This unlinks
 # the formula, installs the cask, and only then uninstalls the formula. If the
-# cask install fails, the formula is relinked, so `vercel` keeps working.
+# cask install fails, the formula is relinked, so `vercel` keeps working, except
+# when a half-installed cask can't be removed or `brew list --cask` fails: then
+# it stops with the formula unlinked and prints the commands to finish by hand,
+# rather than relink over a cask that may own bin/vercel.
 #
 # A machine with neither is left alone, and one with both (an earlier cleanup
 # failed) only loses the formula, so reruns finish the job. A failing `brew list` is an error, never read as "not installed".
@@ -66,10 +69,17 @@ echo "migrate_vercel_cask: replacing formula $names with cask vercel (Homebrew m
 for f in $old; do brew unlink "$f" >/dev/null || relink "couldn't unlink formula $f"; done
 if ! brew install --cask vercel; then
   # A cask that failed after registering may own bin/vercel now. Remove it
-  # before relinking, so the formula never overwrites the cask's link; if it
-  # won't go, stop without relinking.
-  if brew list --cask -1 2>/dev/null | grep -qx vercel && ! brew uninstall --cask --force vercel; then
-    echo "ERROR: the vercel cask half-installed and couldn't be removed; run: brew uninstall --cask --force vercel && brew link --overwrite ${linked:-vercel}" >&2
+  # before relinking, so the formula never overwrites the cask's link. If it
+  # won't go, or Homebrew can't say whether it's there, stop without relinking.
+  keg=${linked:-$(printf '%s\n' "$old" | head -1)}  # same keg relink() would pick
+  fix="brew uninstall --cask --force vercel && brew link --overwrite $keg"
+  casks="$(brew list --cask -1)" || {
+    echo "ERROR: the vercel cask didn't install, and brew list --cask failed, so it's unknown whether a half-installed cask owns bin/vercel. Check with \`brew list --cask\`." >&2
+    printf 'If it lists vercel, run:\n  %s\nIf it doesn'"'"'t, run:\n  %s\n' "$fix" "brew link --overwrite $keg" >&2
+    exit 1
+  }
+  if printf '%s\n' "$casks" | grep -qx vercel && ! brew uninstall --cask --force vercel; then
+    echo "ERROR: the vercel cask half-installed and couldn't be removed; run: $fix" >&2
     exit 1
   fi
   relink "the vercel cask didn't install"
