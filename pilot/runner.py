@@ -387,7 +387,13 @@ def work(brief, checks, wt, rundir):
         "ANTHROPIC_DEFAULT_OPUS_MODEL": WORKER_MODEL,
         "ANTHROPIC_DEFAULT_SONNET_MODEL": WORKER_MODEL,
         "ANTHROPIC_DEFAULT_HAIKU_MODEL": WORKER_MODEL,
-        "CLAUDE_CODE_MAX_CONTEXT_TOKENS": "65536",
+        # No auto-compaction: on 2026-10-21 the worker started compacting at about
+        # 30k tokens of context and produced nothing for 10 minutes, which is
+        # likely how every mergewren run on 2026-10-18 used up its hour. LM Studio
+        # loads the model with 234k of context, so the cap is raised instead; a
+        # worker that still runs out fails fast rather than hanging.
+        "CLAUDE_CODE_MAX_CONTEXT_TOKENS": "131072",
+        "DISABLE_AUTO_COMPACT": "1",
         "CLAUDE_CODE_MAX_OUTPUT_TOKENS": "8000",
         "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1",
         "API_TIMEOUT_MS": "600000",
