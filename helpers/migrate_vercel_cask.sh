@@ -66,10 +66,15 @@ echo "migrate_vercel_cask: replacing formula $names with cask vercel (Homebrew m
 for f in $old; do brew unlink "$f" >/dev/null || relink "couldn't unlink formula $f"; done
 if ! brew install --cask vercel; then
   # A cask that failed after registering may own bin/vercel now. Remove it
-  # before relinking, so the formula never overwrites the cask's link; if it
-  # won't go, stop without relinking.
-  if brew list --cask -1 2>/dev/null | grep -qx vercel && ! brew uninstall --cask --force vercel; then
-    echo "ERROR: the vercel cask half-installed and couldn't be removed; run: brew uninstall --cask --force vercel && brew link --overwrite ${linked:-vercel}" >&2
+  # before relinking, so the formula never overwrites the cask's link. If it
+  # won't go, or Homebrew can't say whether it's there, stop without relinking.
+  fix="brew uninstall --cask --force vercel; brew link --overwrite ${linked:-vercel}"
+  casks="$(brew list --cask -1)" || {
+    echo "ERROR: the vercel cask didn't install, and brew list --cask failed, so it's unknown whether a half-installed cask owns bin/vercel; check, then run: $fix" >&2
+    exit 1
+  }
+  if printf '%s\n' "$casks" | grep -qx vercel && ! brew uninstall --cask --force vercel; then
+    echo "ERROR: the vercel cask half-installed and couldn't be removed; run: $fix" >&2
     exit 1
   fi
   relink "the vercel cask didn't install"
