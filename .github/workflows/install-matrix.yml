@@ -59,15 +59,16 @@
 # LaunchAgent, ~/bin scripts, OrbStack/LM Studio stubs and dangling vault
 # symlinks), reusing the pre-/post-apply composites (profile-aware via
 # $DOTFILES_PROFILE), plus ci/server-profile-checks.sh:
-# S1. Brewfile.server is formulae only, has the required set, names none of
-#     the excluded formulae (docker-desktop and every cask, colima, docker,
+# S1. Brewfile.server is formulae only (plus the CLI-only vercel cask), has the
+#     required set, names none of the excluded formulae (docker-desktop and
+#     every other cask, colima, docker,
 #     …); an unknown DOTFILES_PROFILE fails before Dotbot runs.
 # S2. After the apply: every pre-existing file is byte-identical, dangling
 #     symlinks (outside AND inside the repo) survive — no `clean` on server;
 #     ~/.zshenv was backed up; chsh was never called (a recording shim is
 #     first on PATH and CI=false, so a CI-gated chsh step would reach it);
 #     no nvim config/nvm/uv/Claude Code/Claude settings/iTerm/herdr shims;
-#     no cask added; `zsh -lic` and `zsh -lc` resolve brew, lms, docker
+#     no cask added beyond vercel; `zsh -lic` and `zsh -lc` resolve brew, lms, docker
 #     (OrbStack), node, gh as hal's own rc files did, with ~/.local/bin still
 #     ahead of Homebrew. Git is R8's server branch (gh overlay only).
 #     No LaunchAgent added: tmux-continuum's boot option would write
@@ -295,18 +296,27 @@ jobs:
         with:
           submodules: recursive
 
-      - name: Cache Homebrew downloads + API
+      - name: Cache Homebrew downloads
         # Restore-keys deliberately omits a Brewfile-hash subset — that
         # would let a stale cache survive a Brewfile change. Helper
         # changes also bust the cache via hashFiles('helpers/**').
+        # Bottles only, not Homebrew's api/ index: the index comes fresh from the
+        # refresh step below, and a cached copy would only be one more stale one.
         uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae  # v5.0.5
         with:
           path: |
             ~/Library/Caches/Homebrew/downloads
-            ~/Library/Caches/Homebrew/api
           key: ${{ runner.os }}-${{ runner.arch }}-brew-${{ hashFiles('brew/Brewfile', 'helpers/**') }}
           restore-keys: |
             ${{ runner.os }}-${{ runner.arch }}-brew-
+
+      - name: Refresh Homebrew's index
+        # HOMEBREW_NO_AUTO_UPDATE keeps brew on the index the runner image
+        # shipped with, so the image's build date decides which formulae and
+        # casks exist. Real machines auto-update; without this step a package
+        # Homebrew renamed or moved (vercel-cli -> cask "vercel", #230) fails
+        # here while the old name keeps passing.
+        run: brew update --quiet
 
       - name: Pre-apply assertions (R2 + R3 symlink-resolution + checkout cleanup)
         uses: ./.github/actions/install-matrix-pre-apply
@@ -345,17 +355,25 @@ jobs:
         # there would point into the simulated home and save nothing.
         run: echo "HOMEBREW_CACHE=$HOME/Library/Caches/Homebrew" >> "$GITHUB_ENV"
 
-      - name: Cache Homebrew downloads + API
+      - name: Cache Homebrew downloads
         # The macos leg's cache, keyed on Brewfile.server. The `server-brew-`
         # prefix keeps the two legs' restore-keys from matching each other.
+        # Bottles only, not api/: see the macos leg's cache step.
         uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae  # v5.0.5
         with:
           path: |
             ${{ env.HOMEBREW_CACHE }}/downloads
-            ${{ env.HOMEBREW_CACHE }}/api
           key: ${{ runner.os }}-${{ runner.arch }}-server-brew-${{ hashFiles('brew/Brewfile.server', 'helpers/**') }}
           restore-keys: |
             ${{ runner.os }}-${{ runner.arch }}-server-brew-
+
+      - name: Refresh Homebrew's index
+        # HOMEBREW_NO_AUTO_UPDATE keeps brew on the index the runner image
+        # shipped with, so the image's build date decides which formulae and
+        # casks exist. Real machines auto-update; without this step a package
+        # Homebrew renamed or moved (vercel-cli -> cask "vercel", #230) fails
+        # here while the old name keeps passing.
+        run: brew update --quiet
 
       - name: Switch to a simulated hal home
         # Every later step sees HOME=$RUNNER_TEMP/hal-home. Homebrew keeps its

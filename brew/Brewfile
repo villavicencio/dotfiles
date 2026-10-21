@@ -112,7 +112,7 @@ brew "dotbot"               # dotfiles installer (a vendored submodule also exis
 brew "topgrade"             # unified system updater (topgrade/topgrade.toml)
 
 # --- Cloud / deploy ---
-brew "vercel-cli"
+cask "vercel"                # CLI only (vercel, vc); Homebrew moved the vercel-cli formula here
 
 # --- Misc / oddballs (intentional installs) ---
 brew "grc"                  # generic text colorizer

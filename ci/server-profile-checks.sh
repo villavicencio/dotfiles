@@ -46,21 +46,28 @@ REQUIRED="starship zoxide atuin fzf eza bat git-delta neovim
 coreutils gnu-sed grep findutils gawk jq ripgrep fd tmux git gh gitleaks
 node uv syncthing util-linux tree wget curl pre-commit"
 
+# The only casks Brewfile.server may name, and the server install may add: CLI
+# tools that install a binary and nothing else (no app, no sudo). An ERE alternation.
+ALLOWED_CASKS_RE='vercel'
+
 # Must never appear: the container runtime is installed out of band, and the
 # rest is desk-only.
 EXCLUDED="docker-desktop colima docker mosh herdr irssi handbrake yt-dlp aria2
 mac-cleanup-py pam-reattach terminal-notifier corelocationcli lolcat
-screenfetch jrnl pyenv pyenv-virtualenv go yarn perl cpanminus"
+screenfetch jrnl pyenv pyenv-virtualenv go yarn perl cpanminus vercel-cli vercel"
 
 cmd_static() {
   if [ ! -f "$BREWFILE" ]; then
     err "brew/Brewfile.server is missing"
     BREWFILE=/dev/null
   fi
-  # Formulae only: no casks, Mac App Store apps, VS Code extensions, taps.
+  # Formulae only, plus the casks in ALLOWED_CASKS_RE: no other casks, Mac App
+  # Store apps, VS Code extensions, taps. An allowed cask is exempt only on a line
+  # of its own (a trailing comment is fine), so nothing can ride along after it.
   local other
-  other="$(grep -nE '^[[:space:]]*(cask|mas|vscode|whalebrew|tap|go|cargo|uv)[[:space:]]' "$BREWFILE" || true)"
-  if [ -z "$other" ]; then ok "Brewfile.server has formulae only"; else err "non-formula entries in Brewfile.server: $other"; fi
+  other="$(grep -nE '^[[:space:]]*(cask|mas|vscode|whalebrew|tap|go|cargo|uv)[[:space:]]' "$BREWFILE" |
+    grep -vE "^[0-9]+:[[:space:]]*cask[[:space:]]+\"($ALLOWED_CASKS_RE)\"[[:space:]]*(#.*)?$" || true)"
+  if [ -z "$other" ]; then ok "Brewfile.server has formulae only (plus allowed casks)"; else err "non-formula entries in Brewfile.server: $other"; fi
   # Any entry kind, not just brew: comments may mention it, entries may not.
   sed -nE 's/^[[:space:]]*[a-z]+[[:space:]]+"([^"]+)".*/\1/p' "$BREWFILE" | grep -qxF docker-desktop \
     && err "docker-desktop is an entry in Brewfile.server"
@@ -71,6 +78,13 @@ cmd_static() {
   done
   for f in $EXCLUDED; do
     printf '%s\n' "$have" | grep -qxF "$f" && err "Brewfile.server names excluded formula: $f"
+  done
+  # Every allowed cask must be present too: the allowlist names what the
+  # server needs, not only what it may have.
+  local casks c
+  casks="$(entries cask)"
+  for c in $(printf '%s\n' "$ALLOWED_CASKS_RE" | tr '|' ' '); do
+    printf '%s\n' "$casks" | grep -qxF "$c" || err "Brewfile.server lacks required cask: $c"
   done
   ok "Brewfile.server: $(printf '%s\n' "$have" | grep -c .) formulae checked"
 
@@ -226,8 +240,8 @@ cmd_post() {
   if brew bundle check --no-upgrade --file="$BREWFILE" >/dev/null 2>&1; then ok "brew bundle check: Brewfile.server satisfied"
   else brew bundle check --no-upgrade --verbose --file="$BREWFILE" || true; err "Brewfile.server not satisfied"; fi
   local added
-  added="$(comm -13 "$SEED_STATE/casks.before" <(brew list --cask -1 2>/dev/null | sort))"
-  if [ -z "$added" ]; then ok "no cask installed"; else err "casks installed by the server install: $added"; fi
+  added="$(comm -13 "$SEED_STATE/casks.before" <(brew list --cask -1 2>/dev/null | sort) | grep -vxE "$ALLOWED_CASKS_RE" || true)"
+  if [ -z "$added" ]; then ok "no cask installed beyond the allowed ones"; else err "casks installed by the server install: $added"; fi
 
   # Git (helpers git actually runs, pager) is asserted by post-apply R8.
 

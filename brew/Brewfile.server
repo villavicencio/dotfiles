@@ -2,7 +2,8 @@
 # Brewfile.server — formulae for DOTFILES_PROFILE=server (the headless Mac mini
 # `hal`). Installed by helpers/install_packages.sh with --no-upgrade.
 #
-# Formulae only: no casks, fonts, Mac App Store apps or taps. The container
+# Formulae only, plus one CLI-only cask (vercel, see below; CI allows exactly
+# that one): no other casks, fonts, Mac App Store apps or taps. The container
 # runtime (OrbStack, plus Homebrew's docker CLI and colima as a fallback) is
 # installed on hal out of band and is deliberately absent: a Brewfile must not
 # own it. `brew bundle` is never run with --cleanup, so nothing installed
@@ -42,7 +43,9 @@ brew "tmux"
 brew "node"                 # services' Node; no nvm on the server
 brew "uv"                   # services' Python (uv-managed 3.11); no ~/.local/bin/uv
 brew "bun"                  # Claude Code plugins (compound-engineering, vercel) need it for their packages
-brew "vercel-cli"           # link/inspect Vercel projects (bryancola.com); deploys go through git
+cask "vercel"               # link/inspect Vercel projects (bryancola.com); deploys go through git.
+                            # The one allowed cask: CLI only (vercel, vc), no sudo. Homebrew moved
+                            # the vercel-cli formula here.
 brew "syncthing"            # installed only; configuring it is the migration runbook's job
 brew "util-linux"
 brew "wget"
