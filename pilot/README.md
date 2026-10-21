@@ -41,6 +41,8 @@ Everything here runs on **hal as `david`**, from `david`'s dotfiles clone at
 4. **Worker.** This is `claude -p --bare` against LM Studio, with Read, Edit and Bash in
    `dontAsk` mode. Bash is limited to the plan's check commands plus read-only
    `git`/`ls`/`grep`/`rg`.
+   - The runner appends the exact allowed commands to the brief, since a check with `| head`
+     or `2>&1` added doesn't match its rule (a worker hit 14 such denials on 2026-10-21).
    - It gets 60 minutes, and is stopped if free memory falls below 10% or the kill switch
      appears.
    - Its env is the one from VIL-395's smoke test, with a 128k context cap, a 32k output cap

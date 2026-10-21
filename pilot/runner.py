@@ -377,6 +377,22 @@ def plan(ticket, wt, rundir):
     return plan_obj
 
 
+def bash_rules(checks):
+    """The worker's Bash rules, appended to the brief. A rule matches only the
+    exact command, so a check with `| head` or `2>&1` added is denied; on
+    2026-10-21 a worker spent part of its hour on 14 such denials."""
+    exact = "\n".join(f"- `{c['cmd']}`" for c in checks) or "- (none)"
+    prefixes = ", ".join(f"`{r[5:-3]}`" for r in WORKER_READONLY_BASH)
+    return (
+        "\n\n## Your Bash permissions\n\n"
+        "Bash runs only these commands, exactly as written (no added pipes, "
+        "redirects, `2>&1`, `head`, `cd` or `&&`):\n"
+        f"{exact}\n\n"
+        f"Plus read-only commands starting with: {prefixes}. Anything else is "
+        "denied, so don't probe for other commands. Use Read instead of `cat`, "
+        "`head` or `sed`, and Edit to change files.\n")
+
+
 def work(brief, checks, wt, rundir):
     env = dict(os.environ)
     env.pop("ANTHROPIC_API_KEY", None)
@@ -415,7 +431,8 @@ def work(brief, checks, wt, rundir):
            "--allowedTools", *allowed]
     transcript = rundir / "worker.jsonl"
     t0 = time.monotonic()
-    rc, _, err, killed = run_limited(cmd, wt, env, WORKER_TIMEOUT_S, brief,
+    rc, _, err, killed = run_limited(cmd, wt, env, WORKER_TIMEOUT_S,
+                                     brief + bash_rules(checks),
                                      watch_memory=True, stdout_path=transcript)
     (rundir / "worker.stderr").write_text(err)
     with open(transcript, errors="replace") as fh:
