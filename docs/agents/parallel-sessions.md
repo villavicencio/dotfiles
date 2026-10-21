@@ -53,8 +53,9 @@ wt port [topic]           # the worktree's dev-server port (this one, or the nam
   on 127.0.0.1. The choice runs under a lock (`<git-common-dir>/wt-port.lock`), so two
   `wt new` runs can't take the same port; a lock left by a crash makes `wt new` say so after
   5 seconds, and you remove it. If the base isn't a port number, `lsof` is missing or fails,
-  or nothing is free, `wt new` says so and assigns none. The port is recorded as `wt-port` in
-  the worktree's git dir, so it goes with `wt done`, and exported as `PORT` in the session
+  or `nc` is missing (it's the only check that sees other accounts' listeners), or nothing
+  is free, `wt new` says so and assigns none. The port is recorded as `wt-port` in the
+  worktree's git dir, so it goes with `wt done`, and exported as `PORT` in the session
   `wt new` opens. It isn't written to `.env`: Next.js reads `PORT` only from the environment
   ("`PORT` cannot be set in `.env`", nextjs.org/docs/app/api-reference/cli/next, read
   2026-10-12). In any other shell, `port=$(wt port) && PORT=$port npm run dev`, which stops

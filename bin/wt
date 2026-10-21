@@ -91,6 +91,7 @@ assign_port() {
   base=$(git -C "$m" config --get wt.portBase) || return 0
   valid_port "$base" || { note "wt.portBase isn't a port number ($base); no port assigned" >&2; return 0; }
   live=$(listening_ports) || { note "can't list listening ports (lsof missing or failed); no port assigned" >&2; return 0; }
+  command -v nc >/dev/null 2>&1 || { note "nc is missing, so another account's listener could go unseen; no port assigned" >&2; return 0; }
   cd=$(git -C "$m" rev-parse --path-format=absolute --git-common-dir) || return 0
   lock="$cd/wt-port.lock"
   until mkdir "$lock" 2>/dev/null; do
@@ -103,7 +104,7 @@ assign_port() {
     p=$((base + i)); [ "$p" -le 65535 ] || break
     case $used in *" $p "*) continue ;; esac
     # Another account's listener is invisible to lsof; a connection attempt still sees it.
-    if command -v nc >/dev/null 2>&1 && nc -z 127.0.0.1 "$p" >/dev/null 2>&1; then continue; fi
+    if nc -z 127.0.0.1 "$p" >/dev/null 2>&1; then continue; fi
     if printf '%s\n' "$p" > "$gd/wt-port"; then rmdir "$lock"; printf '%s\n' "$p"; return 0; fi
     rmdir "$lock"; note "couldn't record port $p in $gd/wt-port; none assigned" >&2; return 0
   done
