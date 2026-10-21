@@ -30,15 +30,19 @@ old="$(printf '%s\n' "$formulae" | grep -xE 'vercel|vercel-cli' || true)"  # no 
 [ -n "$old" ] || exit 0
 names="$(printf '%s' "$old" | tr '\n' ' ')"
 
-if [ "${DOTFILES_DRY_RUN:-0}" = "1" ]; then
-  echo "[dry-run] would unlink formula $names, install cask vercel if missing, then uninstall the formula"
-  exit 0
-fi
-
 # The cask is in but the formula is still here: an earlier run's cleanup failed.
 # Uninstalling the keg leaves the cask's bin links alone (they point into the
 # Caskroom), so finish it.
-if printf '%s\n' "$casks" | grep -qx vercel; then
+have_cask=0
+printf '%s\n' "$casks" | grep -qx vercel && have_cask=1
+
+if [ "${DOTFILES_DRY_RUN:-0}" = "1" ]; then
+  if [ "$have_cask" = 1 ]; then echo "[dry-run] would uninstall leftover formula $names (cask vercel is installed)"
+  else echo "[dry-run] would unlink formula $names, install cask vercel, then uninstall the formula"; fi
+  exit 0
+fi
+
+if [ "$have_cask" = 1 ]; then
   echo "migrate_vercel_cask: cask vercel is installed; removing leftover formula $names"
   # shellcheck disable=SC2086 # one name per word
   brew uninstall --formula --force --ignore-dependencies $old
