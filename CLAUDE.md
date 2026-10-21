@@ -319,9 +319,19 @@ dangle once the worktree is removed. Don't launch nvim there either (first launc
 with an initialized submodule ("working trees containing submodules cannot be moved or
 removed"), and Orca's plain delete doesn't pass `--force`. The CLI then reports `removed: true,
 removing: true` while the worktree stays, stuck in Orca's "removing" state. Use Force delete
-(CLI: `orca worktree rm --force`). It discards any uncommitted work in the worktree, dotbot
-included, but nothing outside it: the submodule clone lives in the worktree's own git dir.
-Check `git status` first, and `git -C dotbot status` if you touched dotbot.
+(CLI: `orca worktree rm --force`). It deletes the whole worktree directory, gitignored files
+included, and the worktree's dotbot clone with its own branches, tags and stash. Nothing outside
+the worktree is touched. No status command proves that's safe, so before Force:
+
+- `git status --porcelain --ignored` lists everything that goes with the directory, the same
+  check `wt done` makes. The `.claude/settings.local.json` setup copied in is expected; if
+  `cmp` against the main checkout's copy shows it changed (rules approved in this worktree),
+  copy back what you want to keep.
+- If you changed anything inside `dotbot/`, push it or copy it out first. A clean
+  `git -C dotbot status` doesn't show commits, tags or stash entries that exist only in this
+  clone.
+- The worktree's branch isn't at risk: Orca keeps any branch it can't prove is already merged
+  (`orca worktree rm --help`).
 
 **There is deliberately no `scripts.archive` to clear the submodule first.** #225 tried one,
 and four review rounds each found a new way an automatic delete could lose work: a staged
