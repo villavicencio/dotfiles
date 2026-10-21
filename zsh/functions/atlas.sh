@@ -7,9 +7,10 @@
 # visits attach to the same one. When Atlas exits, the window drops to hal's
 # shell instead of closing. Closing the tab leaves Atlas running.
 #
-# On hal as `david` (`ssh hal`, the phone) there's no Orca, so `atlas` runs the
-# same console command directly. Elsewhere without Orca it just fails: the
-# direct path needs a local `hal` account.
+# On hal as `david` (`ssh hal`, the phone, an Orca tab on hal) `atlas` runs the
+# same console command directly. A local `hal` account is the test, not a
+# missing `orca`: Orca's tabs on hal put its CLI on PATH too, but that one talks
+# to hal's own Orca server, which has no hal-svc environment.
 #
 # On hal as `hal`, `atlas` is Hermes's own wrapper (`hermes profile alias default --name
 # atlas` writes ~/.local/bin/atlas = `hermes -p default`). A function would win
@@ -25,11 +26,11 @@ fi
 
 function atlas() {
   local -a console=(sudo -u hal -i tmux -L atlas new -A -s atlas 'atlas; exec zsh -il')
-  if ! command -v orca >/dev/null 2>&1; then
-    id hal >/dev/null 2>&1 || { print -u2 -- "atlas: orca is not installed"; return 1; }
+  if id hal >/dev/null 2>&1; then
     "${console[@]}"
     return
   fi
+  command -v orca >/dev/null 2>&1 || { print -u2 -- "atlas: orca is not installed"; return 1; }
   command -v jq >/dev/null 2>&1 || { print -u2 -- "atlas: jq is not installed"; return 1; }
   local env=${ATLAS_ORCA_ENV:-hal-svc} out wt handle
   out=$(orca worktree list --environment "$env" --json 2>&1)
