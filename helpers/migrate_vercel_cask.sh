@@ -74,9 +74,8 @@ if ! brew install --cask vercel; then
   keg=${linked:-vercel}
   fix="brew uninstall --cask --force vercel && brew link --overwrite $keg"
   casks="$(brew list --cask -1)" || {
-    echo "ERROR: the vercel cask didn't install, and brew list --cask failed, so it's unknown whether a half-installed cask owns bin/vercel. Check with \`brew list --cask\`, then run:" >&2
-    echo "  if it lists vercel: $fix" >&2
-    echo "  if it doesn't:      brew link --overwrite $keg" >&2
+    echo "ERROR: the vercel cask didn't install, and brew list --cask failed, so it's unknown whether a half-installed cask owns bin/vercel. Check with \`brew list --cask\`." >&2
+    printf 'If it lists vercel, run:\n  %s\nIf it doesn'"'"'t, run:\n  %s\n' "$fix" "brew link --overwrite $keg" >&2
     exit 1
   }
   if printf '%s\n' "$casks" | grep -qx vercel && ! brew uninstall --cask --force vercel; then
