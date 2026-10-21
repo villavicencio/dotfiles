@@ -44,8 +44,15 @@ Everything here runs on **hal as `david`**, from `david`'s dotfiles clone at
    - It gets 60 minutes, and is stopped if free memory falls below 10% or the kill switch
      appears.
    - Its env is the one from VIL-395's smoke test: a 64k context cap and an 8k output cap.
+   - Its output is `stream-json`, written to `worker.jsonl` as it happens, so a worker stopped
+     at the time limit still leaves its transcript. For a stopped worker, turns and input
+     tokens are counted from that transcript; output tokens read 0, because LM Studio's
+     streamed messages don't report them.
 5. **Checks.** The runner runs each check itself (`bash -c`, 15 minutes each), whatever the
-   worker reported.
+   worker reported. A worker stopped at the time limit still gets its checks run when it
+   changed files, because it may have finished the change and kept going (all six mergewren
+   runs on 2026-10-18 did; two had passing changes that went out unchecked). A worker stopped
+   by the kill switch or low memory gets no checks.
 6. **Secret scan.** After the commit and before anything is pushed, gitleaks
    scans the run's commits and the PR title and body. dotfiles and browse-gateway are public,
    and so are their PRs, so a finding blocks the run: status `leak-blocked`, no push,
@@ -67,7 +74,7 @@ Everything here runs on **hal as `david`**, from `david`'s dotfiles clone at
 Each run's record is kept in `~/runs/log/<run-id>/`:
 - `run.json` (the summary);
 - `planner.json` and `brief.md`;
-- `worker.json`;
+- `worker.jsonl` (the worker's transcript) and `worker.stderr`;
 - `checks.log`;
 - `pr/title.txt` and `pr/body.md`;
 - `gitleaks.log`.
