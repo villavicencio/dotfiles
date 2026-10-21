@@ -320,8 +320,10 @@ with an initialized submodule ("working trees containing submodules cannot be mo
 removed"), and Orca's plain delete doesn't pass `--force`. The CLI then reports `removed: true,
 removing: true` while the worktree stays, stuck in Orca's "removing" state. Use Force delete
 (CLI: `orca worktree rm --force`). It deletes the whole worktree directory, gitignored files
-included, and the worktree's dotbot clone with its own branches, tags and stash. Nothing outside
-the worktree is touched. No status command proves that's safe, so before Force, check **the
+included, and the worktree's dotbot clone with its own branches, tags and stash. It also
+removes the worktree's git registration and Orca's entry for it, and deletes the worktree's
+branch when Orca can prove it's merged (see the last point below). The main checkout's files
+are left alone. No status command proves that's safe, so before Force, check **the
 worktree you're removing**, not the main checkout. Set `W` to its path first, using the name
 Orca shows for it:
 
