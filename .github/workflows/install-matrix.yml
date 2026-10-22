@@ -560,7 +560,7 @@ jobs:
           if (-not $frag.profiles) { "::error file=windows/terminal/dotfiles.json::no profiles"; $fail++ }
 
           # The gitleaks version is pinned in three places that must match
-          # (CLAUDE.md "Version pin"); a Windows-only bump is easy to forget.
+          # (docs/reference/secret-hygiene.md "Version pin"); a Windows-only bump is easy to forget.
           $preCommit = [regex]::Match((Get-Content -Raw .pre-commit-config.yaml),
             'repo:\s*https://github\.com/gitleaks/gitleaks\s+rev:\s*v?(\S+)').Groups[1].Value
           $helper = [regex]::Match((Get-Content -Raw helpers/install_pre_commit.sh),
@@ -864,7 +864,7 @@ jobs:
           $env:Path = @($env:Path, [Environment]::GetEnvironmentVariable('Path', 'Machine'),
                         [Environment]::GetEnvironmentVariable('Path', 'User'),
                         (Join-Path $HOME '.local\bin')) -join ';'
-          # High-entropy fake (CLAUDE.md "Entropy gate"), assembled at run time
+          # High-entropy fake (docs/reference/secret-hygiene.md "Entropy gate"), assembled at run time
           # so this workflow file itself never carries a matching token.
           $token = 'ghp_' + 'xKy7mFP2zL9QrT4vN8bH3sD1jE6cWa0pIuYg'
           $file = 'ci-gitleaks-smoke.txt'

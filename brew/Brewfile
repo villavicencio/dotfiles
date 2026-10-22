@@ -91,8 +91,8 @@ brew "kondo"                # project build-artifact cleanup
 # --- Security ---
 brew "gnupg"                # GPG (signing, encryption)
 brew "pam-reattach"         # Touch ID for sudo INSIDE tmux — reattaches PAM to the GUI
-                            # session. Needs a one-time root step; see CLAUDE.md
-                            # "Touch ID for sudo". Useless without /etc/pam.d/sudo_local.
+                            # session. Needs a one-time root step; see
+                            # docs/reference/tooling.md "Touch ID for sudo". Useless without /etc/pam.d/sudo_local.
 
 # --- Terminal multiplexers ---
 brew "tmux"

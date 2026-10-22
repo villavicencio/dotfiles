@@ -214,7 +214,7 @@ may not be pulled yet, so from a worktree that has a newer copy, source that one
   delete in Orca, or, for a worktree that isn't Orca's, `git worktree remove --force <path>`
   (a single `--force` removes one with submodules). Detaching deletes nothing, so only changes
   and untracked files block it, not ignored ones; those are still in the worktree, so check it
-  before removing it (CLAUDE.md, "Removing an Orca worktree takes Force delete"). It works from inside that worktree,
+  before removing it (dotfiles `docs/reference/orca-worktrees.md`, "Removing an Orca worktree takes Force delete"). It works from inside that worktree,
   so a session that merged its own PR there cleans up before the Force delete closes it.
   `wt done` refuses such a worktree itself, before calling the function, because it expects
   the worktree to be gone afterwards.

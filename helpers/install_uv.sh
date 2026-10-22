@@ -13,7 +13,7 @@
 # PATH lines to `.zshrc` and `.zshenv` (see add_install_dir_to_path in the
 # installer). Those paths are Dotbot symlinks into this repo, so an unguarded run
 # edits tracked files and dirties the working tree — exactly the hazard the
-# "Post-installer audit" section of CLAUDE.md exists for. zshenv already puts
+# "Post-installer audit" section of docs/reference/shell-and-path.md exists for. zshenv already puts
 # ~/.local/bin on PATH, so there is nothing for the installer to add.
 #
 # Who needs uv: the Hermes runtime, and any project pinning its own Python

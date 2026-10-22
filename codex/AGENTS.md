@@ -60,4 +60,4 @@ Repos with their own reviewer follow their own rules: dotfiles and bryancola.com
 - Parallel sessions, worktrees, `wt`: `parallel-sessions.md`.
 - Obsidian vaults: `obsidian-vaults.md`. Each project owns `~/Obsidian/<name>/`; only `hermes` and `axiom` sync to the VPS.
 - Proof docs: `proof.md`. Collaborative docs (plans, specs, memos, drafts) go to Proof via the `proof` skill, titled `Plan: YYYY-MM-DD topic`, `Brainstorm: …`, `Draft: …`, `Reference: …`, `SOUL — <Persona>`. Code-adjacent docs stay in the repo.
-- Orca projects (herdr retired 2026-10-22): a new project gets an Orca project (`orca repo add --path <dir>`), a vault, and a project `CLAUDE.md`; worktree setup goes in the repo's `orca.yaml`. Gotchas: the dotfiles `CLAUDE.md` "Orca worktrees" section.
+- Orca projects (herdr retired 2026-10-22): a new project gets an Orca project (`orca repo add --path <dir>`), a vault, and a project `CLAUDE.md`; worktree setup goes in the repo's `orca.yaml`. Gotchas: dotfiles `docs/reference/orca-worktrees.md`.

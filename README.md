@@ -52,8 +52,7 @@ pwsh -File install.ps1
 shared with macOS (git ignore/attributes, Starship, lazygit, the global
 `CLAUDE.md`, the Neovim config), writes stubs for `~/.gitconfig` and the PowerShell
 profile, installs the gitleaks pre-commit hook, and restores the pinned Neovim
-plugins. Details in [`CLAUDE.md`](CLAUDE.md)
-under "Setting up the Windows PC".
+plugins. Details in [`docs/reference/windows.md`](docs/reference/windows.md).
 
 ### WSL (Linux on the Windows PC)
 
@@ -68,7 +67,7 @@ cd ~/Projects/Personal/dotfiles
 ./install        # prompts for your Linux password (sudo, then chsh)
 ```
 
-Details in [`CLAUDE.md`](CLAUDE.md) under "Setting up WSL on the Windows PC".
+Details in [`docs/reference/wsl-linux.md`](docs/reference/wsl-linux.md).
 
 ## The `dot` command
 
