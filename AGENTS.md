@@ -426,7 +426,7 @@ that no LaunchAgent was added. It also checks that a second run changes nothing.
   catches a directory with no prior session, where `--continue` exits 1. Full
   caveats: the pane-template section of CLAUDE.md.
   Local project agents (`melos ♪`, `sites ✦`, `borealis ❆`, `argus ◉`,
-  `skills ⚒`, `obscura ✇`, `eidos ❖`, `orrery ☉` — roster table in CLAUDE.md)
+  `obscura ✇`, `eidos ❖`, `orrery ☉` — roster table in CLAUDE.md)
   need no shim — herdr detects a local claude pane natively; they use the pane
   template above, whose login shell rebuilds PATH from `zshenv` before claude
   starts (the server spawns pane commands with its bare launchd env).
