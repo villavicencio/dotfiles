@@ -91,10 +91,12 @@ in as `hal`, and `hal` logs in as `david`; both use key auth.
 ```bash
 for host in hal-orca hal; do
   op item get "hal-agents service account" --fields label=credential --reveal |
-    ssh "$host" 'umask 077; mkdir -p ~/.config/op-agent && cat > ~/.config/op-agent/token && chmod 600 ~/.config/op-agent/token && echo "written on hal as $(id -un), $(wc -c < ~/.config/op-agent/token) bytes"'
+    ssh "$host" 'umask 077; d=~/.config/op-agent; mkdir -p "$d" && cat > "$d/token.new" && test -s "$d/token.new" && mv -f "$d/token.new" "$d/token" && echo "written on hal as $(id -un), $(wc -c < "$d/token") bytes" || { rm -f "$d/token.new"; echo "nothing written on hal as $(id -un): empty input, existing token kept" >&2; exit 1; }'
 done
 ```
-Each line should report a non-zero byte count, and the two counts should match. An empty
+Each line should report a non-zero byte count, and the two counts should match. The token
+goes to `token.new` first and replaces `token` only when it isn't empty, so a failed
+`op item get` (not signed in, say) leaves an existing token alone. An empty
 file from a failed first attempt is exactly the problem this ticket started from. (Done on
 2026-10-22: 820 bytes for each account, same SHA-256.)
 
