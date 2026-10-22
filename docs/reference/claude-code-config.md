@@ -108,12 +108,13 @@ python3 helpers/migrate_claude_settings.py           # by hand, first: adds trac
 bash helpers/install_claude_settings.sh --capture    # regenerate claude/settings.json, then commit
 ```
 
-Windows, in Git Bash (no `dot` there, and `python3` is usually the Store placeholder):
+Windows, in Git Bash (no `dot` there; `python3` is usually the Store placeholder, and a PC set
+up only by `install.ps1` has uv but no Python, so the migration runs through uv):
 
 ```bash
-bash helpers/report_drift.sh                         # see what diverged
-python helpers/migrate_claude_settings.py            # by hand, first
-bash helpers/install_claude_settings.sh --capture    # regenerates windows/claude-settings.json, then commit
+bash helpers/report_drift.sh                                    # see what diverged
+uv run --no-project python helpers/migrate_claude_settings.py   # by hand, first
+bash helpers/install_claude_settings.sh --capture               # regenerates windows/claude-settings.json, then commit
 ```
 
 `--capture` regenerates rather than `cp`s: it drops the machine-local keys
