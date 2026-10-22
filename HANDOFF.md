@@ -1,53 +1,68 @@
 ---
-created_at: "2026-10-22T11:22:53-07:00"
+created_at: "2026-10-22T14:05:57-07:00"
 branch: "master"
-head: "d93f7eb"
+head: "540f771"
 worktree: "/Users/dvillavicencio/Projects/Personal/dotfiles"
+resume_focus: "merge #241 once MergeWren's verdict on 3f21c30 has no new high/critical, then install op + op-agent on hal for hal and david and verify both tokens"
 ---
-# HANDOFF — 2026-10-22, late morning (PDT)
+# HANDOFF — 2026-10-22, afternoon (PDT)
 
-This session picked up after a `/clear`, with MergeWren's first review of #239 (`pilot/timing.py`) just in. It took #239 through three more fix rounds, merged it, and pulled both clones. The earlier session's handoff (VIL-380 rerun, the context cap raised to 192k in #238, tonight's queue) still holds and is carried forward below. The next job is the morning report on the 2026-10-23 01:30 PT pilot run.
+This session groomed and worked the whole Dotfiles backlog (VIL-422, VIL-402, VIL-399; VIL-300 canceled) to the "finish the tickets, clean the backlog" goal David set. Two PRs merged, the third (#241, 1Password) is through review and waiting on one final MergeWren verdict before merge and the hal install. Earlier in the session dissolution was added to Orca, and a catch-up prompt was written for the skills project on hal.
 
 ## What We Built
-- **#239 merged (`7472182`):** `pilot/timing.py` plus a small `pilot/runner.py` change. The PR body has the full review history, including the one declined finding.
-  - `runner.py` now writes `worker.ended_at` (UTC) to `run.json`, sampled the moment the worker exits. `duration_s` is now also sampled at that moment, so it no longer includes writing stderr and parsing the transcript.
-  - `timing.py` ends a transcript that has no `result` event at `ended_at`. A tool call still running at that point counts as tool time. Otherwise the gap after the last event shows as "cut off": a think or reply that never reached the transcript.
-  - The report says "stopped: <reason>" only when `worker.killed` is set, and "exited N with no result event" otherwise.
-  - Overlapping tool calls are counted once, and a result with no final text no longer crashes.
-- **Tests:** 9 synthetic transcripts, built by a throwaway script that wasn't committed. Old and new output match on hal's 7 real transcripts. A real killed worker hasn't happened yet, so tonight may be its first test.
-- **Clones:** both are at `7472182` or later. This Mac's main checkout is on `master` at `d93f7eb`, and hal's clone (as `david`) is at `7472182`. `feat/pilot-timing` is deleted locally and on origin. The 2026-10-23 run uses the new runner.
-- **`d93f7eb` (master):** `CLAUDE.md` (review-stack section) and `AGENTS.md` now say that an incremental MergeWren round can keep a stale finding open.
-- **Carried from the morning session (still true):**
-  - mergewren#69 (VIL-389) and #73 (VIL-380) passed and are waiting on the MergeWren session. mergewren#61 (VIL-251) has a high finding and is missing tests.
-  - Tonight's queue in `~/runs/queue/` on hal: `09-vil-391.md`, `10-vil-417.md`, `11-vil-381.md`, all labelled `hal-overnight` in Linear.
+- **#240 merged (`e52a9da`), VIL-422 herdr retirement.**
+  - The repo side is complete. History lives in `docs/solutions/integration-issues/herdr-agent-fleet-retired-2026-10-22.md`.
+  - This Mac is done too: the hooks were removed by David's script, `herdr` and `terminal-notifier` are uninstalled, `~/.config/herdr/` is archived at `~/Projects/_archive/herdr-config/`, and both `chore/herdr-retire-*` branches are deleted.
+  - VIL-422 stays In Progress only for the work Mac.
+- **#242 merged (`2c3747e`), VIL-402 context discipline. VIL-402 is Done.**
+  - Startup context went from 68.0k to 27.4k (measured with `claude -p "/context"`). `CLAUDE.md` is now rules plus pointers, and the write-ups live in `docs/reference/` (12 files).
+  - `autoCompactWindow: 400000` is set in the tracked settings and in this Mac's live file.
+  - The statusline `ctx` meter shows tokens out of a 250k budget and turns red at 200k.
+  - `helpers/migrate_claude_settings.py` removes herdr hooks, folds `allowedTools`, and adds missing tracked keys (desk Macs and Windows only). `--capture` refuses to drop tracked keys, and `dot drift` skips Claude settings on Linux and hal's server profile.
+- **#241 open (head `3f21c30`), VIL-399 1Password.**
+  - Contents: `bin/op-agent`, `ci/op-agent-checks.sh` (run by hand), `docs/agents/1password.md`, and the `1password-cli` cask on both Brewfiles plus the CI allowlist.
+  - `master` was merged in to resolve conflicts with #240/#242. All 12 of #241's edits were confirmed present after the merge; the server-cask note now lives in `docs/reference/install-and-server.md`.
+- **1Password, done by David:**
+  - The Agents vault, the `op-agent-test` item, and the `hal-agents` service account (read-only on Agents) exist. Its token is saved in David's 1Password as "hal-agents service account".
+  - Token files are written on hal for `hal` and `david` at `~/.config/op-agent/token`: mode 600, 820 bytes each, same SHA-256, both start with `ops_`.
+- **New tickets:** VIL-426 (re-measure, due 2026-11-05) and VIL-431 (settings drift: Orca and iTerm hooks in live settings vs tracked).
+- **Memory:** `project_context_budget.md` (Max 5x goal and the compaction policy). The herdr memory entries are marked retired.
 
 ## Decisions Made
-- **Declined MergeWren `74e3fde#1` as stale.** It describes `timing.py` adding `duration_s` to the first event. The code stopped doing that in `7d8ee8c`, yet the finding stayed "Still open" for two incremental rounds. The reason is on its thread and in the PR body.
-- **Runs from before `ended_at` existed don't get an estimated end.** `duration_s` overshoots the end by the worker's startup time. Those runs are reported as partial, with the total stopping at the last event. That covers the three `runner-error` VIL-251 runs from 2026-10-21, whose `run.json` has no worker block at all.
-- Carried forward unchanged:
-  - MergeWren does all mergewren work.
-  - VIL-397 is deferred.
-  - The 60-minute worker limit stays until a run actually times out.
-  - Running past 06:00 by hand is fine.
+- **Compaction:** the 400k backstop is David's call, after 250k → 660k → 400k. Max 5x is still the goal. The hand-off habit (red at 200k) does the work, compaction only catches runaways, and idle compaction stays on. Don't lower the backstop without David.
+- **VIL-399:** a service account scoped to the Agents vault. `david` gets a token too: David accepted that the pilot worker (which runs as `david`) can read the vault, so keep only worker-safe secrets in it.
+- **Waived:** #242's critical secret-scan hit, which is the documented gitleaks fake token in old commit `4586f58` (David, 2026-10-22).
+- **Declined on #241:** `13b7bbf#1` (the `ops_` check is a placeholder guard, not proof) and `#2` (refusing `=` in a first word is deliberate). The low `#3` is a follow-up: refused test cases should assert the stub was never called.
+- **Declined on #242:** `d84cc71#1` and `#2`, the zprofile.server marker and not comparing unseeded settings.
+- **The review loop on #241 is stopped for mediums and lows.** Merge on a current-head verdict with no new high or critical finding.
+- **dissolution:** added to Orca as a project (id `6aa21df3…`). No `orca.yaml` yet. It has no git remote, and its `AGENTS.md` is untracked and differs from `CLAUDE.md`.
 
 ## What Didn't Work
-- **`first event + duration_s` as the stop time** overshoots by the startup delay, so I replaced it with `ended_at` (MergeWren `74e3fde#1`).
-- **Sampling `ended_at` at the end of `work()`** counted stderr writing and transcript parsing as worker time (`7d8ee8c#1`). It is now taken right after `run_limited` returns.
-- Carried from the morning session: adding up `system/thinking_tokens` events gives nonsense. Obscura and bryancola tickets don't fit the pilot yet.
+- **Rebasing #241 onto the new master** conflicted on every commit. A single `git merge --no-ff origin/master` was used instead. The repo has ff-only merge config, so `--no-ff` must be explicit.
+- **Running a test snippet containing `rm` through `sh -c`** is blocked by Claude Code's removal safety check. Test with the cleanup stubbed out (`:`) and a fresh `mktemp -d` dir instead of `rm -rf`.
+- **Stopping at MergeWren's incremental round.** A full review of the same head can post later with new findings (it happened on `a1375c7`). Wait for a non-"no verdict" result for the current head.
 
 ## What's Next
-1. **Morning report on the 2026-10-23 01:30 PT run (VIL-391, VIL-417, VIL-381).** Work as `david` on hal.
-   - Read `~/runs/log/runner.log`, then each `~/runs/log/<run>/run.json`.
-   - Run `~/Projects/Personal/dotfiles/pilot/timing.py ~/runs/log/<run>/` for each run.
-   - For each run, report whether it finished, hit "Prompt is too long", or was stopped at the time limit (`worker.killed`).
-   - Report tokens, peak context and the time split.
-   - If a worker was killed, this is the first real test of the cut-off path. Check that `ended_at` is in `run.json` and that the report reads sensibly.
-2. **Pilot PRs for the MergeWren session:** mergewren#61, #69 and #73, plus tonight's PRs. Hand them over with SendMessage; this session doesn't edit mergewren branches.
-3. **Refill the queue for the next night**, following `pilot/README.md` "The queue".
+1. **#241.**
+   - Background wait `bsgyda9ho` was watching for the verdict on `3f21c30`. Re-check it: `gh pr view 241 --json headRefOid,comments …` (the poll is in `CLAUDE.md` Rules).
+   - If there's no new high or critical: run the unresolved-threads check, squash-merge pinned to the head, then `cleanup_merged_branch 241 master` and `git worktree remove --force .claude/worktrees/op-agent` (it has the dotbot submodule).
+2. **On hal after merge.**
+   - As `hal` (`ssh hal-orca`, key auth): `git -C ~/Projects/Personal/dotfiles pull`, then `DOTFILES_PROFILE=server ./install` from that clone. This installs the cask and links `op-agent`.
+   - As `david` (`ssh hal`): pull `~/Projects/Personal/dotfiles`, then `ln -sfn ~/Projects/Personal/dotfiles/bin/op-agent ~/.local/bin/op-agent`.
+   - Verify as each account: `op-agent whoami`, then `t=$(mktemp); op-agent read -f -o "$t" op://Agents/op-agent-test/password && wc -c < "$t"; rc=$?; rm -f "$t" || rc=1; (exit $rc)`.
+   - Then close VIL-399.
+3. **VIL-422:** David checks the work Mac for herdr, using the steps in the retirement doc's "On another Mac" section. Close VIL-422 after that.
+4. **Carried from the morning handoff, still open:**
+   - The morning report on the hal pilot run at 01:30 PT on 2026-10-23 (VIL-391, VIL-417, VIL-381), as `david` on hal. The three queue files all share mtime Oct 22 10:30, so their run order is a tie.
+   - mergewren#61, #69 and #73 handover to the MergeWren session.
+   - Refill the queue.
+5. **Skills project:** David has a catch-up prompt for the hal skills session (it was misled into finishing #41 for the dead openclaw-prod). Expect its triage report.
 
 ## Gotchas & Watch-outs
-- **MergeWren is reviewing again.** It reviewed #239 four times today, so the halt the morning handoff described is over. VIL-423, the test bug that wrote the fake lock, is still in Backlog, so the lock could come back.
-- **MergeWren's inline threads stay open after a fix.** Resolve each one once a later round lists it under "Resolved", or once it's declined. Then run the unresolved-threads check before merging.
-- **A VIL id in a PR body can auto-close the issue.** #239 named VIL-389, VIL-380 and VIL-251, and all three are still In Progress (checked after the merge).
-- **The queue runs oldest file first by modification time, not by name.**
-- **hal accounts:** this session reaches only `david@hal`. Never print anything from `~/.config/hal-pilot/`, and never load or unload LM Studio models.
+- **hal's PATH has GNU `stat`.** Use `/usr/bin/stat -f …` there. `hal-orca` reaches the `hal` account with key auth, and `hal` reaches `david`.
+- **`op whoami` with the 1Password app integration** reports "not signed in" and never prompts. Run `op signin` first (documented in #241's doc).
+- **`gh pr merge --match-head-commit` needs the full 40-char sha.**
+- **Unresolved-threads check:** my thread-resolving loop only matched threads carrying `finding=` markers. Always run the paginated unresolved-threads query before merging; it caught 4 extra threads on #242.
+- **Another session merged #243 on master during this session.** One session per worktree still applies.
+- **Codex's Vercel MCP refresh token is invalid** (seen in `codex exec` output). Re-auth is needed sometime; unrelated to this work.
+- **VIL-431:** the live `~/.claude/settings.json` is about 220 lines ahead of the tracked file (Orca hooks). Don't run `--capture` until that ticket decides.
