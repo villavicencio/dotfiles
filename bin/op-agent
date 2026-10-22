@@ -8,10 +8,11 @@
 #   op-agent whoami | vault list | item list | service-account ratelimit
 #
 # The token is read from ~/.config/op-agent/token (or $OP_AGENT_TOKEN_FILE), which must be a
-# regular file owned by you with mode 600, and goes only into op's environment. The subcommand
-# filter keeps an agent from printing a secret into its transcript by accident (`op read` to
-# stdout, `--reveal`, `--no-masking`, `item get`). It is not a security boundary: anything
-# running as this account can read the token file. Setup and rules: docs/agents/1password.md.
+# regular file owned by you with mode 600, and goes only into op's environment: `run` starts
+# its command with the token removed. The subcommand filter keeps an agent from printing a
+# secret into its transcript by accident (`op read` to stdout or to /dev/stdout, `--reveal`,
+# `--no-masking`, `item get`). It is not a security boundary: anything running as this
+# account can read the token file. Setup and rules: docs/agents/1password.md.
 #
 # No heredocs here, for the reason given at the top of bin/dot.
 set -euo pipefail
@@ -30,20 +31,38 @@ usage() {
 [ $# -gt 0 ] || { usage; exit 2; }
 case "$1" in -h|--help|help) usage; exit 0 ;; esac
 
-# Refuse the flags that put a secret on stdout, wherever they appear. Everything after a
-# `--` belongs to the command `op run` starts, so the scan stops there.
-has_out=0
+# Refuse the flags that put a secret on stdout, in every spelling (`--no-masking=true`), and
+# any -o destination that is stdout in disguise. Everything after a `--` belongs to the
+# command `op run` starts, so the scan stops there.
+bad_dest() {
+  case "$1" in
+    ''|-|/dev/*|/proc/*) return 0 ;;
+  esac
+  # An existing path must be a plain file: a link (to /dev/stdout, say) or a fifo is refused.
+  if [ -L "$1" ] || { [ -e "$1" ] && [ ! -f "$1" ]; }; then return 0; fi
+  return 1
+}
+has_out=0; want_dest=0; has_sep=0
 for a in "$@"; do
+  if [ "$want_dest" = 1 ]; then
+    bad_dest "$a" && die "refusing -o '$a': that writes the secret to the terminal"
+    want_dest=0; has_out=1; continue
+  fi
   case "$a" in
-    --) break ;;
-    --no-masking) die "refusing --no-masking: secrets would reach the transcript" ;;
-    --reveal|--reveal=*) die "refusing --reveal: secrets would reach the transcript" ;;
-    -o|-o?*|--out-file|--out-file=*) has_out=1 ;;
+    --) has_sep=1; break ;;
+    --no-masking*) die "refusing --no-masking: secrets would reach the transcript" ;;
+    --reveal*) die "refusing --reveal: secrets would reach the transcript" ;;
+    -o|--out-file) want_dest=1 ;;
+    --out-file=*) bad_dest "${a#--out-file=}" && die "refusing '$a': that writes the secret to the terminal"; has_out=1 ;;
+    -o?*) bad_dest "${a#-o}" && die "refusing '$a': that writes the secret to the terminal"; has_out=1 ;;
   esac
 done
+[ "$want_dest" = 0 ] || die "-o needs a file name"
 
 case "$1" in
-  run|whoami|--version) ;;
+  whoami|--version) ;;
+  run)
+    [ "$has_sep" = 1 ] || die "use: op-agent run [--env-file .env] -- <command>" ;;
   read|inject)
     [ "$has_out" = 1 ] || die "'$1' needs -o <file>: without it the secret goes to stdout" ;;
   vault|item)
@@ -67,4 +86,17 @@ OP_SERVICE_ACCOUNT_TOKEN="$(tr -d '[:space:]' < "$token_file")"
 export OP_SERVICE_ACCOUNT_TOKEN
 # A desktop-app or personal sign-in must not take over from the service account.
 unset OP_ACCOUNT OP_CONNECT_HOST OP_CONNECT_TOKEN
+
+# `op run` passes its own environment to the command it starts, token included. Start that
+# command through `env -u` so it gets the resolved secrets but never the token.
+if [ "$1" = run ]; then
+  args=(); seen=0
+  for a in "$@"; do
+    args+=("$a")
+    if [ "$seen" = 0 ] && [ "$a" = -- ]; then
+      args+=(env -u OP_SERVICE_ACCOUNT_TOKEN); seen=1
+    fi
+  done
+  exec op "${args[@]}"
+fi
 exec op "$@"

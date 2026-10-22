@@ -31,8 +31,8 @@ docs/           Compound-engineering pipeline artifacts:
                 - docs/plans/        Implementation plans from /ce-plan
                 - docs/solutions/    documented solutions to past problems (bugs, best practices, workflow patterns), organized by category with YAML frontmatter (module, tags, problem_type)
 ci/             CI assets (Dockerfile for install-matrix's linux leg, PSScriptAnalyzer settings for its windows leg,
-                server-profile-checks.sh for its macos-server leg; cleanup-merged-branch-checks.sh,
-                run by hand, not in CI)
+                server-profile-checks.sh for its macos-server leg; cleanup-merged-branch-checks.sh
+                and op-agent-checks.sh, run by hand, not in CI)
 git/            gitconfig, gitignore, gitattributes, gitconfig.linux (Linux overlay — see
                 "Git on Linux" under "Setting up WSL on the Windows PC")
 helpers/        Bash scripts called by the install pipeline

@@ -1,16 +1,19 @@
 # 1Password for agents (`op-agent`)
 
-How an agent gets a secret without the secret passing through David's hands or the agent's
-transcript (VIL-399). The secret stays in 1Password, in a vault named **Agents**, and is read
-at the moment it's needed through `op-agent`, a wrapper around the 1Password CLI (`op`) that
-runs it as a read-only **service account**.
+How an agent uses a secret without the secret passing through David's hands or being printed
+into the agent's transcript (VIL-399). The secret stays in 1Password, in a vault named
+**Agents**, and is read at the moment it's needed through `op-agent`, a wrapper around the
+1Password CLI (`op`) that runs it as a read-only **service account**. The command that uses a
+secret does receive its value (that's the point); what `op-agent` keeps from it is the
+service-account token, and what it keeps from stdout is the value.
 
 ## Rules for agents
 
 - **Never put a secret's value on stdout.** Whatever a command prints lands in the
   transcript. `op-agent` refuses the usual ways to do that: `read` or `inject` without
-  `-o`, `--reveal`, `--no-masking`, and `item get`. Plain `op` has no such guard, so use
-  `op-agent`.
+  `-o`, an `-o` that points at stdout (`-`, `/dev/*`, `/proc/*`, a link, a non-regular
+  file), `--reveal` and `--no-masking` in any spelling, and `item get`. Plain `op` has no
+  such guard, so use `op-agent`.
 - **Never read, print or copy the token file** (`~/.config/op-agent/token`). It is the key to
   every secret in the Agents vault.
 - **Prefer references over values.** A repo's `.env` holds `op://` references, which are safe
@@ -22,12 +25,15 @@ runs it as a read-only **service account**.
   ```
 
   `op run` resolves the references into the child's environment and masks the values if the
-  child prints them: `<concealed by 1Password>`.
+  child prints them: `<concealed by 1Password>`. `op-agent` starts the child through
+  `env -u OP_SERVICE_ACCOUNT_TOKEN`, because `op run` otherwise passes its own environment,
+  token included, to the child. The child can still write a value to a file or the
+  network, so run only commands you'd trust with that secret.
 - **When a tool must read a file** (a `.env.local` that a framework loads by itself), write it
   with `op-agent inject -i .env.tpl -o .env.local` or `op-agent read -o <file> op://…`. Both
   write mode 0600. Keep the file gitignored, and delete it when it's no longer needed.
 - **To check that a secret resolves without seeing it:**
-  `op-agent read -o "$tmp" op://Agents/<item>/<field> && wc -c < "$tmp" && rm -f "$tmp"`.
+  `t=$(mktemp) && op-agent read -f -o "$t" op://Agents/<item>/<field> && wc -c < "$t"; rm -f "$t"`.
 - `op-agent whoami`, `op-agent vault list` and `op-agent item list` are safe to run; they
   print names and ids, not values.
 - **Don't run it in a loop.** The limits are 1,000 reads per hour per token and **1,000
@@ -62,7 +68,7 @@ The `hal` account doesn't run the pilot, so its token file carries no such expos
    a note.
 4. Add a test item to Agents, e.g. `op-agent-test` with a password field.
 
-**On hal, as `hal`** (Homebrew at `/opt/homebrew` belongs to `hal`): in `hal`'s dotfiles
+**On hal, as `hal`** (Homebrew at `$BREW_PREFIX` belongs to `hal`): in `hal`'s dotfiles
 clone, `git pull && DOTFILES_PROFILE=server ./install`. That installs the cask and links
 `~/.local/bin/op-agent`.
 
@@ -70,6 +76,8 @@ clone, `git pull && DOTFILES_PROFILE=server ./install`. That installs the cask a
 hand-made `~/.local/bin/dot` link. Do the same for this wrapper:
 `git -C ~/Projects/Personal/dotfiles pull && ln -sfn ~/Projects/Personal/dotfiles/bin/op-agent ~/.local/bin/op-agent`.
 `op` itself comes from `hal`'s Homebrew, which `david` can run.
+
+After changing `bin/op-agent`, run `ci/op-agent-checks.sh` (a stub `op`; no account needed).
 
 **On hal, per account that should read the vault** (as that account; see the section above
 before doing it for `david`):
@@ -85,7 +93,7 @@ file is the exact problem this ticket started from.
 **Verify** (as each account):
 ```bash
 op-agent whoami                      # the service account, not a person
-t=$(mktemp) && op-agent read -o "$t" op://Agents/op-agent-test/password && wc -c < "$t"; rm -f "$t"
+t=$(mktemp) && op-agent read -f -o "$t" op://Agents/op-agent-test/password && wc -c < "$t"; rm -f "$t"
 ```
 
 **Personal Mac:** `op` comes from the same cask (`brew/Brewfile`). The desktop-app integration
@@ -101,4 +109,4 @@ Read 2026-10-22 11:54 PDT:
 - www.1password.dev/cli/reference/commands/run/: values are masked by default.
 - www.1password.dev/cli/reference/commands/inject/: `-o` writes with mode 0600 by default.
 - Cask `1password-cli` 2.41.0 (`brew info --cask`): a single `op` binary in
-  `/opt/homebrew/bin`, no pkg.
+  `$BREW_PREFIX/bin`, no pkg.
