@@ -100,8 +100,16 @@ Before telling David it's safe, run the CLAUDE.md pre-Force checks against the w
 `git -C "$W" status --porcelain --ignored --untracked-files=all` (only the copied
 `.claude/settings.local.json` is expected; `cmp` it against the main checkout's copy), and the
 dotbot check. A clean `git -C "$W/dotbot" status` doesn't show stash entries, tags or unpushed
-commits in that clone, so list those too. This doc adds one more: `git cherry origin/master
-<tip>` should show `-` for the branch's commit, meaning its patch is on master.
+commits in that clone, so list those too. This doc adds one more: check that the branch's
+patch is on master. `git cherry origin/master <tip>` shows `-` only for a one-commit branch; a
+squash of several commits matches none of them, so every line reads `+` even when nothing is
+lost (#236, 10 commits). For that case compare the whole patch with the squash commit's, ignoring
+blob hashes and hunk offsets; no output means they match:
+
+```bash
+diff <(git diff "$(git merge-base <tip> <squash>)" <tip> | grep -v '^index ' | sed 's/^@@ .* @@/@@/') \
+     <(git diff <squash>^ <squash> | grep -v '^index ' | sed 's/^@@ .* @@/@@/')
+```
 
 ## Why This Matters
 
