@@ -33,7 +33,7 @@ service-account token, and what it keeps from stdout is the value.
   with `op-agent inject -i .env.tpl -o .env.local` or `op-agent read -o <file> op://…`. Both
   write mode 0600. Keep the file gitignored, and delete it when it's no longer needed.
 - **To check that a secret resolves without seeing it:**
-  `t=$(mktemp) && op-agent read -f -o "$t" op://Agents/<item>/<field> && wc -c < "$t"; rm -f "$t"`.
+  `t=$(mktemp); op-agent read -f -o "$t" op://Agents/<item>/<field> && wc -c < "$t"; rc=$?; rm -f "$t"; (exit $rc)`.
 - `op-agent whoami`, `op-agent vault list` and `op-agent item list` are safe to run; they
   print names and ids, not values.
 - **Don't run it in a loop.** The limits are 1,000 reads per hour per token and **1,000
@@ -93,7 +93,7 @@ file is the exact problem this ticket started from.
 **Verify** (as each account):
 ```bash
 op-agent whoami                      # the service account, not a person
-t=$(mktemp) && op-agent read -f -o "$t" op://Agents/op-agent-test/password && wc -c < "$t"; rm -f "$t"
+t=$(mktemp); op-agent read -f -o "$t" op://Agents/op-agent-test/password && wc -c < "$t"; rc=$?; rm -f "$t"; (exit $rc)
 ```
 
 **Personal Mac:** `op` comes from the same cask (`brew/Brewfile`). The desktop-app integration
