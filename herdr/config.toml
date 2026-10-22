@@ -155,13 +155,6 @@ command = "/opt/homebrew/bin/herdr agent focus argus"
 description = "jump to Argus"
 
 [[keys.command]]
-# plain s is the settings default.
-key = "prefix+shift+s"
-type = "shell"
-command = "/opt/homebrew/bin/herdr agent focus skills"
-description = "jump to Skills"
-
-[[keys.command]]
 # plain o is the open_notification_target default.
 key = "prefix+shift+o"
 type = "shell"

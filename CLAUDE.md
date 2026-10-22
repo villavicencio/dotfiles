@@ -804,7 +804,6 @@ conversations across server restarts via `claude --resume <id>`.
     | `sites ✦` | `~/Projects/sites` | umbrella of symlinks to the personal-website repos (davidandbrittanie.com, davidv.sh serving villavicencio.dev, ibmcconstruction.com); each site stays its own repo + Vercel project | — |
     | `borealis ❆` | `~/Projects/borealis` | native SwiftUI prompt-library app (ex-Forge, migrated 2026-08-20) | `prefix+shift+b` |
     | `argus ◉` | `~/Projects/agents` | Hermes/Atlas ops project (browse-gateway consumer `argus`) | `prefix+shift+a` |
-    | `skills ⚒` | `~/Projects/skills` | Claude Code skills workshop | `prefix+shift+s` |
     | `obscura ✇` | `~/Projects/browse-gateway` | the Obscura browse-gateway itself | `prefix+shift+o` |
     | `eidos ❖` | `~/Projects/eidos` | Eagle library curation | `prefix+shift+i` (`e`/`shift+e` are edit_scrollback / remove_worktree) |
     | `orrery ☉` | `~/.forge-projects/tranquil-dune` (aka `~/Projects/orrery`) | Forge-resident jobs dashboard (orrery.ui8.dev) — see "Forge-resident hybrid agents" below | `prefix+y` (`o`/`shift+o` are open_notification_target / obscura; `y` as in orrer**y**) |
