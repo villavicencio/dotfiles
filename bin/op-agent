@@ -42,9 +42,12 @@ bad_dest() {
   if [ -L "$1" ] || { [ -e "$1" ] && [ ! -f "$1" ]; }; then return 0; fi
   return 1
 }
-has_out=0; want_dest=0; has_sep=0; after_sep=0
+has_out=0; want_dest=0; has_sep=0; after_sep=0; first_cmd=""
 for a in "$@"; do
-  if [ "$has_sep" = 1 ]; then after_sep=$((after_sep + 1)); continue; fi
+  if [ "$has_sep" = 1 ]; then
+    [ "$after_sep" = 0 ] && first_cmd="$a"
+    after_sep=$((after_sep + 1)); continue
+  fi
   if [ "$want_dest" = 1 ]; then
     bad_dest "$a" && die "refusing -o '$a': that writes the secret to the terminal"
     want_dest=0; has_out=1; continue
@@ -68,7 +71,12 @@ case "$1" in
   run)
     # A bare `run --` would start `env -u …` with no command, and env then prints the
     # whole environment.
-    [ "$has_sep" = 1 ] && [ "$after_sep" -gt 0 ] || die "use: op-agent run [--env-file .env] -- <command>" ;;
+    [ "$has_sep" = 1 ] && [ "$after_sep" -gt 0 ] || die "use: op-agent run [--env-file .env] -- <command>"
+    # The command must be a command: an option (`--`, `-i`) or an assignment (`FOO=x`) as the
+    # first word would make env print the environment instead of running anything.
+    case "$first_cmd" in
+      -*|*=*) die "after --, the first word must be a command, not '$first_cmd'" ;;
+    esac ;;
   read|inject)
     [ "$has_out" = 1 ] || die "'$1' needs -o <file>: without it the secret goes to stdout" ;;
   vault|item)
@@ -100,7 +108,7 @@ if [ "$1" = run ]; then
   for a in "$@"; do
     args+=("$a")
     if [ "$seen" = 0 ] && [ "$a" = -- ]; then
-      args+=(env -u OP_SERVICE_ACCOUNT_TOKEN); seen=1
+      args+=(env -u OP_SERVICE_ACCOUNT_TOKEN --); seen=1
     fi
   done
   exec op "${args[@]}"

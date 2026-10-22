@@ -27,13 +27,13 @@ expect() {  # expect <ok|refused> <args...>
   elif [ "$rc" = 0 ]; then
     # An allowed call must reach op with exactly its arguments and the token. `run` hands off
     # to the child, so the stub logs what op got: the original arguments, with
-    # `env -u OP_SERVICE_ACCOUNT_TOKEN` inserted right after the first `--`.
+    # `env -u OP_SERVICE_ACCOUNT_TOKEN --` inserted right after the first `--`.
     if [ "$1" = run ]; then
       local pre=() post=() seen=0 a
       for a in "$@"; do
         if [ "$seen" = 0 ]; then pre+=("$a"); [ "$a" = -- ] && seen=1; else post+=("$a"); fi
       done
-      [ "$(cat "$T/run.log")" = "${pre[*]} env -u OP_SERVICE_ACCOUNT_TOKEN ${post[*]} token=14" ] && pass=1
+      [ "$(cat "$T/run.log")" = "${pre[*]} env -u OP_SERVICE_ACCOUNT_TOKEN -- ${post[*]} token=14" ] && pass=1
     elif [ "$out" = "op $* token=14" ]; then pass=1; fi
   fi
   if [ "$pass" = 1 ]; then
@@ -66,6 +66,10 @@ expect refused run --no-masking=true -- true
 expect ok      run -- echo --no-masking   # after --, it's the child's argument
 expect refused run true
 expect refused run --
+expect refused run -- --
+expect refused run -- -i
+expect refused run -- FOO=bar
+expect refused run -- FOO=bar sh -c true
 expect refused run --env-file .env --
 expect refused item get foo
 expect refused item get foo --reveal=true

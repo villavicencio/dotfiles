@@ -4,8 +4,9 @@ How an agent uses a secret without the secret passing through David's hands or b
 into the agent's transcript (VIL-399). The secret stays in 1Password, in a vault named
 **Agents**, and is read at the moment it's needed through `op-agent`, a wrapper around the
 1Password CLI (`op`) that runs it as a read-only **service account**. The command that uses a
-secret does receive its value (that's the point); what `op-agent` keeps from it is the
-service-account token, and what it keeps from stdout is the value.
+secret does receive its value (that's the point). `op-agent` keeps the service-account token
+from it, and keeps values off stdout in the ways listed below. That's a guard against
+accidents, not a sandbox.
 
 ## Rules for agents
 
@@ -89,18 +90,24 @@ copy exposes. Run this from the personal Mac, in a terminal with `op signin` don
 goes from your 1Password straight into the file over SSH and is never shown. `hal-orca` logs
 in as `hal`, and `hal` logs in as `david`; both use key auth.
 ```bash
-rc=0
-for host in hal-orca hal; do
-  op item get "hal-agents service account" --fields label=credential --reveal |
-    ssh "$host" 'umask 077; d=~/.config/op-agent; mkdir -p "$d" && cat > "$d/token.new" && [ "$(head -c 4 "$d/token.new")" = ops_ ] && mv -f "$d/token.new" "$d/token" && echo "written on hal as $(id -un), $(wc -c < "$d/token") bytes" || { rm -f "$d/token.new"; echo "nothing written on hal as $(id -un): input was not a service-account token; existing token kept" >&2; exit 1; }' || rc=1
-done
-if [ "$rc" = 0 ]; then echo "both accounts written"; else echo "FAILED for at least one account; see above" >&2; false; fi
+tok="$(op item get "hal-agents service account" --fields label=credential --reveal)"; st=$?
+if [ "$st" != 0 ] || [ "${tok#ops_}" = "$tok" ]; then
+  echo "op item get failed or returned no service-account token; nothing sent" >&2; unset tok; false
+else
+  rc=0
+  for host in hal-orca hal; do
+    printf '%s\n' "$tok" | ssh "$host" 'umask 077; d=~/.config/op-agent; mkdir -p "$d" && cat > "$d/token.new" && [ "$(head -c 4 "$d/token.new")" = ops_ ] && mv -f "$d/token.new" "$d/token" && echo "written on hal as $(id -un), $(wc -c < "$d/token") bytes" || { rm -f "$d/token.new"; echo "nothing written on hal as $(id -un); existing token kept" >&2; exit 1; }' || rc=1
+  done
+  unset tok
+  if [ "$rc" = 0 ]; then echo "both accounts written"; else echo "FAILED for at least one account; see above" >&2; false; fi
+fi
 ```
-Each line should report a non-zero byte count, and the two counts should match. The token
-goes to `token.new` first and replaces `token` only when it starts with `ops_` (every
-service-account token does). An empty or wrong value, from a failed `op item get` or a
-placeholder in place of the field, leaves the existing token alone, and the loop reports
-which account failed. An empty
+Each line should report a non-zero byte count, and the two counts should match. The token is
+read into a shell variable on the Mac and checked there first: if `op item get` fails, or
+returns anything that isn't a service-account token (they all start with `ops_`), nothing is
+sent. On hal it goes to `token.new` and replaces `token` only when the new file starts with
+`ops_`, so a dropped connection leaves the existing token alone. The last line says whether
+both accounts were written, and the block exits non-zero if not. An empty
 file from a failed first attempt is exactly the problem this ticket started from. (Done on
 2026-10-22: 820 bytes for each account, same SHA-256.)
 
