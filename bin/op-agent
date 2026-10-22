@@ -1,0 +1,70 @@
+#!/usr/bin/env bash
+#
+# op-agent — run 1Password CLI as the Agents-vault service account. Symlinked to ~/.local/bin/op-agent.
+#
+#   op-agent run [--env-file .env] -- <cmd>    secrets as env vars; op masks them in output
+#   op-agent inject -i <tpl> -o <file>         resolve op:// refs into a mode-600 file
+#   op-agent read -o <file> op://Agents/...    one secret into a mode-600 file
+#   op-agent whoami | vault list | item list | service-account ratelimit
+#
+# The token is read from ~/.config/op-agent/token (or $OP_AGENT_TOKEN_FILE), which must be a
+# regular file owned by you with mode 600, and goes only into op's environment. The subcommand
+# filter keeps an agent from printing a secret into its transcript by accident (`op read` to
+# stdout, `--reveal`, `--no-masking`, `item get`). It is not a security boundary: anything
+# running as this account can read the token file. Setup and rules: docs/agents/1password.md.
+#
+# No heredocs here, for the reason given at the top of bin/dot.
+set -euo pipefail
+
+die() { printf 'op-agent: %s\n' "$*" >&2; exit 1; }
+
+usage() {
+  _self="${BASH_SOURCE[0]}"
+  while [ -L "$_self" ]; do
+    _link="$(readlink "$_self")"
+    case "$_link" in /*) _self="$_link" ;; *) _self="$(dirname "$_self")/$_link" ;; esac
+  done
+  sed -n '3,8p' "$_self" | sed 's/^# \{0,1\}//'
+}
+
+[ $# -gt 0 ] || { usage; exit 2; }
+case "$1" in -h|--help|help) usage; exit 0 ;; esac
+
+# Refuse the flags that put a secret on stdout, wherever they appear. Everything after a
+# `--` belongs to the command `op run` starts, so the scan stops there.
+has_out=0
+for a in "$@"; do
+  case "$a" in
+    --) break ;;
+    --no-masking) die "refusing --no-masking: secrets would reach the transcript" ;;
+    --reveal|--reveal=*) die "refusing --reveal: secrets would reach the transcript" ;;
+    -o|-o?*|--out-file|--out-file=*) has_out=1 ;;
+  esac
+done
+
+case "$1" in
+  run|whoami|--version) ;;
+  read|inject)
+    [ "$has_out" = 1 ] || die "'$1' needs -o <file>: without it the secret goes to stdout" ;;
+  vault|item)
+    [ "${2:-}" = list ] || die "only '$1 list' is allowed ('item get' can print field values)" ;;
+  service-account)
+    [ "${2:-}" = ratelimit ] || die "only 'service-account ratelimit' is allowed" ;;
+  *) die "'$1' is not allowed; see op-agent --help" ;;
+esac
+
+command -v op >/dev/null 2>&1 || die "op (1Password CLI) is not installed: brew install --cask 1password-cli"
+
+token_file="${OP_AGENT_TOKEN_FILE:-$HOME/.config/op-agent/token}"
+[ -f "$token_file" ] && [ ! -L "$token_file" ] ||
+  die "no token file at $token_file (a regular file, not a link); see docs/agents/1password.md"
+# find -perm with an exact mode and -user behave the same in BSD and GNU find.
+[ -n "$(find "$token_file" -maxdepth 0 -user "$(id -u)" -perm 600 2>/dev/null)" ] ||
+  die "$token_file must be owned by $(id -un) with mode 600 (chmod 600 '$token_file')"
+
+OP_SERVICE_ACCOUNT_TOKEN="$(tr -d '[:space:]' < "$token_file")"
+[ -n "$OP_SERVICE_ACCOUNT_TOKEN" ] || die "$token_file is empty"
+export OP_SERVICE_ACCOUNT_TOKEN
+# A desktop-app or personal sign-in must not take over from the service account.
+unset OP_ACCOUNT OP_CONNECT_HOST OP_CONNECT_TOKEN
+exec op "$@"

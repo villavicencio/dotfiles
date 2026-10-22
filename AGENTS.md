@@ -69,7 +69,7 @@ claude/     Claude Code config, delivered into ~/.claude/ two different ways:
             settings.json                  → COPY-SEEDED, never symlinked (see gotchas)
 codex/      Codex global instructions — AGENTS.md symlinked to ~/.codex/AGENTS.md
             (kept short on purpose, like claude/CLAUDE.md; both point at docs/agents/)
-bin/        Repo CLI — bin/dot and bin/wt (symlinked to ~/.local/bin/)
+bin/        Repo CLI — bin/dot, bin/wt and bin/op-agent (symlinked to ~/.local/bin/)
             bin/lib/*.py — Python helpers for doctor/bench, deliberately NOT heredocs
             bin/lib/cleanup-merged-branch.sh — merged-branch cleanup, sourced by agents and `wt done`
 orca.yaml   Orca's setup script for each new worktree: checks out the dotbot submodule and
@@ -331,8 +331,8 @@ How it differs from a desk Mac:
   this repo (`dotbot/src/dotbot/plugins/clean.py`, v1.24.1). hal also carries dangling links
   copied from the VPS, such as `~/personal`, and a first install has nothing to clean, so
   `clean` doesn't run there at all.
-- **Packages:** `brew/Brewfile.server`, formulae only plus one CLI-only cask (`vercel`, which
-  Homebrew moved out of core; CI allows exactly that one). An old `vercel`/`vercel-cli` formula
+- **Packages:** `brew/Brewfile.server`, formulae only plus two CLI-only casks (`vercel`, which
+  Homebrew moved out of core, and `1password-cli`; CI allows exactly those). An old `vercel`/`vercel-cli` formula
   blocks that cask, so `helpers/migrate_vercel_cask.sh` swaps it first, on both profiles.
   Installed by `brew bundle` with
   `HOMEBREW_BUNDLE_NO_UPGRADE=1` and `HOMEBREW_NO_INSTALL_UPGRADE=1`, so installed formulae

@@ -113,6 +113,7 @@ brew "topgrade"             # unified system updater (topgrade/topgrade.toml)
 
 # --- Cloud / deploy ---
 cask "vercel"                # CLI only (vercel, vc); Homebrew moved the vercel-cli formula here
+cask "1password-cli"         # op; agents use it through bin/op-agent (docs/agents/1password.md)
 
 # --- Misc / oddballs (intentional installs) ---
 brew "grc"                  # generic text colorizer
