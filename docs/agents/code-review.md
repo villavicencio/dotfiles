@@ -200,8 +200,9 @@ may not be pulled yet, so from a worktree that has a newer copy, source that one
   `git cherry` skips merge commits, and a merge can carry its own conflict resolution, so
   any merge commit missing from the merged head keeps the branch too.
 - **Worktrees.** Every worktree on the branch must be clean before anything changes. A
-  linked worktree is removed, and `git worktree remove` deletes ignored files (`.env`, build
-  output), so for linked worktrees `--ignored` output counts as dirty too. The primary
+  linked worktree without initialized submodules is removed, and `git worktree remove` deletes
+  ignored files (`.env`, build output), so for those `--ignored` output counts as dirty too
+  (one with submodules is detached instead; next point). The primary
   worktree can't be removed; it switches to the default branch, so before origin changes the
   function checks that the default branch exists and isn't checked out in another worktree.
   It also refuses a linked worktree that is locked.
@@ -257,14 +258,15 @@ may not be pulled yet, so from a worktree that has a newer copy, source that one
     submodules, only a modified or untracked file keeps it);
   - removing the worktree fails after origin was deleted (origin is pushed back);
   - the local branch moves between the checks and the local delete (origin is pushed back).
-- **Retested 2026-10-21 (VIL-414)**, bash and zsh, 41 checks in 15 scenarios. A clean worktree
+- **Retested 2026-10-22 (VIL-414)**, bash and zsh, 45 checks in 16 scenarios. A clean worktree
   with an initialized submodule is detached at its own HEAD and both copies are deleted: run
   from the main checkout, from inside the worktree, with a stale copy (files unchanged), and
   with only an ignored file. It is kept, still on the branch, with a tracked change, a new
   commit, or a lock. A failed local delete after the detach restores origin and re-attaches
   the worktree; if the branch moved, the worktree stays detached and `REATTACH FAILED` is
-  printed. `wt done` refuses a submodule worktree and holds no files. The unchanged function
-  from master fails 19 of the 41 checks. Rerun them with `ci/cleanup-merged-branch-checks.sh`
+  printed. A failed detach restores origin and leaves the worktree on the branch. `wt done`
+  refuses a submodule worktree before the PR lookup and holds no files. Master's function and
+  `wt` failed 19 of the first 41 checks. Rerun them with `ci/cleanup-merged-branch-checks.sh`
   after changing the function or `wt done` (local only, not in CI).
 - **Local merge, no remote, no PR:** there is no `MERGED` state or origin tip to check.
   Confirm `git merge-base --is-ancestor "$b" "$base"`, then `git branch -d "$b"`, which

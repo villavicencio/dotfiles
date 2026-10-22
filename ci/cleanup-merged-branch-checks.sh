@@ -139,6 +139,16 @@ check "worktree left detached at its own HEAD" '[ -z "$(wt_branch)" ] && [ "$(wt
 check "REATTACH FAILED reported" 'grep -q "REATTACH FAILED: $T/wt" "$T/out"'
 done_
 
+echo "6c. The detach itself fails"
+f0=$fail; setup; orca_wt
+printf '#!/bin/sh\ncase "$*" in *"switch -q --detach"*) exit 1;; esac\nexec %s "$@"\n' "$REALGIT" > "$T/bin/git"
+chmod +x "$T/bin/git"; run; rm "$T/bin/git"
+check "returns 1" '[ $RC = 1 ]'
+check "origin restored at the merged head" 'origin_at "$OID"'
+check "local kept" 'local_has'
+check "worktree still on feat/x" '[ "$(wt_branch)" = feat/x ]'
+done_
+
 echo "7. Locked Orca-like worktree"
 f0=$fail; setup; orca_wt; git worktree lock "$T/wt"; run
 check "returns 1, all kept" '[ $RC = 1 ] && origin_at "$OID" && local_has && [ "$(wt_branch)" = feat/x ]'
@@ -168,8 +178,9 @@ f0=$fail; setup; orca_wt; echo more >> "$T/wt/f"; git -C "$T/wt" commit -q -am m
 check "returns 1, all kept, still on branch" '[ $RC = 1 ] && origin_at "$OID" && local_has && [ "$(wt_branch)" = feat/x ]'
 done_
 
-echo "12. wt done refuses a worktree with an initialized submodule, before holding files"
-f0=$fail; setup; mkdir -p "$T/main/.claude"; echo '{}' > "$T/main/.claude/settings.local.json"
+echo "12. wt done refuses a worktree with an initialized submodule, before the PR lookup"
+# A gh that fails: reaching the PR lookup would stop with gh's error instead of the refusal.
+f0=$fail; setup; printf '#!/bin/sh\nexit 1\n' > "$T/bin/gh"; mkdir -p "$T/main/.claude"; echo '{}' > "$T/main/.claude/settings.local.json"
 printf '.claude/\n' >> "$T/main/.git/info/exclude"
 git worktree add -q "$T/main/.claude/worktrees/x" feat/x
 git -C "$T/main/.claude/worktrees/x" -c protocol.file.allow=always submodule -q update --init

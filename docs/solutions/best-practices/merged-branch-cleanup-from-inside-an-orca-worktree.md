@@ -8,7 +8,7 @@ component: tooling
 severity: medium
 applies_when:
   - "A Claude Code session running inside an Orca worktree (~/orca/workspaces/dotfiles/<name>) has merged its own PR"
-  - "cleanup_merged_branch prints '<worktree> has initialized submodules: keeping <branch>'"
+  - "An older copy of cleanup_merged_branch (before VIL-414) prints '<worktree> has initialized submodules: keeping <branch>'"
   - "About to tell David to Force delete the worktree and come back to finish the branch cleanup"
 root_cause: missing_workflow_step
 resolution_type: workflow_improvement
@@ -50,9 +50,9 @@ Two routes, depending on who merges.
 **Default: the home session merges and cleans up.** `docs/agents/parallel-sessions.md`
 ("Roles") gives merges and the cleanup after each to the home session (the main checkout).
 A worktree session pushes, opens the PR, and hands it over (`SendMessage`). The home session
-merges, David Force deletes the worktree, and then the home session runs
-`cleanup_merged_branch <pr> master`, which works once the worktree is gone. No session dies
-mid-procedure.
+merges and runs `cleanup_merged_branch <pr> master`, which detaches the worktree and deletes
+the branch, and then David Force deletes the worktree, the same cleanup-before-Force order as
+CLAUDE.md's Orca section. No session dies mid-procedure.
 
 **When the worktree session merged its own PR** (David asked it to), it cleans up from inside the
 worktree, before the worktree is deleted:
@@ -104,7 +104,7 @@ hands him a step that can't be completed, in the session that just promised to f
 
 - Any agent session whose working directory is an Orca worktree of this repo (path under
   `~/orca/workspaces/`) and that is about to merge, or has merged, its own PR.
-- Not needed when the home session merges: it cleans up from outside the worktree, after
+- Not needed when the home session merges: it cleans up from outside the worktree, before
   David's Force delete (or with `wt done` for a `wt new` worktree, which removes the worktree
   itself; `wt done` doesn't manage Orca worktrees).
 
@@ -116,7 +116,7 @@ What went wrong on #234, and the fix:
 |---|---|---|
 | Merge | `gh pr merge 234 --squash` from inside the worktree | same |
 | Cleanup | `cleanup_merged_branch` refused (submodule) | conditional origin delete, detach, conditional local delete, from inside |
-| Hand-off | "Force delete it, then tell me and I'll run the cleanup" | "Branch is gone on origin and locally; the worktree is detached at the merged commit and safe to Force delete" |
+| Hand-off | "Force delete it, then tell me and I'll run the cleanup" | "Branch is gone on origin and locally; the worktree is detached at its own HEAD (the branch's last local commit). Run the pre-Force checks, then Force delete it" |
 
 ## Related
 
