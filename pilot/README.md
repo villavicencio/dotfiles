@@ -176,8 +176,13 @@ As `david` on hal:
 
 `timing.py` splits a worker's time into thinking, tools and the rest, and shows the longest
 single think, the largest context and how the run ended ("Prompt is too long" is a full
-context). Read `system/thinking_tokens` events with care: they're running estimates per
-step, so adding them up gives nonsense. On the first four transcripts (2026-10-21/22),
+context). Tool calls that ran at the same time are counted once. A stopped worker's
+transcript ends at its last event, often minutes before the stop, so its full time comes
+from `worker.duration_s` in `run.json`. A tool call still running at the stop counts as tool
+time; otherwise the time after the last event is shown as "cut off", a think or reply that
+never reached the transcript. When `run.json` has no worker time (a `runner-error` run), the
+report says so and that time is missing from the total. Read `system/thinking_tokens` events
+with care: they're running estimates per step, so adding them up gives nonsense. On the first four transcripts (2026-10-21/22),
 thinking was 54–72% of the worker's time, and one think ran 15.7 minutes.
 
 ## Stop it
