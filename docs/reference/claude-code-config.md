@@ -99,8 +99,8 @@ Because a copy can drift, `dot drift` reports Claude settings alongside Brewfile
 the live file legitimately carries machine-local keys that are deliberately untracked, so a raw
 diff would report permanent un-actionable drift. To record live changes:
 
-Desk Macs (Linux and hal's server profile get no seeded settings; there the migration only
-folds `allowedTools` and removes herdr hooks, and there's nothing to capture):
+Desk Macs (Linux and hal's server profile get no seeded settings: there the migration only
+folds `allowedTools` and removes herdr hooks, and `dot drift` doesn't compare them):
 
 ```bash
 dot drift                                            # see what diverged
