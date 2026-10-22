@@ -273,7 +273,8 @@ if [ -n "$model" ] || [ -n "$used" ] || [ -n "$ctx_tok" ] || [ -n "$lim5" ] || [
       u=$(( ctx_tok * 100 / CTX_BUDGET )); [ "$u" -gt 100 ] && u=100
       c=$(ctx_color "$u")
       printf "%s\033[37mctx \033[0m" "$sep"; bar "$u" "$c"
-      printf "%s %dk/%dk\033[0m" "$c" $(( (ctx_tok + 500) / 1000 )) $(( CTX_BUDGET / 1000 )); sep="  "
+      # Round down, so the label never reads 200k while the color still says under 200k.
+      printf "%s %dk/%dk\033[0m" "$c" $(( ctx_tok / 1000 )) $(( CTX_BUDGET / 1000 )); sep="  "
     elif [ -n "$used" ]; then
       # Before the first API response total_input_tokens is 0: fall back to the percentage.
       u=$(printf "%.0f" "$used"); c=$(meter_color "$u")

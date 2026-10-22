@@ -20,7 +20,8 @@ safe to re-run, and a no-op once applied:
    installed; this catches what that leaves, including our own blank-state entries.
    (Until VIL-422 this step registered the blank-state hook instead.)
 
-3. Add every top-level key of the tracked file that the live file lacks (the machine-local
+3. Desk Macs and Windows only, where the seed runs: add every top-level key of the tracked
+   file that the live file lacks (the machine-local
    keys below and the "//" header excepted), with the tracked value. That's what a fresh
    seed would have given this machine: `autoCompactWindow` (VIL-402), say. A key already
    there is the machine's choice and is left alone. A tracked key you dropped on purpose
@@ -56,6 +57,12 @@ _REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 _ON_WINDOWS = os.name == "nt" or sys.platform in ("cygwin", "msys")
 TRACKED = os.path.join(_REPO, "windows" if _ON_WINDOWS else "claude",
                        "claude-settings.json" if _ON_WINDOWS else "settings.json")
+# The seed runs only on desk Macs (darwin.yaml) and Windows (install.ps1). Linux and hal's
+# server profile never get one, so the Mac baseline's tmux hooks and iTerm channel don't belong
+# there (MergeWren a1375c7#1). The server profile is the install that links
+# ~/.config/zsh/.zprofile to zsh/zprofile.server.
+_ZPROFILE = os.path.realpath(os.path.expanduser("~/.config/zsh/.zprofile"))
+SEEDED = _ON_WINDOWS or (sys.platform == "darwin" and not _ZPROFILE.endswith("zsh/zprofile.server"))
 
 
 def main():
@@ -86,7 +93,8 @@ def main():
         print("Error: cannot read the tracked settings at %s (%s) — refusing to migrate"
               % (TRACKED, exc), file=sys.stderr)
         return 1
-    missing = [k for k in tracked if k != "//" and k not in MACHINE_LOCAL and k not in data]
+    missing = ([k for k in tracked if k != "//" and k not in MACHINE_LOCAL and k not in data]
+               if SEEDED else [])
     if "allowedTools" not in data and not herdr and not missing:
         print("Nothing to migrate: no allowedTools key, no herdr hooks, no missing tracked keys.")
         return 0
@@ -138,7 +146,9 @@ def main():
     print("allowedTools:      %s" % ("removed, %d rules folded in" % len(legacy) if legacy
                                      else "absent (already migrated)"))
     print("permissions.allow: %d rules" % len(merged))
-    print("tracked keys added: %s" % (", ".join(missing) if missing else "none missing"))
+    print("tracked keys added: %s" % (", ".join(missing) if missing
+                                      else "none missing" if SEEDED
+                                      else "skipped (no seeded baseline on Linux or the server profile)"))
     print("herdr hooks:       %s" % ("removed: " + ", ".join("%s %s" % h for h in herdr) if herdr
                                      else "none"))
     return 0
