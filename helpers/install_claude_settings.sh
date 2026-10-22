@@ -3,10 +3,10 @@
 # install_claude_settings.sh — seed Claude Code's user-scope settings.json.
 #
 # SEED-ONLY BY DESIGN, for the same reason the retired Otty config was (git history):
-# ~/.claude/settings.json has TWO independent writers besides this repo —
+# ~/.claude/settings.json has independent writers besides this repo —
 # Claude Code itself (effortLevel, tui, notification prefs, autoMode) and
-# `herdr integration install`. (A third, Otty's agent-integration installer, went
-# away with Otty on 2026-09-03.) Each rewrites the file in place, so a Dotbot `link:` there survives only until the
+# agent-integration installers (Orca's agent hooks today; herdr's until its
+# 2026-10-22 retirement, Otty's until 2026-09-03). Each rewrites the file in place, so a Dotbot `link:` there survives only until the
 # next write, after which the live file is a regular file and the repo copy is a
 # silently-orphaned stale twin.
 #
@@ -119,10 +119,25 @@ if unmerged:
     print(
         "Error: live settings still has a legacy 'allowedTools' key with %d rule(s)\n"
         "       not present in permissions.allow. Capturing now would silently drop\n"
-        "       them. Run this first, then re-capture (on Windows it only folds\n"
-        "       allowedTools; it registers no herdr hooks there):\n"
+        "       them. Run this first, then re-capture:\n"
         "           %s helpers/migrate_claude_settings.py\n"
         "       Unmerged: %s" % (len(unmerged), os.environ["PYTHON_CMD"], ", ".join(unmerged[:5])),
+        file=sys.stderr,
+    )
+    raise SystemExit(1)
+
+# A tracked key the live file lacks is a change the copy-seed never delivered (a live file
+# that predates it), not a removal: capturing would silently drop it from the baseline
+# (MergeWren 259cbf8#1, autoCompactWindow). Refuse and point at the migration, which
+# carries such keys. A key removed on purpose is deleted from the tracked file by hand.
+missing = [k for k in tracked if k != "//" and k not in strip and k not in live]
+if missing:
+    print(
+        "Error: live settings lacks tracked key(s) %s. Capturing now would drop them\n"
+        "       from the tracked baseline. Bring the live file up to date first:\n"
+        "           %s helpers/migrate_claude_settings.py\n"
+        "       (a key you removed on purpose: delete it from %s by hand, then re-capture)"
+        % (", ".join(missing), os.environ["PYTHON_CMD"], os.environ["SRC_REL"]),
         file=sys.stderr,
     )
     raise SystemExit(1)
@@ -142,7 +157,7 @@ if "//" in tracked:
     live = rebuilt
 
 # Absolute $HOME paths are unportable across machines; installers write them
-# (herdr's integration does). Claude Code expands ~ in hook commands, so fold
+# (agent-integration installers do). Claude Code expands ~ in hook commands, so fold
 # them back. Only $HOME is rewritten — /Applications paths are machine-stable.
 # Fold the parsed VALUES (and keys), not the serialized blob: on Windows the
 # home is C:\Users\<you>, which json.dumps escapes to C:\\Users\\..., so a

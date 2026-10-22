@@ -6,7 +6,7 @@
 # Personal Mac only, run by hand; ./install doesn't call it, because the work Mac has no
 # `hal` alias. Re-run it after changing hal_memory_pull.sh: the job runs from a copy, so
 # a branch switch in this repo can't leave the LaunchAgent pointing at a missing file
-# (the hook trap in CLAUDE.md, "A hook symlinked into the repo is branch-fragile").
+# (the hook trap in docs/reference/claude-code-config.md, "A hook symlinked into the repo is branch-fragile").
 #
 # What it does, each step idempotent:
 #   1. Bootstraps each vault the job writes to: ~/Obsidian/<vault>/, with the standard
@@ -70,7 +70,7 @@ cp "$JOB_SRC" "$tmp" && chmod 755 "$tmp" && mv -f "$tmp" "$JOB" ||
   { rm -f "$tmp"; echo "Error: cannot install $JOB" >&2; exit 1; }
 
 tmp="$(mktemp "$(dirname "$PLIST")/.$LABEL.XXXXXX")" || exit 1
-# printf, not a heredoc: see "No heredocs in bin/dot" in CLAUDE.md.
+# printf, not a heredoc: see "No heredocs in bin/dot" in docs/reference/tooling.md.
 printf '%s\n' \
   '<?xml version="1.0" encoding="UTF-8"?>' \
   '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">' \

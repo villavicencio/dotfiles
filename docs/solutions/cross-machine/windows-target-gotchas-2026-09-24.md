@@ -160,8 +160,9 @@ complete!" only when nothing failed.
 ## Claude Code and Windows Terminal
 
 **`claude/settings.json` must not be seeded on Windows.** Every hook in it
-calls a tmux or herdr bash script (`tmux-attention.sh`, `herdr-agent-state.sh`,
-`herdr-blank-state.sh`), so each event would error. Since VIL-150, `install.ps1`
+calls a tmux bash script (`tmux-attention.sh`; until the 2026-10-22 herdr
+retirement also `herdr-agent-state.sh` and `herdr-blank-state.sh`), so each
+event would error. Since VIL-150, `install.ps1`
 seeds `windows/claude-settings.json` instead (only when `~/.claude/settings.json`
 is absent): the Mac baseline minus the hooks, the iTerm2 notification channel and
 the brew/tmux allow rules. `claude/CLAUDE.md` is safe to link, because its

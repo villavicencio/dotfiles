@@ -1,5 +1,5 @@
 {
-  "//": "Windows sibling of claude/settings.json. install.ps1 copies it to ~/.claude/settings.json ONLY when that file is absent, and never links it (Claude Code rewrites the file in place). It is the Mac baseline minus what cannot run on Windows: no hooks (every Mac hook is a tmux/herdr bash script), no brew/tmux allow rules, no iTerm2 notification channel. Keep the shared keys in step with claude/settings.json by hand. Same rules as the Mac file: no machine-/session-specific values (model or effortLevel pins, autoMode, mcpServers) and never an allowedTools key.",
+  "//": "Windows sibling of claude/settings.json. install.ps1 copies it to ~/.claude/settings.json ONLY when that file is absent, and never links it (Claude Code rewrites the file in place). It is the Mac baseline minus what cannot run on Windows: no hooks (every Mac hook is a tmux bash script), no brew/tmux allow rules, no iTerm2 notification channel. Keep the shared keys in step with claude/settings.json by hand. Same rules as the Mac file: no machine-/session-specific values (model or effortLevel pins, autoMode, mcpServers) and never an allowedTools key.",
   "permissions": {
     "allow": [
       "Bash(gh pr merge:*)",
@@ -19,6 +19,7 @@
     ],
     "defaultMode": "auto"
   },
+  "autoCompactWindow": 400000,
   "statusLine": {
     "type": "command",
     "command": "sh \"$HOME/.claude/statusline-command.sh\""

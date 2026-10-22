@@ -35,11 +35,10 @@
     # appends PATH lines to .zshrc/.zshenv, which are Dotbot symlinks into this repo.
     - [bash helpers/install_uv.sh, "Installing uv (native installer)"]
     # Claude Code's settings.json is likewise seeded by COPY, not linked: Claude
-    # Code itself and `herdr integration install` both rewrite it in place, so a
+    # Code itself and agent-integration installers rewrite it in place, so a
     # symlink there is orphaned on the first write. Capture live changes with
     # --capture; `dot drift` shows the gap.
     - [bash helpers/install_claude_settings.sh, "Seeding Claude Code settings (if absent)"]
-    - [bash helpers/install_herdr_agents.sh, "Linking herdr agent ssh shims"]
     # Runs before the link step below: moves a regular ~/.codex/AGENTS.md (e.g. from
     # Codex's Claude import) to a timestamped backup so the symlink can be created.
     - [bash helpers/migrate_codex_agents.sh, "Moving aside an unlinked Codex AGENTS.md"]
@@ -54,7 +53,6 @@
     ~/.codex/AGENTS.md: codex/AGENTS.md
     ~/.claude/statusline-command.sh: claude/statusline-command.sh
     ~/.claude/hooks/tmux-attention.sh: claude/hooks/tmux-attention.sh
-    ~/.claude/hooks/herdr-blank-state.sh: claude/hooks/herdr-blank-state.sh
     # iTerm2 Dynamic Profile. `create: true` makes the DynamicProfiles parent dir
     # if iTerm hasn't yet. Replaces the live-synced full prefs plist (which leaked
     # usernames/hostname/window arrangements).

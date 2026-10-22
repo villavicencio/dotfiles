@@ -10,6 +10,7 @@ Detailed procedures live in dotfiles `docs/agents/` (`~/Projects/Personal/dotfil
 - If something is already solved in `docs/solutions/` or the repo's `AGENTS.md`, use it instead of re-deriving it.
 - Time: I'm in Pacific time. Label PT vs UTC explicitly, derive weekdays from the system date, and don't call a time "late" or "overnight" without evidence. Sessions are often back-to-back; after `dv:pickup`, measure staleness in commits since the handoff's `head` (validate it first: `session-continuity.md`), not file age.
 - Never tell me to sleep, rest, eat, or otherwise manage my time. End cleanly ("standing by") instead.
+- Keep sessions small: every turn re-reads the whole context. At a task boundary, or after an hour or more idle, write a handoff and start a fresh session instead of carrying on.
 - When you name a Linear ticket or a GitHub PR or issue in a reply to me, make it a markdown link that opens in my browser, every time it appears: `[VIL-123](https://linear.app/villavicencio/issue/VIL-123)`, `[#151](https://github.com/<owner>/<repo>/pull/151)` (put the repo in the label for a cross-repo reference, e.g. `[mergewren#31](…)`). Commit messages, PR bodies, and Linear comments can keep bare ids; those surfaces link them already.
 
 ## Safety
@@ -60,4 +61,4 @@ Repos with their own reviewer follow their own rules: dotfiles and bryancola.com
 - Secrets via `op-agent` (1Password Agents vault; never print a value or the token file): `1password.md`.
 - Obsidian vaults: `obsidian-vaults.md`. Each project owns `~/Obsidian/<name>/`; only `hermes` and `axiom` sync to the VPS.
 - Proof docs: `proof.md`. Collaborative docs (plans, specs, memos, drafts) go to Proof via the `proof` skill, titled `Plan: YYYY-MM-DD topic`, `Brainstorm: …`, `Draft: …`, `Reference: …`, `SOUL — <Persona>`. Code-adjacent docs stay in the repo.
-- Herdr agent fleet (pane template, shims, jump keys): the dotfiles `CLAUDE.md` "Herdr" section. Herdr changes ride a dotfiles branch.
+- Orca projects (herdr retired 2026-10-22): a new project gets an Orca project (`orca repo add --path <dir>`), a vault, and a project `CLAUDE.md`; worktree setup goes in the repo's `orca.yaml`. Gotchas: dotfiles `docs/reference/orca-worktrees.md`.

@@ -4,10 +4,11 @@ Tool-neutral brief for any coding agent (Codex, Claude Code, Cursor, …) workin
 this repository. It is the canonical description of how the repo is laid out, the
 conventions every change must follow, and how to verify a change before committing.
 
-> **Claude Code note:** `CLAUDE.md` carries the same conventions plus Claude-specific
-> behavior; it is self-sufficient on its own. This file is the tool-neutral source of
-> truth — when the two ever diverge, treat this file's conventions as authoritative and
-> reconcile `CLAUDE.md` to match.
+> **Claude Code note:** `CLAUDE.md` carries the same conventions as one-line rules plus
+> Claude-specific behavior, and points at `docs/reference/` for the long write-ups (moved
+> out of it on 2026-10-22 to cut every session's startup context, VIL-402). This file is
+> the tool-neutral source of truth — when the two ever diverge, treat this file's
+> conventions as authoritative and reconcile `CLAUDE.md` to match.
 
 ---
 
@@ -28,7 +29,7 @@ by `install.ps1` (PowerShell, not Dotbot).
 `./install` sets up a machine — the wrapper runs a shared `dotbot-conf/base.yaml` then the
 platform layer (`dotbot-conf/darwin.yaml` on Darwin, `dotbot-conf/linux.yaml` on Linux).
 The active Linux target is WSL Ubuntu 26.04 on the gaming PC (since 2026-09-24, reinstalled
-on 26.04 2026-09-25; setup in `CLAUDE.md` "Setting up WSL on the Windows PC"). CI's Linux
+on 26.04 2026-09-25; setup in `docs/reference/wsl-linux.md`). CI's Linux
 leg runs the same release (VIL-154). On 26.04 `sudo` is sudo-rs; CI runs as root, so only
 the WSL install exercises it. Linux installs no Node or uv, by design (VIL-157).
 The earlier Hetzner VPS target was retired
@@ -52,7 +53,6 @@ docs/       docs/agents/ — procedures behind the global agent instructions (lo
                                  frontmatter (module, tags, problem_type) + INDEX.md
 git/        gitconfig, gitignore, gitattributes, gitconfig.linux (Linux overlay, see gotchas)
 helpers/    Bash scripts called by the install pipeline (each independently runnable)
-herdr/      Herdr agent-multiplexer config (config.toml symlinked into ~/.config/herdr/)
 iterm/      iTerm2 preferences
 lazygit/    lazygit config
 nvim/       Neovim config (NvChad v2.5; the whole dir is linked as ~/.config/nvim,
@@ -79,7 +79,7 @@ orca.yaml   Orca's setup script for each new worktree: checks out the dotbot sub
             is deliberately no archive script. After a merge, run cleanup_merged_branch first:
             it deletes the branch and detaches the worktree, since Orca never deletes a
             squash-merged branch. Never `git submodule deinit` in a worktree (it
-            unregisters dotbot in the shared .git/config). Details: CLAUDE.md "Orca worktrees"
+            unregisters dotbot in the shared .git/config). Details: docs/reference/orca-worktrees.md
 .worktreeinclude  gitignored files copied into new worktrees (claude --worktree, wt new, orca.yaml)
 windows/    Windows layer, applied by install.ps1 (repo root): packages.json (winget),
             gitconfig (overrides chained after git/gitconfig), powershell/profile.ps1,
@@ -133,8 +133,8 @@ diffs** are scanned — not the full tree or history.
 - The gitleaks version is pinned in **three** places that must match: `rev:` in
   `.pre-commit-config.yaml`, `GITLEAKS_VERSION` in `helpers/install_pre_commit.sh`, and the
   `Gitleaks.Gitleaks` `Version` in `windows/packages.json`.
-- Local override `pass_filenames: false` is required — see `CLAUDE.md` for the upstream
-  gotcha it works around.
+- Local override `pass_filenames: false` is required — see `docs/reference/secret-hygiene.md`
+  for the upstream gotcha it works around.
 
 ### Post-installer audit
 After any third-party installer touches shell config (gcloud, rustup, …), run `git diff`
@@ -271,13 +271,13 @@ history — never create new GitHub issues).
   later; replaces CodeRabbit here). It reviews every new head of an open, non-draft PR
   automatically, 2–6 minutes after the push, and posts one comment per head, starting with
   `<!-- review-stack:head=<full sha> run=<id> -->`. Wait for the comment for the current
-  head (the `gh pr view … --jq` poll is in CLAUDE.md), fix the real findings and push; the
+  head (the `gh pr view … --jq` poll is in CLAUDE.md "Rules"), fix the real findings and push; the
   new head is re-reviewed automatically. Merge when the current head's review has no high or
   critical finding that is neither fixed nor waived with David. It doesn't read thread
   replies. Since MergeWren 0.4.0 each finding is also an inline thread: resolve it once
   fixed (listed under "Resolved") or declined. An incremental round can keep a finding
   "Still open" after the code it describes is gone; check it against the code and decline
-  it as stale (CLAUDE.md has the #239 case). A `partial` verdict means a file wasn't
+  it as stale (`docs/reference/review-and-merge.md` has the #239 case). A `partial` verdict means a file wasn't
   reviewed, and so does "⚠️ The review did not complete": tell David. CodeRabbit comments are
   optional input: don't wait for them or re-trigger `@coderabbitai`.
 
@@ -296,7 +296,7 @@ install via Homebrew casks in `brew/Brewfile`, not a helper.)
 `nvim/` as `%LOCALAPPDATA%\nvim` included), stubs for `~/.gitconfig` and `$PROFILE`, a
 `~/.claude/settings.json` seed (only when absent), the pre-commit hook, then the pinned nvim
 plugins (`windows/install_nvim.ps1`). Full steps and rules: "Setting up the Windows PC" in
-`CLAUDE.md`. Verify with a `-DryRun` (must report changes but make none) and a second real
+`docs/reference/windows.md`. Verify with a `-DryRun` (must report changes but make none) and a second real
 run (every line must read `ok`). CI's `windows` job asserts both.
 
 **Windows system settings:** from an elevated shell, preview with
@@ -315,67 +315,23 @@ a comment-aware JSONC scan, and writes via a checked temp file. Before the swap 
 original against writes and renames (Terminal saves by renaming a temp file over it), re-checks
 that it is unchanged since it was read, renames it aside through the lock, and renames the temp
 file into place without replacing anything. Dot-source the script to test its functions
-without running it. Details: "System tweaks" in `CLAUDE.md`.
+without running it. Details: "System tweaks" in `docs/reference/windows.md`.
 
 ### Server profile (`hal`)
 
-`DOTFILES_PROFILE=server ./install` sets up `hal`, a headless Mac mini (macOS 27, Apple
-Silicon) reached only over SSH. It runs as the standard account `hal`, which has no sudo and
-owns Homebrew at `/opt/homebrew`. An unset profile or `desk` is the normal install. Any other
-value fails before Dotbot runs, and so does `server` on anything but macOS.
-`DOTFILES_PROFILE=server ./install --dry-run` previews it.
+`DOTFILES_PROFILE=server ./install` sets up `hal`, the headless Mac mini. It runs as the
+standard account `hal` (no sudo; it owns Homebrew at `/opt/homebrew`), and `--dry-run`
+previews it. In short:
+- `base.yaml` runs with `--except clean`, then `server.yaml` runs in place of `darwin.yaml`.
+- Packages come from `brew/Brewfile.server` (formulae plus allowlisted CLI-only casks), with
+  no upgrades and no Homebrew bootstrap.
+- No chsh, nvm/node/uv/Claude Code installers, Claude settings, `~/.claude` links, iTerm
+  profile or nvim config.
+- Three overlays get linked: `zsh/zprofile.server`, `git/gitconfig.server` and
+  `tmux/local.server.conf`.
 
-How it differs from a desk Mac:
-
-- **Layers:** `base.yaml` runs with `--except clean`, then `dotbot-conf/server.yaml` runs in
-  place of `darwin.yaml`. Dotbot's `clean` only removes dead links in `~` that resolve into
-  this repo (`dotbot/src/dotbot/plugins/clean.py`, v1.24.1). hal also carries dangling links
-  copied from the VPS, such as `~/personal`, and a first install has nothing to clean, so
-  `clean` doesn't run there at all.
-- **Packages:** `brew/Brewfile.server`, formulae only plus two CLI-only casks (`vercel`, which
-  Homebrew moved out of core, and `1password-cli`; CI allows exactly those). An old `vercel`/`vercel-cli` formula
-  blocks that cask, so `helpers/migrate_vercel_cask.sh` swaps it first, on both profiles.
-  Installed by `brew bundle` with
-  `HOMEBREW_BUNDLE_NO_UPGRADE=1` and `HOMEBREW_NO_INSTALL_UPGRADE=1`, so installed formulae
-  aren't upgraded under running services. A new formula can still upgrade a shared
-  dependency it needs. The Homebrew network installer never runs: if brew is missing at
-  the `BREW_PREFIX` location (`/opt/homebrew` on Apple Silicon), the wrapper stops before
-  Dotbot runs, with nothing changed. No font casks. The container runtime (OrbStack, and brew's `docker` and
-  `colima`) is installed out of band and is in no Brewfile.
-- **Skipped:**
-  - chsh.
-  - The nvm, node, uv and Claude Code installers. node and uv come from the Brewfile, and
-    Claude Code is installed separately on hal.
-  - The Claude settings seed and the `~/.claude` links. `~/.claude` arrives from the VPS with
-    regular files in those places.
-  - The herdr shims and hooks, and the iTerm profile.
-  - The `~/.config/nvim` link and the plugin bootstrap. Without the bootstrap, the first
-    `nvim` would rewrite `nvim/lazy-lock.json`, so the server's nvim runs with no config. A
-    link into this repo left by an earlier desk install is moved to `~/.config/nvim.pre-dotfiles`
-    (`helpers/retire_desk_nvim_link.sh`); a real directory or a link elsewhere is left alone.
-- **Kept:** Oh My Zsh, the shared zsh, git and tmux configs, the pre-commit hook, and the
-  Codex `AGENTS.md` link. TPM installs the plugins against a private, throwaway tmux socket.
-  Its `install_plugins` reads the plugin list from whatever tmux server is current, so a
-  server hal already runs without this config would make it abort ("Tmux Plugin Manager not
-  configured") and fail the install.
-- **Overlays**, linked only under this profile (the tmux one by `base.yaml`, ahead of TPM;
-  the others by `server.yaml`):
-
-  | Link | Source | Effect |
-  |---|---|---|
-  | `~/.config/zsh/.zprofile` | `zsh/zprofile.server` | With `ZDOTDIR` set, zsh no longer reads `~/.zprofile` or `~/.zshrc`. This file carries what hal's own versions did: brew shellenv, OrbStack's `init.zsh`, and `~/.lmstudio/bin`, each only if present. hal's `~/.zprofile` and `~/.zshrc` are left untouched. After shellenv it re-applies `zsh/zshenv`'s PATH order, which shellenv's prepend and macOS's `/etc/zprofile` (`path_helper`) undo in every login shell. |
-  | `~/.config/git/gitconfig.platform` | `git/gitconfig.server` | Resets the credential helpers (osxkeychain and GCM can't work over SSH) to `/opt/homebrew/bin/gh` for github.com and gist.github.com, and sets `core.pager = less -FRX`. |
-  | `~/.config/tmux/local.conf` | `tmux/local.server.conf` | Sets `@continuum-boot off`. It is linked before the TPM step starts a tmux server, so tmux-continuum never loads with boot on and never writes `~/Library/LaunchAgents/Tmux.Start.plist`, which opens iTerm at login. A regular `local.conf` already there is renamed to `local.conf.dotbot-backup.<timestamp>` first (Dotbot's `backup`). If the link still isn't in place, `install_tmux.sh` fails without starting tmux. |
-
-- **`~/.zshenv`:** a `~/.zshenv` this install didn't write is kept as
-  `~/.zshenv.pre-dotfiles` before being replaced. A regular file is copied there, and a
-  symlink is moved there as a link.
-
-Verify with `ci/server-profile-checks.sh static` locally. CI's `macos-server` job runs the
-profile in a simulated hal home and checks the pre-existing files, the shell chain, git, and
-that no LaunchAgent was added. It also checks that a second run changes nothing.
-
----
+Verify with `ci/server-profile-checks.sh static`. The full write-up (layers, overlays,
+`~/.zshenv` backup, CI's `macos-server` job) is in `docs/reference/install-and-server.md`.
 
 ## Invariants & gotchas (do not "fix" these)
 
@@ -383,8 +339,8 @@ that no LaunchAgent was added. It also checks that a second run changes nothing.
   (`hermes -p syd --tui "$@"`) is defined only where `~/.hermes/profiles/syd` exists, which is
   the personal Mac. All three drop their function when a Hermes wrapper of the same name is in
   `~/.local/bin`. `atlas` and `axiom` share `_hal_console` (`hal_console.sh`), which keys on a
-  local `hal` account, not on `orca` being on PATH (#229). Usage is in `README.md` ("Hermes agents"), and the details are in CLAUDE.md
-  ("Hermes commands").
+  local `hal` account, not on `orca` being on PATH (#229). Usage is in `README.md` ("Hermes agents"), and the details are in
+  `docs/reference/hermes-commands.md`.
 
 - **No heredocs in `bin/dot` — do not inline `bin/lib/*.py` back into `python3 - <<'PY'`.**
   Bash backs a small heredoc with a pipe and writes the *whole* document before forking the
@@ -398,7 +354,7 @@ that no LaunchAgent was added. It also checks that a second run changes nothing.
 - **sudo does not work from an agent shell without Touch ID.** Claude Code's `!` mode and
   Bash tool have no controlling TTY, so any `sudo` fails with "a terminal is required."
   The fix is a one-time root step creating `/etc/pam.d/sudo_local` with `pam_reattach`
-  (tmux) + `pam_tid` — documented in `CLAUDE.md` under "Touch ID for sudo"; it cannot be
+  (tmux) + `pam_tid` — documented in `docs/reference/tooling.md` under "Touch ID for sudo"; it cannot be
   Dotbot-managed because `/etc/pam.d/` is root-owned and outside `$HOME`.
   Do **not** substitute `SUDO_ASKPASS` (plain `sudo` ignores it — only `sudo -A` consults
   it), `sudo -v` pre-caching (`tty_tickets` keys the cache to the originating terminal), or
@@ -406,71 +362,13 @@ that no LaunchAgent was added. It also checks that a second run changes nothing.
   root). Note `topgrade --dry-run | grep sudo` does not predict which steps need root — a
   cask's own script can invoke sudo internally. Full write-up:
   `docs/solutions/security/sudo-in-no-tty-agent-shells-touch-id-2026-08-07.md`.
-- **`herdr/config.toml` IS symlinked — the opposite of `claude/settings.json`, deliberately.** Herdr
-  rewrites its config in place (inode-preserving, verified on 0.8.0), so the symlink
-  survives and live edits surface as `M herdr/config.toml`; diff and commit them. Link
-  only the file — `~/.config/herdr/` also holds the socket, logs, and session state.
-  `herdr server stop` / restart kills all pane processes (layout restores, supported
-  agent sessions resume); detach instead. `herdr integration install <agent>` writes
-  into the agent's own config dir and is a human step, not an agent one (claude and
-  codex installed, both v7). Custom `[[keys.command]]` shell commands run
-  with the server's bare launchd PATH and fail silently — use absolute paths
-  (`/opt/homebrew/bin/herdr …`); key changes themselves hot-reload fine. The ssh shim
-  herdr's remote-agent detection depends on (`~/.local/bin/claude-code`, backing both
-  `axiom ∴` and `atlas-tools ⚙`) is a repo-tracked auto-reconnect wrapper
-  (`herdr/shims/`) seeded by
-  `helpers/install_herdr_agents.sh` (darwin.yaml); it execs a same-named raw ssh
-  alias in `~/.local/libexec/` (preserving the detected process name) in a retry
-  loop, so remote panes survive sleep/network loss and — the fleet "a pane never
-  self-closes" rule — drop to an interactive shell on clean detach rather than
-  closing. Local agents get the same rule via the pane template
-  `["/bin/zsh", "-l", "-c", "claude --continue || claude; exec /bin/zsh -il"]`,
-  whose `--continue || claude` pair also relaunches the agent into the **most
-  recent session for that working directory** — usually, but not always, the
-  pane's own last conversation: where a Claude Code slug is shared with another
-  surface, the thread handed back may be that surface's. The bare fallback
-  catches a directory with no prior session, where `--continue` exits 1. Full
-  caveats: the pane-template section of CLAUDE.md.
-  Local project agents (`melos ♪`, `sites ✦`, `borealis ❆`, `argus ◉`,
-  `obscura ✇`, `eidos ❖`, `orrery ☉` — roster table in CLAUDE.md)
-  need no shim — herdr detects a local claude pane natively; they use the pane
-  template above, whose login shell rebuilds PATH from `zshenv` before claude
-  starts (the server spawns pane commands with its bare launchd env).
-  A local **hermes** pane works the same way — the template with `hermes chat` in
-  place of `claude`; herdr's hermes manifest detects the venv process natively, so
-  it needs no shim either. (No hermes pane is in the fleet as of 2026-09-01: `atlas`
-  and `vice` moved to the official Hermes Desktop app and were retired, along with
-  the `hermes-agent` shim they were the only consumers of.)
-  `atlas-tools ⚙` (`prefix+t`) is a remote **Claude Code** surface, not a TUI
-  attach: the repo lives only on the server, at `~/Projects/atlas-tools` in the
-  service account's home (`hal` since 2026-10-04, where `/home/node` links to that
-  home; previously openclaw-prod as `node`), and **no Mac-side checkout exists**. The
-  pane command still targets openclaw-prod and needs repointing to `hal` before the
-  VPS is deleted (see CLAUDE.md). herdr's pane
-  `cwd` is always local — it is where the ssh process starts — so a remote working
-  directory needs no local clone; the pane command establishes it remotely. It
-  reuses the existing `claude-code` ssh alias (detection keys on the ssh child's
-  process name, so two panes may share one alias with different args) and is told
-  apart from `axiom` by `herdr agent rename`. The remote tmux is addressed with
-  `-L atlas-tools -f /home/node/.config/tmux/atlas-tools.conf` and `new-session -A`, which
-  makes it self-healing across VPS reboots without a systemd unit. The conf file
-  is required because tmux defaults `set-titles` to `off` and that option is what
-  carries agent state out through a nested tmux. The `axiom` socket was given the
-  same treatment on 2026-08-25. Note its `unknown` status turned out to have a
-  different cause: the pane had fallen through to the shim's clean-detach `zsh`
-  fallback, so no agent process existed to detect. Check `pane.process_info`
-  before blaming detection config.
-  A pane whose `layout.export` node has no `command` is degraded even though it
-  still detects as an agent; rebuild it with `layout.apply` over the socket
-  (recipe in CLAUDE.md).
-  `orrery ☉` is the **Forge-resident hybrid** pattern (full SOP in CLAUDE.md):
-  the project stays Forge-managed, the pane targets the physical
-  `~/.forge-projects/<codename>` path (herdr `chdir` resolves symlinks, so
-  identity always lands there), `~/Projects/<name>` is an ergonomics-only
-  symlink, and both harnesses share one project slug — shared vault memory and
-  `--resume` continuity across Forge ACP sessions and the pane.
-  itself and `herdr integration install` (plus Otty's agent-integration installer until
-  Otty was removed 2026-09-03). A symlink is orphaned on the first write. This already bit once — the repo copy sat
+- **herdr is retired (2026-10-22, VIL-422).** Orca hosts the agent sessions now. What was
+  removed and the lessons that outlive it:
+  `docs/solutions/integration-issues/herdr-agent-fleet-retired-2026-10-22.md`.
+- **`claude/settings.json` is copy-seeded — do not add a `link:` entry for it.**
+  Writers besides this repo rewrite `~/.claude/settings.json` in place: Claude Code
+  itself and agent-integration installers (Orca's agent hooks today; herdr's until
+  2026-10-22, Otty's until 2026-09-03). A symlink is orphaned on the first write. This already bit once — the repo copy sat
   stale from 2026-08-07 to 2026-08-25 while the live file regrew a legacy top-level
   `allowedTools` key (18 rules) against a `permissions.allow` of 1, silently re-arming the
   precedence trap PR #127 had removed: when both keys exist the legacy one WINS and
@@ -480,8 +378,7 @@ that no LaunchAgent was added. It also checks that a second run changes nothing.
   `dot drift` compares capture-normalized forms and warns if `allowedTools` reappears.
   Agents cannot write this file — the auto-mode classifier blocks it by design; run
   `helpers/migrate_claude_settings.py` yourself on a machine that predates the scheme (on
-  Windows — native, Cygwin, or MSYS Python — it folds `allowedTools` only, no herdr hooks; run
-  it as `python` under Git Bash).
+  Windows, run it as `python` under Git Bash).
 - **`git/gitconfig` `core.pager = vim -`** is intentional on the Macs; `diff`/`show` route
   through **delta** via the `[pager]` overrides. Linux gets `less -FRX` from the overlay below.
 - **Linux git config is `git/gitconfig` plus an overlay, via an include, not a stub.**
@@ -531,7 +428,7 @@ that no LaunchAgent was added. It also checks that a second run changes nothing.
 - **Windows gets stubs, not links, for `~/.gitconfig` and `$PROFILE`** — git has no
   OS-conditional include, and `$PROFILE` sits under a OneDrive-redirected Documents folder.
   **Windows seeds `windows/claude-settings.json`, never `claude/settings.json`** (the Mac
-  file's hooks are tmux/herdr bash scripts that would error on every event). The Windows
+  file's hooks are tmux bash scripts that would error on every event). The Windows
   file is the Mac baseline minus `hooks`, `preferredNotifChannel`, and the brew/tmux allow
   rules; the `statusLine` block is identical and runs under Git Bash's `sh`. Keep the two
   files' shared keys in step by hand. Same copy-only-when-absent contract, and the
@@ -549,4 +446,6 @@ that no LaunchAgent was added. It also checks that a second run changes nothing.
   only in iTerm2.
 
 Deeper write-ups for past bugs and decisions live in `docs/solutions/` (grouped by
-category, indexed in `docs/solutions/INDEX.md`). Consult it before re-deriving a fix.
+category, indexed in `docs/solutions/INDEX.md`), and the per-area reference (Windows, WSL,
+the server profile, Claude Code config, Orca worktrees, review) in `docs/reference/`.
+Consult them before re-deriving a fix.
