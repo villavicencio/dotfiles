@@ -55,7 +55,7 @@ meter_color() {
 # The context meter measures tokens in context against CTX_BUDGET, not a percentage
 # of the model's window: on a 1M window, 25% is already 250k tokens, and every turn
 # re-reads all of it (VIL-402). The budget is where a session should end, not where
-# it compacts: autoCompactWindow in claude/settings.json (660k) is only a backstop.
+# it compacts: autoCompactWindow in claude/settings.json (400k) is only a backstop.
 # Green below 60% of the budget, amber from 60%, red from 80% (200k): time for a
 # handoff and /clear.
 CTX_BUDGET=250000
