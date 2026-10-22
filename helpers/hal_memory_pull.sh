@@ -114,21 +114,22 @@ pull_one() {
 }
 
 # One run at a time. launchd never overlaps its own job, but a manual run can overlap it,
-# and two runs swapping the same folder could leave a download in the wrong place.
-# mkdir is atomic; a lock whose pid is gone is stale (killed run) and is taken over.
-mkdir -p "$OBSIDIAN" || exit 1
-LOCK="$OBSIDIAN/.hal-memory-pull.lock"
-if ! mkdir "$LOCK" 2>/dev/null; then
-  pid=$(cat "$LOCK/pid" 2>/dev/null)
-  if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then
-    log "another run (pid $pid) holds $LOCK; skipping"
+# and two runs swapping the same folder could leave a download in the wrong place. The
+# script re-runs itself under lockf(1), which holds a kernel flock on the lock file for
+# as long as the run lives: taking it is atomic, and the kernel drops it when the process
+# exits or is killed, so there is no stale lock or recycled pid to reason about. -t 0
+# fails at once (exit 75, EX_TEMPFAIL) while another run holds it; -k keeps the file.
+if [ -z "${HAL_MEMORY_PULL_LOCKED:-}" ]; then
+  mkdir -p "$OBSIDIAN" || exit 1
+  HAL_MEMORY_PULL_LOCKED=1 /usr/bin/lockf -k -s -t 0 "$OBSIDIAN/.hal-memory-pull.lock" \
+    /bin/sh "$0" "$@"
+  st=$?
+  if [ "$st" = 75 ]; then
+    log "another run holds $OBSIDIAN/.hal-memory-pull.lock; skipping"
     exit 0
   fi
-  rm -rf "$LOCK" && mkdir "$LOCK" 2>/dev/null || { log "could not take $LOCK"; exit 1; }
+  exit "$st"
 fi
-echo $$ >"$LOCK/pid"
-trap 'rm -rf "$LOCK"' EXIT
-trap 'exit 1' HUP INT TERM
 
 # Word-split the table in this shell (no pipe), so rc and log output survive the loop.
 set -f
