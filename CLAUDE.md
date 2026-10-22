@@ -1065,7 +1065,12 @@ this repo, not just ticket work. Avoid committing directly to `master`.
   **Since MergeWren 0.4.0 (2026-10-09) each finding is also an inline review thread**, and
   they stay open after the finding is fixed. Resolve a thread once its finding is listed
   under "Resolved" in a later review, or once it is declined, so the unresolved-threads
-  check comes back empty before merging. A **`partial`** verdict means a file wasn't
+  check comes back empty before merging. An incremental round ("Incremental since …") can
+  keep a finding under "Still open" after the code it describes is gone: on #239,
+  `74e3fde#1` described `timing.py` adding `duration_s`, and stayed open for two rounds after
+  that line was removed. Check the finding against the current code. If it no longer
+  applies, decline it as stale on its thread and in the PR body, then resolve the thread.
+  Pushing another fix for it won't close it. A **`partial`** verdict means a file wasn't
   reviewed, not that the review passed. `policy-excluded-path` means a file under
   `coverage_expectation` was dropped, e.g. a `<base>.<suffix>` name such as
   `zsh/zprofile.server` whose suffix OCR doesn't recognise (#208, fixed in MergeWren by

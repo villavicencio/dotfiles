@@ -274,7 +274,9 @@ history — never create new GitHub issues).
   new head is re-reviewed automatically. Merge when the current head's review has no high or
   critical finding that is neither fixed nor waived with David. It doesn't read thread
   replies. Since MergeWren 0.4.0 each finding is also an inline thread: resolve it once
-  fixed (listed under "Resolved") or declined. A `partial` verdict means a file wasn't
+  fixed (listed under "Resolved") or declined. An incremental round can keep a finding
+  "Still open" after the code it describes is gone; check it against the code and decline
+  it as stale (CLAUDE.md has the #239 case). A `partial` verdict means a file wasn't
   reviewed, and so does "⚠️ The review did not complete": tell David. CodeRabbit comments are
   optional input: don't wait for them or re-trigger `@coderabbitai`.
 
