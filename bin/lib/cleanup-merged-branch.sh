@@ -11,7 +11,7 @@
 # can succeed), every failure returns 1, and the step that can delete files (removing a
 # worktree) runs only after origin accepted the delete.
 cleanup_merged_branch() {
-  local N=$1 base=$2 b oid cross tip cherry merges wl main wts w s rc rl gd deleted=0 dets="" detached=""
+  local N=$1 base=$2 b oid cross tip cherry merges wl main wts w s rc sw rl gd deleted=0 dets="" detached=""
   read -r b oid cross < <(gh pr view "$N" --json state,headRefName,headRefOid,isCrossRepository \
     -q 'select(.state=="MERGED") | "\(.headRefName) \(.headRefOid) \(.isCrossRepository)"')
   [ -n "$oid" ] || { echo "PR $N is not merged (or gh failed): stop"; return 1; }
@@ -79,9 +79,12 @@ cleanup_merged_branch() {
     if [ "$w" = "$main" ]; then
       s=$(git -C "$w" status --porcelain) && [ -z "$s" ] && git -C "$w" switch "$base"
     elif printf '%s\n' "$dets" | grep -qxF -- "$w"; then
-      # No commit argument: it stays at its own HEAD, so no file changes.
-      s=$(git -C "$w" status --porcelain) && [ -z "$s" ] && git -C "$w" switch -q --detach \
-        && detached="$detached$w"$'\n'
+      # No commit argument: it stays at its own HEAD, so no file changes. A failing
+      # post-checkout hook makes the switch fail after HEAD detached, so record it either way.
+      s=$(git -C "$w" status --porcelain) && [ -z "$s" ] && {
+        git -C "$w" switch -q --detach; sw=$?
+        git -C "$w" symbolic-ref -q HEAD >/dev/null || detached="$detached$w"$'\n'
+        [ "$sw" = 0 ]; }
     else
       s=$(git -C "$w" status --porcelain --ignored) && [ -z "$s" ] && git worktree remove "$w"
     fi || { echo "couldn't clear $w: keeping $b"; _cmb_reattach "$b" "$detached"
@@ -99,15 +102,16 @@ cleanup_merged_branch() {
   done < <(printf '%s\n' "$detached")
   git fetch --prune
 }
-# Put each worktree this run detached back on $1, when $1 still points at its HEAD. symbolic-ref
-# only moves HEAD, so no file changes either way.
+# Put each worktree this run detached back on $1, when $1 still points at its HEAD and no other
+# worktree has checked it out since. symbolic-ref only moves HEAD, so no file changes either way.
 _cmb_reattach() {
-  local w h
+  local w h wl
   while IFS= read -r w; do
     [ -n "$w" ] || continue
     h=$(git -C "$w" rev-parse HEAD) && [ "$(git rev-parse -q --verify "refs/heads/$1")" = "$h" ] \
+      && wl=$(git worktree list --porcelain) && ! printf '%s\n' "$wl" | grep -qxF "branch refs/heads/$1" \
       && git -C "$w" symbolic-ref HEAD "refs/heads/$1" && { echo "put $w back on $1"; continue; }
-    echo "REATTACH FAILED: $w is detached at ${h:-?} and $1 is elsewhere or gone"
+    echo "REATTACH FAILED: $w is detached at ${h:-?}, and $1 is elsewhere, gone, or checked out in another worktree"
   done < <(printf '%s\n' "$2")
 }
 # Put origin's branch back at the merged head after a failure, if this run deleted it.

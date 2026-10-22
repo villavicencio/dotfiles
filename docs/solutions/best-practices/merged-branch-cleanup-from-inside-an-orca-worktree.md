@@ -80,7 +80,8 @@ submodules, which every Orca worktree has) instead of refusing. It deletes the b
 first, only while origin still points at the merged head. Then it detaches the worktree at its
 own HEAD, so no file changes, and deletes the local branch only while it's still at the commit
 it checked. If the detach or the local delete fails, it pushes origin back and re-attaches the
-worktree if the branch hasn't moved. It then prints `<path> is detached at <sha>` and how to
+worktree if HEAD was detached (a failing post-checkout hook fails the switch after detaching),
+the branch hasn't moved, and no other worktree has checked it out. It then prints `<path> is detached at <sha>` and how to
 remove it, and ends with `git fetch --prune`. That fetch runs after both deletes and isn't
 rolled back: if it fails, only a stale `origin/<branch>` tracking ref is left. The branch
 is kept, and the worktree stays on it, whenever the local tip holds work the merge didn't

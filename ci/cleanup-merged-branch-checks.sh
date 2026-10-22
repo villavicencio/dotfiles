@@ -149,6 +149,26 @@ check "local kept" 'local_has'
 check "worktree still on feat/x" '[ "$(wt_branch)" = feat/x ]'
 done_
 
+echo "6d. The detach fails after HEAD detached (a failing post-checkout hook)"
+f0=$fail; setup; orca_wt
+printf '#!/bin/sh\nexit 1\n' > "$T/main/.git/hooks/post-checkout"; chmod +x "$T/main/.git/hooks/post-checkout"
+run; rm "$T/main/.git/hooks/post-checkout"
+check "returns 1" '[ $RC = 1 ]'
+check "origin restored at the merged head" 'origin_at "$OID"'
+check "local kept" 'local_has'
+check "worktree put back on feat/x" '[ "$(wt_branch)" = feat/x ] && grep -q "put $T/wt back on feat/x" "$T/out"'
+done_
+
+echo "6e. Another worktree checks the branch out mid-run, after the detach"
+f0=$fail; setup; orca_wt
+printf '#!/bin/sh\ncase "$*" in *"update-ref -d refs/heads/feat/x"*) %s worktree add -q %s feat/x; exit 1;; esac\nexec %s "$@"\n' \
+  "$REALGIT" "$T/wt2" "$REALGIT" > "$T/bin/git"
+chmod +x "$T/bin/git"; run; rm "$T/bin/git"
+check "returns 1" '[ $RC = 1 ]'
+check "origin restored, local kept" 'origin_at "$OID" && local_has'
+check "not re-attached: REATTACH FAILED" '[ -z "$(wt_branch)" ] && grep -q "REATTACH FAILED: $T/wt " "$T/out"'
+done_
+
 echo "7. Locked Orca-like worktree"
 f0=$fail; setup; orca_wt; git worktree lock "$T/wt"; run
 check "returns 1, all kept" '[ $RC = 1 ] && origin_at "$OID" && local_has && [ "$(wt_branch)" = feat/x ]'

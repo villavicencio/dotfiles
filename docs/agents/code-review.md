@@ -222,8 +222,10 @@ may not be pulled yet, so from a worktree that has a newer copy, source that one
   permissions. So after origin is deleted, a failed worktree step, or a failed local delete
   (the branch moved mid-run), pushes origin's branch back at the merged head, and puts
   each worktree it detached back on the branch with `git symbolic-ref`, when the branch still
-  points at that worktree's HEAD. If the branch moved, the worktree stays detached and the
-  function prints `REATTACH FAILED`. If the origin push fails, it prints `RESTORE FAILED` with
+  points at that worktree's HEAD and no other worktree has checked it out. A detach counts
+  when HEAD ended up detached, even if `git switch` failed (a failing post-checkout hook
+  fails it after HEAD moved). If the branch moved or is checked out elsewhere, the worktree
+  stays detached and the function prints `REATTACH FAILED`. If the origin push fails, it prints `RESTORE FAILED` with
   the exact `git push` that restores it, shell-quoted with `printf %q`. The local branch still
   holds the commit either way. The closing `git fetch --prune` runs after both deletes and
   isn't rolled back; if it fails, only a stale `origin/<branch>` tracking ref is left.
@@ -258,13 +260,15 @@ may not be pulled yet, so from a worktree that has a newer copy, source that one
     submodules, only a modified or untracked file keeps it);
   - removing the worktree fails after origin was deleted (origin is pushed back);
   - the local branch moves between the checks and the local delete (origin is pushed back).
-- **Retested 2026-10-22 (VIL-414)**, bash and zsh, 46 checks in 16 scenarios. A clean worktree
+- **Retested 2026-10-22 (VIL-414)**, bash and zsh, 53 checks in 18 scenarios. A clean worktree
   with an initialized submodule is detached at its own HEAD and both copies are deleted: run
   from the main checkout, from inside the worktree, with a stale copy (files unchanged), and
   with only an ignored file. It is kept, still on the branch, with a tracked change, a new
   commit, or a lock. A failed local delete after the detach restores origin and re-attaches
   the worktree; if the branch moved, the worktree stays detached and `REATTACH FAILED` is
-  printed. A failed detach restores origin and leaves the worktree on the branch. `wt done`
+  printed, as it is when another worktree checked the branch out meanwhile. A failed detach
+  restores origin and leaves the worktree on the branch, putting it back when a failing
+  post-checkout hook failed the switch after HEAD moved. `wt done`
   refuses a submodule worktree before the PR lookup and holds no files, but reports copies an earlier run left in `wt-held/` first. Master's function and
   `wt` failed 19 of the first 41 checks. Rerun them with `ci/cleanup-merged-branch-checks.sh`
   after changing the function or `wt done` (local only, not in CI).
