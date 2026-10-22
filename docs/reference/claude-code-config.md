@@ -113,7 +113,8 @@ up only by `install.ps1` has uv but no Python, so the migration runs through uv)
 
 ```bash
 bash helpers/report_drift.sh                                    # see what diverged
-uv run --no-project python helpers/migrate_claude_settings.py   # by hand, first
+python helpers/migrate_claude_settings.py                       # by hand, first, if Python works
+uv run --no-project python helpers/migrate_claude_settings.py   # instead, on a PC with no Python
 bash helpers/install_claude_settings.sh --capture               # regenerates windows/claude-settings.json, then commit
 ```
 
