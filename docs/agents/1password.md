@@ -59,6 +59,12 @@ The `hal` account doesn't run the pilot, so its token file carries no such expos
 ## Setup (human steps)
 
 **On 1Password.com (David):**
+
+Steps 1, 2 and 4 can also be done with `op` on the personal Mac through the 1Password app's
+CLI integration. Run `op signin` first in that terminal. Until then, `op whoami` reports
+`account is not signed in` even with the integration on, and it never prompts for Touch ID
+itself (seen 2026-10-22). The sign-in lasts for that terminal only, until about 10 idle minutes.
+
 1. Create a vault named **Agents**. A service account can't be given the built-in Personal,
    Private or Employee vault, or the default Shared vault.
 2. Create a service account (Developer → Service accounts, or `op service-account create`)
