@@ -21,15 +21,17 @@ tags: [orca, worktree, force-delete, cleanup-merged-branch, submodule, squash-me
 
 The global rule is to delete a merged PR's branch, locally and on origin, as part of the
 merge (`docs/agents/code-review.md`, "After the merge"). The tool for that is
-`cleanup_merged_branch`, which first clears every worktree on the branch: it removes a linked
-worktree and switches the main checkout to the default branch. It refuses an Orca worktree, because Orca's setup script checks out the dotbot submodule in every worktree and
-`git worktree remove` can't remove one with an initialized submodule:
+`cleanup_merged_branch`, which clears every worktree on the branch: it removes a linked
+worktree and switches the main checkout to the default branch. Until VIL-414 it refused an
+Orca worktree, because Orca's setup script checks out the dotbot submodule in every worktree
+and `git worktree remove` can't remove one with an initialized submodule. This was its output
+on #234 (before VIL-414):
 
 ```
 <worktree> has initialized submodules: keeping feat/axiom-command
 ```
 
-(`bin/lib/cleanup-merged-branch.sh:46`.) The documented way to remove such a worktree is
+(It was `bin/lib/cleanup-merged-branch.sh:46` then.) The documented way to remove such a worktree is
 Orca's Force delete, a human step (CLAUDE.md, "Removing an Orca worktree takes Force
 delete"). Orca also deletes the branch only when it can prove it's merged (CLAUDE.md,
 "The branch's commits aren't at risk"), and this repo squash-merges, so the branch's commit
@@ -56,17 +58,25 @@ mid-procedure.
 worktree, before the worktree is deleted:
 
 ```bash
-source ~/Projects/Personal/dotfiles/bin/lib/cleanup-merged-branch.sh
+source "$(git rev-parse --show-toplevel)/bin/lib/cleanup-merged-branch.sh"
 cleanup_merged_branch 234 master
 ```
 
-Since VIL-414 the function detaches a worktree it can't remove (one with initialized
-submodules, which every Orca worktree has) instead of refusing. It detaches at the worktree's
-own HEAD, so no file changes, then deletes the branch on origin and locally with the usual
-conditional checks, and prints `<path> is detached at <sha>: Force delete it in Orca`. The
-branch is kept, and the worktree stays on it, whenever the local tip holds work the merge
-didn't take or the worktree has changes or untracked files. The worktree is left clean, with
-nothing that isn't on master, so David can Force delete it whenever he likes.
+Source it from the worktree you're in, not the main checkout: merging on GitHub doesn't
+update the main checkout, which can still hold an older copy of the function.
+
+Since VIL-414 the function handles a worktree it can't remove (one with initialized
+submodules, which every Orca worktree has) instead of refusing. It deletes the branch on origin
+first, only while origin still points at the merged head. Then it detaches the worktree at its
+own HEAD, so no file changes, and deletes the local branch only while it's still at the commit
+it checked. If a step after the origin delete fails, it pushes origin back and re-attaches the
+worktree if the branch hasn't moved. It ends by printing `<path> is detached at <sha>` and how to remove it. The branch
+is kept, and the worktree stays on it, whenever the local tip holds work the merge didn't
+take or the worktree has changes or untracked files.
+
+Ignored files don't block the detach, since nothing is deleted, so the worktree can still hold
+some that exist nowhere else. The pre-Force checks below are still needed before David Force
+deletes it.
 
 Before VIL-414 the function refused here (`<worktree> has initialized submodules: keeping
 <branch>`), and #234's branch was cleaned up by hand with the same steps: a conditional

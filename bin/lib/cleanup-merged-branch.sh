@@ -93,7 +93,9 @@ cleanup_merged_branch() {
     _cmb_restore_origin "$deleted" "$b" "$oid"; return 1
   fi
   while IFS= read -r w; do
-    [ -n "$w" ] && echo "$w is detached at $(git -C "$w" rev-parse --short HEAD): Force delete it in Orca"
+    [ -n "$w" ] || continue
+    echo "$w is detached at $(git -C "$w" rev-parse --short HEAD), and git can't remove it (submodules)."
+    echo "  It may still hold ignored files. Check it, then Force delete it in Orca, or (not Orca's) run: git worktree remove --force $(printf %q "$w")"
   done < <(printf '%s\n' "$detached")
   git fetch --prune
 }

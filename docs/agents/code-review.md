@@ -189,7 +189,8 @@ source <dotfiles clone>/bin/lib/cleanup-merged-branch.sh   # ~/Projects/Personal
 cleanup_merged_branch <pr> <default branch>
 ```
 
-Run it from any worktree of the repo, in bash or zsh. The function lives only in
+Run it from any worktree of the repo, in bash or zsh. Right after a merge the main checkout
+may not be pulled yet, so from a worktree that has a newer copy, source that one. The function lives only in
 `bin/lib/cleanup-merged-branch.sh`; `wt done` (see `parallel-sessions.md`) sources the same file.
 
 - **Stale local copy.** After `gh pr update-branch --rebase`, or any rewrite on GitHub, the
@@ -207,9 +208,12 @@ Run it from any worktree of the repo, in bash or zsh. The function lives only in
 - **Worktrees with submodules are detached, not removed (VIL-414).** `git worktree remove`
   refuses a linked worktree with initialized submodules (its own `modules` git dir; an empty
   `.gitmodules` doesn't count), and every Orca worktree has one (dotbot). So the function
-  detaches it with `git switch --detach` at its own HEAD, which changes no files, and prints
-  `<path> is detached at <sha>: Force delete it in Orca`. Detaching deletes nothing, so only
-  changes and untracked files block it, not ignored ones. It works from inside that worktree,
+  detaches it with `git switch --detach` at its own HEAD, which changes no files, after origin
+  accepted the delete. It prints `<path> is detached at <sha>` and how to remove it: Force
+  delete in Orca, or, for a worktree that isn't Orca's, `git worktree remove --force <path>`
+  (a single `--force` removes one with submodules). Detaching deletes nothing, so only changes
+  and untracked files block it, not ignored ones; those are still in the worktree, so check it
+  before removing it (CLAUDE.md, "Removing an Orca worktree takes Force delete"). It works from inside that worktree,
   so a session that merged its own PR there cleans up before the Force delete closes it.
   `wt done` refuses such a worktree itself, before calling the function, because it expects
   the worktree to be gone afterwards.
@@ -259,7 +263,8 @@ Run it from any worktree of the repo, in bash or zsh. The function lives only in
   commit, or a lock. A failed local delete after the detach restores origin and re-attaches
   the worktree; if the branch moved, the worktree stays detached and `REATTACH FAILED` is
   printed. `wt done` refuses a submodule worktree and holds no files. The unchanged function
-  from master fails 19 of the 41 checks.
+  from master fails 19 of the 41 checks. Rerun them with `ci/cleanup-merged-branch-checks.sh`
+  after changing the function or `wt done` (local only, not in CI).
 - **Local merge, no remote, no PR:** there is no `MERGED` state or origin tip to check.
   Confirm `git merge-base --is-ancestor "$b" "$base"`, then `git branch -d "$b"`, which
   refuses an unmerged branch on its own. Local branch only.

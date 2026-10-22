@@ -221,6 +221,7 @@ Run these before committing. `bin/dot` (`~/.local/bin/dot` once installed) wraps
 | Dry-run is mutation-free | see below | 0 entries created |
 | Homebrew | `brew bundle check --file=brew/Brewfile` | satisfied |
 | Server profile | `ci/server-profile-checks.sh static` | exit 0 |
+| Merged-branch cleanup (after changing `bin/lib/cleanup-merged-branch.sh` or `wt done`) | `ci/cleanup-merged-branch-checks.sh` | exit 0, both shells (local only, not in CI) |
 
 **Dry-run must never mutate config.** `./install --dry-run` previews Dotbot directives
 without applying them. The only thing the wrapper does regardless is init the vendored
