@@ -15,7 +15,7 @@ tags: [herdr, orca, claude-code, hooks, retired]
 # herdr agent fleet — retired
 
 `herdr` was a tmux-shaped client/server multiplexer with native agent awareness. From
-2026-08-18 it hosted the Mac's Claude Code agents, one workspace per project, each with a jump
+2026-08-18 it hosted the Mac's Claude Code agents, one workspace per project, most with a jump
 key. It also tracked their state and resumed their conversations across server restarts. David
 stopped using it around 2026-10-09 and paused it on 2026-10-10. Orca replaced it on 2026-10-21,
 and VIL-422 uninstalled it on 2026-10-22. This file condenses the ~360-line "Herdr" section that
