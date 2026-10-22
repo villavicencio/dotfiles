@@ -33,7 +33,7 @@ case "$1" in -h|--help|help) usage; exit 0 ;; esac
 
 # Refuse the flags that put a secret on stdout, in every spelling (`--no-masking=true`), and
 # any -o destination that is stdout in disguise. Everything after a `--` belongs to the
-# command `op run` starts, so the scan stops there.
+# command `op run` starts, so the scan only counts it.
 bad_dest() {
   case "$1" in
     ''|-|/dev/*|/proc/*) return 0 ;;
@@ -42,14 +42,15 @@ bad_dest() {
   if [ -L "$1" ] || { [ -e "$1" ] && [ ! -f "$1" ]; }; then return 0; fi
   return 1
 }
-has_out=0; want_dest=0; has_sep=0
+has_out=0; want_dest=0; has_sep=0; after_sep=0
 for a in "$@"; do
+  if [ "$has_sep" = 1 ]; then after_sep=$((after_sep + 1)); continue; fi
   if [ "$want_dest" = 1 ]; then
     bad_dest "$a" && die "refusing -o '$a': that writes the secret to the terminal"
     want_dest=0; has_out=1; continue
   fi
   case "$a" in
-    --) has_sep=1; break ;;
+    --) has_sep=1 ;;
     --no-masking*) die "refusing --no-masking: secrets would reach the transcript" ;;
     --reveal*) die "refusing --reveal: secrets would reach the transcript" ;;
     -o|--out-file) want_dest=1 ;;
@@ -65,7 +66,9 @@ done
 case "$1" in
   whoami|--version) ;;
   run)
-    [ "$has_sep" = 1 ] || die "use: op-agent run [--env-file .env] -- <command>" ;;
+    # A bare `run --` would start `env -u …` with no command, and env then prints the
+    # whole environment.
+    [ "$has_sep" = 1 ] && [ "$after_sep" -gt 0 ] || die "use: op-agent run [--env-file .env] -- <command>" ;;
   read|inject)
     [ "$has_out" = 1 ] || die "'$1' needs -o <file>: without it the secret goes to stdout" ;;
   vault|item)

@@ -20,9 +20,15 @@ ln -s /dev/stdout "$T/stdout-link"
 fail=0
 run() { PATH="$T/bin:$PATH" OP_AGENT_TOKEN_FILE="$T/token" "$REPO/bin/op-agent" "$@" 2>&1; }
 expect() {  # expect <ok|refused> <args...>
-  local want="$1"; shift; local out rc
+  local want="$1"; shift; local out rc pass=0
   out="$(run "$@")"; rc=$?
-  if { [ "$want" = ok ] && [ "$rc" = 0 ]; } || { [ "$want" = refused ] && [ "$rc" != 0 ]; }; then
+  if [ "$want" = refused ]; then [ "$rc" != 0 ] && pass=1
+  elif [ "$rc" = 0 ]; then
+    # An allowed call must reach op with exactly its arguments and the token. `run` hands
+    # off to the child, so its output is the child's.
+    if [ "$1" = run ] || [ "$out" = "op $* token=14" ]; then pass=1; fi
+  fi
+  if [ "$pass" = 1 ]; then
     printf 'ok      %-8s %s\n' "$want" "$*"
   else
     printf 'FAIL    want %-8s rc=%s %s\n        %s\n' "$want" "$rc" "$*" "$out"; fail=1
@@ -51,6 +57,8 @@ expect refused run --no-masking -- true
 expect refused run --no-masking=true -- true
 expect ok      run -- echo --no-masking   # after --, it's the child's argument
 expect refused run true
+expect refused run --
+expect refused run --env-file .env --
 expect refused item get foo
 expect refused item get foo --reveal=true
 expect refused signin
