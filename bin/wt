@@ -325,6 +325,21 @@ cmd_done() {
   fi
   [ -z "$busy" ] || die "processes still have their cwd in $dir (PIDs: ${busy% }). Exit those sessions or cd out first"
 
+  local held s gd left
+  gd=$(git -C "$dir" rev-parse --absolute-git-dir) || die "can't read $dir's git dir"
+  # Copies an earlier run couldn't move back would be deleted with the worktree's git dir.
+  # Report them before any other refusal, so they aren't hidden behind it.
+  if [ -d "$gd/wt-held" ]; then
+    left=$(cd "$gd/wt-held" && find . ! -type d) || die "can't read $gd/wt-held"
+    [ -z "$left" ] || die "an earlier 'wt done' left copies in $gd/wt-held that it couldn't move back:
+$left
+Move each back into $dir (or delete it) before running 'wt done' again"
+  fi
+  # git can't remove a worktree with an initialized submodule, and cleanup_merged_branch would
+  # only detach it, leaving it without the copies held below. Stop before the PR lookup (which
+  # can fetch) and before holding anything.
+  [ ! -e "$gd/modules" ] || die "$dir has an initialized submodule, so git can't remove it; wt done leaves it alone"
+
   # cleanup_merged_branch re-reads the PR and checks the branch against its merged head.
   if [ -n "$b" ] && [ "$keep" = 0 ]; then
     command -v gh >/dev/null 2>&1 || die "gh isn't installed, so can't check $b for a merged PR (--keep-branch removes just the worktree)"
@@ -357,15 +372,6 @@ cmd_done() {
     die "$b has no merged PR. Merge it first, or run 'wt done $topic --keep-branch' to remove the worktree and keep the branch"
   fi
 
-  # Copies an earlier run couldn't move back would be deleted with the worktree's git dir.
-  local held s gd left
-  gd=$(git -C "$dir" rev-parse --absolute-git-dir) || die "can't read $dir's git dir"
-  if [ -d "$gd/wt-held" ]; then
-    left=$(cd "$gd/wt-held" && find . ! -type d) || die "can't read $gd/wt-held"
-    [ -z "$left" ] || die "an earlier 'wt done' left copies in $gd/wt-held that it couldn't move back:
-$left
-Move each back into $dir (or delete it) before running 'wt done' again"
-  fi
   held=$(hold_carried "$m" "$dir") || die "couldn't read $dir's carried-file list"
 
   if [ "$keep" = 0 ]; then

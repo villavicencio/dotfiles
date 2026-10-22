@@ -11,7 +11,7 @@
 # can succeed), every failure returns 1, and the step that can delete files (removing a
 # worktree) runs only after origin accepted the delete.
 cleanup_merged_branch() {
-  local N=$1 base=$2 b oid cross tip cherry merges wl main wts w s rc rl gd deleted=0
+  local N=$1 base=$2 b oid cross tip cherry merges wl main wts w s rc sw rl gd deleted=0 dets="" detached=""
   read -r b oid cross < <(gh pr view "$N" --json state,headRefName,headRefOid,isCrossRepository \
     -q 'select(.state=="MERGED") | "\(.headRefName) \(.headRefOid) \(.isCrossRepository)"')
   [ -n "$oid" ] || { echo "PR $N is not merged (or gh failed): stop"; return 1; }
@@ -38,12 +38,17 @@ cleanup_merged_branch() {
     [ -n "$w" ] || continue
     if [ "$w" = "$main" ]; then s=$(git -C "$w" status --porcelain) || return 1
     else
-      s=$(git -C "$w" status --porcelain --ignored) || return 1
       # `git worktree remove` refuses a locked worktree and one with submodules.
       printf '%s\n' "$wl" | awk -v t="$w" '/^worktree /{c=(substr($0,10)==t)} c && /^locked/{f=1} END{exit !f}' \
         && { echo "$w is locked: keeping $b"; return 1; }
       gd=$(git -C "$w" rev-parse --absolute-git-dir) || return 1
-      [ ! -e "$gd/modules" ] || { echo "$w has initialized submodules: keeping $b"; return 1; }
+      if [ -e "$gd/modules" ]; then
+        # Every Orca worktree has one (dotbot). Detach it instead: that deletes nothing, so
+        # ignored files don't count, and it's left for Force delete in Orca.
+        s=$(git -C "$w" status --porcelain) || return 1
+        dets="$dets$w"$'\n'
+      else s=$(git -C "$w" status --porcelain --ignored) || return 1
+      fi
     fi
     [ -z "$s" ] || { echo "$w has changes, untracked or ignored files: keeping $b"; return 1; }
   done < <(printf '%s\n' "$wts")
@@ -65,22 +70,49 @@ cleanup_merged_branch() {
        deleted=1 ;;
     2) echo "origin already deleted $b" ;;
   esac
-  # Worktrees: re-check, then remove a linked one, or switch the primary (git can't remove it).
-  # If any step fails, put origin's branch back at the merged head, so a failure never leaves
-  # origin deleted while the local branch stays.
+  # Worktrees: re-check, then remove a linked one, detach one with submodules, or switch the
+  # primary (git can't remove those two). If any step fails, put origin's branch back at the
+  # merged head and detached worktrees back on $b, so a failure never leaves origin deleted
+  # while the local branch stays.
   while IFS= read -r w; do
     [ -n "$w" ] || continue
     if [ "$w" = "$main" ]; then
       s=$(git -C "$w" status --porcelain) && [ -z "$s" ] && git -C "$w" switch "$base"
+    elif printf '%s\n' "$dets" | grep -qxF -- "$w"; then
+      # No commit argument: it stays at its own HEAD, so no file changes. A failing
+      # post-checkout hook makes the switch fail after HEAD detached, so record it either way.
+      s=$(git -C "$w" status --porcelain) && [ -z "$s" ] && {
+        git -C "$w" switch -q --detach; sw=$?
+        git -C "$w" symbolic-ref -q HEAD >/dev/null || detached="$detached$w"$'\n'
+        [ "$sw" = 0 ]; }
     else
       s=$(git -C "$w" status --porcelain --ignored) && [ -z "$s" ] && git worktree remove "$w"
-    fi || { echo "couldn't clear $w: keeping $b"; _cmb_restore_origin "$deleted" "$b" "$oid"; return 1; }
+    fi || { echo "couldn't clear $w: keeping $b"; _cmb_reattach "$b" "$detached"
+            _cmb_restore_origin "$deleted" "$b" "$oid"; return 1; }
   done < <(printf '%s\n' "$wts")
   # Local: refuses unless the tip is still the one checked above (branch -D deletes whatever).
   if [ -n "$tip" ] && ! git update-ref -d "refs/heads/$b" "$tip"; then
-    echo "local $b moved mid-run: keeping it"; _cmb_restore_origin "$deleted" "$b" "$oid"; return 1
+    echo "local $b moved mid-run: keeping it"; _cmb_reattach "$b" "$detached"
+    _cmb_restore_origin "$deleted" "$b" "$oid"; return 1
   fi
+  while IFS= read -r w; do
+    [ -n "$w" ] || continue
+    echo "$w is detached at $(git -C "$w" rev-parse --short HEAD), and git can't remove it (submodules)."
+    echo "  It may still hold ignored files. Check it, then Force delete it in Orca, or (not Orca's) run: git worktree remove --force $(printf %q "$w")"
+  done < <(printf '%s\n' "$detached")
   git fetch --prune
+}
+# Put each worktree this run detached back on $1, when $1 still points at its HEAD and no other
+# worktree has checked it out since. symbolic-ref only moves HEAD, so no file changes either way.
+_cmb_reattach() {
+  local w h wl
+  while IFS= read -r w; do
+    [ -n "$w" ] || continue
+    h=$(git -C "$w" rev-parse HEAD) && [ "$(git rev-parse -q --verify "refs/heads/$1")" = "$h" ] \
+      && wl=$(git worktree list --porcelain) && ! printf '%s\n' "$wl" | grep -qxF "branch refs/heads/$1" \
+      && git -C "$w" symbolic-ref HEAD "refs/heads/$1" && { echo "put $w back on $1"; continue; }
+    echo "REATTACH FAILED: $w is detached at ${h:-?}, and $1 is elsewhere, gone, or checked out in another worktree"
+  done < <(printf '%s\n' "$2")
 }
 # Put origin's branch back at the merged head after a failure, if this run deleted it.
 _cmb_restore_origin() {

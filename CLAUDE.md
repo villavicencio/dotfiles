@@ -31,7 +31,8 @@ docs/           Compound-engineering pipeline artifacts:
                 - docs/plans/        Implementation plans from /ce-plan
                 - docs/solutions/    documented solutions to past problems (bugs, best practices, workflow patterns), organized by category with YAML frontmatter (module, tags, problem_type)
 ci/             CI assets (Dockerfile for install-matrix's linux leg, PSScriptAnalyzer settings for its windows leg,
-                server-profile-checks.sh for its macos-server leg)
+                server-profile-checks.sh for its macos-server leg; cleanup-merged-branch-checks.sh,
+                run by hand, not in CI)
 git/            gitconfig, gitignore, gitattributes, gitconfig.linux (Linux overlay — see
                 "Git on Linux" under "Setting up WSL on the Windows PC")
 helpers/        Bash scripts called by the install pipeline
@@ -358,6 +359,15 @@ W=$(orca worktree show --worktree "name:<display name>" --json | jq -r .result.w
 - The branch's commits aren't at risk: Orca deletes the branch only when it can prove it's
   already merged, and keeps it otherwise (`orca worktree rm --help`). If you want the branch
   name kept even when merged, note it first: `git -C "$W" branch --show-current`.
+
+**After a merge, run the cleanup before Force delete.** This repo squash-merges, so Orca can
+never prove the branch merged, and Force delete leaves it locally and on origin.
+`cleanup_merged_branch <pr> master` (`docs/agents/code-review.md`, "After the merge") deletes
+it in both places. git can't remove a worktree with a submodule, so the function detaches it
+at its own HEAD instead and prints `<path> is detached at <sha>`. Ignored files stay, so the
+checks above still apply before Force. It works from inside that worktree, so a session that
+merged its own PR cleans up before the Force delete closes it (VIL-414); source the
+worktree's own copy of the function, since the main checkout may not be pulled yet.
 
 **There is deliberately no `scripts.archive` to clear the submodule first.** #225 tried one,
 and four review rounds each found a new way an automatic delete could lose work: a staged

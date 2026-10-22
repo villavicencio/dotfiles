@@ -189,7 +189,8 @@ source <dotfiles clone>/bin/lib/cleanup-merged-branch.sh   # ~/Projects/Personal
 cleanup_merged_branch <pr> <default branch>
 ```
 
-Run it from any worktree of the repo, in bash or zsh. The function lives only in
+Run it from any worktree of the repo, in bash or zsh. Right after a merge the main checkout
+may not be pulled yet, so from a worktree that has a newer copy, source that one. The function lives only in
 `bin/lib/cleanup-merged-branch.sh`; `wt done` (see `parallel-sessions.md`) sources the same file.
 
 - **Stale local copy.** After `gh pr update-branch --rebase`, or any rewrite on GitHub, the
@@ -199,17 +200,35 @@ Run it from any worktree of the repo, in bash or zsh. The function lives only in
   `git cherry` skips merge commits, and a merge can carry its own conflict resolution, so
   any merge commit missing from the merged head keeps the branch too.
 - **Worktrees.** Every worktree on the branch must be clean before anything changes. A
-  linked worktree is removed, and `git worktree remove` deletes ignored files (`.env`, build
-  output), so for linked worktrees `--ignored` output counts as dirty too. The primary
+  linked worktree without initialized submodules is removed, and `git worktree remove` deletes
+  ignored files (`.env`, build output), so for those `--ignored` output counts as dirty too
+  (one with submodules is detached instead; next point). The primary
   worktree can't be removed; it switches to the default branch, so before origin changes the
   function checks that the default branch exists and isn't checked out in another worktree.
-  It also refuses a linked worktree that is locked or has initialized submodules (the
-  worktree's own `modules` git dir, which is what `git worktree remove` checks; an empty
-  `.gitmodules` doesn't count). A worktree step can still fail for reasons nothing can
-  predict, such as permissions. So after origin is deleted, any failure (a worktree step,
-  or the local delete because the branch moved mid-run) pushes origin's branch back at the
-  merged head. If that push fails too, the function prints `RESTORE FAILED` with the exact
-  `git push` that restores it, shell-quoted with `printf %q`. The local branch still holds the commit either way.
+  It also refuses a linked worktree that is locked.
+- **Worktrees with submodules are detached, not removed (VIL-414).** `git worktree remove`
+  refuses a linked worktree with initialized submodules (its own `modules` git dir; an empty
+  `.gitmodules` doesn't count), and every Orca worktree has one (dotbot). So the function
+  detaches it with `git switch --detach` at its own HEAD, which changes no files, after origin
+  accepted the delete. It prints `<path> is detached at <sha>` and how to remove it: Force
+  delete in Orca, or, for a worktree that isn't Orca's, `git worktree remove --force <path>`
+  (a single `--force` removes one with submodules). Detaching deletes nothing, so only changes
+  and untracked files block it, not ignored ones; those are still in the worktree, so check it
+  before removing it (CLAUDE.md, "Removing an Orca worktree takes Force delete"). It works from inside that worktree,
+  so a session that merged its own PR there cleans up before the Force delete closes it.
+  `wt done` refuses such a worktree itself, before calling the function, because it expects
+  the worktree to be gone afterwards.
+- **Rollback.** A worktree step can still fail for reasons nothing can predict, such as
+  permissions. So after origin is deleted, a failed worktree step, or a failed local delete
+  (the branch moved mid-run), pushes origin's branch back at the merged head, and puts
+  each worktree it detached back on the branch with `git symbolic-ref`, when the branch still
+  points at that worktree's HEAD and no other worktree has checked it out. A detach counts
+  when HEAD ended up detached, even if `git switch` failed (a failing post-checkout hook
+  fails it after HEAD moved). If the branch moved or is checked out elsewhere, the worktree
+  stays detached and the function prints `REATTACH FAILED`. If the origin push fails, it prints `RESTORE FAILED` with
+  the exact `git push` that restores it, shell-quoted with `printf %q`. The local branch still
+  holds the commit either way. The closing `git fetch --prune` runs after both deletes and
+  isn't rolled back; if it fails, only a stale `origin/<branch>` tracking ref is left.
   Worktrees are touched only after origin accepted the delete, and are re-checked right before.
 - **Why `update-ref -d` and not `git branch -D`:** a squash or rebase merge leaves the branch
   unmerged in git's eyes, so `-d` refuses and `-D` deletes whatever the tip is by then.
@@ -237,10 +256,22 @@ Run it from any worktree of the repo, in bash or zsh. The function lives only in
   - a stale copy also carries a merge commit with its own change;
   - the PR branch is in the primary worktree while the default branch is checked out in another;
   - origin moved, whether or not a worktree exists (the worktree survives too);
-  - a linked worktree has a modified, untracked or ignored file, is locked, or has an
-    initialized submodule;
+  - a linked worktree has a modified, untracked or ignored file, or is locked (for one with
+    submodules, only a modified or untracked file keeps it);
   - removing the worktree fails after origin was deleted (origin is pushed back);
   - the local branch moves between the checks and the local delete (origin is pushed back).
+- **Retested 2026-10-22 (VIL-414)**, bash and zsh, 53 checks in 18 scenarios. A clean worktree
+  with an initialized submodule is detached at its own HEAD and both copies are deleted: run
+  from the main checkout, from inside the worktree, with a stale copy (files unchanged), and
+  with only an ignored file. It is kept, still on the branch, with a tracked change, a new
+  commit, or a lock. A failed local delete after the detach restores origin and re-attaches
+  the worktree; if the branch moved, the worktree stays detached and `REATTACH FAILED` is
+  printed, as it is when another worktree checked the branch out meanwhile. A failed detach
+  restores origin and leaves the worktree on the branch, putting it back when a failing
+  post-checkout hook failed the switch after HEAD moved. `wt done`
+  refuses a submodule worktree before the PR lookup and holds no files, but reports copies an earlier run left in `wt-held/` first. Master's function and
+  `wt` failed 19 of the first 41 checks. Rerun them with `ci/cleanup-merged-branch-checks.sh`
+  after changing the function or `wt done` (local only, not in CI).
 - **Local merge, no remote, no PR:** there is no `MERGED` state or origin tip to check.
   Confirm `git merge-base --is-ancestor "$b" "$base"`, then `git branch -d "$b"`, which
   refuses an unmerged branch on its own. Local branch only.

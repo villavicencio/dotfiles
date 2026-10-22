@@ -76,7 +76,9 @@ orca.yaml   Orca's setup script for each new worktree: checks out the dotbot sub
             copies the files .worktreeinclude names. Never ./install from a worktree (the
             live links would point into it and dangle when it's removed). Removing an Orca
             worktree takes Force delete (git refuses one with a submodule checked out); there
-            is deliberately no archive script. Never `git submodule deinit` in a worktree (it
+            is deliberately no archive script. After a merge, run cleanup_merged_branch first:
+            it deletes the branch and detaches the worktree, since Orca never deletes a
+            squash-merged branch. Never `git submodule deinit` in a worktree (it
             unregisters dotbot in the shared .git/config). Details: CLAUDE.md "Orca worktrees"
 .worktreeinclude  gitignored files copied into new worktrees (claude --worktree, wt new, orca.yaml)
 windows/    Windows layer, applied by install.ps1 (repo root): packages.json (winget),
@@ -219,6 +221,7 @@ Run these before committing. `bin/dot` (`~/.local/bin/dot` once installed) wraps
 | Dry-run is mutation-free | see below | 0 entries created |
 | Homebrew | `brew bundle check --file=brew/Brewfile` | satisfied |
 | Server profile | `ci/server-profile-checks.sh static` | exit 0 |
+| Merged-branch cleanup (after changing `bin/lib/cleanup-merged-branch.sh` or `wt done`) | `ci/cleanup-merged-branch-checks.sh` | exit 0, both shells (local only, not in CI) |
 
 **Dry-run must never mutate config.** `./install --dry-run` previews Dotbot directives
 without applying them. The only thing the wrapper does regardless is init the vendored
