@@ -1,13 +1,13 @@
 ---
-created_at: "2026-10-22T14:05:57-07:00"
+created_at: "2026-10-22T14:20:01-07:00"
 branch: "master"
-head: "540f771"
+head: "47011eb"
 worktree: "/Users/dvillavicencio/Projects/Personal/dotfiles"
-resume_focus: "merge #241 once MergeWren's verdict on 3f21c30 has no new high/critical, then install op + op-agent on hal for hal and david and verify both tokens"
+resume_focus: "morning report on the 2026-10-23 01:30 PT hal pilot run (VIL-391, VIL-417, VIL-381), as david on hal"
 ---
 # HANDOFF — 2026-10-22, afternoon (PDT)
 
-This session groomed and worked the whole Dotfiles backlog (VIL-422, VIL-402, VIL-399; VIL-300 canceled) to the "finish the tickets, clean the backlog" goal David set. Two PRs merged, the third (#241, 1Password) is through review and waiting on one final MergeWren verdict before merge and the hal install. Earlier in the session dissolution was added to Orca, and a catch-up prompt was written for the skills project on hal.
+This session groomed and worked the whole Dotfiles backlog (VIL-422, VIL-402, VIL-399; VIL-300 canceled) to the "finish the tickets, clean the backlog" goal David set. All three PRs merged (#240, #242, #241), 1Password is live on hal for both accounts, and only VIL-422's work-Mac check remains. Earlier in the session dissolution was added to Orca, and a catch-up prompt was written for the skills project on hal.
 
 ## What We Built
 - **#240 merged (`e52a9da`), VIL-422 herdr retirement.**
@@ -19,9 +19,14 @@ This session groomed and worked the whole Dotfiles backlog (VIL-422, VIL-402, VI
   - `autoCompactWindow: 400000` is set in the tracked settings and in this Mac's live file.
   - The statusline `ctx` meter shows tokens out of a 250k budget and turns red at 200k.
   - `helpers/migrate_claude_settings.py` removes herdr hooks, folds `allowedTools`, and adds missing tracked keys (desk Macs and Windows only). `--capture` refuses to drop tracked keys, and `dot drift` skips Claude settings on Linux and hal's server profile.
-- **#241 open (head `3f21c30`), VIL-399 1Password.**
+- **#241 merged (`47011eb`), VIL-399 1Password. VIL-399 is Done.**
   - Contents: `bin/op-agent`, `ci/op-agent-checks.sh` (run by hand), `docs/agents/1password.md`, and the `1password-cli` cask on both Brewfiles plus the CI allowlist.
   - `master` was merged in to resolve conflicts with #240/#242. All 12 of #241's edits were confirmed present after the merge; the server-cask note now lives in `docs/reference/install-and-server.md`.
+  - **Live on hal:**
+    - As `hal`: `DOTFILES_PROFILE=server ./install` added the `op` 2.41.1 cask and the `op-agent` link.
+    - As `david`: clone pulled to `47011eb`, `op-agent` linked by hand.
+    - Both accounts passed `op-agent whoami` (`SERVICE_ACCOUNT`) and a 32-byte test read.
+    - `~/.local/bin/op-agent` is also linked on this Mac (no token here).
 - **1Password, done by David:**
   - The Agents vault, the `op-agent-test` item, and the `hal-agents` service account (read-only on Agents) exist. Its token is saved in David's 1Password as "hal-agents service account".
   - Token files are written on hal for `hal` and `david` at `~/.config/op-agent/token`: mode 600, 820 bytes each, same SHA-256, both start with `ops_`.
@@ -43,25 +48,25 @@ This session groomed and worked the whole Dotfiles backlog (VIL-422, VIL-402, VI
 - **Stopping at MergeWren's incremental round.** A full review of the same head can post later with new findings (it happened on `a1375c7`). Wait for a non-"no verdict" result for the current head.
 
 ## What's Next
-1. **#241.**
-   - Background wait `bsgyda9ho` was watching for the verdict on `3f21c30`. Re-check it: `gh pr view 241 --json headRefOid,comments …` (the poll is in `CLAUDE.md` Rules).
-   - If there's no new high or critical: run the unresolved-threads check, squash-merge pinned to the head, then `cleanup_merged_branch 241 master` and `git worktree remove --force .claude/worktrees/op-agent` (it has the dotbot submodule).
-2. **On hal after merge.**
-   - As `hal` (`ssh hal-orca`, key auth): `git -C ~/Projects/Personal/dotfiles pull`, then `DOTFILES_PROFILE=server ./install` from that clone. This installs the cask and links `op-agent`.
-   - As `david` (`ssh hal`): pull `~/Projects/Personal/dotfiles`, then `ln -sfn ~/Projects/Personal/dotfiles/bin/op-agent ~/.local/bin/op-agent`.
-   - Verify as each account: `op-agent whoami`, then `t=$(mktemp); op-agent read -f -o "$t" op://Agents/op-agent-test/password && wc -c < "$t"; rc=$?; rm -f "$t" || rc=1; (exit $rc)`.
-   - Then close VIL-399.
-3. **VIL-422:** David checks the work Mac for herdr, using the steps in the retirement doc's "On another Mac" section. Close VIL-422 after that.
-4. **Carried from the morning handoff, still open:**
-   - The morning report on the hal pilot run at 01:30 PT on 2026-10-23 (VIL-391, VIL-417, VIL-381), as `david` on hal. The three queue files all share mtime Oct 22 10:30, so their run order is a tie.
-   - mergewren#61, #69 and #73 handover to the MergeWren session.
-   - Refill the queue.
-5. **Skills project:** David has a catch-up prompt for the hal skills session (it was misled into finishing #41 for the dead openclaw-prod). Expect its triage report.
+1. **Morning report on the hal pilot run, 01:30 PT 2026-10-23** (VIL-391, VIL-417, VIL-381), as `david` on hal:
+   - Start from `~/runs/log/runner.log`.
+   - For each run, read `run.json` and run `pilot/timing.py`.
+   - The three queue files share mtime Oct 22 10:30, so their run order is a tie.
+   - `david`'s clone now carries #240–#242. `pilot/` is unchanged, but the planner reads the new, much shorter `CLAUDE.md`. Watch whether its briefs miss detail that moved to `docs/reference/`, and add that to VIL-426's list.
+2. **VIL-422:** David checks the work Mac for herdr (the retirement doc's "On another Mac" steps). Then close VIL-422.
+3. **Carried:**
+   - Hand mergewren#61, #69 and #73 to the MergeWren session.
+   - Refill the pilot queue.
+4. **Skills project:** David has a catch-up prompt for the hal skills session. Expect its triage report.
+5. **Small follow-ups:**
+   - `ci/op-agent-checks.sh`: refused cases should assert the stub was never called (logged on VIL-399).
+   - VIL-431 (settings drift) and VIL-426 (re-measure, 2026-11-05).
 
 ## Gotchas & Watch-outs
 - **hal's PATH has GNU `stat`.** Use `/usr/bin/stat -f …` there. `hal-orca` reaches the `hal` account with key auth, and `hal` reaches `david`.
 - **`op whoami` with the 1Password app integration** reports "not signed in" and never prompts. Run `op signin` first (documented in #241's doc).
 - **`gh pr merge --match-head-commit` needs the full 40-char sha.**
+- **MergeWren on #241–#242 found real bugs for about 10 rounds** (token leaks into `op run`'s child, `-o=` bypasses, migration data loss). Late rounds were mostly doc-snippet edge cases. Mediums got declined with reasons once no high or critical was left.
 - **Unresolved-threads check:** my thread-resolving loop only matched threads carrying `finding=` markers. Always run the paginated unresolved-threads query before merging; it caught 4 extra threads on #242.
 - **Another session merged #243 on master during this session.** One session per worktree still applies.
 - **Codex's Vercel MCP refresh token is invalid** (seen in `codex exec` output). Re-auth is needed sometime; unrelated to this work.
