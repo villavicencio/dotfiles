@@ -22,7 +22,8 @@ tags: [orca, worktree, force-delete, cleanup-merged-branch, submodule, squash-me
 The global rule is to delete a merged PR's branch, locally and on origin, as part of the
 merge (`docs/agents/code-review.md`, "After the merge"). The tool for that is
 `cleanup_merged_branch`, which clears every worktree on the branch: it removes a linked
-worktree and switches the main checkout to the default branch. Until VIL-414 it refused an
+worktree (since VIL-414, detaches one with initialized submodules and leaves it in place) and
+switches the main checkout to the default branch. Until VIL-414 it refused an
 Orca worktree, because Orca's setup script checks out the dotbot submodule in every worktree
 and `git worktree remove` can't remove one with an initialized submodule. This was its output
 on #234 (before VIL-414):
