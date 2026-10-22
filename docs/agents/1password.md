@@ -94,7 +94,7 @@ for host in hal-orca hal; do
   op item get "hal-agents service account" --fields label=credential --reveal |
     ssh "$host" 'umask 077; d=~/.config/op-agent; mkdir -p "$d" && cat > "$d/token.new" && [ "$(head -c 4 "$d/token.new")" = ops_ ] && mv -f "$d/token.new" "$d/token" && echo "written on hal as $(id -un), $(wc -c < "$d/token") bytes" || { rm -f "$d/token.new"; echo "nothing written on hal as $(id -un): input was not a service-account token; existing token kept" >&2; exit 1; }' || rc=1
 done
-[ "$rc" = 0 ] && echo "both accounts written" || echo "FAILED for at least one account; see above"
+if [ "$rc" = 0 ]; then echo "both accounts written"; else echo "FAILED for at least one account; see above" >&2; false; fi
 ```
 Each line should report a non-zero byte count, and the two counts should match. The token
 goes to `token.new` first and replaces `token` only when it starts with `ops_` (every
