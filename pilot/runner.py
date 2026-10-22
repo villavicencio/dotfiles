@@ -407,8 +407,11 @@ def work(brief, checks, wt, rundir):
         # 30k tokens of context and produced nothing for 10 minutes, which is
         # likely how every mergewren run on 2026-10-18 used up its hour. LM Studio
         # loads the model with 234k of context, so the cap is raised instead; a
-        # worker that still runs out fails fast rather than hanging.
-        "CLAUDE_CODE_MAX_CONTEXT_TOKENS": "131072",
+        # worker that still runs out fails fast rather than hanging. At 128k,
+        # VIL-251 (2026-10-21) and VIL-380 (2026-10-22) both ran out ("Prompt is
+        # too long") with the last turn near 109k. 192k leaves room for a 32k
+        # reply inside LM Studio's 234k, which holds prompt and reply together.
+        "CLAUDE_CODE_MAX_CONTEXT_TOKENS": "196608",
         "DISABLE_AUTO_COMPACT": "1",
         # Qwen thinks before it acts, and its thinking counts as output. With an
         # 8k cap, a turn on 2026-10-21 thought for 9 minutes (28k characters),

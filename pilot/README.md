@@ -45,14 +45,17 @@ Everything here runs on **hal as `david`**, from `david`'s dotfiles clone at
      or `2>&1` added doesn't match its rule (a worker hit 14 such denials on 2026-10-21).
    - It gets 60 minutes, and is stopped if free memory falls below 10% or the kill switch
      appears.
-   - Its env is the one from VIL-395's smoke test, with a 128k context cap, a 32k output cap
+   - Its env is the one from VIL-395's smoke test, with a 192k context cap, a 32k output cap
      and auto-compaction off. Qwen's thinking counts as output: with the old 8k cap, one turn
      thought for 9 minutes, hit the cap without acting, and had to start over. A 32k turn can
      take about 25 minutes, so the API request timeout is 30 minutes. With the 64k cap, the worker began compacting at about 30k
      tokens and then produced nothing for 10 minutes (VIL-251, 2026-10-21), which is likely
      why all six mergewren runs on 2026-10-18 hit the time limit. LM Studio loads
-     `qwen3.8-27b` with 234k of context, so a worker that still fills 128k fails rather than
-     compacting.
+     `qwen3.8-27b` with 234k of context, so a worker that still fills its cap fails rather than
+     compacting. The cap was 128k until 2026-10-22: VIL-251 and VIL-380 both ran out of it
+     ("Prompt is too long") with the last turn near 109k. 192k leaves room for a 32k reply,
+     since LM Studio's 234k holds the prompt and the reply together. A worker with more room
+     can run longer, so expect some runs to end at the 60-minute limit instead.
    - Its output is `stream-json`, written to `worker.jsonl` as it happens, so a worker stopped
      at the time limit still leaves its transcript. For a stopped worker, turns and input
      tokens are counted from that transcript; output tokens read 0, because LM Studio's
