@@ -36,7 +36,6 @@ ci/             CI assets (Dockerfile for install-matrix's linux leg, PSScriptAn
 git/            gitconfig, gitignore, gitattributes, gitconfig.linux (Linux overlay — see
                 "Git on Linux" under "Setting up WSL on the Windows PC")
 helpers/        Bash scripts called by the install pipeline
-herdr/          Herdr agent-multiplexer config (config.toml symlinked into ~/.config/herdr/)
 iterm/          iTerm2 preferences (exported plist, includes Shift+Enter key mapping)
 lazygit/        lazygit config
 npm/            npm global package list (npm-requirements.txt)
@@ -279,10 +278,10 @@ the old `grep -v path_helper` filter caught nothing once that changed) and, in l
 shellenv`; `zsh/zprofile.server` does the same on hal (shellenv first, then the re-source), so
 the order holds in hal's non-interactive login shells too. Don't remove either line to save a fork.
 When it broke (found 2026-10-08), a hand-installed `claude-code@latest` cask won every nested shell
-(tmux, herdr, the agent's Bash), so `claude update` reported "managed by Homebrew" while the
+(tmux, the agent's Bash), so `claude update` reported "managed by Homebrew" while the
 native install sat behind it. On desk Macs, `dot doctor` now fails when `claude` doesn't resolve
 to `~/.local/bin/claude` or that native install is missing. Not covered: desk non-interactive
-login shells (`zsh -l -c`, the herdr pane template) never read `zshrc`, so they keep
+login shells (`zsh -l -c`) never read `zshrc`, so they keep
 `path_helper`'s order (VIL-315). Write-up:
 `docs/solutions/runtime-errors/brew-shellenv-path-prepend-shadows-native-claude-2026-10-08.md`.
 
@@ -475,7 +474,7 @@ SessionStart:startup hook error
 Failed with non-blocking status code: /bin/sh: ~/.claude/hooks/<hook>.sh: No such file or directory
 ```
 
-Observed 2026-08-25 with `herdr-blank-state.sh`: registered in `settings.json` and symlinked
+Observed 2026-08-25 with `herdr-blank-state.sh` (since retired): registered in `settings.json` and symlinked
 while on its feature branch, then broken by a routine `git checkout` of an unrelated branch.
 `tmux-attention.sh` never hit this only because it has been on `master` for months.
 
@@ -511,8 +510,8 @@ the mechanism is written up in
 
 **Do not "fix" this by restoring a `link:` entry.** The file has independent writers
 besides this repo — Claude Code itself (`effortLevel`, `tui`, notification prefs, `autoMode`)
-and `herdr integration install`, plus Otty's agent-integration installer until its
-2026-09-03 removal — each rewriting it in place. A symlink there survives until the first write, after which the live file is a regular
+and agent-integration installers (Orca's agent hooks today; herdr's until 2026-10-22, Otty's
+until 2026-09-03) — each rewriting it in place. A symlink there survives until the first write, after which the live file is a regular
 file and the repo copy is a silently-orphaned stale twin.
 
 That already happened. The link was replaced at some point before 2026-08-25 and the repo copy
@@ -543,371 +542,15 @@ re-prepends the tracked `"//"` header, and rewrites absolute `$HOME` paths back 
 
 **Agents cannot write this file** — the auto-mode classifier blocks it by design, so it stops an
 agent widening its own permissions. `helpers/migrate_claude_settings.py` exists for a machine
-whose settings predate this scheme (folds `allowedTools` back, registers the blank-state hook);
-it is idempotent, backs up first, and **you run it yourself**, not an agent. On Windows (native,
-Cygwin, or MSYS Python, or `--no-hooks`) it only folds `allowedTools` — no herdr hooks — and
-under Git Bash you run it as `python`, since `python3` there is the Microsoft Store
+whose settings predate this scheme (folds `allowedTools` back into `permissions.allow`);
+it is idempotent, backs up first, and **you run it yourself**, not an agent. On Windows,
+under Git Bash, you run it as `python`, since `python3` there is the Microsoft Store
 placeholder (or `uv run --no-project python helpers/migrate_claude_settings.py` on a PC with no
 Python of its own).
 
-### Herdr — agent multiplexer (config symlinked; writes flow back)
-`herdr` (Brewfile) is a tmux-shaped client/server multiplexer with native agent
-awareness: it detects a Claude Code pane via screen manifests, tracks
-blocked/working/done/idle state (what `claude/hooks/tmux-attention.sh` hand-rolls
-for tmux), and — with the official integration installed — resumes Claude Code
-conversations across server restarts via `claude --resume <id>`.
-
-- **Config is symlinked, not copy-seeded.** Unlike `claude/settings.json`, herdr rewrites
-  `~/.config/herdr/config.toml` **in place** (verified on 0.8.0: `herdr config
-  reset-keys` preserves the inode), so the Dotbot `link:` entry is safe and live
-  changes surface as `M herdr/config.toml` — diff and commit them, same as
-  `claude/CLAUDE.md`. Link the **file only**, never the directory:
-  `~/.config/herdr/` also holds the socket, logs, `session.json`, and
-  `config.toml.bak-*` backups.
-- **Server lifecycle:** `brew services start herdr` (launchd, keep_alive; log at
-  `$BREW_PREFIX/var/log/herdr.log`). Detach with `ctrl+space q` — panes keep
-  running. `herdr server stop` (and any server restart, including
-  `brew services restart` after an upgrade) **kills all pane processes**; layout
-  is snapshot-restored and supported agent conversations resume
-  (`[session] resume_agents_on_restore`), but plain shells restart fresh.
-  Boot-race caveat (reboot, 2026-08-18): if a declarative pane's `command`
-  fails at restore (ssh before the network is up), the pane degrades to a
-  plain shell AND the command is silently dropped from the layout — later
-  restarts restore the shell. Fix: re-run `layout.apply` with the original
-  pane node. Filed upstream: herdrdev/herdr#2966.
-- **Updates ride `brew upgrade`** (topgrade covers it). `herdr update` and the
-  experimental `--handoff` live-update are disabled for Homebrew installs.
-- **`herdr integration install <agent>` is a human step** — it writes hooks into
-  the agent's own config (for claude: `~/.claude/hooks/herdr-agent-state.sh` +
-  `~/.claude/settings.json`, which the auto-mode classifier blocks agents from
-  editing). Installed: claude and codex, both v7; codex's hook lives in
-  `~/.codex/` and was merged alongside the then-present Otty hooks in
-  `hooks.json`. Check `herdr integration status` after major agent-CLI updates.
-- **Prefix is `ctrl+space`, deliberately matching tmux** — one muscle-memory
-  "multiplexer key" across both apps, which are not nested in normal use. If you
-  do nest, tmux's `send-prefix` binding passes it through on a double-tap. Herdr
-  can host tmux in a pane or run inside tmux, but agent detection does not see
-  through a nested tmux.
-- **Remote agent surfaces (`axiom ∴` / `atlas-tools ⚙`):** each workspace hosts a VPS
-  surface through an ssh shim whose *name* matches a detection-manifest alias —
-  herdr identifies these ssh panes by process name. **The name trick is for ssh
-  panes only** — a *local* TUI needs none of it: claude and hermes panes are
-  detected natively regardless of process name (verified 2026-08-25 with a local
-  `hermes chat` running as venv python, which detected as `hermes`) — the documented
-  `HERDR_AGENT` env hint applies to sandbox-wrapper foregrounds (`fence`/`nono`)
-  and does NOT fire for ssh foregrounds on 0.8.0 (re-verified 2026-08-18:
-  ssh + env hint → pane undetected; herdrdev/herdr#2961 has the repro). Do not
-  re-derive the "HERDR_AGENT env pin is dead" finding from the 2026-08-18
-  morning session — it was a measurement artifact: `layout.apply`'s `env` IS
-  delivered to pane processes (verified by in-pane `printenv`); `ps eww`
-  cannot read other processes' env on modern macOS and shows nothing, which
-  faked the "var absent" result. Full write-up:
-  `docs/solutions/best-practices/verify-the-instrument-before-trusting-a-negative.md`. `~/.local/bin/claude-code`
-  attaches AXIOM's Claude Code (detected as claude, renamed `axiom`) via
-  `sudo -u node tmux -L axiom attach -t AXIOM` — since the 2026-07-14 vault
-  fold AXIOM runs as **node** on the dedicated socket `-L axiom` — and also
-  backs `atlas-tools ⚙` with different args. **Since
-  2026-08-19 the shim is a repo-tracked auto-reconnect wrapper**
-  (`herdr/shims/`, symlinked into `~/.local/bin`): it loops ssh via a raw
-  alias in `~/.local/libexec/<same-name>` (which preserves the detected
-  process name), retrying every 10s on any nonzero exit and closing only on
-  a clean detach (exit 0). Panes therefore survive sleep/network loss — the
-  single-pane workspaces no longer vanish overnight, agent renames persist,
-  and the #2966 restore boot-race self-heals. Client keepalives back it up:
-  `~/.ssh/config` `Host openclaw-prod` carries `ServerAliveInterval 60` +
-  `ServerAliveCountMax 120` (machine-local, untracked). The shim is
-  Dotbot-managed (`helpers/install_herdr_agents.sh`, darwin.yaml).
-  > **Retired 2026-09-01: `atlas ⚓`, `vice ♠`, and the `hermes-agent` shim.**
-  > Atlas and Vice moved to the official **Hermes Desktop** app, so neither needs
-  > a herdr pane. Both workspaces are closed, both jump keys (`prefix+a`,
-  > `prefix+shift+v`) are removed and free, and the `hermes-agent` wrapper is
-  > deleted from `herdr/shims/` — `atlas ⚓` was its only consumer. The VPS side is untouched: the
-  > `hermes` tmux session and the gateway keep running, and Hermes Desktop is
-  > simply a different client to them. The old "a Hermes install clobbers
-  > `~/.local/bin/hermes-agent`" hazard no longer applies now that no shim owns
-  > that name; history is at `~/Projects/agents/docs/solutions/`
-  > `integration-issues/hermes-installer-clobbers-herdr-shim-hermes-agent-Mac-20260825.md`.
-
-  Each remote tmux carries `set-titles on` + `set-titles-string "#{pane_title}"` so
-  the TUIs' OSC titles drive herdr states through the nested tmux. Never
-  restart `hermes-tmux.service` casually — it drops Atlas's in-memory history
-  (see ~/Projects/agents docs for Hermes rules).
-- **`atlas-tools ⚙` — a remote CLAUDE CODE surface, not a TUI attach** (added
-  2026-08-25, `prefix+t`). **Since 2026-10-04 the server is `hal`, not openclaw-prod:**
-  the Mac mini took over every server role and the VPS is being decommissioned. The
-  pane command below is the VPS-era one and stops working when the VPS is deleted;
-  repoint it to `hal` before relying on `prefix+t`. It reuses the existing `claude-code` ssh alias rather
-  than adding a third shim: detection keys on the ssh child's *process name*, and
-  two panes may share one alias since the pane command supplies different args.
-  `herdr agent rename` is what tells them apart (`axiom` vs `atlas-tools`).
-
-  ```text
-  cwd:     $HOME                        # local placeholder — herdr's cwd is ALWAYS local
-  command: ~/.local/bin/claude-code root@openclaw-prod -t \
-           "sudo -u node tmux -L atlas-tools -f /home/node/.config/tmux/atlas-tools.conf \
-            new-session -A -s ATLAS-TOOLS -c /home/node/Projects/atlas-tools"
-  ```
-
-  **A remote project needs no Mac-side checkout.** herdr's pane `cwd` is where the
-  local ssh process starts and nothing more; the working directory is established
-  remotely by the ssh command. The repo lives only on the server, at
-  `~/Projects/atlas-tools` in the service account's home (`hal` since 2026-10-04,
-  where `/home/node` is a link to that home, so the VPS-era paths above still
-  resolve; previously openclaw-prod as `node`), and every git/uv/test/lint/Claude
-  Code command runs there.
-
-  `new-session -A` makes the pane **self-healing**: it attaches if the session
-  exists and creates it otherwise, so a VPS reboot needs no systemd unit — the
-  auto-reconnect shim retries, and the first successful attach rebuilds the
-  session. This is why `atlas-tools` has no `*-tmux.service` twin.
-
-  **`-f <conf>` is load-bearing.** tmux's `set-titles` default is `off`, and that
-  option is what forwards the inner TUI's OSC title outward for herdr to read
-  state through a nested tmux. node has no `~/.tmux.conf`, and options set at
-  runtime die with the tmux server — so the socket gets its own conf file,
-  scoped with `-L`/`-f` so it cannot disturb the `axiom` or `default` sockets.
-  > The `axiom` socket ran with `set-titles off` (tmux's default) until
-  > 2026-08-25, despite this file claiming every remote tmux carried it on. It
-  > now has its own `~/.config/tmux/axiom.conf`, applied at runtime without a
-  > server restart.
-  >
-  > **That was NOT why `axiom ∴` read `agent_status: unknown`** — a first guess
-  > that the evidence killed. The pane was running `/bin/zsh -il`, the shim's
-  > clean-detach fallback: something detached the ssh, the wrapper exited 0, and
-  > the pane sat at a shell. No agent process, so nothing to detect. The remote
-  > side was healthy the whole time (`claude --continue` alive, session intact).
-  > **A workspace reading `unknown` means look at the pane's foreground process
-  > first** (`pane.process_info`) — a fallback `zsh` is the tell.
-  >
-  > **`layout.export` then splits it into two cases, and they want different
-  > repairs** (established 2026-08-26, reconnecting `axiom ∴` again):
-  >
-  > | Export shows | Cause | Repair |
-  > |---|---|---|
-  > | **no `command`** key | the #2966 restore boot-race — the command was dropped | `layout.apply` to rebuild the pane |
-  > | `command` **present** | clean detach — ssh exited 0, shim broke its retry loop by design | `herdr pane run <pane-id> 'exec <the command>'` |
-  > | `command` present, foreground is `ssh` (not `claude-code`) | someone re-attached **by hand** from the fallback shell — `ssh -t root@…`, then `su - node` + `claude` outside tmux. The agent is live remotely but herdr can't see it: detection keys on the process *name*, and a bare `ssh` isn't the alias | in-pane: `/exit` the remote claude (transcript persists), `exit` each shell until the local zsh is back, then the case-2 `exec`, then `claude --continue` inside the new tmux |
-  >
-  > Reach for `layout.apply` only in the first case. The third case (added 2026-08-27,
-  > `atlas-tools ⚙`) looks like the second in `layout.export` and like a healthy pane on
-  > screen — a full Claude Code TUI, correct cwd — and only `pane.process_info` gives it
-  > away. `claude --continue` in the tmux'd shell resumed the same session (`ctx` unchanged),
-  > so nothing is lost; the cost of leaving it is that the un-tmux'd claude dies with the
-  > next disconnect. In the second the layout is
-  > already correct and only the *process* fell back, so rebuilding is destructive
-  > overkill: it kills the pane and mints a new `pane_id`. `herdr pane run
-  > <PANE_ID> <COMMAND>` sends text plus Enter in one call and reuses the existing
-  > pane, so the id survives. Prefix the command with `exec` so the shim replaces
-  > the fallback shell rather than nesting inside it — the shim re-execs its own
-  > `/bin/zsh -il` on the next clean detach, so never-self-close still holds.
-  >
-  > **Re-run `herdr agent rename` either way.** The name binding is released when
-  > the agent *process* dies, not only when the pane is recreated — verified
-  > 2026-08-26: the pane id was reused and `name` still came back `null`, breaking
-  > the jump key, which targets the name. An earlier version of this note said
-  > "since a recreated pane loses its name," which is narrower than the truth.
-  >
-  > Check the remote before repairing anything local: the VPS session usually
-  > outlives the disconnect, so reattaching restores the conversation intact.
-
-- **Local agent pane template (fleet standard, revised 2026-08-27):** a local
-  Claude Code agent runs as a declarative pane with command
-  `["/bin/zsh", "-l", "-c", "claude --continue || claude; exec /bin/zsh -il"]`
-  and its project dir as cwd. Three deliberate parts: the **login zsh** (`-l`)
-  rebuilds PATH from `zshenv` because the herdr server spawns pane commands with
-  its bare launchd env (so both `claude` and its subshells resolve tools); the
-  **`--continue || claude` pair** relaunches the agent into the most recent
-  session for that cwd instead of a blank one (see the caveats below — that is
-  not always the pane's own thread), and the bare fallback is load-bearing
-  because `--continue` exits 1 in a directory with no prior session — without it
-  a first-run pane would land at a shell; the **`; exec /bin/zsh -il` fallback**
-  is the fleet's "a pane never self-closes" rule — when claude exits (a stray
-  `/exit`, a crash), the pane drops to an interactive shell instead of vanishing
-  and closing its tab. Type `claude` to relaunch. No ssh shim for local agents —
-  herdr's claude integration detects them natively, and `resume_agents_on_restore`
-  carries the conversation across a clean server restart. Rename with `herdr
-  agent rename`; the binding releases when the agent *process* dies, so reapply
-  after a degraded restore, along with `layout.apply` if the command was dropped
-  (#2966). The same never-self-close rule is baked into the remote shim wrappers
-  (`herdr/shims/`), so it holds fleet-wide. **When building any new agent, use
-  this template and route the change through the standard flow** (see the global
-  CLAUDE.md "Herdr fleet & agent building").
-  - **Why `--continue` is the template default and not a repair-time opt-in**
-    (2026-08-27). herdr's `resume_agents_on_restore` covers the clean path, but
-    it cannot help a pane whose *command* was dropped — and upstream closed
-    herdrdev/herdr#3306 `NOT_PLANNED`, ruling that post-restart panes returning
-    as fresh shells is documented behaviour. The rebuild is therefore the fleet's
-    job permanently, so the template does the resuming rather than every repair
-    remembering a flag. The live fleet had already been fully converted by
-    `repair --resume` before the docs said so; this change reconciles them, and
-    needs no pane rebuilt.
-  - **Two caveats, both flowing from "the most recent session in that cwd".**
-    `--continue` picks by recency, not by which conversation the pane held.
-    Rebuild a pane wanting a fresh start and the old thread comes back (`/clear`
-    after). And in a **shared-slug project the thread may not be the pane's own**:
-    `orrery ☉` shares its Claude Code slug with Forge's embedded ACP sessions, so
-    a rebuild there can resume whichever surface spoke last. List them by mtime
-    before relying on it — note `/bin/ls`, because `ls` is aliased to `eza`, whose
-    `-t` takes a field name instead of sorting:
-
-    ```bash
-    /bin/ls -t ~/.claude/projects/-Users-dvillavicencio--forge-projects-tranquil-dune/*.jsonl | head -3
-    ```
-  - **Before/after a server restart, use `herdr/fleet-check.py`.** `snapshot`
-    before `brew services restart herdr`, `verify` after reattaching. It walks
-    every tab's `layout.export`, flags panes whose `command` is missing (#2966),
-    names that were lost, and agents that came back undetected — then prints the
-    exact `layout.apply` and `herdr agent rename` repairs. It caught three
-    already-degraded `sites ✦` panes on its first run, all of which had been
-    reading as healthy for weeks.
-    - **`repair` rebuilds only panes with no live agent**, and holds the rest —
-      after a restart a resumed pane and a bare shell are indistinguishable in
-      `layout.export` (both lost their command), so a blind rebuild destroys live
-      conversations to fix metadata that only matters at the *next* restart.
-    - **`repair` relaunches the agent into its conversation by default** (since
-      2026-08-27, matching the pane template; `--no-resume` opts out for a
-      deliberately blank pane). The rewrite still matters because a snapshot
-      taken before the template flip records the bare `claude;` form, so repair
-      upgrades it to `claude --continue || claude;` (and the `hermes chat`
-      equivalent) on the way back in — a pane already built from the current
-      template is left alone, since the pattern anchors on `claude;` and does not
-      match `claude --continue`. Remote shim commands are never rewritten — their
-      agent lives in tmux on the VPS and was never killed.
-      **Caveat:** `--continue` resumes the *most recent* session in that cwd, so
-      repair before typing into a blank pane; a new session would otherwise become
-      the most recent one.
-  - **Diagnosing and rebuilding a degraded pane.** `layout.export` is the test:
-    a pane node with **no `command`** key is degraded — it came back as a bare
-    shell (the #2966 boot-race, or a pane made by hand) and someone started
-    `claude` inside it, so it *looks* fine and is detected normally, but the next
-    server restart returns an empty shell. `ps` confirms it: a healthy pane's
-    claude is a child of `herdr server` or of `/bin/zsh -l -c …`, a degraded
-    one's is a child of plain `-zsh`. Rebuild by applying the template to the
-    **existing tab** — the workspace survives, so its label and the jump key are
-    untouched — and **omit `pane_id`** so herdr replaces the pane instead
-    of re-tagging the running one. **The tab does not keep its id**: `layout.apply`
-    mints a new one rather than reusing the id you addressed (verified 2026-08-26 —
-    `w9:t3` came back as `w9:t9`, with no duplicate tab created). Nothing breaks,
-    but anything that recorded a `tab_id` earlier is now pointing at a tab that no
-    longer exists, so re-read ids after any rebuild rather than reusing them. NDJSON over the socket; `nc -U` works on macOS
-    and returns immediately:
-
-    ```bash
-    S=~/.config/herdr/herdr.sock
-    echo '{"id":"1","method":"layout.export","params":{"tab_id":"w1:t1"}}' | nc -U $S
-    echo '{"id":"1","method":"layout.apply","params":{"tab_id":"w1:t1","focus":true,"root":{"type":"pane","cwd":"'"$HOME"'/Projects/Personal/dotfiles","command":["/bin/zsh","-l","-c","claude --continue || claude; exec /bin/zsh -il"]}}}' | nc -U $S
-    ```
-
-    Two API gotchas, both fail-fast: `layout.apply` takes **`tab_id` or
-    `workspace_id`, never both** (`invalid_target`) — pass `tab_id` alone when
-    rebuilding one pane in place; and every request needs a `params` key, even
-    the list calls, which take `{}` (`missing field params`). A third is
-    **silent**: `layout.export` *ignores* `workspace_id` and returns the
-    **focused** workspace's layout — believable data for the wrong target
-    (reproduced 2026-08-25) — so always address it by `tab_id`. `layout.apply`
-    kills the pane's live agent session, so do it at a boundary (a `/clear` or
-    model switch), not mid-task, and reapply `herdr agent rename` afterward if
-    that pane had one.
-  - Current local agents on this template (jump keys are `[[keys.command]]`
-    entries in `herdr/config.toml`; shift-chords where the plain letter is taken
-    by a default binding or an earlier agent):
-
-    | Agent | Dir | Purpose | Jump |
-    |---|---|---|---|
-    | `melos ♪` | `~/Projects/melos` | Spotify curator | `prefix+m` |
-    | `sites ✦` | `~/Projects/sites` | umbrella of symlinks to the personal-website repos (davidandbrittanie.com, davidv.sh serving villavicencio.dev, ibmcconstruction.com); each site stays its own repo + Vercel project | — |
-    | `borealis ❆` | `~/Projects/borealis` | native SwiftUI prompt-library app (ex-Forge, migrated 2026-08-20) | `prefix+shift+b` |
-    | `argus ◉` | `~/Projects/agents` | Hermes/Atlas ops project (browse-gateway consumer `argus`) | `prefix+shift+a` |
-    | `obscura ✇` | `~/Projects/browse-gateway` | the Obscura browse-gateway itself | `prefix+shift+o` |
-    | `eidos ❖` | `~/Projects/eidos` | Eagle library curation | `prefix+shift+i` (`e`/`shift+e` are edit_scrollback / remove_worktree) |
-    | `orrery ☉` | `~/.forge-projects/tranquil-dune` (aka `~/Projects/orrery`) | Forge-resident jobs dashboard (orrery.ui8.dev) — see "Forge-resident hybrid agents" below | `prefix+y` (`o`/`shift+o` are open_notification_target / obscura; `y` as in orrer**y**) |
-
-- **Forge-resident hybrid agents** (SOP, established 2026-08-20 with `orrery ☉`).
-  For a project that legitimately *stays* in Forge — UI-heavy, actually using
-  Forge's stories canvas / dev server / publishing — but wants plain Claude Code
-  in herdr for non-UI lanes, herdr-ize it **in place**:
-  - **Pane cwd = the physical `~/.forge-projects/<codename>` path.** Herdr spawns
-    pane processes via `chdir`, and the kernel resolves symlinks there, so Claude
-    Code's project identity is always the physical path — pointing the pane at a
-    symlink buys nothing and hides the mechanism. Otherwise it's the standard
-    fleet pane template.
-  - **Add a convenience symlink `~/Projects/<name>` → the codename dir.** Pure
-    ergonomics: it gives the project its human name (Forge dirs carry codenames
-    like `tranquil-dune`) and keeps the one-projects-dir view complete. It does
-    not affect harness identity (see above).
-  - **One slug, two harnesses — that's the payoff.** Forge's embedded ACP
-    sessions and the herdr pane share the same project slug, so they share the
-    memory symlink → vault AND the transcript history: `--resume`/`--continue`
-    in the herdr pane lists the Forge sessions' conversations. Continuity is
-    free; don't "fix" the shared slug.
-  - **Standard bootstrap still applies — verify, don't redo.** The Forge
-    sessions have usually already done vault + CLAUDE.md Vault declaration +
-    memory symlink; the herdr-side additions are just workspace, rename, jump
-    key, roster row.
-  - **One working tree, one writer at a time.** Don't run the Forge ACP agent
-    and the herdr pane on overlapping edits — split lanes (UI in Forge, non-UI
-    in the pane) and let HANDOFF/vault memory carry the seam. Interactive-only
-    flows (MCP OAuth, `/mcp` auth) can't run in Forge's non-interactive ACP
-    sessions — do them in the herdr pane.
-  - **Hybrid repos get a remote, and the PR is the seam** (instituted 2026-08-21
-    after orrery's git init). Give the project a GitHub remote (private by
-    default — collector-style code maps David's infra) and route BOTH harnesses
-    through branch → PR, never local merges or shared uncommitted work on the
-    default branch. Each lane's work lands as a reviewed unit the other harness
-    pulls cleanly; two agents never meet in a dirty tree.
-  - **Never move or rename the Forge dir from outside** — Forge manages it.
-    Renaming is Forge's job; moving out entirely is a deliberate de-Forge
-    migration (borealis, 2026-08-20: mv + new-slug memory symlink + doc/Linear
-    repoints — old-slug transcripts stay behind).
-- **Phone access is Moshi (SSH/mosh), not a gateway app** (since 2026-08-21;
-  replaced Conduit). Moshi (getmoshi.app) connects straight to this Mac —
-  `zs-macbook-pro.tail31dc0a.ts.net`:22, user `dvillavicencio`, Key File auth
-  (the `moshi`-comment line in `~/.ssh/authorized_keys`), Connection "Auto" →
-  Mosh — then `herdr` in the session attaches the whole fleet. Requires
-  Tailscale active on the phone; `mosh-server` rides the Brewfile and zshenv's
-  PATH. **No server-side infrastructure exists for mobile access** — Conduit's
-  pieces (the `conduit_push` Hermes plugin + a tailnet-only `tailscale serve`
-  HTTPS proxy to the Hermes gateway on openclaw-prod) were torn down
-  2026-08-21 (reversal tarball:
-  `/home/node/.hermes/backups/conduit-teardown-20260821-144904.tgz`); don't
-  reintroduce a gateway/relay for phone use.
-- **`[[keys.command]]` `type = "shell"` commands run with the server's bare
-  launchd environment** — no `/opt/homebrew/bin` on PATH, so a command like
-  `herdr agent focus atlas` dies silently on command-not-found (detached
-  spawn, nothing logged) and the binding looks dead. **Use absolute paths**
-  (`/opt/homebrew/bin/herdr …`; both Macs are ARM so the prefix is stable).
-  Confirmed 2026-08-18: with an absolute path the binding fires immediately
-  after `reload-config` — key changes DO hot-reload; the earlier
-  "startup-only" reading was this exact silent failure (herdrdev/herdr#2960,
-  corrected upstream). Same PATH blindness: the settings→integrations panel
-  probes agent CLIs with the server env, so `codex` reads "not found" even
-  when installed — `herdr integration status` from a shell is authoritative.
-- **Display-only pane metadata is a supported channel** (`pane.report_metadata`,
-  CLI `herdr pane report-metadata`). It overlays presentation without touching
-  agent identity or lifecycle: `--display-agent`, `--title`, `--state-label
-  STATUS=TEXT` (retitles a state in the `state_text` row), and `--token
-  NAME=VALUE` (max 16, `[A-Za-z0-9_-]{1,32}`, rendered as `$name` if the
-  `[ui.sidebar.agents] rows` config references it). Every field has a matching
-  `--clear-*`, and `--ttl-ms` (max 24h) makes an entry self-expiring, so a
-  missed clear can't pin a pane forever. `--state-label` is the cheap one: it
-  reuses a row this repo's config already renders, so it needs no config.toml
-  change. Verified rendering live 2026-08-25.
-  - **Claude Code's `SessionStart` hook reports how a session began** — `startup`
-    / `clear` / `resume` / `compact` — which is what makes a *context-free* pane
-    detectable. `claude/hooks/herdr-blank-state.sh` maps `startup`+`clear` to a
-    `state_labels` override reading "blank", and clears it on `UserPromptSubmit`.
-    Two traps: `SessionStart` and `UserPromptSubmit` both **inject hook stdout
-    into the model's context**, so such a hook must stay silent on stdout; and
-    subagent events carry `agent_id` and must be ignored or they clear the label
-    spuriously.
-  - **herdr already receives `session_start_source`** — its own integration hook
-    sends it on `pane.report_agent_session` — but does not surface it in the
-    session snapshot or display it anywhere. The signal is flowing and unused;
-    a native "blank" indicator is a reasonable upstream request.
-- **Scripting:** NDJSON over `~/.config/herdr/herdr.sock`; `herdr api schema`
-  emits the full machine-readable surface. Gotcha: `herdr agent wait --until
-  done` never fires on a *focused* pane (done = finished-but-unseen) — wait on
-  `idle`/`blocked` or subscribe to `pane.agent_status_changed` events.
+### herdr — retired 2026-10-22
+Orca replaced it (VIL-422). What was removed, how to bring it back, and the lessons that
+outlive it: `docs/solutions/integration-issues/herdr-agent-fleet-retired-2026-10-22.md`.
 
 ### No heredocs in `bin/dot`
 The Python that `dot doctor` and `dot bench` run lives in `bin/lib/*.py` as real files.
@@ -1250,7 +893,7 @@ How it differs from a desk Mac:
     Claude Code is installed separately on hal.
   - The Claude settings seed and the `~/.claude` links. `~/.claude` arrives from the VPS with
     regular files in those places.
-  - The herdr shims and hooks, and the iTerm profile.
+  - The iTerm profile.
   - The `~/.config/nvim` link and the plugin bootstrap. Without the bootstrap, the first
     `nvim` would rewrite `nvim/lazy-lock.json`, so the server's nvim runs with no config. A
     link into this repo left by an earlier desk install is moved to `~/.config/nvim.pre-dotfiles`
@@ -1352,12 +995,12 @@ What `install.ps1` does, in order — each step idempotent, `-DryRun` mutates no
 Windows-specific rules:
 
 - **Windows seeds `windows/claude-settings.json`, never `claude/settings.json`.** Every hook
-  in the Mac file calls a tmux/herdr bash script, which would error on every event here.
+  in the Mac file calls a tmux bash script, which would error on every event here.
   The Windows file is the Mac baseline with three things removed, and nothing added:
 
   | Removed | Why |
   |---|---|
-  | `hooks` (all of them) | `tmux-attention.sh`, `herdr-agent-state.sh`, `herdr-blank-state.sh` — no tmux or herdr on Windows |
+  | `hooks` (all of them) | `tmux-attention.sh` — no tmux on Windows |
   | `preferredNotifChannel: "iterm2"` | iTerm2 is macOS-only; Claude Code picks a default |
   | `Bash(brew …)`, `Bash(tmux -V*)` allow rules | no Homebrew or tmux; dead rules |
 

@@ -248,8 +248,8 @@ fi
 # ---------------------------------------------------------------------------
 # Claude Code settings.json
 # ---------------------------------------------------------------------------
-# Seeded by COPY, not symlinked: Claude Code itself, `herdr integration install`,
-# and (until its 2026-09-03 removal) Otty's agent-integration installer rewrite the
+# Seeded by COPY, not symlinked: Claude Code itself and agent-integration
+# installers (Orca's agent hooks; herdr's and Otty's until their removal) rewrite the
 # file in place, so a
 # symlink there is orphaned on the first write (see helpers/install_claude_settings.sh).
 #
@@ -346,7 +346,7 @@ PYEOF
     echo "  WARNING: live settings has a legacy top-level 'allowedTools' key."
     echo "           It OVERRIDES permissions.allow, which is then silently inert."
     # PYTHON is the probed interpreter (the Store python3 placeholder never
-    # runs). On Windows the migration folds allowedTools only, no herdr hooks.
+    # runs).
     echo "           Repair with: ${PYTHON[*]} helpers/migrate_claude_settings.py"
     status=1
   fi

@@ -19,8 +19,6 @@
 #                            ~/.claude arrives from the VPS copy with its own
 #                            regular files there; linking would fail on them
 #                            (Dotbot only replaces symlinks) or replace them.
-#   install_herdr_agents, the tmux-attention / herdr hooks
-#                            herdr and its ssh shims are desk-only.
 #   the iTerm2 Dynamic Profile
 #                            no GUI terminal on a headless box.
 #

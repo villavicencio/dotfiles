@@ -196,7 +196,7 @@ Write-Step 'Claude Code settings (seed if absent)'
 # place, so a link would be orphaned on its first write, and an existing file is
 # the user's live config. Same contract as helpers/install_claude_settings.sh.
 # The source is the Windows sibling, not claude/settings.json, whose hooks are
-# tmux/herdr bash scripts that would error on every event here.
+# tmux bash scripts that would error on every event here.
 Invoke-Step 'seed ~/.claude/settings.json' {
     $src = Join-Path $Repo 'windows/claude-settings.json'
     $dest = [IO.Path]::GetFullPath("$HOME/.claude/settings.json")

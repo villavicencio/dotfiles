@@ -16,8 +16,8 @@
 # position and 1049l restores that same position, so nothing moves. Plain
 # 1049l would move the prompt when no full-screen program ran (a clean exit,
 # a failed login); plain 1047l would leave it wherever the program's cursor was.
-# zle re-enables bracketed paste at the next prompt. Scripts and the herdr
-# shims don't load this function.
+# zle re-enables bracketed paste at the next prompt. Scripts don't load this
+# function.
 function ssh() {
   command ssh "$@"
   local rc=$?

@@ -60,4 +60,4 @@ Full ladder: `docs/agents/web-research.md`.
 
 ## Mac setup (personal Mac)
 - **Obsidian vaults:** each project owns `~/Obsidian/<name>/`; Claude Code project memory is symlinked into the vault's `memory/`. Bootstrap, config template, and sync rules: `docs/agents/obsidian-vaults.md`. Only `hermes` and `axiom` sync to the VPS.
-- **Herdr agent fleet:** administer it one way, not per project. Pane template (`claude --continue || claude; exec /bin/zsh -il` in a login shell), remote shims, and jump keys are in the dotfiles `CLAUDE.md` "Herdr" section; herdr changes ride a dotfiles branch, never an edit to `~/.config/herdr/`. A new local project agent also gets a vault, a project `CLAUDE.md`, and a jump key.
+- **Orca projects:** Orca hosts the agent sessions (herdr retired 2026-10-22). A new project gets an Orca project (`orca repo add --path <dir>`), a vault, and a project `CLAUDE.md`. Worktree setup goes in the repo's `orca.yaml` (`dv:orca-setup`); a project's name and icon are set in the app, not the CLI. Orca gotchas: the dotfiles `CLAUDE.md` "Orca worktrees" section.
