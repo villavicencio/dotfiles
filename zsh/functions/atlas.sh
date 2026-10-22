@@ -7,8 +7,8 @@
 # visits attach to the same one. When Atlas exits, the window drops to hal's
 # shell instead of closing. Closing the tab leaves Atlas running.
 #
-# The tab opens in Orca's hermes project. On hal as `david`, `atlas` runs the
-# same console command directly. Both paths are in _hal_console (hal_console.sh).
+# The tab opens in Orca's ~/Projects/hermes project (shown as Atlas). On hal as
+# `david`, `atlas` runs the same console command directly. Both paths are in _hal_console (hal_console.sh).
 #
 # On hal as `hal`, `atlas` is Hermes's own wrapper (`hermes profile alias default --name
 # atlas` writes ~/.local/bin/atlas = `hermes -p default`). A function would win

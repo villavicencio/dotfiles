@@ -394,6 +394,11 @@ user-facing table is in `README.md` ("Hermes agents").
   - On a desk Mac, it opens the console in an Orca tab. The tab is in the workspace on the
     `hal-svc` environment whose path ends in `/Projects/hermes` (or `/Projects/axiom`);
     `ATLAS_ORCA_ENV` / `AXIOM_ORCA_ENV` override the environment. It needs `orca` and `jq`.
+    The lookup is by path, so a project's display name is free to change: the `hermes`
+    project shows as `Atlas` since 2026-10-21. Renaming the folder on hal breaks it until
+    the suffix in `atlas.sh`/`axiom.sh` follows. The Orca CLI can't set a project's name or
+    icon (`orca repo set` only takes worktree visibility); use the project settings in the
+    app. An uploaded icon must be a PNG of at most 256 KB; `pngquant` gets a 512×512 there.
   - On hal as `david`, it runs the console in place. The test is whether a local `hal` account
     exists, not whether `orca` is on PATH. Orca's tabs on hal put an `orca` CLI there too, and
     that one talks to hal's own Orca server, which has no `hal-svc` environment (#229).
