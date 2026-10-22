@@ -20,8 +20,12 @@ safe to re-run, and a no-op once applied:
    installed; this catches what that leaves, including our own blank-state entries.
    (Until VIL-422 this step registered the blank-state hook instead.)
 
-3. Set `autoCompactWindow` from the tracked file when the live file has none (VIL-402).
-   A value already there is the machine's choice and is left alone.
+3. Add every top-level key of the tracked file that the live file lacks (the machine-local
+   keys below and the "//" header excepted), with the tracked value. That's what a fresh
+   seed would have given this machine: `autoCompactWindow` (VIL-402), say. A key already
+   there is the machine's choice and is left alone. A tracked key you dropped on purpose
+   is deleted from the tracked file, not re-added here. `--capture` refuses while such a
+   gap exists, and points here.
 
 Run it on any machine whose settings.json predates 2026-08-25, on any Mac that had
 herdr, and after a change to a tracked key this script carries. Writes a timestamped backup first and parse-checks before replacing.
@@ -43,6 +47,8 @@ import sys
 import time
 
 SETTINGS = os.path.expanduser("~/.claude/settings.json")
+# Keep in step with STRIP_KEYS in helpers/install_claude_settings.sh: never tracked.
+MACHINE_LOCAL = {"effortLevel", "modelSettings", "autoMode", "mcpServers", "allowedTools"}
 # The tracked baseline this repo seeds: Windows has its own sibling.
 _REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 _ON_WINDOWS = os.name == "nt" or sys.platform in ("cygwin", "msys")
@@ -52,7 +58,7 @@ TRACKED = os.path.join(_REPO, "windows" if _ON_WINDOWS else "claude",
 
 def main():
     if os.environ.get("DOTFILES_DRY_RUN", "0") == "1":
-        print("[dry-run] would repair %s (allowedTools fold, herdr hook removal, autoCompactWindow)" % SETTINGS)
+        print("[dry-run] would repair %s (allowedTools fold, herdr hook removal, missing tracked keys)" % SETTINGS)
         return 0
     if not os.path.exists(SETTINGS):
         print("No settings at %s — nothing to migrate." % SETTINGS)
@@ -73,14 +79,14 @@ def main():
     herdr = [(e, h.get("command")) for e, groups in hooks.items() if isinstance(groups, list)
              for g in groups if isinstance(g, dict) for h in g.get("hooks", []) if is_herdr(h)]
     try:
-        tracked_window = json.load(open(TRACKED, encoding="utf-8")).get("autoCompactWindow")
+        tracked = json.load(open(TRACKED, encoding="utf-8"), object_pairs_hook=collections.OrderedDict)
     except Exception as exc:
         print("Error: cannot read the tracked settings at %s (%s) — refusing to migrate"
               % (TRACKED, exc), file=sys.stderr)
         return 1
-    add_window = tracked_window is not None and "autoCompactWindow" not in data
-    if "allowedTools" not in data and not herdr and not add_window:
-        print("Nothing to migrate: no allowedTools key, no herdr hooks, autoCompactWindow set.")
+    missing = [k for k in tracked if k != "//" and k not in MACHINE_LOCAL and k not in data]
+    if "allowedTools" not in data and not herdr and not missing:
+        print("Nothing to migrate: no allowedTools key, no herdr hooks, no missing tracked keys.")
         return 0
 
     backup = "%s.bak-%d" % (SETTINGS, int(time.time()))
@@ -108,8 +114,8 @@ def main():
             else:
                 del hooks[event]
 
-    if add_window:
-        data["autoCompactWindow"] = tracked_window
+    for k in missing:
+        data[k] = tracked[k]
 
     tmp = SETTINGS + ".tmp.%d" % os.getpid()
     try:
@@ -127,8 +133,7 @@ def main():
     print("allowedTools:      %s" % ("removed, %d rules folded in" % len(legacy) if legacy
                                      else "absent (already migrated)"))
     print("permissions.allow: %d rules" % len(merged))
-    print("autoCompactWindow: %s" % ("set to %s" % tracked_window if add_window
-                                     else "kept at %s" % data.get("autoCompactWindow")))
+    print("tracked keys added: %s" % (", ".join(missing) if missing else "none missing"))
     print("herdr hooks:       %s" % ("removed: " + ", ".join("%s %s" % h for h in herdr) if herdr
                                      else "none"))
     return 0

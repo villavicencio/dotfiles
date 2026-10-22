@@ -30,6 +30,8 @@ $(printf '%s\n' "$input" | jq -j '[
   (.worktree.name // .workspace.git_worktree // "")
 ] | map(tostring) | join("\u001f")')
 EOF
+# total_input_tokens is 0 before the first API response: treat it as absent.
+[ "$ctx_tok" = 0 ] && ctx_tok=""
 
 # Accent colors (truecolor; ASCII + octal \033 only, so POSIX/dash-safe). The
 # parenthetical descriptor (e.g. "1M", "context" stripped) and the effort level
