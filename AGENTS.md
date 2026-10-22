@@ -133,8 +133,8 @@ diffs** are scanned — not the full tree or history.
 - The gitleaks version is pinned in **three** places that must match: `rev:` in
   `.pre-commit-config.yaml`, `GITLEAKS_VERSION` in `helpers/install_pre_commit.sh`, and the
   `Gitleaks.Gitleaks` `Version` in `windows/packages.json`.
-- Local override `pass_filenames: false` is required — see `CLAUDE.md` for the upstream
-  gotcha it works around.
+- Local override `pass_filenames: false` is required — see `docs/reference/secret-hygiene.md`
+  for the upstream gotcha it works around.
 
 ### Post-installer audit
 After any third-party installer touches shell config (gcloud, rustup, …), run `git diff`
@@ -276,7 +276,7 @@ history — never create new GitHub issues).
   replies. Since MergeWren 0.4.0 each finding is also an inline thread: resolve it once
   fixed (listed under "Resolved") or declined. An incremental round can keep a finding
   "Still open" after the code it describes is gone; check it against the code and decline
-  it as stale (CLAUDE.md has the #239 case). A `partial` verdict means a file wasn't
+  it as stale (`docs/reference/review-and-merge.md` has the #239 case). A `partial` verdict means a file wasn't
   reviewed, and so does "⚠️ The review did not complete": tell David. CodeRabbit comments are
   optional input: don't wait for them or re-trigger `@coderabbitai`.
 
@@ -295,7 +295,7 @@ install via Homebrew casks in `brew/Brewfile`, not a helper.)
 `nvim/` as `%LOCALAPPDATA%\nvim` included), stubs for `~/.gitconfig` and `$PROFILE`, a
 `~/.claude/settings.json` seed (only when absent), the pre-commit hook, then the pinned nvim
 plugins (`windows/install_nvim.ps1`). Full steps and rules: "Setting up the Windows PC" in
-`CLAUDE.md`. Verify with a `-DryRun` (must report changes but make none) and a second real
+`docs/reference/windows.md`. Verify with a `-DryRun` (must report changes but make none) and a second real
 run (every line must read `ok`). CI's `windows` job asserts both.
 
 **Windows system settings:** from an elevated shell, preview with
@@ -314,7 +314,7 @@ a comment-aware JSONC scan, and writes via a checked temp file. Before the swap 
 original against writes and renames (Terminal saves by renaming a temp file over it), re-checks
 that it is unchanged since it was read, renames it aside through the lock, and renames the temp
 file into place without replacing anything. Dot-source the script to test its functions
-without running it. Details: "System tweaks" in `CLAUDE.md`.
+without running it. Details: "System tweaks" in `docs/reference/windows.md`.
 
 ### Server profile (`hal`)
 

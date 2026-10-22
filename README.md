@@ -143,8 +143,9 @@ default profile.
   `helpers/install_pre_commit.sh`).
 - Work on a feature branch and merge via PR; keep `master` green.
 
-See [`CLAUDE.md`](CLAUDE.md) for the full conventions and the two-machine setup
-runbook.
+See [`CLAUDE.md`](CLAUDE.md) for the conventions as one-line rules, and
+[`docs/reference/`](docs/reference/) for the per-machine setup runbooks (Windows, WSL,
+the server profile, the work Mac) and the full write-ups behind each rule.
 
 ## License
 

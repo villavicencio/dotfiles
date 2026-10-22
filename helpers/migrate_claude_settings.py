@@ -114,6 +114,9 @@ def main():
             else:
                 del hooks[event]
 
+    # After the fold: it may have created `permissions` just now, and the tracked block
+    # must not replace the rules it folded in (MergeWren 8d3b94c#1).
+    missing = [k for k in missing if k not in data]
     for k in missing:
         data[k] = tracked[k]
 
