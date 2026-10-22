@@ -119,13 +119,15 @@ pull_one() {
 # as long as the run lives: taking it is atomic, and the kernel drops it when the process
 # exits or is killed, so there is no stale lock or recycled pid to reason about. -t 0
 # fails at once (exit 75, EX_TEMPFAIL) while another run holds it; -k keeps the file.
+# The name is new on purpose: an earlier version used .hal-memory-pull.lock as a mkdir
+# lock, and a directory left there by a killed run would make lockf fail on every run.
 if [ -z "${HAL_MEMORY_PULL_LOCKED:-}" ]; then
   mkdir -p "$OBSIDIAN" || exit 1
-  HAL_MEMORY_PULL_LOCKED=1 /usr/bin/lockf -k -s -t 0 "$OBSIDIAN/.hal-memory-pull.lock" \
+  HAL_MEMORY_PULL_LOCKED=1 /usr/bin/lockf -k -s -t 0 "$OBSIDIAN/.hal-memory-pull.flock" \
     /bin/sh "$0" "$@"
   st=$?
   if [ "$st" = 75 ]; then
-    log "another run holds $OBSIDIAN/.hal-memory-pull.lock; skipping"
+    log "another run holds $OBSIDIAN/.hal-memory-pull.flock; skipping"
     exit 0
   fi
   exit "$st"
