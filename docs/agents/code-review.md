@@ -258,14 +258,14 @@ may not be pulled yet, so from a worktree that has a newer copy, source that one
     submodules, only a modified or untracked file keeps it);
   - removing the worktree fails after origin was deleted (origin is pushed back);
   - the local branch moves between the checks and the local delete (origin is pushed back).
-- **Retested 2026-10-22 (VIL-414)**, bash and zsh, 45 checks in 16 scenarios. A clean worktree
+- **Retested 2026-10-22 (VIL-414)**, bash and zsh, 46 checks in 16 scenarios. A clean worktree
   with an initialized submodule is detached at its own HEAD and both copies are deleted: run
   from the main checkout, from inside the worktree, with a stale copy (files unchanged), and
   with only an ignored file. It is kept, still on the branch, with a tracked change, a new
   commit, or a lock. A failed local delete after the detach restores origin and re-attaches
   the worktree; if the branch moved, the worktree stays detached and `REATTACH FAILED` is
   printed. A failed detach restores origin and leaves the worktree on the branch. `wt done`
-  refuses a submodule worktree before the PR lookup and holds no files. Master's function and
+  refuses a submodule worktree before the PR lookup and holds no files, but reports copies an earlier run left in `wt-held/` first. Master's function and
   `wt` failed 19 of the first 41 checks. Rerun them with `ci/cleanup-merged-branch-checks.sh`
   after changing the function or `wt done` (local only, not in CI).
 - **Local merge, no remote, no PR:** there is no `MERGED` state or origin tip to check.

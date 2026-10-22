@@ -189,6 +189,10 @@ gdx=$(git -C "$T/main/.claude/worktrees/x" rev-parse --absolute-git-dir); echo .
 (cd "$T/main" && PATH="$T/bin:$PATH" "$REPO/bin/wt" "done" x) >"$T/out" 2>&1; RC=$?
 check "wt done fails" '[ $RC != 0 ] && grep -q "initialized submodule" "$T/out"'
 check "nothing changed" 'origin_at "$OID" && local_has && [ -f "$T/main/.claude/worktrees/x/.claude/settings.local.json" ] && [ ! -d "$gdx/wt-held" ]'
+# Copies an earlier failed run left in wt-held are reported ahead of the submodule refusal.
+mkdir -p "$gdx/wt-held" && echo left > "$gdx/wt-held/stray"
+(cd "$T/main" && PATH="$T/bin:$PATH" "$REPO/bin/wt" "done" x) >"$T/out" 2>&1; RC=$?
+check "held copies reported first" '[ $RC != 0 ] && grep -q "left copies in" "$T/out" && [ -f "$gdx/wt-held/stray" ]'
 done_
 
 echo "== $SH: $pass passed, $fail failed"
