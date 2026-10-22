@@ -436,6 +436,10 @@ def work(brief, checks, wt, rundir):
     t0 = time.monotonic()
     rc, _, err, killed = run_limited(cmd, wt, env, WORKER_TIMEOUT_S, brief,
                                      watch_memory=True, stdout_path=transcript)
+    # Sampled before writing or parsing anything: timing.py ends a transcript
+    # with no result event at ended_at, so it must be when the worker exited.
+    duration_s = round(time.monotonic() - t0)
+    ended_at = dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds")
     (rundir / "worker.stderr").write_text(err)
     with open(transcript, errors="replace") as fh:
         res = parse_stream(fh)
@@ -445,10 +449,8 @@ def work(brief, checks, wt, rundir):
         "killed": killed,
         "exit": rc,
         "turns": res.get("num_turns"),
-        "duration_s": round(time.monotonic() - t0),
-        # When the worker exited or was killed; timing.py ends a transcript
-        # with no result event here.
-        "ended_at": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds"),
+        "duration_s": duration_s,
+        "ended_at": ended_at,
         "input_tokens": (usage.get("input_tokens", 0)
                          + usage.get("cache_read_input_tokens", 0)
                          + usage.get("cache_creation_input_tokens", 0)),
