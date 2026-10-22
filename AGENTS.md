@@ -115,6 +115,11 @@ with a POSIX fallback.
 - **`~/.ssh/config`** — per-machine host aliases; not tracked.
 
 ### Secret hygiene
+**This repo is public.** Don't name David's employer or describe what his work agents are for
+(Axiom is just "the `axiom` profile"); the audit recipe in
+`docs/solutions/best-practices/public-repo-secret-audit-recipe-2026-05-06.md` greps for it.
+Gitleaks doesn't catch plain words. Seen 2026-10-21 on #234.
+
 Every commit is scanned by **gitleaks** via a pre-commit hook (`.pre-commit-config.yaml`,
 wired by `helpers/install_pre_commit.sh`, run automatically by `./install`). Only **staged
 diffs** are scanned — not the full tree or history.
@@ -368,11 +373,11 @@ that no LaunchAgent was added. It also checks that a second run changes nothing.
 
 ## Invariants & gotchas (do not "fix" these)
 
-- **`atlas` and `syd` (`zsh/functions/`) decide when sourced whether to exist.** `syd`
+- **`atlas`, `axiom` and `syd` (`zsh/functions/`) decide when sourced whether to exist.** `syd`
   (`hermes -p syd --tui "$@"`) is defined only where `~/.hermes/profiles/syd` exists, which is
-  the personal Mac. Both drop their function when a Hermes wrapper of the same name is in
-  `~/.local/bin`. On hal, `atlas` keys on a local `hal` account, not on `orca` being on PATH
-  (#229). Usage is in `README.md` ("Hermes agents"), and the details are in CLAUDE.md
+  the personal Mac. All three drop their function when a Hermes wrapper of the same name is in
+  `~/.local/bin`. `atlas` and `axiom` share `_hal_console` (`hal_console.sh`), which keys on a
+  local `hal` account, not on `orca` being on PATH (#229). Usage is in `README.md` ("Hermes agents"), and the details are in CLAUDE.md
   ("Hermes commands").
 
 - **No heredocs in `bin/dot` — do not inline `bin/lib/*.py` back into `python3 - <<'PY'`.**
