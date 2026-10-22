@@ -171,7 +171,14 @@ As `david` on hal:
 ```sh
 ~/Projects/Personal/dotfiles/pilot/runner.py --dry-run --ticket <file> --ignore-window   # gates + worktree only
 ~/Projects/Personal/dotfiles/pilot/runner.py --once --ignore-window                      # one ticket from the queue
+~/Projects/Personal/dotfiles/pilot/timing.py ~/runs/log/<run>/ ...                        # where a worker's time went
 ```
+
+`timing.py` splits a worker's time into thinking, tools and the rest, and shows the longest
+single think, the largest context and how the run ended ("Prompt is too long" is a full
+context). Read `system/thinking_tokens` events with care: they're running estimates per
+step, so adding them up gives nonsense. On the first four transcripts (2026-10-21/22),
+thinking was 54–72% of the worker's time, and one think ran 15.7 minutes.
 
 ## Stop it
 
