@@ -6,7 +6,8 @@
 #   ci/op-agent-checks.sh        exit 0 when every case behaves
 set -uo pipefail
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
-T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
+T="$(mktemp -d)" || { echo "mktemp -d failed" >&2; exit 1; }
+trap 'rm -rf "$T"' EXIT
 mkdir -p "$T/bin"
 # The stub echoes its args and whether it got the token. For `run`, it runs whatever follows
 # `--`, as op does, so the test sees the child's environment.
@@ -39,6 +40,9 @@ expect refused read op://Agents/x/y
 expect refused read -o - op://Agents/x/y
 expect refused read -o /dev/stdout op://Agents/x/y
 expect refused read -o/dev/fd/1 op://Agents/x/y
+expect refused read -o=/dev/stdout op://Agents/x/y
+expect refused read -o=- op://Agents/x/y
+expect ok      read -o="$T/out" op://Agents/x/y
 expect refused read --out-file=/proc/self/fd/1 op://Agents/x/y
 expect refused read -o "$T/stdout-link" op://Agents/x/y
 expect refused read -o

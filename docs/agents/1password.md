@@ -12,7 +12,7 @@ service-account token, and what it keeps from stdout is the value.
 - **Never put a secret's value on stdout.** Whatever a command prints lands in the
   transcript. `op-agent` refuses the usual ways to do that: `read` or `inject` without
   `-o`, an `-o` that points at stdout (`-`, `/dev/*`, `/proc/*`, a link, a non-regular
-  file), `--reveal` and `--no-masking` in any spelling, and `item get`. Plain `op` has no
+  file, in any of `-o F`, `-oF`, `-o=F`, `--out-file F`, `--out-file=F`), `--reveal` and `--no-masking` in any spelling, and `item get`. Plain `op` has no
   such guard, so use `op-agent`.
 - **Never read, print or copy the token file** (`~/.config/op-agent/token`). It is the key to
   every secret in the Agents vault.
@@ -43,18 +43,17 @@ service-account token, and what it keeps from stdout is the value.
 `op-agent`'s guard is a seatbelt, not a boundary. Anything that runs as the same account can
 read the token file directly.
 
-## Who can read the Agents vault (decide before adding real secrets)
+## Who can read the Agents vault
 
 Each account that holds a token file can read **everything** in the vault. On hal, the
 overnight pilot's worker runs as `david`, and the code it runs has `david`'s full access
-(`pilot/README.md`, "Accepted risk"). A token file in `david`'s home therefore exposes the
-whole vault to the worker. So either:
+(`pilot/README.md`, "Accepted risk"). Since `david` holds a token, the worker can read the
+whole vault too. **David accepted that on 2026-10-22** (VIL-399): both `hal` and `david` get
+a token. So:
 
-- install `david`'s token only once the pilot has its own account or a sandbox (the fix that
-  README names), or
-- keep the vault to secrets you would accept the worker seeing.
-
-The `hal` account doesn't run the pilot, so its token file carries no such exposure.
+- put in the Agents vault only secrets you'd accept the pilot worker reading;
+- revisit this when the pilot gets its own account or a sandbox (the fix that README names).
+  At that point `david`'s token can stay and the exposure goes away.
 
 ## Setup (human steps)
 
@@ -85,8 +84,8 @@ hand-made `~/.local/bin/dot` link. Do the same for this wrapper:
 
 After changing `bin/op-agent`, run `ci/op-agent-checks.sh` (a stub `op`; no account needed).
 
-**On hal, per account that should read the vault** (as that account; see the section above
-before doing it for `david`):
+**On hal, for `hal` and for `david`** (as that account; the section above explains what
+`david`'s copy exposes):
 ```bash
 umask 077; mkdir -p ~/.config/op-agent
 pbpaste > ~/.config/op-agent/token  # or paste into: cat > ~/.config/op-agent/token, then Ctrl-D

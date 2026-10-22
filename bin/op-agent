@@ -54,7 +54,10 @@ for a in "$@"; do
     --reveal*) die "refusing --reveal: secrets would reach the transcript" ;;
     -o|--out-file) want_dest=1 ;;
     --out-file=*) bad_dest "${a#--out-file=}" && die "refusing '$a': that writes the secret to the terminal"; has_out=1 ;;
-    -o?*) bad_dest "${a#-o}" && die "refusing '$a': that writes the secret to the terminal"; has_out=1 ;;
+    -o?*)
+      # op's flag parser reads -o=FILE as FILE, the same as -oFILE.
+      d="${a#-o}"; d="${d#=}"
+      bad_dest "$d" && die "refusing '$a': that writes the secret to the terminal"; has_out=1 ;;
   esac
 done
 [ "$want_dest" = 0 ] || die "-o needs a file name"
