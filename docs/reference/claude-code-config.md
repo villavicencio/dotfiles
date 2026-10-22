@@ -99,13 +99,21 @@ Because a copy can drift, `dot drift` reports Claude settings alongside Brewfile
 the live file legitimately carries machine-local keys that are deliberately untracked, so a raw
 diff would report permanent un-actionable drift. To record live changes:
 
+macOS and Linux:
+
 ```bash
 dot drift                                            # see what diverged
-python3 helpers/migrate_claude_settings.py           # macOS/Linux, first, by hand: adds tracked keys
-                                                     # the live file lacks (capture refuses until then)
-python helpers/migrate_claude_settings.py            # the same step under Git Bash on Windows
-bash helpers/install_claude_settings.sh --capture    # regenerate claude/settings.json (Git Bash on
-                                                     # Windows: windows/claude-settings.json), then commit
+python3 helpers/migrate_claude_settings.py           # by hand, first: adds tracked keys the live file
+                                                     # lacks (capture refuses until then)
+bash helpers/install_claude_settings.sh --capture    # regenerate claude/settings.json, then commit
+```
+
+Windows, in Git Bash (no `dot` there, and `python3` is usually the Store placeholder):
+
+```bash
+bash helpers/report_drift.sh                         # see what diverged
+python helpers/migrate_claude_settings.py            # by hand, first
+bash helpers/install_claude_settings.sh --capture    # regenerates windows/claude-settings.json, then commit
 ```
 
 `--capture` regenerates rather than `cp`s: it drops the machine-local keys
