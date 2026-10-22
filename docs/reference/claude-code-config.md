@@ -109,6 +109,9 @@ bash helpers/install_claude_settings.sh --capture    # regenerate claude/setting
 (`effortLevel`, `modelSettings`, `autoMode`, `mcpServers`, and `allowedTools` — which must never be tracked),
 re-prepends the tracked `"//"` header, and rewrites absolute `$HOME` paths back to `~/`
 (installers write literal `/Users/<you>/...`; Claude Code expands `~` in hook commands).
+It refuses when the live file lacks a key the tracked file has (since 2026-10-22). That gap
+means a tracked change never reached this machine, so run `helpers/migrate_claude_settings.py`
+first. Only a key you removed on purpose gets deleted from the tracked file by hand.
 
 **Agents cannot write this file** — the auto-mode classifier blocks it by design, so it stops an
 agent widening its own permissions. `helpers/migrate_claude_settings.py` exists for a machine

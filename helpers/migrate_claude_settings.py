@@ -74,8 +74,10 @@ def main():
              for g in groups if isinstance(g, dict) for h in g.get("hooks", []) if is_herdr(h)]
     try:
         tracked_window = json.load(open(TRACKED, encoding="utf-8")).get("autoCompactWindow")
-    except Exception:
-        tracked_window = None
+    except Exception as exc:
+        print("Error: cannot read the tracked settings at %s (%s) — refusing to migrate"
+              % (TRACKED, exc), file=sys.stderr)
+        return 1
     add_window = tracked_window is not None and "autoCompactWindow" not in data
     if "allowedTools" not in data and not herdr and not add_window:
         print("Nothing to migrate: no allowedTools key, no herdr hooks, autoCompactWindow set.")

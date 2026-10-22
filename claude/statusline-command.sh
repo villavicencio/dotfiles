@@ -224,7 +224,7 @@ fi
 
 # ── Line 2: model + descriptor + effort, then budget meters ───────────────────
 # Printed only when there is line-2 content (avoids a dangling blank row).
-if [ -n "$model" ] || [ -n "$used" ] || [ -n "$lim5" ] || [ -n "$lim7" ]; then
+if [ -n "$model" ] || [ -n "$used" ] || [ -n "$ctx_tok" ] || [ -n "$lim5" ] || [ -n "$lim7" ]; then
   printf "\n"
   m2sep=""
 
@@ -263,7 +263,7 @@ if [ -n "$model" ] || [ -n "$used" ] || [ -n "$lim5" ] || [ -n "$lim7" ]; then
   # Meters: context window, then 5h / 7d rate-limit windows (Claude.ai subs
   # only; absent on Vertex). Each = "<label> <bar> <pct>%"; label white, bar
   # fill + pct in the meter color, track dim.
-  if [ -n "$used" ] || [ -n "$lim5" ] || [ -n "$lim7" ]; then
+  if [ -n "$used" ] || [ -n "$ctx_tok" ] || [ -n "$lim5" ] || [ -n "$lim7" ]; then
     printf "%s" "$m2sep"
     sep=""
     if [ -n "$ctx_tok" ] && [ "$ctx_tok" -gt 0 ] 2>/dev/null; then
