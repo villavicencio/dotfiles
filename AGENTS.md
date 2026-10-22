@@ -52,7 +52,6 @@ docs/       docs/agents/ — procedures behind the global agent instructions (lo
                                  frontmatter (module, tags, problem_type) + INDEX.md
 git/        gitconfig, gitignore, gitattributes, gitconfig.linux (Linux overlay, see gotchas)
 helpers/    Bash scripts called by the install pipeline (each independently runnable)
-herdr/      Herdr agent-multiplexer config (config.toml symlinked into ~/.config/herdr/)
 iterm/      iTerm2 preferences
 lazygit/    lazygit config
 nvim/       Neovim config (NvChad v2.5; the whole dir is linked as ~/.config/nvim,
@@ -347,7 +346,7 @@ How it differs from a desk Mac:
     Claude Code is installed separately on hal.
   - The Claude settings seed and the `~/.claude` links. `~/.claude` arrives from the VPS with
     regular files in those places.
-  - The herdr shims and hooks, and the iTerm profile.
+  - The iTerm profile.
   - The `~/.config/nvim` link and the plugin bootstrap. Without the bootstrap, the first
     `nvim` would rewrite `nvim/lazy-lock.json`, so the server's nvim runs with no config. A
     link into this repo left by an earlier desk install is moved to `~/.config/nvim.pre-dotfiles`
@@ -405,71 +404,13 @@ that no LaunchAgent was added. It also checks that a second run changes nothing.
   root). Note `topgrade --dry-run | grep sudo` does not predict which steps need root — a
   cask's own script can invoke sudo internally. Full write-up:
   `docs/solutions/security/sudo-in-no-tty-agent-shells-touch-id-2026-08-07.md`.
-- **`herdr/config.toml` IS symlinked — the opposite of `claude/settings.json`, deliberately.** Herdr
-  rewrites its config in place (inode-preserving, verified on 0.8.0), so the symlink
-  survives and live edits surface as `M herdr/config.toml`; diff and commit them. Link
-  only the file — `~/.config/herdr/` also holds the socket, logs, and session state.
-  `herdr server stop` / restart kills all pane processes (layout restores, supported
-  agent sessions resume); detach instead. `herdr integration install <agent>` writes
-  into the agent's own config dir and is a human step, not an agent one (claude and
-  codex installed, both v7). Custom `[[keys.command]]` shell commands run
-  with the server's bare launchd PATH and fail silently — use absolute paths
-  (`/opt/homebrew/bin/herdr …`); key changes themselves hot-reload fine. The ssh shim
-  herdr's remote-agent detection depends on (`~/.local/bin/claude-code`, backing both
-  `axiom ∴` and `atlas-tools ⚙`) is a repo-tracked auto-reconnect wrapper
-  (`herdr/shims/`) seeded by
-  `helpers/install_herdr_agents.sh` (darwin.yaml); it execs a same-named raw ssh
-  alias in `~/.local/libexec/` (preserving the detected process name) in a retry
-  loop, so remote panes survive sleep/network loss and — the fleet "a pane never
-  self-closes" rule — drop to an interactive shell on clean detach rather than
-  closing. Local agents get the same rule via the pane template
-  `["/bin/zsh", "-l", "-c", "claude --continue || claude; exec /bin/zsh -il"]`,
-  whose `--continue || claude` pair also relaunches the agent into the **most
-  recent session for that working directory** — usually, but not always, the
-  pane's own last conversation: where a Claude Code slug is shared with another
-  surface, the thread handed back may be that surface's. The bare fallback
-  catches a directory with no prior session, where `--continue` exits 1. Full
-  caveats: the pane-template section of CLAUDE.md.
-  Local project agents (`melos ♪`, `sites ✦`, `borealis ❆`, `argus ◉`,
-  `obscura ✇`, `eidos ❖`, `orrery ☉` — roster table in CLAUDE.md)
-  need no shim — herdr detects a local claude pane natively; they use the pane
-  template above, whose login shell rebuilds PATH from `zshenv` before claude
-  starts (the server spawns pane commands with its bare launchd env).
-  A local **hermes** pane works the same way — the template with `hermes chat` in
-  place of `claude`; herdr's hermes manifest detects the venv process natively, so
-  it needs no shim either. (No hermes pane is in the fleet as of 2026-09-01: `atlas`
-  and `vice` moved to the official Hermes Desktop app and were retired, along with
-  the `hermes-agent` shim they were the only consumers of.)
-  `atlas-tools ⚙` (`prefix+t`) is a remote **Claude Code** surface, not a TUI
-  attach: the repo lives only on the server, at `~/Projects/atlas-tools` in the
-  service account's home (`hal` since 2026-10-04, where `/home/node` links to that
-  home; previously openclaw-prod as `node`), and **no Mac-side checkout exists**. The
-  pane command still targets openclaw-prod and needs repointing to `hal` before the
-  VPS is deleted (see CLAUDE.md). herdr's pane
-  `cwd` is always local — it is where the ssh process starts — so a remote working
-  directory needs no local clone; the pane command establishes it remotely. It
-  reuses the existing `claude-code` ssh alias (detection keys on the ssh child's
-  process name, so two panes may share one alias with different args) and is told
-  apart from `axiom` by `herdr agent rename`. The remote tmux is addressed with
-  `-L atlas-tools -f /home/node/.config/tmux/atlas-tools.conf` and `new-session -A`, which
-  makes it self-healing across VPS reboots without a systemd unit. The conf file
-  is required because tmux defaults `set-titles` to `off` and that option is what
-  carries agent state out through a nested tmux. The `axiom` socket was given the
-  same treatment on 2026-08-25. Note its `unknown` status turned out to have a
-  different cause: the pane had fallen through to the shim's clean-detach `zsh`
-  fallback, so no agent process existed to detect. Check `pane.process_info`
-  before blaming detection config.
-  A pane whose `layout.export` node has no `command` is degraded even though it
-  still detects as an agent; rebuild it with `layout.apply` over the socket
-  (recipe in CLAUDE.md).
-  `orrery ☉` is the **Forge-resident hybrid** pattern (full SOP in CLAUDE.md):
-  the project stays Forge-managed, the pane targets the physical
-  `~/.forge-projects/<codename>` path (herdr `chdir` resolves symlinks, so
-  identity always lands there), `~/Projects/<name>` is an ergonomics-only
-  symlink, and both harnesses share one project slug — shared vault memory and
-  `--resume` continuity across Forge ACP sessions and the pane.
-  itself and `herdr integration install` (plus Otty's agent-integration installer until
-  Otty was removed 2026-09-03). A symlink is orphaned on the first write. This already bit once — the repo copy sat
+- **herdr is retired (2026-10-22, VIL-422).** Orca hosts the agent sessions now. What was
+  removed and the lessons that outlive it:
+  `docs/solutions/integration-issues/herdr-agent-fleet-retired-2026-10-22.md`.
+- **`claude/settings.json` is copy-seeded — do not add a `link:` entry for it.**
+  Writers besides this repo rewrite `~/.claude/settings.json` in place: Claude Code
+  itself and agent-integration installers (Orca's agent hooks today; herdr's until
+  2026-10-22, Otty's until 2026-09-03). A symlink is orphaned on the first write. This already bit once — the repo copy sat
   stale from 2026-08-07 to 2026-08-25 while the live file regrew a legacy top-level
   `allowedTools` key (18 rules) against a `permissions.allow` of 1, silently re-arming the
   precedence trap PR #127 had removed: when both keys exist the legacy one WINS and
@@ -479,8 +420,7 @@ that no LaunchAgent was added. It also checks that a second run changes nothing.
   `dot drift` compares capture-normalized forms and warns if `allowedTools` reappears.
   Agents cannot write this file — the auto-mode classifier blocks it by design; run
   `helpers/migrate_claude_settings.py` yourself on a machine that predates the scheme (on
-  Windows — native, Cygwin, or MSYS Python — it folds `allowedTools` only, no herdr hooks; run
-  it as `python` under Git Bash).
+  Windows, run it as `python` under Git Bash).
 - **`git/gitconfig` `core.pager = vim -`** is intentional on the Macs; `diff`/`show` route
   through **delta** via the `[pager]` overrides. Linux gets `less -FRX` from the overlay below.
 - **Linux git config is `git/gitconfig` plus an overlay, via an include, not a stub.**
@@ -530,7 +470,7 @@ that no LaunchAgent was added. It also checks that a second run changes nothing.
 - **Windows gets stubs, not links, for `~/.gitconfig` and `$PROFILE`** — git has no
   OS-conditional include, and `$PROFILE` sits under a OneDrive-redirected Documents folder.
   **Windows seeds `windows/claude-settings.json`, never `claude/settings.json`** (the Mac
-  file's hooks are tmux/herdr bash scripts that would error on every event). The Windows
+  file's hooks are tmux bash scripts that would error on every event). The Windows
   file is the Mac baseline minus `hooks`, `preferredNotifChannel`, and the brew/tmux allow
   rules; the `statusLine` block is identical and runs under Git Bash's `sh`. Keep the two
   files' shared keys in step by hand. Same copy-only-when-absent contract, and the

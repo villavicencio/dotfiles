@@ -67,7 +67,7 @@
 #     symlinks (outside AND inside the repo) survive — no `clean` on server;
 #     ~/.zshenv was backed up; chsh was never called (a recording shim is
 #     first on PATH and CI=false, so a CI-gated chsh step would reach it);
-#     no nvim config/nvm/uv/Claude Code/Claude settings/iTerm/herdr shims;
+#     no nvim config/nvm/uv/Claude Code/Claude settings/iTerm;
 #     no cask added beyond vercel; `zsh -lic` and `zsh -lc` resolve brew, lms, docker
 #     (OrbStack), node, gh as hal's own rc files did, with ~/.local/bin still
 #     ahead of Homebrew. Git is R8's server branch (gh overlay only).
