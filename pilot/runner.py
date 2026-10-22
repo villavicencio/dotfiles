@@ -446,6 +446,9 @@ def work(brief, checks, wt, rundir):
         "exit": rc,
         "turns": res.get("num_turns"),
         "duration_s": round(time.monotonic() - t0),
+        # When the worker exited or was killed; timing.py ends a transcript
+        # with no result event here.
+        "ended_at": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds"),
         "input_tokens": (usage.get("input_tokens", 0)
                          + usage.get("cache_read_input_tokens", 0)
                          + usage.get("cache_creation_input_tokens", 0)),

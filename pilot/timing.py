@@ -12,11 +12,14 @@ issued a tool call to the user event holding its result. The
 to add up, so they aren't used. Tool calls issued together can run at the
 same time, so overlapping tool time is counted once.
 
-A stopped worker has no `result` event, and its transcript ends at the last
-event it wrote, often minutes before the stop. Its full time comes from the
-`run.json` beside the transcript. A tool call still running at the stop counts
-as tool time; any other time after the last event is shown as "cut off", a
-think or reply that never reached the transcript.
+A worker that was stopped (or died) has no `result` event, and its transcript
+ends at the last event it wrote, often minutes before the end. The end time
+and whether it was killed come from `worker.ended_at` and `worker.killed` in
+the `run.json` beside the transcript. A tool call still running at the end
+counts as tool time; any other time after the last event is shown as "cut
+off", a think or reply that never reached the transcript. Without an end time
+(no run.json, a runner-error run, or one from before ended_at existed) the
+total stops at the last event, and the report says so.
 
 Usage: timing.py <run dir or worker.jsonl> ...
        timing.py ~/runs/log/vil-380-*/
@@ -44,19 +47,23 @@ def span_ms(spans):
     return total
 
 
-def stopped_worker(path):
-    """A stopped worker's time in seconds and why it stopped, from run.json.
-    Without that time, the reason it's missing."""
+def worker_end(path):
+    """When a worker with no result event ended, and how, from run.json.
+    Without a recorded end, None and the reason it's missing."""
     try:
         run = json.loads((path.parent / "run.json").read_text())
     except (OSError, ValueError):
         return None, "no run.json"
     if not isinstance(run, dict):
         return None, "run.json isn't an object"
-    w = run.get("worker") or {}
-    if not isinstance(w.get("duration_s"), (int, float)):
-        return None, f"no worker time in run.json (status {run.get('status')})"
-    return float(w["duration_s"]), w.get("killed") or "no result event"
+    w = run.get("worker")
+    try:
+        end = ts(w["ended_at"])
+    except (KeyError, TypeError, ValueError):
+        return None, f"no worker end time in run.json (status {run.get('status')})"
+    if w.get("killed"):
+        return end, f"stopped: {w['killed']}"
+    return end, f"exited {w.get('exit')} with no result event"
 
 
 def analyse(path):
@@ -101,16 +108,19 @@ def analyse(path):
         lines = (result.get("result") or "").strip().splitlines()
         ended = lines[0][:50] if lines else f"{result.get('subtype') or 'result'}, no final text"
     elif first:
-        secs, why = stopped_worker(path)
-        end = max(last, first + dt.timedelta(seconds=secs)) if secs else last
+        end, how = worker_end(path)
+        if end:
+            end = max(end, last)
+            ended = how
+        else:
+            end = last
+            ended = f"no result event; {how}, so the total stops at the last event"
         total_ms = (end - first).total_seconds() * 1000
         # Calls still running were issued at or before the last event, so they
         # cover the whole tail; without one, the tail is unrecorded.
         spans += [(start, end) for start in pending.values()]
         if not pending:
             cut_ms = (end - last).total_seconds() * 1000
-        ended = (f"stopped ({why})" if secs is not None else
-                 f"stopped; {why}, so time after the last event is missing")
     else:
         total_ms = 0
         ended = "empty transcript"
