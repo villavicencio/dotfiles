@@ -89,14 +89,18 @@ copy exposes. Run this from the personal Mac, in a terminal with `op signin` don
 goes from your 1Password straight into the file over SSH and is never shown. `hal-orca` logs
 in as `hal`, and `hal` logs in as `david`; both use key auth.
 ```bash
+rc=0
 for host in hal-orca hal; do
   op item get "hal-agents service account" --fields label=credential --reveal |
-    ssh "$host" 'umask 077; d=~/.config/op-agent; mkdir -p "$d" && cat > "$d/token.new" && test -s "$d/token.new" && mv -f "$d/token.new" "$d/token" && echo "written on hal as $(id -un), $(wc -c < "$d/token") bytes" || { rm -f "$d/token.new"; echo "nothing written on hal as $(id -un): empty input, existing token kept" >&2; exit 1; }'
+    ssh "$host" 'umask 077; d=~/.config/op-agent; mkdir -p "$d" && cat > "$d/token.new" && [ "$(head -c 4 "$d/token.new")" = ops_ ] && mv -f "$d/token.new" "$d/token" && echo "written on hal as $(id -un), $(wc -c < "$d/token") bytes" || { rm -f "$d/token.new"; echo "nothing written on hal as $(id -un): input was not a service-account token; existing token kept" >&2; exit 1; }' || rc=1
 done
+[ "$rc" = 0 ] && echo "both accounts written" || echo "FAILED for at least one account; see above"
 ```
 Each line should report a non-zero byte count, and the two counts should match. The token
-goes to `token.new` first and replaces `token` only when it isn't empty, so a failed
-`op item get` (not signed in, say) leaves an existing token alone. An empty
+goes to `token.new` first and replaces `token` only when it starts with `ops_` (every
+service-account token does). An empty or wrong value, from a failed `op item get` or a
+placeholder in place of the field, leaves the existing token alone, and the loop reports
+which account failed. An empty
 file from a failed first attempt is exactly the problem this ticket started from. (Done on
 2026-10-22: 820 bytes for each account, same SHA-256.)
 
