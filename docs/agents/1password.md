@@ -96,7 +96,7 @@ if [ "$st" != 0 ] || [ "${tok#ops_}" = "$tok" ]; then
 else
   rc=0
   for host in hal-orca hal; do
-    printf '%s\n' "$tok" | ssh "$host" 'umask 077; d=~/.config/op-agent; mkdir -p "$d" && cat > "$d/token.new" && [ "$(head -c 4 "$d/token.new")" = ops_ ] && mv -f "$d/token.new" "$d/token" && echo "written on hal as $(id -un), $(wc -c < "$d/token") bytes" || { rm -f "$d/token.new"; echo "nothing written on hal as $(id -un); existing token kept" >&2; exit 1; }' || rc=1
+    printf '%s\n' "$tok" | ssh "$host" "n=$(( ${#tok} + 1 ));"' umask 077; d=~/.config/op-agent; mkdir -p "$d" && cat > "$d/token.new" && [ "$(head -c 4 "$d/token.new")" = ops_ ] && [ "$(wc -c < "$d/token.new" | tr -d " ")" = "$n" ] && mv -f "$d/token.new" "$d/token" && echo "written on hal as $(id -un), $n bytes" || { rm -f "$d/token.new"; echo "nothing written on hal as $(id -un); existing token kept" >&2; exit 1; }' || rc=1
   done
   unset tok
   if [ "$rc" = 0 ]; then echo "both accounts written"; else echo "FAILED for at least one account; see above" >&2; false; fi
@@ -106,7 +106,8 @@ Each line should report a non-zero byte count, and the two counts should match. 
 read into a shell variable on the Mac and checked there first: if `op item get` fails, or
 returns anything that isn't a service-account token (they all start with `ops_`), nothing is
 sent. On hal it goes to `token.new` and replaces `token` only when the new file starts with
-`ops_`, so a dropped connection leaves the existing token alone. The last line says whether
+`ops_` **and** has exactly the byte count the Mac sent along, so a connection that drops
+partway leaves the existing token alone. The last line says whether
 both accounts were written, and the block exits non-zero if not. An empty
 file from a failed first attempt is exactly the problem this ticket started from. (Done on
 2026-10-22: 820 bytes for each account, same SHA-256.)
