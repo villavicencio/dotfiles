@@ -84,16 +84,19 @@ hand-made `~/.local/bin/dot` link. Do the same for this wrapper:
 
 After changing `bin/op-agent`, run `ci/op-agent-checks.sh` (a stub `op`; no account needed).
 
-**On hal, for `hal` and for `david`** (as that account; the section above explains what
-`david`'s copy exposes):
+**The token file on hal, for `hal` and for `david`.** The section above explains what `david`'s
+copy exposes. Run this from the personal Mac, in a terminal with `op signin` done. The token
+goes from your 1Password straight into the file over SSH and is never shown. `hal-orca` logs
+in as `hal`, and `hal` logs in as `david`; both use key auth.
 ```bash
-umask 077; mkdir -p ~/.config/op-agent
-pbpaste > ~/.config/op-agent/token  # or paste into: cat > ~/.config/op-agent/token, then Ctrl-D
-chmod 600 ~/.config/op-agent/token
+for host in hal-orca hal; do
+  op item get "hal-agents service account" --fields label=credential --reveal |
+    ssh "$host" 'umask 077; mkdir -p ~/.config/op-agent && cat > ~/.config/op-agent/token && chmod 600 ~/.config/op-agent/token && echo "written on hal as $(id -un), $(wc -c < ~/.config/op-agent/token) bytes"'
+done
 ```
-Over SSH there is no `pbpaste`, so use the `cat >` form, and check that the file isn't empty
-(`test -s ~/.config/op-agent/token && echo ok`). A failed first attempt that leaves an empty
-file is the exact problem this ticket started from.
+Each line should report a non-zero byte count, and the two counts should match. An empty
+file from a failed first attempt is exactly the problem this ticket started from. (Done on
+2026-10-22: 820 bytes for each account, same SHA-256.)
 
 **Verify** (as each account):
 ```bash
