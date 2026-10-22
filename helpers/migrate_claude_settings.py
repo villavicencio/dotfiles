@@ -40,6 +40,7 @@ Under Git Bash on Windows `python3` is usually the Microsoft Store placeholder,
 so call it as `python`.
 """
 import collections
+import copy
 import json
 import os
 import shutil
@@ -92,6 +93,12 @@ def main():
     backup = "%s.bak-%d" % (SETTINGS, int(time.time()))
     shutil.copy2(SETTINGS, backup)
 
+    # Missing tracked keys first, so the fold below lands in what a fresh seed would have
+    # given this machine: a `permissions` block it lacked arrives whole (defaultMode and all),
+    # and the legacy rules then merge into its `allow` (MergeWren 8d3b94c#1, 2aa9ec9#1).
+    for k in missing:
+        data[k] = copy.deepcopy(tracked[k])
+
     legacy = data.pop("allowedTools", [])
     allow = data.setdefault("permissions", collections.OrderedDict()).setdefault("allow", [])
     merged = list(dict.fromkeys(list(allow) + list(legacy)))
@@ -113,12 +120,6 @@ def main():
                 hooks[event] = kept
             else:
                 del hooks[event]
-
-    # After the fold: it may have created `permissions` just now, and the tracked block
-    # must not replace the rules it folded in (MergeWren 8d3b94c#1).
-    missing = [k for k in missing if k not in data]
-    for k in missing:
-        data[k] = tracked[k]
 
     tmp = SETTINGS + ".tmp.%d" % os.getpid()
     try:

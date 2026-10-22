@@ -101,9 +101,9 @@ diff would report permanent un-actionable drift. To record live changes:
 
 ```bash
 dot drift                                            # see what diverged
-python3 helpers/migrate_claude_settings.py           # first, by hand: adds tracked keys the live
-                                                     # file lacks (capture refuses until it has them);
-                                                     # Git Bash on Windows: python, not python3
+python3 helpers/migrate_claude_settings.py           # macOS/Linux, first, by hand: adds tracked keys
+                                                     # the live file lacks (capture refuses until then)
+python helpers/migrate_claude_settings.py            # the same step under Git Bash on Windows
 bash helpers/install_claude_settings.sh --capture    # regenerate claude/settings.json (Git Bash on
                                                      # Windows: windows/claude-settings.json), then commit
 ```
