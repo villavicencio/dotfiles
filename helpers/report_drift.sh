@@ -265,11 +265,30 @@ if [ "$IS_WINDOWS" -eq 1 ]; then
   CLAUDE_INSTALLER="install.ps1"
 fi
 CLAUDE_TRACKED_REL="${CLAUDE_TRACKED#"$REPO_ROOT"/}"
+# Only desk Macs (darwin.yaml) and Windows (install.ps1) seed Claude settings. Linux and hal's
+# server profile (the install that links ~/.config/zsh/.zprofile to zsh/zprofile.server) keep
+# their own, so comparing them with the desk baseline would only suggest a wrong --capture.
+CLAUDE_SEEDED=1
+if [ "$IS_WINDOWS" != 1 ]; then
+  case "$(uname -s)" in
+    Darwin) case "$(readlink "$HOME/.config/zsh/.zprofile" 2>/dev/null)" in
+              *zsh/zprofile.server) CLAUDE_SEEDED=0 ;;
+            esac ;;
+    *) CLAUDE_SEEDED=0 ;;
+  esac
+fi
 
 hr "Claude Code: tracked $CLAUDE_TRACKED_REL vs live ~/.claude/settings.json"
 if [ ! -f "$CLAUDE_TRACKED" ]; then
   echo "ERROR: tracked Claude settings missing at $CLAUDE_TRACKED" >&2
   status=1
+elif [ "$CLAUDE_SEEDED" = 0 ]; then
+  echo "  (not compared: Linux and the server profile get no seeded Claude settings)"
+  if [ -f "$CLAUDE_LIVE" ] && grep -q '"allowedTools"' "$CLAUDE_LIVE"; then
+    echo "  WARNING: live settings has a legacy top-level 'allowedTools' key, which OVERRIDES"
+    echo "           permissions.allow. Repair with helpers/migrate_claude_settings.py."
+    status=1
+  fi
 elif [ ! -f "$CLAUDE_LIVE" ]; then
   echo "  (not seeded on this machine yet — $CLAUDE_INSTALLER will copy it in)"
 elif ! resolve_python; then

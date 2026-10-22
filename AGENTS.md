@@ -4,10 +4,11 @@ Tool-neutral brief for any coding agent (Codex, Claude Code, Cursor, …) workin
 this repository. It is the canonical description of how the repo is laid out, the
 conventions every change must follow, and how to verify a change before committing.
 
-> **Claude Code note:** `CLAUDE.md` carries the same conventions plus Claude-specific
-> behavior; it is self-sufficient on its own. This file is the tool-neutral source of
-> truth — when the two ever diverge, treat this file's conventions as authoritative and
-> reconcile `CLAUDE.md` to match.
+> **Claude Code note:** `CLAUDE.md` carries the same conventions as one-line rules plus
+> Claude-specific behavior, and points at `docs/reference/` for the long write-ups (moved
+> out of it on 2026-10-22 to cut every session's startup context, VIL-402). This file is
+> the tool-neutral source of truth — when the two ever diverge, treat this file's
+> conventions as authoritative and reconcile `CLAUDE.md` to match.
 
 ---
 
@@ -28,7 +29,7 @@ by `install.ps1` (PowerShell, not Dotbot).
 `./install` sets up a machine — the wrapper runs a shared `dotbot-conf/base.yaml` then the
 platform layer (`dotbot-conf/darwin.yaml` on Darwin, `dotbot-conf/linux.yaml` on Linux).
 The active Linux target is WSL Ubuntu 26.04 on the gaming PC (since 2026-09-24, reinstalled
-on 26.04 2026-09-25; setup in `CLAUDE.md` "Setting up WSL on the Windows PC"). CI's Linux
+on 26.04 2026-09-25; setup in `docs/reference/wsl-linux.md`). CI's Linux
 leg runs the same release (VIL-154). On 26.04 `sudo` is sudo-rs; CI runs as root, so only
 the WSL install exercises it. Linux installs no Node or uv, by design (VIL-157).
 The earlier Hetzner VPS target was retired
@@ -78,7 +79,7 @@ orca.yaml   Orca's setup script for each new worktree: checks out the dotbot sub
             is deliberately no archive script. After a merge, run cleanup_merged_branch first:
             it deletes the branch and detaches the worktree, since Orca never deletes a
             squash-merged branch. Never `git submodule deinit` in a worktree (it
-            unregisters dotbot in the shared .git/config). Details: CLAUDE.md "Orca worktrees"
+            unregisters dotbot in the shared .git/config). Details: docs/reference/orca-worktrees.md
 .worktreeinclude  gitignored files copied into new worktrees (claude --worktree, wt new, orca.yaml)
 windows/    Windows layer, applied by install.ps1 (repo root): packages.json (winget),
             gitconfig (overrides chained after git/gitconfig), powershell/profile.ps1,
@@ -132,8 +133,8 @@ diffs** are scanned — not the full tree or history.
 - The gitleaks version is pinned in **three** places that must match: `rev:` in
   `.pre-commit-config.yaml`, `GITLEAKS_VERSION` in `helpers/install_pre_commit.sh`, and the
   `Gitleaks.Gitleaks` `Version` in `windows/packages.json`.
-- Local override `pass_filenames: false` is required — see `CLAUDE.md` for the upstream
-  gotcha it works around.
+- Local override `pass_filenames: false` is required — see `docs/reference/secret-hygiene.md`
+  for the upstream gotcha it works around.
 
 ### Post-installer audit
 After any third-party installer touches shell config (gcloud, rustup, …), run `git diff`
@@ -269,13 +270,13 @@ history — never create new GitHub issues).
   later; replaces CodeRabbit here). It reviews every new head of an open, non-draft PR
   automatically, 2–6 minutes after the push, and posts one comment per head, starting with
   `<!-- review-stack:head=<full sha> run=<id> -->`. Wait for the comment for the current
-  head (the `gh pr view … --jq` poll is in CLAUDE.md), fix the real findings and push; the
+  head (the `gh pr view … --jq` poll is in CLAUDE.md "Rules"), fix the real findings and push; the
   new head is re-reviewed automatically. Merge when the current head's review has no high or
   critical finding that is neither fixed nor waived with David. It doesn't read thread
   replies. Since MergeWren 0.4.0 each finding is also an inline thread: resolve it once
   fixed (listed under "Resolved") or declined. An incremental round can keep a finding
   "Still open" after the code it describes is gone; check it against the code and decline
-  it as stale (CLAUDE.md has the #239 case). A `partial` verdict means a file wasn't
+  it as stale (`docs/reference/review-and-merge.md` has the #239 case). A `partial` verdict means a file wasn't
   reviewed, and so does "⚠️ The review did not complete": tell David. CodeRabbit comments are
   optional input: don't wait for them or re-trigger `@coderabbitai`.
 
@@ -294,7 +295,7 @@ install via Homebrew casks in `brew/Brewfile`, not a helper.)
 `nvim/` as `%LOCALAPPDATA%\nvim` included), stubs for `~/.gitconfig` and `$PROFILE`, a
 `~/.claude/settings.json` seed (only when absent), the pre-commit hook, then the pinned nvim
 plugins (`windows/install_nvim.ps1`). Full steps and rules: "Setting up the Windows PC" in
-`CLAUDE.md`. Verify with a `-DryRun` (must report changes but make none) and a second real
+`docs/reference/windows.md`. Verify with a `-DryRun` (must report changes but make none) and a second real
 run (every line must read `ok`). CI's `windows` job asserts both.
 
 **Windows system settings:** from an elevated shell, preview with
@@ -313,67 +314,23 @@ a comment-aware JSONC scan, and writes via a checked temp file. Before the swap 
 original against writes and renames (Terminal saves by renaming a temp file over it), re-checks
 that it is unchanged since it was read, renames it aside through the lock, and renames the temp
 file into place without replacing anything. Dot-source the script to test its functions
-without running it. Details: "System tweaks" in `CLAUDE.md`.
+without running it. Details: "System tweaks" in `docs/reference/windows.md`.
 
 ### Server profile (`hal`)
 
-`DOTFILES_PROFILE=server ./install` sets up `hal`, a headless Mac mini (macOS 27, Apple
-Silicon) reached only over SSH. It runs as the standard account `hal`, which has no sudo and
-owns Homebrew at `/opt/homebrew`. An unset profile or `desk` is the normal install. Any other
-value fails before Dotbot runs, and so does `server` on anything but macOS.
-`DOTFILES_PROFILE=server ./install --dry-run` previews it.
+`DOTFILES_PROFILE=server ./install` sets up `hal`, the headless Mac mini. It runs as the
+standard account `hal` (no sudo; it owns Homebrew at `/opt/homebrew`), and `--dry-run`
+previews it. In short:
+- `base.yaml` runs with `--except clean`, then `server.yaml` runs in place of `darwin.yaml`.
+- Packages come from `brew/Brewfile.server` (formulae plus allowlisted CLI-only casks), with
+  no upgrades and no Homebrew bootstrap.
+- No chsh, nvm/node/uv/Claude Code installers, Claude settings, `~/.claude` links, iTerm
+  profile or nvim config.
+- Three overlays get linked: `zsh/zprofile.server`, `git/gitconfig.server` and
+  `tmux/local.server.conf`.
 
-How it differs from a desk Mac:
-
-- **Layers:** `base.yaml` runs with `--except clean`, then `dotbot-conf/server.yaml` runs in
-  place of `darwin.yaml`. Dotbot's `clean` only removes dead links in `~` that resolve into
-  this repo (`dotbot/src/dotbot/plugins/clean.py`, v1.24.1). hal also carries dangling links
-  copied from the VPS, such as `~/personal`, and a first install has nothing to clean, so
-  `clean` doesn't run there at all.
-- **Packages:** `brew/Brewfile.server`, formulae only plus one CLI-only cask (`vercel`, which
-  Homebrew moved out of core; CI allows exactly that one). An old `vercel`/`vercel-cli` formula
-  blocks that cask, so `helpers/migrate_vercel_cask.sh` swaps it first, on both profiles.
-  Installed by `brew bundle` with
-  `HOMEBREW_BUNDLE_NO_UPGRADE=1` and `HOMEBREW_NO_INSTALL_UPGRADE=1`, so installed formulae
-  aren't upgraded under running services. A new formula can still upgrade a shared
-  dependency it needs. The Homebrew network installer never runs: if brew is missing at
-  the `BREW_PREFIX` location (`/opt/homebrew` on Apple Silicon), the wrapper stops before
-  Dotbot runs, with nothing changed. No font casks. The container runtime (OrbStack, and brew's `docker` and
-  `colima`) is installed out of band and is in no Brewfile.
-- **Skipped:**
-  - chsh.
-  - The nvm, node, uv and Claude Code installers. node and uv come from the Brewfile, and
-    Claude Code is installed separately on hal.
-  - The Claude settings seed and the `~/.claude` links. `~/.claude` arrives from the VPS with
-    regular files in those places.
-  - The iTerm profile.
-  - The `~/.config/nvim` link and the plugin bootstrap. Without the bootstrap, the first
-    `nvim` would rewrite `nvim/lazy-lock.json`, so the server's nvim runs with no config. A
-    link into this repo left by an earlier desk install is moved to `~/.config/nvim.pre-dotfiles`
-    (`helpers/retire_desk_nvim_link.sh`); a real directory or a link elsewhere is left alone.
-- **Kept:** Oh My Zsh, the shared zsh, git and tmux configs, the pre-commit hook, and the
-  Codex `AGENTS.md` link. TPM installs the plugins against a private, throwaway tmux socket.
-  Its `install_plugins` reads the plugin list from whatever tmux server is current, so a
-  server hal already runs without this config would make it abort ("Tmux Plugin Manager not
-  configured") and fail the install.
-- **Overlays**, linked only under this profile (the tmux one by `base.yaml`, ahead of TPM;
-  the others by `server.yaml`):
-
-  | Link | Source | Effect |
-  |---|---|---|
-  | `~/.config/zsh/.zprofile` | `zsh/zprofile.server` | With `ZDOTDIR` set, zsh no longer reads `~/.zprofile` or `~/.zshrc`. This file carries what hal's own versions did: brew shellenv, OrbStack's `init.zsh`, and `~/.lmstudio/bin`, each only if present. hal's `~/.zprofile` and `~/.zshrc` are left untouched. After shellenv it re-applies `zsh/zshenv`'s PATH order, which shellenv's prepend and macOS's `/etc/zprofile` (`path_helper`) undo in every login shell. |
-  | `~/.config/git/gitconfig.platform` | `git/gitconfig.server` | Resets the credential helpers (osxkeychain and GCM can't work over SSH) to `/opt/homebrew/bin/gh` for github.com and gist.github.com, and sets `core.pager = less -FRX`. |
-  | `~/.config/tmux/local.conf` | `tmux/local.server.conf` | Sets `@continuum-boot off`. It is linked before the TPM step starts a tmux server, so tmux-continuum never loads with boot on and never writes `~/Library/LaunchAgents/Tmux.Start.plist`, which opens iTerm at login. A regular `local.conf` already there is renamed to `local.conf.dotbot-backup.<timestamp>` first (Dotbot's `backup`). If the link still isn't in place, `install_tmux.sh` fails without starting tmux. |
-
-- **`~/.zshenv`:** a `~/.zshenv` this install didn't write is kept as
-  `~/.zshenv.pre-dotfiles` before being replaced. A regular file is copied there, and a
-  symlink is moved there as a link.
-
-Verify with `ci/server-profile-checks.sh static` locally. CI's `macos-server` job runs the
-profile in a simulated hal home and checks the pre-existing files, the shell chain, git, and
-that no LaunchAgent was added. It also checks that a second run changes nothing.
-
----
+Verify with `ci/server-profile-checks.sh static`. The full write-up (layers, overlays,
+`~/.zshenv` backup, CI's `macos-server` job) is in `docs/reference/install-and-server.md`.
 
 ## Invariants & gotchas (do not "fix" these)
 
@@ -381,8 +338,8 @@ that no LaunchAgent was added. It also checks that a second run changes nothing.
   (`hermes -p syd --tui "$@"`) is defined only where `~/.hermes/profiles/syd` exists, which is
   the personal Mac. All three drop their function when a Hermes wrapper of the same name is in
   `~/.local/bin`. `atlas` and `axiom` share `_hal_console` (`hal_console.sh`), which keys on a
-  local `hal` account, not on `orca` being on PATH (#229). Usage is in `README.md` ("Hermes agents"), and the details are in CLAUDE.md
-  ("Hermes commands").
+  local `hal` account, not on `orca` being on PATH (#229). Usage is in `README.md` ("Hermes agents"), and the details are in
+  `docs/reference/hermes-commands.md`.
 
 - **No heredocs in `bin/dot` — do not inline `bin/lib/*.py` back into `python3 - <<'PY'`.**
   Bash backs a small heredoc with a pipe and writes the *whole* document before forking the
@@ -396,7 +353,7 @@ that no LaunchAgent was added. It also checks that a second run changes nothing.
 - **sudo does not work from an agent shell without Touch ID.** Claude Code's `!` mode and
   Bash tool have no controlling TTY, so any `sudo` fails with "a terminal is required."
   The fix is a one-time root step creating `/etc/pam.d/sudo_local` with `pam_reattach`
-  (tmux) + `pam_tid` — documented in `CLAUDE.md` under "Touch ID for sudo"; it cannot be
+  (tmux) + `pam_tid` — documented in `docs/reference/tooling.md` under "Touch ID for sudo"; it cannot be
   Dotbot-managed because `/etc/pam.d/` is root-owned and outside `$HOME`.
   Do **not** substitute `SUDO_ASKPASS` (plain `sudo` ignores it — only `sudo -A` consults
   it), `sudo -v` pre-caching (`tty_tickets` keys the cache to the originating terminal), or
@@ -488,4 +445,6 @@ that no LaunchAgent was added. It also checks that a second run changes nothing.
   only in iTerm2.
 
 Deeper write-ups for past bugs and decisions live in `docs/solutions/` (grouped by
-category, indexed in `docs/solutions/INDEX.md`). Consult it before re-deriving a fix.
+category, indexed in `docs/solutions/INDEX.md`), and the per-area reference (Windows, WSL,
+the server profile, Claude Code config, Orca worktrees, review) in `docs/reference/`.
+Consult them before re-deriving a fix.

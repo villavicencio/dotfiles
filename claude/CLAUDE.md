@@ -10,6 +10,7 @@ Detailed procedures live in dotfiles `docs/agents/` (`~/Projects/Personal/dotfil
 - If something is already solved in `docs/solutions/` or the project's `CLAUDE.md`/`AGENTS.md`, use it instead of re-deriving it.
 - Time: I'm in Pacific time. Label PT vs UTC explicitly, derive weekdays from the system date, and don't call a time "late" or "overnight" without wall-clock evidence. Sessions are often back-to-back: after `dv:pickup`, measure staleness in commits since the handoff's `head` (validate it first: `docs/agents/session-continuity.md`).
 - Never tell me to sleep, rest, eat, or otherwise manage my time. End cleanly ("standing by") instead.
+- Keep sessions small: every turn re-reads the whole context (VIL-402). At a task boundary, or coming back after an hour or more idle, write a handoff (`dv:handoff`) and start fresh (`/clear` or a new session) instead of carrying on. Don't wait for the window to fill. The statusline `ctx` meter turns red at 200k tokens; that's the cue. Auto-compaction at 400k (`autoCompactWindow`; an existing install gets it from `helpers/migrate_claude_settings.py`) is only a backstop.
 - When you name a Linear ticket or a GitHub PR or issue in a reply to me, make it a markdown link that opens in my browser, every time it appears: `[VIL-123](https://linear.app/villavicencio/issue/VIL-123)`, `[#151](https://github.com/<owner>/<repo>/pull/151)` (put the repo in the label for a cross-repo reference, e.g. `[mergewren#31](…)`). Commit messages, PR bodies, and Linear comments can keep bare ids; those surfaces link them already.
 
 ## Safety
@@ -60,4 +61,4 @@ Full ladder: `docs/agents/web-research.md`.
 
 ## Mac setup (personal Mac)
 - **Obsidian vaults:** each project owns `~/Obsidian/<name>/`; Claude Code project memory is symlinked into the vault's `memory/`. Bootstrap, config template, and sync rules: `docs/agents/obsidian-vaults.md`. Only `hermes` and `axiom` sync to the VPS.
-- **Orca projects:** Orca hosts the agent sessions (herdr retired 2026-10-22). A new project gets an Orca project (`orca repo add --path <dir>`), a vault, and a project `CLAUDE.md`. Worktree setup goes in the repo's `orca.yaml` (`dv:orca-setup`); a project's name and icon are set in the app, not the CLI. Orca gotchas: the dotfiles `CLAUDE.md` "Orca worktrees" section.
+- **Orca projects:** Orca hosts the agent sessions (herdr retired 2026-10-22). A new project gets an Orca project (`orca repo add --path <dir>`), a vault, and a project `CLAUDE.md`. Worktree setup goes in the repo's `orca.yaml` (`dv:orca-setup`); a project's name and icon are set in the app, not the CLI. Orca gotchas: dotfiles `docs/reference/orca-worktrees.md`.

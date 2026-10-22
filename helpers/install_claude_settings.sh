@@ -126,6 +126,22 @@ if unmerged:
     )
     raise SystemExit(1)
 
+# A tracked key the live file lacks is a change the copy-seed never delivered (a live file
+# that predates it), not a removal: capturing would silently drop it from the baseline
+# (MergeWren 259cbf8#1, autoCompactWindow). Refuse and point at the migration, which
+# carries such keys. A key removed on purpose is deleted from the tracked file by hand.
+missing = [k for k in tracked if k != "//" and k not in strip and k not in live]
+if missing:
+    print(
+        "Error: live settings lacks tracked key(s) %s. Capturing now would drop them\n"
+        "       from the tracked baseline. Bring the live file up to date first:\n"
+        "           %s helpers/migrate_claude_settings.py\n"
+        "       (a key you removed on purpose: delete it from %s by hand, then re-capture)"
+        % (", ".join(missing), os.environ["PYTHON_CMD"], os.environ["SRC_REL"]),
+        file=sys.stderr,
+    )
+    raise SystemExit(1)
+
 dropped = [k for k in strip if k in live]
 for k in dropped:
     live.pop(k)

@@ -15,11 +15,12 @@ input=$(cat)
 # ($wt) and drew an empty worktree badge. With no line ending there is no CR.
 # Elsewhere -j and -r are identical here: $(...) strips the newline anyway.
 US=$(printf '\037')
-IFS="$US" read -r cwd model used effort lim5 lim7 pr_num pr_state pr_url wt <<EOF
+IFS="$US" read -r cwd model used ctx_tok effort lim5 lim7 pr_num pr_state pr_url wt <<EOF
 $(printf '%s\n' "$input" | jq -j '[
   (.workspace.current_dir // .cwd // ""),
   (.model.display_name // ""),
   (.context_window.used_percentage // ""),
+  (.context_window.total_input_tokens // ""),
   (.effort.level // ""),
   (.rate_limits.five_hour.used_percentage // ""),
   (.rate_limits.seven_day.used_percentage // ""),
@@ -29,6 +30,8 @@ $(printf '%s\n' "$input" | jq -j '[
   (.worktree.name // .workspace.git_worktree // "")
 ] | map(tostring) | join("\u001f")')
 EOF
+# total_input_tokens is 0 before the first API response: treat it as absent.
+[ "$ctx_tok" = 0 ] && ctx_tok=""
 
 # Accent colors (truecolor; ASCII + octal \033 only, so POSIX/dash-safe). The
 # parenthetical descriptor (e.g. "1M", "context" stripped) and the effort level
@@ -47,6 +50,20 @@ pr_color="\033[38;2;170;130;255m"
 meter_color() {
   if [ "$1" -gt 70 ]; then printf '\033[38;2;246;108;108m'    # salmon red
   elif [ "$1" -ge 50 ]; then printf '\033[38;2;232;184;74m'   # amber
+  else printf '\033[38;2;158;226;78m'                          # lime green
+  fi
+}
+
+# The context meter measures tokens in context against CTX_BUDGET, not a percentage
+# of the model's window: on a 1M window, 25% is already 250k tokens, and every turn
+# re-reads all of it (VIL-402). The budget is where a session should end, not where
+# it compacts: autoCompactWindow in claude/settings.json (400k) is only a backstop.
+# Green below 60% of the budget, amber from 60%, red from 80% (200k): time for a
+# handoff and /clear.
+CTX_BUDGET=250000
+ctx_color() {
+  if [ "$1" -ge 80 ]; then printf '\033[38;2;246;108;108m'    # salmon red
+  elif [ "$1" -ge 60 ]; then printf '\033[38;2;232;184;74m'   # amber
   else printf '\033[38;2;158;226;78m'                          # lime green
   fi
 }
@@ -209,7 +226,7 @@ fi
 
 # ── Line 2: model + descriptor + effort, then budget meters ───────────────────
 # Printed only when there is line-2 content (avoids a dangling blank row).
-if [ -n "$model" ] || [ -n "$used" ] || [ -n "$lim5" ] || [ -n "$lim7" ]; then
+if [ -n "$model" ] || [ -n "$used" ] || [ -n "$ctx_tok" ] || [ -n "$lim5" ] || [ -n "$lim7" ]; then
   printf "\n"
   m2sep=""
 
@@ -248,10 +265,18 @@ if [ -n "$model" ] || [ -n "$used" ] || [ -n "$lim5" ] || [ -n "$lim7" ]; then
   # Meters: context window, then 5h / 7d rate-limit windows (Claude.ai subs
   # only; absent on Vertex). Each = "<label> <bar> <pct>%"; label white, bar
   # fill + pct in the meter color, track dim.
-  if [ -n "$used" ] || [ -n "$lim5" ] || [ -n "$lim7" ]; then
+  if [ -n "$used" ] || [ -n "$ctx_tok" ] || [ -n "$lim5" ] || [ -n "$lim7" ]; then
     printf "%s" "$m2sep"
     sep=""
-    if [ -n "$used" ]; then
+    if [ -n "$ctx_tok" ] && [ "$ctx_tok" -gt 0 ] 2>/dev/null; then
+      # Absolute tokens against the budget; the bar caps at full.
+      u=$(( ctx_tok * 100 / CTX_BUDGET )); [ "$u" -gt 100 ] && u=100
+      c=$(ctx_color "$u")
+      printf "%s\033[37mctx \033[0m" "$sep"; bar "$u" "$c"
+      # Round down, so the label never reads 200k while the color still says under 200k.
+      printf "%s %dk/%dk\033[0m" "$c" $(( ctx_tok / 1000 )) $(( CTX_BUDGET / 1000 )); sep="  "
+    elif [ -n "$used" ]; then
+      # Before the first API response total_input_tokens is 0: fall back to the percentage.
       u=$(printf "%.0f" "$used"); c=$(meter_color "$u")
       printf "%s\033[37mctx \033[0m" "$sep"; bar "$u" "$c"; printf "%s %d%%\033[0m" "$c" "$u"; sep="  "
     fi
