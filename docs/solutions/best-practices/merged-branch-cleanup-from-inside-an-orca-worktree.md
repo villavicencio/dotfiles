@@ -50,7 +50,8 @@ Two routes, depending on who merges.
 **Default: the home session merges and cleans up.** `docs/agents/parallel-sessions.md`
 ("Roles") gives merges and the cleanup after each to the home session (the main checkout).
 A worktree session pushes, opens the PR, and hands it over (`SendMessage`). The home session
-merges and runs `cleanup_merged_branch <pr> master`, which detaches the worktree and deletes
+merges, pulls (`git pull --ff-only`, so it sources the current function; a copy from before
+VIL-414 refuses the worktree instead), and runs `cleanup_merged_branch <pr> master`, which detaches the worktree and deletes
 the branch, and then David Force deletes the worktree, the same cleanup-before-Force order as
 CLAUDE.md's Orca section. No session dies mid-procedure.
 
