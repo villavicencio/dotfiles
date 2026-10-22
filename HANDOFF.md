@@ -1,43 +1,53 @@
 ---
-created_at: "2026-10-22T10:37:42-07:00"
+created_at: "2026-10-22T11:22:53-07:00"
 branch: "master"
-head: "156def1"
+head: "d93f7eb"
 worktree: "/Users/dvillavicencio/Projects/Personal/dotfiles"
-resume_focus: "Morning report on the 2026-10-23 01:30 PT pilot run on hal (VIL-391, VIL-417, VIL-381): status, checks, time split with pilot/timing.py, tokens; and whether any run hit the 60-min limit vs \"Prompt is too long\""
 ---
-# HANDOFF — 2026-10-22, morning (PDT)
+# HANDOFF — 2026-10-22, late morning (PDT)
 
-This session picked up the hal Local Coding Pilot (Linear P-VIL-11) after its first LaunchDaemon night. It reported the 2026-10-22 01:30 PT run, raised the worker's context cap because running out of context was the main failure, reran VIL-380 (which then passed), and queued three tickets for the 2026-10-23 01:30 PT run. The next session's job is that morning's report. Other sessions' commits since the last handoff (Orca cleanup #236, herdr #235, obsidian #237, docs) aren't covered here.
+This session picked up after a `/clear`, with MergeWren's first review of #239 (`pilot/timing.py`) just in. It took #239 through three more fix rounds, merged it, and pulled both clones. The earlier session's handoff (VIL-380 rerun, the context cap raised to 192k in #238, tonight's queue) still holds and is carried forward below. The next job is the morning report on the 2026-10-23 01:30 PT pilot run.
 
 ## What We Built
-- **First LaunchDaemon night (2026-10-22 01:30–02:52 PT):** VIL-389 passed (mergewren#69). VIL-380 failed, out of context (mergewren#71, since closed). VIL-252 was declined (it leaves decisions to David). Results are in a comment on **VIL-396**, which is now **Done**.
-- **#238 (`54c4353`):** the worker's context cap went from 128k to 192k (`CLAUDE_CODE_MAX_CONTEXT_TOKENS=196608` in `pilot/runner.py`), and `pilot/plan-prompt.md` now tells the planner 192k (MergeWren `05764ee#1`). Both failed runs had stopped near 109k; LM Studio has `qwen3.8-27b` loaded with 233,984 tokens of context, and the prompt shares that with the 32k reply.
-- **VIL-380 rerun by hand (03:47–04:41 PT):** it passed (**mergewren#73**), peaked at 145k of context, and used 51.2 of its 60 minutes. mergewren#71 was closed as superseded, and its branch deleted.
-- **#239 (open, `feat/pilot-timing`):** `pilot/timing.py` splits a run's `worker.jsonl` into thinking, tool and other time. Thinking was 54–72% of worker time on all four transcripts, and the longest single think was 15.7 min. Tested on hal; the path for a stopped worker (no `result` event) is untested because no such transcript exists yet.
-- **`30f4e5f` (master):** `pilot/README.md` "The queue" now records which tickets fit the pilot, and that the queue runs in file-time order.
-- **Queue for 2026-10-23 01:30 PT** (`~/runs/queue/` on hal, runs in this order): `09-vil-391.md`, `10-vil-417.md` (item 4: remove the dead code), `11-vil-381.md` (most likely to hit the 60-min limit; the file names a smaller fallback). All three are in mergewren. Each carries the "Environment on hal" note.
-- **Linear:** new label `hal-overnight` on VIL-391, VIL-417 and VIL-381, marking tickets David approved for the pilot.
+- **#239 merged (`7472182`):** `pilot/timing.py` plus a small `pilot/runner.py` change. The PR body has the full review history, including the one declined finding.
+  - `runner.py` now writes `worker.ended_at` (UTC) to `run.json`, sampled the moment the worker exits. `duration_s` is now also sampled at that moment, so it no longer includes writing stderr and parsing the transcript.
+  - `timing.py` ends a transcript that has no `result` event at `ended_at`. A tool call still running at that point counts as tool time. Otherwise the gap after the last event shows as "cut off": a think or reply that never reached the transcript.
+  - The report says "stopped: <reason>" only when `worker.killed` is set, and "exited N with no result event" otherwise.
+  - Overlapping tool calls are counted once, and a result with no final text no longer crashes.
+- **Tests:** 9 synthetic transcripts, built by a throwaway script that wasn't committed. Old and new output match on hal's 7 real transcripts. A real killed worker hasn't happened yet, so tonight may be its first test.
+- **Clones:** both are at `7472182` or later. This Mac's main checkout is on `master` at `d93f7eb`, and hal's clone (as `david`) is at `7472182`. `feat/pilot-timing` is deleted locally and on origin. The 2026-10-23 run uses the new runner.
+- **`d93f7eb` (master):** `CLAUDE.md` (review-stack section) and `AGENTS.md` now say that an incremental MergeWren round can keep a stale finding open.
+- **Carried from the morning session (still true):**
+  - mergewren#69 (VIL-389) and #73 (VIL-380) passed and are waiting on the MergeWren session. mergewren#61 (VIL-251) has a high finding and is missing tests.
+  - Tonight's queue in `~/runs/queue/` on hal: `09-vil-391.md`, `10-vil-417.md`, `11-vil-381.md`, all labelled `hal-overnight` in Linear.
 
 ## Decisions Made
-- **MergeWren does all mergewren work** (David, 2026-10-22: "I prefer if MergeWren works on MergeWren"): fixes as well as merges, pilot PRs included. This session reports on runs and hands PRs over with SendMessage (session "VIL-317 and VIL-400 pilot merges"); it doesn't edit mergewren branches. Saved to memory (`feedback_mergewren_owns_mergewren.md`).
-- **VIL-397 (automatic ticket intake) is deferred.** The bottleneck is merging, not picking tickets, and the worker's settings are still changing. Pick it up once merges keep up with incoming PRs, a week of runs has gone without a settings change, and VIL-398's two-week verdict says keep going. Until then: hand-pick tickets, copy them into the queue, and add the `hal-overnight` label.
-- **The 60-minute worker limit stays** until a run actually times out. If one does, raising it is the next change, not the context cap. David is fine with runs going past 06:00 PT.
-- **Running past 06:00 by hand is fine:** `runner.py --once --ignore-window` under `nohup` as `david`.
+- **Declined MergeWren `74e3fde#1` as stale.** It describes `timing.py` adding `duration_s` to the first event. The code stopped doing that in `7d8ee8c`, yet the finding stayed "Still open" for two incremental rounds. The reason is on its thread and in the PR body.
+- **Runs from before `ended_at` existed don't get an estimated end.** `duration_s` overshoots the end by the worker's startup time. Those runs are reported as partial, with the total stopping at the last event. That covers the three `runner-error` VIL-251 runs from 2026-10-21, whose `run.json` has no worker block at all.
+- Carried forward unchanged:
+  - MergeWren does all mergewren work.
+  - VIL-397 is deferred.
+  - The 60-minute worker limit stays until a run actually times out.
+  - Running past 06:00 by hand is fine.
 
 ## What Didn't Work
-- **Adding up `system/thinking_tokens` events** gives nonsense: each is a running estimate for its step. Use `thinking_duration_ms` on assistant events (what `pilot/timing.py` does).
-- **Obscura and bryancola.com tickets don't fit the pilot yet.** Most Obscura tickets leave a design question open, so the planner would decline them, and bryancola's checks need the network. VIL-126 part C (a one-line sizing-message fix) is the one small Obscura task worth queueing if it's scoped to that part alone.
+- **`first event + duration_s` as the stop time** overshoots by the startup delay, so I replaced it with `ended_at` (MergeWren `74e3fde#1`).
+- **Sampling `ended_at` at the end of `work()`** counted stderr writing and transcript parsing as worker time (`7d8ee8c#1`). It is now taken right after `run_limited` returns.
+- Carried from the morning session: adding up `system/thinking_tokens` events gives nonsense. Obscura and bryancola tickets don't fit the pilot yet.
 
 ## What's Next
-1. **Morning report on the 2026-10-23 01:30 PT run.** As `david` on hal: `~/runs/log/runner.log` (the LaunchDaemon's log; `overnight.log` holds only older runs), then `~/runs/log/<run>/run.json` for each ticket. Run `pilot/timing.py ~/runs/log/<run>/` for the time split (from the clone if #239 has merged, or copy the script from that branch). For each run, say whether it ended done, on "Prompt is too long", or stopped at the time limit (`killed` set in `run.json`).
-2. **#239:** wait for MergeWren's review of the current head (its watcher may still be stopped, see Gotchas), fix any findings, then merge and delete the branch. On merge, `git pull` hal's clone.
-3. **Pilot PRs waiting on the MergeWren session:** mergewren#61 (VIL-251, a high finding plus missing tests), #73 (VIL-380, a medium docs finding) and #69 (VIL-389, clean). Tonight's three PRs will join them. David's part: clear the VIL-423 lock and give that session his go-ahead to merge pilot PRs.
-4. **Refill the queue for the next night**, using the rules in `pilot/README.md` "The queue".
+1. **Morning report on the 2026-10-23 01:30 PT run (VIL-391, VIL-417, VIL-381).** Work as `david` on hal.
+   - Read `~/runs/log/runner.log`, then each `~/runs/log/<run>/run.json`.
+   - Run `~/Projects/Personal/dotfiles/pilot/timing.py ~/runs/log/<run>/` for each run.
+   - For each run, report whether it finished, hit "Prompt is too long", or was stopped at the time limit (`worker.killed`).
+   - Report tokens, peak context and the time split.
+   - If a worker was killed, this is the first real test of the cut-off path. Check that `ended_at` is in `run.json` and that the report reads sensibly.
+2. **Pilot PRs for the MergeWren session:** mergewren#61, #69 and #73, plus tonight's PRs. Hand them over with SendMessage; this session doesn't edit mergewren branches.
+3. **Refill the queue for the next night**, following `pilot/README.md` "The queue".
 
 ## Gotchas & Watch-outs
-- **MergeWren's watcher was halted** by a fake incident lock that a test wrote into the live lane (**VIL-423**). Only David can clear it. Until he does, no MergeWren review runs on any repo, including this one (#239).
-- **Mentioning a VIL id in a PR title or body can auto-close it on merge** (global CLAUDE.md). #238 named VIL-380 and VIL-251 and didn't close them, but check after every merge.
-- **The queue runs oldest file first by modification time, not by name.** Copy files in the order you want them run.
-- **`sed` is BSD in agent shells** (it isn't coreutils, so `zshenv`'s `gnubin` doesn't cover it). CLAUDE.md's "Paths" section now says so. Use `sed -i ''`, `gsed`, or the Edit tool.
-- **hal accounts:** this session reaches only `david@hal`. The MergeWren session runs as `hal`. Never print anything from `~/.config/hal-pilot/`, and never load or unload LM Studio models.
-- **The `opaleye` Orca worktree is already gone** (removed outside this session); nothing to clean up.
+- **MergeWren is reviewing again.** It reviewed #239 four times today, so the halt the morning handoff described is over. VIL-423, the test bug that wrote the fake lock, is still in Backlog, so the lock could come back.
+- **MergeWren's inline threads stay open after a fix.** Resolve each one once a later round lists it under "Resolved", or once it's declined. Then run the unresolved-threads check before merging.
+- **A VIL id in a PR body can auto-close the issue.** #239 named VIL-389, VIL-380 and VIL-251, and all three are still In Progress (checked after the merge).
+- **The queue runs oldest file first by modification time, not by name.**
+- **hal accounts:** this session reaches only `david@hal`. Never print anything from `~/.config/hal-pilot/`, and never load or unload LM Studio models.
