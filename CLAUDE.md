@@ -359,6 +359,14 @@ W=$(orca worktree show --worktree "name:<display name>" --json | jq -r .result.w
   already merged, and keeps it otherwise (`orca worktree rm --help`). If you want the branch
   name kept even when merged, note it first: `git -C "$W" branch --show-current`.
 
+**After a merge, run the cleanup before Force delete.** This repo squash-merges, so Orca can
+never prove the branch merged, and Force delete leaves it locally and on origin.
+`cleanup_merged_branch <pr> master` (`docs/agents/code-review.md`, "After the merge") deletes
+it in both places. git can't remove a worktree with a submodule, so the function detaches it
+at its own HEAD instead and prints `<path> is detached at <sha>: Force delete it in Orca`. It
+works from inside that worktree, so a session that merged its own PR cleans up before the
+Force delete closes it (VIL-414).
+
 **There is deliberately no `scripts.archive` to clear the submodule first.** #225 tried one,
 and four review rounds each found a new way an automatic delete could lose work: a staged
 gitlink, remote-tracking refs that outlive their branch, a tag-only pin, branch and tag names,

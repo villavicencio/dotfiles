@@ -360,6 +360,9 @@ cmd_done() {
   # Copies an earlier run couldn't move back would be deleted with the worktree's git dir.
   local held s gd left
   gd=$(git -C "$dir" rev-parse --absolute-git-dir) || die "can't read $dir's git dir"
+  # git can't remove a worktree with an initialized submodule, and cleanup_merged_branch would
+  # only detach it, leaving it without the copies held below. Stop before holding anything.
+  [ ! -e "$gd/modules" ] || die "$dir has an initialized submodule, so git can't remove it; wt done leaves it alone"
   if [ -d "$gd/wt-held" ]; then
     left=$(cd "$gd/wt-held" && find . ! -type d) || die "can't read $gd/wt-held"
     [ -z "$left" ] || die "an earlier 'wt done' left copies in $gd/wt-held that it couldn't move back:

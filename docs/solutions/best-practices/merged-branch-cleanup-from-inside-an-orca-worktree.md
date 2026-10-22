@@ -52,24 +52,26 @@ merges, David Force deletes the worktree, and then the home session runs
 `cleanup_merged_branch <pr> master`, which works once the worktree is gone. No session dies
 mid-procedure.
 
-**When the worktree session merged its own PR** (David asked it to), it has to clean up before
-the worktree is deleted, from inside it. Do it only when the local branch tip is exactly the
-PR's merged head (`gh pr view <N> --json headRefOid`); a different tip means there's work the
-merge didn't take, so keep the branch and say so.
+**When the worktree session merged its own PR** (David asked it to), it cleans up from inside the
+worktree, before the worktree is deleted:
 
 ```bash
-B=feat/axiom-command                                    # from the PR's headRefName, not typed
-O=$(gh pr view 234 --json headRefOid -q .headRefOid)    # the merged head
-[ "$(git rev-parse "refs/heads/$B")" = "$O" ] || { echo "local $B moved: keep it"; exit 1; }
-git push --force-with-lease="refs/heads/$B:$O" origin --delete "$B"   # origin, only if still at O
-git switch --detach "$O"                                # leave the branch, keep the same files
-git update-ref -d "refs/heads/$B" "$O"                  # local, only if still at O
+source ~/Projects/Personal/dotfiles/bin/lib/cleanup-merged-branch.sh
+cleanup_merged_branch 234 master
 ```
 
-These are the same safety checks `cleanup_merged_branch` uses (the conditional origin delete
-at `bin/lib/cleanup-merged-branch.sh:63`, the conditional `update-ref -d` at `:80`), minus
-the worktree removal it can't do here. The worktree is left detached at the merged commit,
-clean, with nothing that isn't on master, so David can Force delete it whenever he likes.
+Since VIL-414 the function detaches a worktree it can't remove (one with initialized
+submodules, which every Orca worktree has) instead of refusing. It detaches at the worktree's
+own HEAD, so no file changes, then deletes the branch on origin and locally with the usual
+conditional checks, and prints `<path> is detached at <sha>: Force delete it in Orca`. The
+branch is kept, and the worktree stays on it, whenever the local tip holds work the merge
+didn't take or the worktree has changes or untracked files. The worktree is left clean, with
+nothing that isn't on master, so David can Force delete it whenever he likes.
+
+Before VIL-414 the function refused here (`<worktree> has initialized submodules: keeping
+<branch>`), and #234's branch was cleaned up by hand with the same steps: a conditional
+`git push --force-with-lease=refs/heads/<b>:<oid> origin --delete <b>`, `git switch --detach`,
+then `git update-ref -d refs/heads/<b> <oid>`.
 
 Before telling David it's safe, run the CLAUDE.md pre-Force checks against the worktree:
 `git -C "$W" status --porcelain --ignored --untracked-files=all` (only the copied
@@ -81,7 +83,7 @@ commits in that clone, so list those too. This doc adds one more: `git cherry or
 ## Why This Matters
 
 Without this, the "delete the branch at merge" rule silently fails for every PR merged from
-an Orca worktree: the cleanup tool refuses, Force delete takes the session with it, and Orca
+an Orca worktree: the cleanup tool refused (until VIL-414), Force delete takes the session with it, and Orca
 keeps a squash-merged branch. The branches pile up on origin, and the next agent sees stale
 `feat/*` branches it has to investigate. Telling David to "come back after the delete" also
 hands him a step that can't be completed, in the session that just promised to finish it.

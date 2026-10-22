@@ -89,6 +89,9 @@ wt port [topic]           # the worktree's dev-server port (this one, or the nam
   (`bin/lib/cleanup-merged-branch.sh`, the same function as `code-review.md`'s "After the
   merge"). That removes the worktree and deletes the branch locally and on origin, only if the
   branch holds nothing the merge didn't.
+- **A worktree with an initialized submodule is refused** before anything changes: git can't
+  remove it, and `cleanup_merged_branch` would only detach it. `wt new` never initializes one,
+  so this only happens after a `git submodule update --init` inside the worktree.
 - **It needs `gh` to check.** If `gh` isn't installed or the lookup fails, `wt done` stops and
   says so rather than treat the branch as unmerged; `--keep-branch` doesn't need `gh`.
 - **Without a merged PR, it refuses.** `wt done <topic> --keep-branch` removes only the worktree and
