@@ -134,7 +134,24 @@ The ticket body, as David approved it.
 The runner handles ticket files like this:
 - A ticket the runner starts moves to `queue/taken/`.
 - A file that doesn't parse, or names a repo outside the pilot, moves to `queue/rejected/`.
-- How approved tickets get into the queue is VIL-397.
+- "Oldest first" means by file modification time, not by name. Copy files in the order you
+  want them run.
+- How approved tickets get into the queue is VIL-397. Until then they're copied in by hand,
+  and each approved ticket gets the `hal-overnight` label in Linear.
+
+Which tickets fit (learned 2026-10-18 to 10-22):
+- **No open decision for David.** The planner declines a ticket that leaves a design or
+  policy choice open (VIL-252 on 2026-10-22). Either decide it in the queue file, or queue
+  only the part that's already decided (a ticket's "part C", say).
+- **A command can check it.** A test file to run, a test to add, or exact pass criteria.
+- **Not mergewren's review logic** (incremental review, baseline rules, read evidence): a
+  worker change there would change the reviewer that grades the pilot (VIL-397).
+- **No network or live service in the check.** A link-preview check or an image CDN rules a
+  ticket out.
+- **About an hour of work.** Name a smaller part that's still a good PR, so a worker that
+  runs short has a clear place to stop.
+- Copy the "Environment on hal" note from a ticket in `queue/taken/` into each mergewren
+  ticket. It says to run tests with `--offline`, and names the test that always fails on hal.
 
 ## Install (on hal)
 
