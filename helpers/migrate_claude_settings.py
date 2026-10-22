@@ -20,8 +20,11 @@ safe to re-run, and a no-op once applied:
    installed; this catches what that leaves, including our own blank-state entries.
    (Until VIL-422 this step registered the blank-state hook instead.)
 
-Run it on any machine whose settings.json predates 2026-08-25, and on any Mac that had
-herdr. Writes a timestamped backup first and parse-checks before replacing.
+3. Set `autoCompactWindow` from the tracked file when the live file has none (VIL-402).
+   A value already there is the machine's choice and is left alone.
+
+Run it on any machine whose settings.json predates 2026-08-25, on any Mac that had
+herdr, and after a change to a tracked key this script carries. Writes a timestamped backup first and parse-checks before replacing.
 
 NOTE: Claude Code's auto-mode classifier blocks agents from writing this file
 (by design — it stops an agent widening its own permissions), so this is a
@@ -40,11 +43,16 @@ import sys
 import time
 
 SETTINGS = os.path.expanduser("~/.claude/settings.json")
+# The tracked baseline this repo seeds: Windows has its own sibling.
+_REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+_ON_WINDOWS = os.name == "nt" or sys.platform in ("cygwin", "msys")
+TRACKED = os.path.join(_REPO, "windows" if _ON_WINDOWS else "claude",
+                       "claude-settings.json" if _ON_WINDOWS else "settings.json")
 
 
 def main():
     if os.environ.get("DOTFILES_DRY_RUN", "0") == "1":
-        print("[dry-run] would repair %s (allowedTools fold, herdr hook removal)" % SETTINGS)
+        print("[dry-run] would repair %s (allowedTools fold, herdr hook removal, autoCompactWindow)" % SETTINGS)
         return 0
     if not os.path.exists(SETTINGS):
         print("No settings at %s — nothing to migrate." % SETTINGS)
@@ -64,8 +72,13 @@ def main():
     hooks = data.get("hooks") or {}
     herdr = [(e, h.get("command")) for e, groups in hooks.items() if isinstance(groups, list)
              for g in groups if isinstance(g, dict) for h in g.get("hooks", []) if is_herdr(h)]
-    if "allowedTools" not in data and not herdr:
-        print("Nothing to migrate: no allowedTools key, no herdr hooks.")
+    try:
+        tracked_window = json.load(open(TRACKED, encoding="utf-8")).get("autoCompactWindow")
+    except Exception:
+        tracked_window = None
+    add_window = tracked_window is not None and "autoCompactWindow" not in data
+    if "allowedTools" not in data and not herdr and not add_window:
+        print("Nothing to migrate: no allowedTools key, no herdr hooks, autoCompactWindow set.")
         return 0
 
     backup = "%s.bak-%d" % (SETTINGS, int(time.time()))
@@ -93,6 +106,9 @@ def main():
             else:
                 del hooks[event]
 
+    if add_window:
+        data["autoCompactWindow"] = tracked_window
+
     tmp = SETTINGS + ".tmp.%d" % os.getpid()
     try:
         with open(tmp, "w", encoding="utf-8", newline="\n") as fh:
@@ -109,6 +125,8 @@ def main():
     print("allowedTools:      %s" % ("removed, %d rules folded in" % len(legacy) if legacy
                                      else "absent (already migrated)"))
     print("permissions.allow: %d rules" % len(merged))
+    print("autoCompactWindow: %s" % ("set to %s" % tracked_window if add_window
+                                     else "kept at %s" % data.get("autoCompactWindow")))
     print("herdr hooks:       %s" % ("removed: " + ", ".join("%s %s" % h for h in herdr) if herdr
                                      else "none"))
     return 0

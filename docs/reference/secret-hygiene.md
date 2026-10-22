@@ -22,7 +22,9 @@ is invisible to the hook by design — manual audits + the postmortem's grep rec
 **Entropy gate.** Gitleaks's `github-pat` rule (and most provider rules) include an
 entropy threshold to avoid false positives on test fixtures. A token like
 `ghp_aaaaaaaa...` (entropy 0) is *not* flagged by design. To smoke-test the hook,
-use a high-entropy fake like `ghp_xKy7mFP2zL9QrT4vN8bH3sD1jE6cWa0pIuYg`. <!-- gitleaks:allow -->
+use a high-entropy fake, assembled at run time so no file carries a matching token:
+`'ghp_' + 'xKy7mFP2zL9QrT4vN8bH3sD1jE6cWa0pIuYg'`, as CI's W8 step does. A literal fake
+in a doc trips every scanner that ignores `gitleaks:allow`, MergeWren's included.
 
 **False positives.** Add an inline `# gitleaks:allow` comment on the offending line,
 or extend the repo with a `.gitleaks.toml` allowlist entry. Default ruleset is broad —

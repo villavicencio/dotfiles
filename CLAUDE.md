@@ -33,7 +33,7 @@ Each line is a rule; the file in parentheses has the why, the history and the ex
 - Node version lives in `NODE_VERSION` (`zsh/zshenv`). A new Oh My Zsh plugin also gets its `git clone` in `helpers/install_omz.sh`.
 
 **Claude Code config** (`docs/reference/claude-code-config.md`)
-- `claude/settings.json` is copy-seeded, never linked. Agents can't write `~/.claude/settings.json`; give David the exact command to run with `!`. Record live changes with `dot drift` and `helpers/install_claude_settings.sh --capture`. Windows seeds `windows/claude-settings.json`; keep shared keys in step.
+- `claude/settings.json` is copy-seeded, never linked. Agents can't write `~/.claude/settings.json`; give David the exact command to run with `!`. Record live changes with `dot drift` and `helpers/install_claude_settings.sh --capture`. A tracked change an existing machine needs (a removed hook, a new key) goes into `helpers/migrate_claude_settings.py`, which David runs. Windows seeds `windows/claude-settings.json`; keep shared keys in step.
 - No `allowedTools` key, ever: it silently overrides `permissions.allow`. `Write(path)` rules are inert (use `Edit(path)`). A `*` in a `Bash(...)` rule goes only after the subcommand.
 - Don't register a hook in `settings.json` until its file is on `master` (the hook links into this working tree).
 - The auto-mode classifier also blocks secret-store writes, credential materialization and unattended-agent instructions; hand those to David.
