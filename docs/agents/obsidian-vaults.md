@@ -40,9 +40,9 @@ project's vault only when asked.
   Obsidian). The LaunchAgent `com.dvillavicencio.hal-memory-pull` copies each one hourly into
   `~/Obsidian/<vault>/memory/` on the personal Mac (`skills` → `skills`, `bryancola.com` →
   `bryancola`). It's one-way: the vault is a read-only mirror, and an edit made there is
-  replaced on the next change from hal. The replaced folder moves to
-  `~/Obsidian/<vault>/.sync-backup/<UTC stamp>/` rather than being deleted. A project moved to
-  hal gets a row in the table in `helpers/hal_memory_pull.sh`, then
+  replaced on the next run, even if nothing changed on hal. The replaced folder moves to
+  `~/Obsidian/<vault>/.sync-backup/<UTC stamp>.<suffix>/memory/` rather than being
+  deleted. A project moved to hal gets a row in the table in `helpers/hal_memory_pull.sh`, then
   `bash helpers/install_hal_memory_pull.sh` (personal Mac only, from the main checkout). The
   installer creates the vault with the standard config and reloads the job. Log:
   `~/Library/Logs/hal-memory-pull.log`. Not rsync: the Mac's `/usr/bin/rsync` is openrsync,

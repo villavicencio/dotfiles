@@ -6,8 +6,8 @@
 # Claude Code memory to /Users/david/.claude/projects/<slug>/memory/ on hal. hal has no
 # Obsidian, so this job copies each of those folders into ~/Obsidian/<vault>/memory/ on
 # the personal Mac. It's one-way: hal is where memory is written, the vault is a read-only
-# mirror and backup. An edit made in the vault is replaced on the next change from hal
-# (the replaced folder is kept, see below).
+# mirror and backup. An edit made in the vault is replaced on the next run, whether or
+# not anything changed on hal (the replaced folder is kept, see below).
 #
 # Installed by helpers/install_hal_memory_pull.sh as a copy (not a link into the repo, so
 # a branch switch can't break it) and run by the LaunchAgent com.dvillavicencio.hal-memory-pull.
@@ -16,7 +16,7 @@
 # Not rsync: macOS's /usr/bin/rsync is openrsync, and in testing (2026-10-21) it exited 0
 # without updating a changed file. Instead each folder is pulled with tar into a staging
 # dir inside the vault, compared, and swapped in with mv. The folder it replaces moves to
-# ~/Obsidian/<vault>/.sync-backup/<UTC stamp>/, so nothing is ever deleted. Obsidian
+# ~/Obsidian/<vault>/.sync-backup/<UTC stamp>.<suffix>/memory/, so nothing is ever deleted. Obsidian
 # ignores dot-folders, so backups don't show up as notes.
 #
 # A missing or empty folder on hal leaves the vault alone, as does an unreachable hal.
@@ -85,24 +85,50 @@ pull_one() {
   fi
 
   if [ -d "$dest" ] && diff -rq "$dest" "$stage" >/dev/null 2>&1; then
-    rm -rf "$stage"; return
+    rm -rf "$stage" || { log "$vault: unchanged, but could not remove $stage"; rc=1; }
+    return
   fi
 
   if [ -d "$dest" ]; then
-    mkdir -p "$vdir/.sync-backup"
-    backup="$vdir/.sync-backup/$(date -u '+%Y%m%dT%H%M%SZ')"
-    if ! mv "$dest" "$backup"; then
+    # mktemp gives each backup its own folder, so two runs in the same second can't
+    # collide (mv onto an existing folder would nest the old copy inside it).
+    mkdir -p "$vdir/.sync-backup" &&
+      backup=$(mktemp -d "$vdir/.sync-backup/$(date -u '+%Y%m%dT%H%M%SZ').XXXX") ||
+      { log "$vault: could not create a backup folder; vault left alone"; rm -rf "$stage"; rc=1; return; }
+    if ! mv "$dest" "$backup/memory"; then
       log "$vault: could not move the old memory aside; vault left alone"
-      rm -rf "$stage"; rc=1; return
+      rm -rf "$stage"; rmdir "$backup" 2>/dev/null; rc=1; return
     fi
   fi
+  # If something recreated memory/ meanwhile, mv would put the stage inside it. Don't.
+  if [ -e "$dest" ]; then
+    log "$vault: $dest reappeared during the swap; staged copy left at $stage"
+    rc=1; return
+  fi
   if mv "$stage" "$dest"; then
-    log "$vault: updated from $HOST${backup:+ (previous copy in ${backup#"$vdir"/})}"
+    log "$vault: updated from $HOST${backup:+ (previous copy in ${backup#"$vdir"/}/memory)}"
   else
     log "$vault: swap failed; staged copy left at $stage"
     rc=1
   fi
 }
+
+# One run at a time. launchd never overlaps its own job, but a manual run can overlap it,
+# and two runs swapping the same folder could leave a download in the wrong place.
+# mkdir is atomic; a lock whose pid is gone is stale (killed run) and is taken over.
+mkdir -p "$OBSIDIAN" || exit 1
+LOCK="$OBSIDIAN/.hal-memory-pull.lock"
+if ! mkdir "$LOCK" 2>/dev/null; then
+  pid=$(cat "$LOCK/pid" 2>/dev/null)
+  if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then
+    log "another run (pid $pid) holds $LOCK; skipping"
+    exit 0
+  fi
+  rm -rf "$LOCK" && mkdir "$LOCK" 2>/dev/null || { log "could not take $LOCK"; exit 1; }
+fi
+echo $$ >"$LOCK/pid"
+trap 'rm -rf "$LOCK"' EXIT
+trap 'exit 1' HUP INT TERM
 
 # Word-split the table in this shell (no pipe), so rc and log output survive the loop.
 set -f

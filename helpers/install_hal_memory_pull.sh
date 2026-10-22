@@ -43,17 +43,26 @@ if ! /usr/bin/ssh -o BatchMode=yes -o ConnectTimeout=10 hal true 2>/dev/null; th
   exit 1
 fi
 
+# Captured first: a process substitution would drop the exit status of --vaults.
+vaults="$(/bin/sh "$JOB_SRC" --vaults)" && [ -n "$vaults" ] ||
+  { echo "Error: $JOB_SRC --vaults failed or listed nothing" >&2; exit 1; }
 while read -r vault; do
   [ -n "$vault" ] || continue
   dir="$HOME/Obsidian/$vault"
   mkdir -p "$dir" || { echo "Error: cannot create $dir" >&2; exit 1; }
   if [ ! -e "$dir/.obsidian" ]; then
-    cp -R "$TEMPLATE" "$dir/.obsidian" || { echo "Error: cannot stamp $dir/.obsidian" >&2; exit 1; }
-    echo "vault $vault: created with the standard config"
+    # Copy beside it, then rename, so a failed copy never leaves a half-filled .obsidian
+    # that the next run would take as already stamped.
+    tmp="$(mktemp -d "$dir/.obsidian.tmp.XXXXXX")" || exit 1
+    if cp -R "$TEMPLATE/." "$tmp/" && mv "$tmp" "$dir/.obsidian"; then
+      echo "vault $vault: created with the standard config"
+    else
+      rm -rf "$tmp"; echo "Error: cannot stamp $dir/.obsidian" >&2; exit 1
+    fi
   else
     echo "vault $vault: exists"
   fi
-done < <(/bin/sh "$JOB_SRC" --vaults)
+done < <(printf '%s\n' "$vaults")
 
 mkdir -p "$JOB_DIR" "$(dirname "$PLIST")" "$(dirname "$LOG")" || exit 1
 tmp="$(mktemp "$JOB_DIR/.job.XXXXXX")" || exit 1
