@@ -32,6 +32,7 @@ Full procedure, check-description table, and rate-limit mechanics: `docs/agents/
   gh api graphql --paginate -F owner=<o> -F repo=<r> -F pr=<N> -f query='query($owner:String!,$repo:String!,$pr:Int!,$endCursor:String){repository(owner:$owner,name:$repo){pullRequest(number:$pr){reviewThreads(first:100,after:$endCursor){pageInfo{hasNextPage endCursor}nodes{isResolved path line originalLine}}}}}' -q '.data.repository.pullRequest.reviewThreads.nodes[]|select(.isResolved|not)|"UNRESOLVED \(.path):\(.line // .originalLine)"'
   ```
 - Never merge on a stale `CHANGES_REQUESTED`. Fix each finding, or decline it with the reason on the thread and in the PR body. `mergeStateStatus: CLEAN` means nothing is blocking the button, not that the PR was reviewed. If you skip review on a trivial diff, say so when reporting the merge. Merge past a throttled review only for docs/config, with the throttle recorded in the PR body.
+- GitHub's closing keywords (`close`, `fix`, `resolve` and their variants, followed by `#N`) work anywhere in a PR title or body, including ordinary sentences. "Close #41 unmerged" closed #41 when the PR merged, and left no comment (skills#48, 2026-10-22). Unless you want that, write "PR 41 gets closed". This is the GitHub counterpart of the `VIL-` rule under Linear.
 
 ## Linear
 - Linear is my tracker: workspace `villavicencio`, team key `VIL`, one project per repo or area. The `linear` MCP is in `~/.claude.json`; its tools are deferred (load with ToolSearch, e.g. `select:mcp__linear__save_issue`). Personal Mac only; never set it up on the work Mac.

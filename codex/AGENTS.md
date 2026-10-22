@@ -33,6 +33,7 @@ Repos with their own reviewer follow their own rules: dotfiles and bryancola.com
   ```
 - Never merge on a stale `CHANGES_REQUESTED`. Fix each finding, or decline it with the reason recorded on the thread and in the PR body. `mergeStateStatus: CLEAN` means nothing is blocking the button, not that the PR was reviewed. If you skip review on a trivial diff, say so when reporting the merge. Merge past a throttled review only for docs/config, with the throttle recorded in the PR body.
 - Repos under review should carry `.coderabbit.yaml` with `reviews.auto_review.auto_incremental_review: false`.
+- GitHub's closing keywords (`close`, `fix`, `resolve` and their variants, followed by `#N`) work anywhere in a PR title or body, including ordinary sentences. "Close #41 unmerged" closed #41 when the PR merged, and left no comment (skills#48, 2026-10-22). Unless you want that, write "PR 41 gets closed". This is the GitHub counterpart of the `VIL-` rule under Linear.
 
 ## Linear
 - Linear is my tracker: workspace `villavicencio`, team key `VIL`, one project per repo or area. Use it on the personal Mac only; never set it up on the work Mac.
