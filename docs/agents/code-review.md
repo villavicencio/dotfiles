@@ -218,13 +218,14 @@ may not be pulled yet, so from a worktree that has a newer copy, source that one
   `wt done` refuses such a worktree itself, before calling the function, because it expects
   the worktree to be gone afterwards.
 - **Rollback.** A worktree step can still fail for reasons nothing can predict, such as
-  permissions. So after origin is deleted, any failure (a worktree step, or the local delete
-  because the branch moved mid-run) pushes origin's branch back at the merged head, and puts
+  permissions. So after origin is deleted, a failed worktree step, or a failed local delete
+  (the branch moved mid-run), pushes origin's branch back at the merged head, and puts
   each worktree it detached back on the branch with `git symbolic-ref`, when the branch still
   points at that worktree's HEAD. If the branch moved, the worktree stays detached and the
   function prints `REATTACH FAILED`. If the origin push fails, it prints `RESTORE FAILED` with
   the exact `git push` that restores it, shell-quoted with `printf %q`. The local branch still
-  holds the commit either way.
+  holds the commit either way. The closing `git fetch --prune` runs after both deletes and
+  isn't rolled back; if it fails, only a stale `origin/<branch>` tracking ref is left.
   Worktrees are touched only after origin accepted the delete, and are re-checked right before.
 - **Why `update-ref -d` and not `git branch -D`:** a squash or rebase merge leaves the branch
   unmerged in git's eyes, so `-d` refuses and `-D` deletes whatever the tip is by then.

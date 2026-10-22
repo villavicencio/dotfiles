@@ -69,8 +69,10 @@ Since VIL-414 the function handles a worktree it can't remove (one with initiali
 submodules, which every Orca worktree has) instead of refusing. It deletes the branch on origin
 first, only while origin still points at the merged head. Then it detaches the worktree at its
 own HEAD, so no file changes, and deletes the local branch only while it's still at the commit
-it checked. If a step after the origin delete fails, it pushes origin back and re-attaches the
-worktree if the branch hasn't moved. It ends by printing `<path> is detached at <sha>` and how to remove it. The branch
+it checked. If the detach or the local delete fails, it pushes origin back and re-attaches the
+worktree if the branch hasn't moved. It then prints `<path> is detached at <sha>` and how to
+remove it, and ends with `git fetch --prune`. That fetch runs after both deletes and isn't
+rolled back: if it fails, only a stale `origin/<branch>` tracking ref is left. The branch
 is kept, and the worktree stays on it, whenever the local tip holds work the merge didn't
 take or the worktree has changes or untracked files.
 
