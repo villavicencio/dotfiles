@@ -54,7 +54,8 @@ merges, then updates and re-sources its copy of the function before running it:
 
 ```bash
 git pull --ff-only
-source bin/lib/cleanup-merged-branch.sh   # again, even if loaded: the shell keeps the old definition
+# again, even if loaded: the shell keeps the old definition
+source "$(git rev-parse --show-toplevel)/bin/lib/cleanup-merged-branch.sh"
 cleanup_merged_branch <pr> master
 ```
 
