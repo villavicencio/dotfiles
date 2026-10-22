@@ -34,8 +34,23 @@ and VIL-422 uninstalled it on 2026-10-22. This file condenses the ~360-line "Her
 | Runtime state (logs, `session.json`, `fleet-snapshot.json`) | moved from `~/.config/herdr/` to `~/Projects/_archive/herdr-config/` |
 | Two unmerged branches, `chore/herdr-retire-axiom` (#183) and `chore/herdr-retire-atlas-tools` (#184) | deleted; the full uninstall superseded them |
 
-To bring it back: revert the VIL-422 PR, `brew install herdr`, `./install`, and
-`herdr integration install claude` / `codex` (a human step: it writes the agent's own config).
+**On another Mac that had herdr (the work Mac, say)**, as a human, since agents can't write
+`~/.claude/settings.json`:
+1. `herdr integration uninstall claude` and `herdr integration uninstall codex`.
+2. `python3 helpers/migrate_claude_settings.py`. Once the retirement is pulled, it removes
+   every remaining hook that mentions herdr, including the `herdr-blank-state.sh` entries
+   herdr doesn't own. A pull without this step leaves that hook's link dangling, and
+   every session prints a hook error until the migration runs.
+3. `brew services stop herdr; brew uninstall herdr terminal-notifier`, then move
+   `~/.config/herdr/` to an archive and remove `~/.claude/hooks/herdr-blank-state.sh`.
+
+**To bring it back:**
+1. Revert the VIL-422 PR, `brew install herdr`, `./install`.
+2. Run `herdr integration install claude` / `codex` (a human step: it writes the agent's
+   own config).
+3. Re-register the blank-state hook in the live `~/.claude/settings.json`. The seed only
+   applies when that file is absent, so a revert alone doesn't do it. After the revert, the
+   pre-VIL-422 `helpers/migrate_claude_settings.py` registers it.
 
 ## Lessons that still apply
 

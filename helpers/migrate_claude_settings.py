@@ -1,8 +1,11 @@
 #!/usr/bin/env python3
-"""One-time repair for a ~/.claude/settings.json that predates the copy-seed scheme.
+"""Bring an existing ~/.claude/settings.json in line with changes the copy-seed can't reach.
 
-One fix, idempotent — safe to re-run, and a no-op once applied: undo a
-resurrected legacy top-level `allowedTools` key. When both it and
+The tracked claude/settings.json is copied in only when the live file is absent, so a
+change to it never reaches a machine that already has one. Two fixes, both idempotent —
+safe to re-run, and a no-op once applied:
+
+1. Undo a resurrected legacy top-level `allowedTools` key. When both it and
    `permissions.allow` exist, the LEGACY KEY WINS and permissions.allow is
    silently inert — rules sit there looking active while nothing consults them.
    PR #127 consolidated onto permissions.allow; this machine's live file had
@@ -10,11 +13,15 @@ resurrected legacy top-level `allowedTools` key. When both it and
    Folds allowedTools into permissions.allow (dedup, order-preserving) and
    deletes the legacy key.
 
-(It also used to register herdr's blank-state hook; herdr was retired on
-2026-10-22, VIL-422.)
+2. Remove every hook whose command mentions herdr. herdr was retired on 2026-10-22
+   (VIL-422): its blank-state hook links into this repo, so once a machine pulls the
+   retirement the link dangles and every SessionStart/UserPromptSubmit prints a hook
+   error. Run `herdr integration uninstall claude` first where herdr is still
+   installed; this catches what that leaves, including our own blank-state entries.
+   (Until VIL-422 this step registered the blank-state hook instead.)
 
-Run it on any machine whose settings.json predates 2026-08-25. Writes a
-timestamped backup first and parse-checks before replacing.
+Run it on any machine whose settings.json predates 2026-08-25, and on any Mac that had
+herdr. Writes a timestamped backup first and parse-checks before replacing.
 
 NOTE: Claude Code's auto-mode classifier blocks agents from writing this file
 (by design — it stops an agent widening its own permissions), so this is a
@@ -37,7 +44,7 @@ SETTINGS = os.path.expanduser("~/.claude/settings.json")
 
 def main():
     if os.environ.get("DOTFILES_DRY_RUN", "0") == "1":
-        print("[dry-run] would repair %s (allowedTools fold)" % SETTINGS)
+        print("[dry-run] would repair %s (allowedTools fold, herdr hook removal)" % SETTINGS)
         return 0
     if not os.path.exists(SETTINGS):
         print("No settings at %s — nothing to migrate." % SETTINGS)
@@ -52,8 +59,13 @@ def main():
 
     # Decide before touching anything: an already-migrated file gets no backup
     # and no rewrite, so re-running really is a no-op.
-    if "allowedTools" not in data:
-        print("Nothing to migrate: no allowedTools key.")
+    def is_herdr(h):
+        return "herdr" in str(h.get("command", ""))
+    hooks = data.get("hooks") or {}
+    herdr = [(e, h.get("command")) for e, groups in hooks.items() if isinstance(groups, list)
+             for g in groups if isinstance(g, dict) for h in g.get("hooks", []) if is_herdr(h)]
+    if "allowedTools" not in data and not herdr:
+        print("Nothing to migrate: no allowedTools key, no herdr hooks.")
         return 0
 
     backup = "%s.bak-%d" % (SETTINGS, int(time.time()))
@@ -63,6 +75,23 @@ def main():
     allow = data.setdefault("permissions", collections.OrderedDict()).setdefault("allow", [])
     merged = list(dict.fromkeys(list(allow) + list(legacy)))
     data["permissions"]["allow"] = merged
+
+    if herdr:
+        for event in list(hooks):
+            groups = hooks[event]
+            if not isinstance(groups, list):
+                continue
+            kept = []
+            for g in groups:
+                if isinstance(g, dict) and isinstance(g.get("hooks"), list):
+                    g["hooks"] = [h for h in g["hooks"] if not is_herdr(h)]
+                    if not g["hooks"]:
+                        continue
+                kept.append(g)
+            if kept:
+                hooks[event] = kept
+            else:
+                del hooks[event]
 
     tmp = SETTINGS + ".tmp.%d" % os.getpid()
     try:
@@ -80,6 +109,8 @@ def main():
     print("allowedTools:      %s" % ("removed, %d rules folded in" % len(legacy) if legacy
                                      else "absent (already migrated)"))
     print("permissions.allow: %d rules" % len(merged))
+    print("herdr hooks:       %s" % ("removed: " + ", ".join("%s %s" % h for h in herdr) if herdr
+                                     else "none"))
     return 0
 
 
