@@ -37,7 +37,8 @@ human-run script. Invoke it yourself:
     python3 helpers/migrate_claude_settings.py
 
 Under Git Bash on Windows `python3` is usually the Microsoft Store placeholder,
-so call it as `python`.
+so call it as `python`, or as `uv run --no-project python helpers/migrate_claude_settings.py`
+on a PC that has no Python of its own (one set up only by install.ps1).
 """
 import collections
 import copy
