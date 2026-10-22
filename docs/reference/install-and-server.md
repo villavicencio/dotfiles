@@ -34,8 +34,8 @@ How it differs from a desk Mac:
   this repo (`dotbot/src/dotbot/plugins/clean.py`, v1.24.1). hal also carries dangling links
   copied from the VPS, such as `~/personal`, and a first install has nothing to clean, so
   `clean` doesn't run there at all.
-- **Packages:** `brew/Brewfile.server`, formulae only plus one CLI-only cask (`vercel`, which
-  Homebrew moved out of core; CI allows exactly that one). An old `vercel`/`vercel-cli` formula
+- **Packages:** `brew/Brewfile.server`, formulae only plus two CLI-only casks (`vercel`, which
+  Homebrew moved out of core, and `1password-cli`; CI allows exactly those). An old `vercel`/`vercel-cli` formula
   blocks that cask, so `helpers/migrate_vercel_cask.sh` swaps it first, on both profiles.
   Installed by `brew bundle` with
   `HOMEBREW_BUNDLE_NO_UPGRADE=1` and `HOMEBREW_NO_INSTALL_UPGRADE=1`, so installed formulae

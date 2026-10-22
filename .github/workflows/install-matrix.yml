@@ -59,7 +59,7 @@
 # LaunchAgent, ~/bin scripts, OrbStack/LM Studio stubs and dangling vault
 # symlinks), reusing the pre-/post-apply composites (profile-aware via
 # $DOTFILES_PROFILE), plus ci/server-profile-checks.sh:
-# S1. Brewfile.server is formulae only (plus the CLI-only vercel cask), has the
+# S1. Brewfile.server is formulae only (plus the CLI-only vercel and 1password-cli casks), has the
 #     required set, names none of the excluded formulae (docker-desktop and
 #     every other cask, colima, docker,
 #     …); an unknown DOTFILES_PROFILE fails before Dotbot runs.
@@ -68,7 +68,7 @@
 #     ~/.zshenv was backed up; chsh was never called (a recording shim is
 #     first on PATH and CI=false, so a CI-gated chsh step would reach it);
 #     no nvim config/nvm/uv/Claude Code/Claude settings/iTerm;
-#     no cask added beyond vercel; `zsh -lic` and `zsh -lc` resolve brew, lms, docker
+#     no cask added beyond vercel and 1password-cli; `zsh -lic` and `zsh -lc` resolve brew, lms, docker
 #     (OrbStack), node, gh as hal's own rc files did, with ~/.local/bin still
 #     ahead of Homebrew. Git is R8's server branch (gh overlay only).
 #     No LaunchAgent added: tmux-continuum's boot option would write

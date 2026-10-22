@@ -16,6 +16,7 @@ Detailed procedures live in dotfiles `docs/agents/` (`~/Projects/Personal/dotfil
 ## Safety
 - Never delete user data (files, notes, records, DB rows, board cards) without my explicit approval, even if it looks out of scope. Asking is cheap; an unauthorized deletion isn't. The one standing approval is a merged PR's branch (see Git); it covers nothing else.
 - Never rewrite or force-push shared git history without asking.
+- Secrets: where `op-agent` is set up (1Password Agents vault, via a service account), read a secret through it instead of asking me to paste it. Never print a secret's value or the token file. Patterns: `docs/agents/1password.md`.
 
 ## Git
 - Changes to runtime behavior, config, or dependencies go on a branch (`feat/`, `fix/`, `chore/`, `docs/`) and merge via PR (or a local merge where a repo has no remote review). Docs, typos, and handoff commits can go straight to the default branch. When in doubt, branch. Stricter repo rules win.

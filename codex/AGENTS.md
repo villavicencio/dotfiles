@@ -59,6 +59,7 @@ Repos with their own reviewer follow their own rules: dotfiles and bryancola.com
 - Full web tool ladder (written with Claude Code's tool names): `web-research.md`.
 - Handoff `head` validation after `dv:pickup`: `session-continuity.md`.
 - Parallel sessions, worktrees, `wt`: `parallel-sessions.md`.
+- Secrets via `op-agent` (1Password Agents vault; never print a value or the token file): `1password.md`.
 - Obsidian vaults: `obsidian-vaults.md`. Each project owns `~/Obsidian/<name>/`; only `hermes` and `axiom` sync to the VPS.
 - Proof docs: `proof.md`. Collaborative docs (plans, specs, memos, drafts) go to Proof via the `proof` skill, titled `Plan: YYYY-MM-DD topic`, `Brainstorm: …`, `Draft: …`, `Reference: …`, `SOUL — <Persona>`. Code-adjacent docs stay in the repo.
 - Orca projects (herdr retired 2026-10-22): a new project gets an Orca project (`orca repo add --path <dir>`), a vault, and a project `CLAUDE.md`; worktree setup goes in the repo's `orca.yaml`. Gotchas: dotfiles `docs/reference/orca-worktrees.md`.

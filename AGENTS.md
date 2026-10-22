@@ -69,7 +69,7 @@ claude/     Claude Code config, delivered into ~/.claude/ two different ways:
             settings.json                  → COPY-SEEDED, never symlinked (see gotchas)
 codex/      Codex global instructions — AGENTS.md symlinked to ~/.codex/AGENTS.md
             (kept short on purpose, like claude/CLAUDE.md; both point at docs/agents/)
-bin/        Repo CLI — bin/dot and bin/wt (symlinked to ~/.local/bin/)
+bin/        Repo CLI — bin/dot, bin/wt and bin/op-agent (symlinked to ~/.local/bin/)
             bin/lib/*.py — Python helpers for doctor/bench, deliberately NOT heredocs
             bin/lib/cleanup-merged-branch.sh — merged-branch cleanup, sourced by agents and `wt done`
 orca.yaml   Orca's setup script for each new worktree: checks out the dotbot submodule and
@@ -222,6 +222,7 @@ Run these before committing. `bin/dot` (`~/.local/bin/dot` once installed) wraps
 | Homebrew | `brew bundle check --file=brew/Brewfile` | satisfied |
 | Server profile | `ci/server-profile-checks.sh static` | exit 0 |
 | Merged-branch cleanup (after changing `bin/lib/cleanup-merged-branch.sh` or `wt done`) | `ci/cleanup-merged-branch-checks.sh` | exit 0, both shells (local only, not in CI) |
+| `op-agent` guards (after changing `bin/op-agent`) | `ci/op-agent-checks.sh` | exit 0 (local only, stub `op`) |
 
 **Dry-run must never mutate config.** `./install --dry-run` previews Dotbot directives
 without applying them. The only thing the wrapper does regardless is init the vendored

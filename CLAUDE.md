@@ -70,8 +70,8 @@ docs/           Compound-engineering pipeline artifacts:
                 Also: docs/agents/ (cross-project agent procedures) and docs/reference/
                 (this repo's long write-ups, moved out of CLAUDE.md)
 ci/             CI assets (Dockerfile for install-matrix's linux leg, PSScriptAnalyzer settings for its windows leg,
-                server-profile-checks.sh for its macos-server leg; cleanup-merged-branch-checks.sh,
-                run by hand, not in CI)
+                server-profile-checks.sh for its macos-server leg; cleanup-merged-branch-checks.sh
+                and op-agent-checks.sh, run by hand, not in CI)
 git/            gitconfig, gitignore, gitattributes, gitconfig.linux (Linux overlay — see
                 docs/reference/wsl-linux.md)
 helpers/        Bash scripts called by the install pipeline
@@ -93,8 +93,9 @@ windows/        Windows layer, applied by install.ps1 at the repo root (NOT Dotb
                           Terminal default profile) — the `defaults write` counterpart;
                           a separate opt-in step, NOT run by install.ps1
   install_nvim.ps1        nvim plugin bootstrap — the helpers/install_nvim.sh counterpart
-bin/            Repo CLI — bin/dot, and bin/wt (one worktree per parallel session,
-                docs/agents/parallel-sessions.md); both symlinked into ~/.local/bin
+bin/            Repo CLI — bin/dot, bin/wt (one worktree per parallel session,
+                docs/agents/parallel-sessions.md), and bin/op-agent (1Password for agents,
+                docs/agents/1password.md); all symlinked into ~/.local/bin
   lib/*.py      Python helpers for doctor/bench. Real files, NOT heredocs — see
                 docs/reference/tooling.md
   lib/cleanup-merged-branch.sh  the merged-branch cleanup function (docs/agents/code-review.md)

@@ -125,6 +125,7 @@
     ~/.config/topgrade.toml: topgrade/topgrade.toml
     ~/.local/bin/dot: bin/dot
     ~/.local/bin/wt: bin/wt
+    ~/.local/bin/op-agent: bin/op-agent
     # Whole-directory link: the tracked NvChad v2.5 config IS ~/.config/nvim.
     # Created here (before the shell block below runs install_nvim.sh) so the
     # headless plugin bootstrap has a config to load. The `if` skips (not fails)

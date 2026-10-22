@@ -1,0 +1,116 @@
+#!/usr/bin/env bash
+#
+# op-agent — run 1Password CLI as the Agents-vault service account. Symlinked to ~/.local/bin/op-agent.
+#
+#   op-agent run [--env-file .env] -- <cmd>    secrets as env vars; op masks them in output
+#   op-agent inject -i <tpl> -o <file>         resolve op:// refs into a mode-600 file
+#   op-agent read -o <file> op://Agents/...    one secret into a mode-600 file
+#   op-agent whoami | vault list | item list | service-account ratelimit
+#
+# The token is read from ~/.config/op-agent/token (or $OP_AGENT_TOKEN_FILE), which must be a
+# regular file owned by you with mode 600, and goes only into op's environment: `run` starts
+# its command with the token removed. The subcommand filter keeps an agent from printing a
+# secret into its transcript by accident (`op read` to stdout or to /dev/stdout, `--reveal`,
+# `--no-masking`, `item get`). It is not a security boundary: anything running as this
+# account can read the token file. Setup and rules: docs/agents/1password.md.
+#
+# No heredocs here, for the reason given at the top of bin/dot.
+set -euo pipefail
+
+die() { printf 'op-agent: %s\n' "$*" >&2; exit 1; }
+
+usage() {
+  _self="${BASH_SOURCE[0]}"
+  while [ -L "$_self" ]; do
+    _link="$(readlink "$_self")"
+    case "$_link" in /*) _self="$_link" ;; *) _self="$(dirname "$_self")/$_link" ;; esac
+  done
+  sed -n '3,8p' "$_self" | sed 's/^# \{0,1\}//'
+}
+
+[ $# -gt 0 ] || { usage; exit 2; }
+case "$1" in -h|--help|help) usage; exit 0 ;; esac
+
+# Refuse the flags that put a secret on stdout, in every spelling (`--no-masking=true`), and
+# any -o destination that is stdout in disguise. Everything after a `--` belongs to the
+# command `op run` starts, so the scan only counts it.
+bad_dest() {
+  case "$1" in
+    ''|-|/dev/*|/proc/*) return 0 ;;
+  esac
+  # An existing path must be a plain file: a link (to /dev/stdout, say) or a fifo is refused.
+  if [ -L "$1" ] || { [ -e "$1" ] && [ ! -f "$1" ]; }; then return 0; fi
+  return 1
+}
+has_out=0; want_dest=0; has_sep=0; after_sep=0; first_cmd=""
+for a in "$@"; do
+  if [ "$has_sep" = 1 ]; then
+    [ "$after_sep" = 0 ] && first_cmd="$a"
+    after_sep=$((after_sep + 1)); continue
+  fi
+  if [ "$want_dest" = 1 ]; then
+    bad_dest "$a" && die "refusing -o '$a': that writes the secret to the terminal"
+    want_dest=0; has_out=1; continue
+  fi
+  case "$a" in
+    --) has_sep=1 ;;
+    --no-masking*) die "refusing --no-masking: secrets would reach the transcript" ;;
+    --reveal*) die "refusing --reveal: secrets would reach the transcript" ;;
+    -o|--out-file) want_dest=1 ;;
+    --out-file=*) bad_dest "${a#--out-file=}" && die "refusing '$a': that writes the secret to the terminal"; has_out=1 ;;
+    -o?*)
+      # op's flag parser reads -o=FILE as FILE, the same as -oFILE.
+      d="${a#-o}"; d="${d#=}"
+      bad_dest "$d" && die "refusing '$a': that writes the secret to the terminal"; has_out=1 ;;
+  esac
+done
+[ "$want_dest" = 0 ] || die "-o needs a file name"
+
+case "$1" in
+  whoami|--version) ;;
+  run)
+    # A bare `run --` would start `env -u …` with no command, and env then prints the
+    # whole environment.
+    [ "$has_sep" = 1 ] && [ "$after_sep" -gt 0 ] || die "use: op-agent run [--env-file .env] -- <command>"
+    # The command must be a command: an option (`--`, `-i`) or an assignment (`FOO=x`) as the
+    # first word would make env print the environment instead of running anything.
+    case "$first_cmd" in
+      -*|*=*) die "after --, the first word must be a command, not '$first_cmd'" ;;
+    esac ;;
+  read|inject)
+    [ "$has_out" = 1 ] || die "'$1' needs -o <file>: without it the secret goes to stdout" ;;
+  vault|item)
+    [ "${2:-}" = list ] || die "only '$1 list' is allowed ('item get' can print field values)" ;;
+  service-account)
+    [ "${2:-}" = ratelimit ] || die "only 'service-account ratelimit' is allowed" ;;
+  *) die "'$1' is not allowed; see op-agent --help" ;;
+esac
+
+command -v op >/dev/null 2>&1 || die "op (1Password CLI) is not installed: brew install --cask 1password-cli"
+
+token_file="${OP_AGENT_TOKEN_FILE:-$HOME/.config/op-agent/token}"
+[ -f "$token_file" ] && [ ! -L "$token_file" ] ||
+  die "no token file at $token_file (a regular file, not a link); see docs/agents/1password.md"
+# find -perm with an exact mode and -user behave the same in BSD and GNU find.
+[ -n "$(find "$token_file" -maxdepth 0 -user "$(id -u)" -perm 600 2>/dev/null)" ] ||
+  die "$token_file must be owned by $(id -un) with mode 600 (chmod 600 '$token_file')"
+
+OP_SERVICE_ACCOUNT_TOKEN="$(tr -d '[:space:]' < "$token_file")"
+[ -n "$OP_SERVICE_ACCOUNT_TOKEN" ] || die "$token_file is empty"
+export OP_SERVICE_ACCOUNT_TOKEN
+# A desktop-app or personal sign-in must not take over from the service account.
+unset OP_ACCOUNT OP_CONNECT_HOST OP_CONNECT_TOKEN
+
+# `op run` passes its own environment to the command it starts, token included. Start that
+# command through `env -u` so it gets the resolved secrets but never the token.
+if [ "$1" = run ]; then
+  args=(); seen=0
+  for a in "$@"; do
+    args+=("$a")
+    if [ "$seen" = 0 ] && [ "$a" = -- ]; then
+      args+=(env -u OP_SERVICE_ACCOUNT_TOKEN --); seen=1
+    fi
+  done
+  exec op "${args[@]}"
+fi
+exec op "$@"

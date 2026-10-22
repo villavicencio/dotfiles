@@ -48,7 +48,7 @@ node uv syncthing util-linux tree wget curl pre-commit"
 
 # The only casks Brewfile.server may name, and the server install may add: CLI
 # tools that install a binary and nothing else (no app, no sudo). An ERE alternation.
-ALLOWED_CASKS_RE='vercel'
+ALLOWED_CASKS_RE='vercel|1password-cli'
 
 # Must never appear: the container runtime is installed out of band, and the
 # rest is desk-only.
