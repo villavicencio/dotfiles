@@ -315,6 +315,12 @@ if [ -n "$model" ] || [ -n "$used" ] || [ -n "$ctx_tok" ] || [ -n "$lim5" ] || [
         # A point in the last half cell rounds to BAR_CELLS, one past the end.
         [ "$tk" -ge "$BAR_CELLS" ] && tk=$(( BAR_CELLS - 1 ))
         [ "$mk" -ge "$BAR_CELLS" ] && mk=$(( BAR_CELLS - 1 ))
+        # A compaction point within half a cell of 200k lands in the tick's cell:
+        # the tick steps one cell to its own side of the marker, so both show.
+        if [ "$tk" -ge 0 ] && [ "$tk" -eq "$mk" ]; then
+          if [ "$CTX_HANDOFF" -le "$compact" ]; then tk=$(( mk - 1 )); else tk=$(( mk + 1 )); fi
+          { [ "$tk" -lt 0 ] || [ "$tk" -ge "$BAR_CELLS" ]; } && tk=$(( 2 * mk - tk ))
+        fi
       fi
       printf "%s\033[37mctx \033[0m" "$sep"; bar "$u" "$c" "$tk" "$mk" "$glyph"
       if [ "$win" != "$ctx_win" ]; then wl=""
