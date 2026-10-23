@@ -32,6 +32,19 @@ user-facing table is in `README.md` ("Hermes agents").
 - **`syd`** is `hermes -p syd --tui "$@"`. It's defined only where `~/.hermes/profiles/syd`
   exists, so hal and the work Mac don't get it. Hermes ignores `--tui` for subcommands, so
   `syd sessions list` works.
+  - **Syd can also use hal's LM Studio** (2026-10-23). Its profile config has a `providers.hal`
+    block: `api: http://hal:1234/v1`, `key_env: HAL_LMSTUDIO_API_KEY`, `default_model:
+    qwen3.8-27b`, `context_length: 131072`, the same shape as Atlas's `hal` provider. The key is
+    LM Studio's `david` token, in the profile's `.env`. Opus stays Syd's default, so pick hal per
+    session: `hermes -p syd chat -q "…" --oneshot --provider hal -m qwen3.8-27b`. A one-line reply
+    took about 1m40s, mostly prefill of Syd's system prompt.
+  - **The 27B is shared** with the overnight pilot (01:30–06:00 PT) and with hal-bench, and LM
+    Studio serves 2 requests at a time. A Syd call during a hal-bench speed run skews its numbers.
+- **LM Studio API tokens are made only in the GUI.** `lms` has no token command, and LM Studio's
+  docs describe only Developer → Server Settings → Manage Tokens. On hal, use the app
+  (`/Applications/LM Studio.app`) over Screen Sharing as `hal`. The token store,
+  `~/.lmstudio/.internal/permissions-store.json`, keeps SHA-512 hashes and labels (`atlas`,
+  `axiom`, `david`, `hal-pilot-worker`); don't hand-edit it.
 - **All three step aside for a Hermes wrapper of the same name.** `hermes profile alias <profile>
   [--name <name>]` writes `~/.local/bin/<name>`, which a function would shadow. Each file
   checks for that wrapper and drops its function (`unfunction`) when it exists. On hal as `hal`,
