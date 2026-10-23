@@ -234,20 +234,25 @@ if [ -n "$branch" ]; then
 
   # Linear ticket badge (ticket glyph U+F145 -> octal \357\205\205), OSC 8-linked to the
   # issue (VIL-522). A ticket's branch is <type>/vil-N-<slug>, so the id comes from the
-  # first vil-<digits> in the name, either case, with no fork. It must start the name or
-  # follow / - _ or . ("civil-1990" isn't a ticket). Only VIL: other trackers' keys
-  # (ABC-12) never match.
-  tk_pre=${branch%%[vV][iI][lL]-[0-9]*}
-  if [ "$tk_pre" != "$branch" ]; then
+  # first vil-<digits> in the name, either case, with no fork, that starts the name or
+  # follows / - _ or . ("civil-1990" isn't a ticket, but "civil-1-vil-5" is VIL-5). Each
+  # pass takes the next occurrence; a skipped one leaves its "vil-" consumed, so the next
+  # pass's empty prefix still sits after a "-". Only VIL: other trackers' keys never match.
+  tk_rest=$branch
+  while :; do
+    tk_pre=${tk_rest%%[vV][iI][lL]-[0-9]*}
+    [ "$tk_pre" != "$tk_rest" ] || break
+    tk_rest=${tk_rest#"$tk_pre"}; tk_rest=${tk_rest#????}
     case "$tk_pre" in
       ''|*/|*-|*_|*.)
-        tk_num=${branch#"$tk_pre"}; tk_num=${tk_num#????}; tk_num=${tk_num%%[!0-9]*}
+        tk_num=${tk_rest%%[!0-9]*}
         # shellcheck disable=SC2059  # color var holds \033 escapes; must sit in the format to interpret
         printf "  ${ticket_color}\357\205\205 "
         printf '\033]8;;https://linear.app/villavicencio/issue/VIL-%s\007VIL-%s\033]8;;\007' "$tk_num" "$tk_num"
-        printf "\033[0m" ;;
+        printf "\033[0m"
+        break ;;
     esac
-  fi
+  done
 fi
 
 # PR badge (git-pull-request glyph U+F407 -> octal \357\220\207), OSC 8-linked
