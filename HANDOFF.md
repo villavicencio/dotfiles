@@ -1,76 +1,59 @@
 ---
-created_at: "2026-10-23T09:18:17-07:00"
+created_at: "2026-10-23T13:39:39-07:00"
 branch: "master"
-head: "a00a13d"
+head: "cab8a90"
 worktree: "/Users/dvillavicencio/Projects/Personal/dotfiles"
+resume_focus: "Report on the 01:30 PT Sat 2026-10-24 pilot run (VIL-391 and VIL-381 part A)"
 ---
-# HANDOFF — 2026-10-23, morning (PDT)
+# HANDOFF — 2026-10-23, afternoon (PDT)
 
-This session ran the hal pilot during the day instead of at 01:30, re-queued its two failures as smaller "part A" tickets, and answered a benchmark question from another session. Most of it went to a redesign of the statusline ctx meter, which merged as #244. The new meter is safe for David's protan color blindness and marks the compaction point, and it's live on this Mac and on hal for both accounts.
+A short session after the morning statusline work. Syd, the Mac's Hermes, can now use hal's LM Studio `qwen3.8-27b` as a provider David picks per session. The mergewren handover was mostly done already: only the two failed pilot PRs were still open, and MergeWren has closed them. David chose to keep the statusline's PR-state colors as they are.
 
 ## What We Built
-- **Daytime pilot run, 2026-10-22 15:17–17:52 PDT** (as `david` on hal, `runner.py --ignore-window`, started over SSH with the LaunchDaemon's env). Logs are in `~/runs/log/vil-{391,417,381}-20261022-*`.
-  - **mergewren#80 (VIL-417) passed.** MergeWren's verdict: "mergeable — 0 open at medium+". It still has 2 unresolved low threads, at `docs/IMPLEMENTATION_PLAN.md:2125` and `src/review_stack/adoption.py:181`.
-  - **mergewren#79 (VIL-391) failed** with "Prompt is too long" at 173k, under the 192k cap.
-  - **mergewren#81 (VIL-381) failed** at the 60-minute limit, with no edits.
-- **Part-A re-queue:** `~/runs/queue/12-vil-391.md` and `13-vil-381.md` on hal, with mtimes set for that run order. They run at **01:30 PT Sat 2026-10-24**; the Fri 01:30 run found the queue empty.
-  - Each file has a "Not in scope" section naming its part B.
-  - Each also says to read only the functions it names, never a whole file.
-- **#244 merged (`2b37e30`):** the statusline ctx meter, in `claude/statusline-command.sh`.
-  - The bar spans the whole window, and the label reads in tokens (`133k/1M`).
-  - All three meters use a blue → gray → yellow `ramp()`.
-  - The ctx fill turns solid at 200k.
-  - A white `┃` marks `autoCompactWindow`, read live from settings.json.
-- **#245 then #246 (`a1cae04`):** #245 brightened the gold runway between 200k and the marker into `▒`, but David read it as context already used. #246 replaced it with a plain track and a light gray `╎` tick at 200k. When the tick and the marker round to the same cell, the tick steps to its own side of the marker, or isn't drawn if that side is off the bar.
-- **hal (`3f42474`, in `docs/reference/install-and-server.md`):**
-  - Both clones are at `2b37e30` or later.
-  - `hal`'s `~/.claude/statusline-command.sh` is now a link into its clone. The July copy it replaced is kept at `.pre-link-20261023`.
-  - Both accounts' settings have `autoCompactWindow: 400000`. David ran the command, which left backups at `~/.claude/settings.json.bak-20261023`.
-- **Memory:**
-  - New: `user_protan_color_vision.md`.
-  - Updated: `project_context_budget.md` and `claude/CLAUDE.md` now describe the new 200k cue.
+- **Syd → hal's LM Studio**: the setup is written down at `docs/reference/hermes-commands.md` (`cab8a90`).
+  - The provider is in `~/.hermes/profiles/syd/config.yaml` (`providers.hal`). That file isn't tracked in this repo. A backup sits next to it as `config.yaml.bak-20261023T…`.
+  - The key is LM Studio's `david` token. David saved it himself to the profile's `.env` as `HAL_LMSTUDIO_API_KEY`.
+  - Tested end to end with `hermes -p syd chat -q … --oneshot --provider hal -m qwen3.8-27b`: it replied in 1m43s, in session `20261023_101727_7c518d`.
+- **mergewren handover:**
+  - mergewren#80 (VIL-417) had already merged at about 09:39 PDT, and VIL-417 was already Done.
+  - #61, #69 and #73 were all already merged.
+  - MergeWren closed #79 and #81 unmerged; both show CLOSED.
+  - VIL-391 and VIL-381 stay In Progress, because part A runs tonight and part B comes after.
+- **Memory:** `agents_atlas_axiom.md` now records the Syd → hal exception, which David chose.
 
 ## Decisions Made
-- **Meter colors** follow the blue↔yellow axis, with brightness rising toward urgency, plus a shape cue (the solid fill). Under a Machado 2009 protanopia simulation, the old lime looked bright yellow and the old salmon red looked dull gray-olive, so the old meter got dimmer as it filled.
-- **Missing data:**
-  - With no window size reported, the bar doesn't work out tokens from the percentage. It shows a plain percentage with no 200k cue.
-  - With tokens but no window, the label drops `/1M` and there's no marker.
-- **MergeWren on #244:**
-  - Fixed 5 findings.
-  - Declined `5274df0#1` (high) and `#2`. Both claimed `total_input_tokens` adds up over the session; the statusline docs and the 2.1.309 binary's schema say it's the current context.
-  - David waived the high (2026-10-23).
-- **#80 was not handed to MergeWren.** No MergeWren session was reachable (none in `ListAgents`, no Orca project here). David has the handoff text, as printed in that turn.
+- **The statusline's PR-state colors stay red/green.** David's call. This removes item 5 from the last handoff; don't raise it again.
+- **Syd uses `qwen3.8-27b`, not `qwen3.6-35b-a3b`.** The 27B is dense and newer, and the pilot trusts it with code. The 35B is a MoE with about 3B parameters active per token. This comparison comes from the models' architecture; nothing on hal measures quality, since hal-bench only measures speed.
+- **Opus stays Syd's default, and hal is opt-in.** Syd was set up for tasks that stay fully local. Sending its prompts to hal is an exception David accepted.
+- **`context_length: 131072`**, matching Atlas's hal provider. A pilot run on this model hit "Prompt is too long" at 173k.
+- **The shared `david` token** was David's choice over a new token per client. Revoking `david` also cuts off Syd.
 
 ## What Didn't Work
-- **`${5:-\342\226\223}` in sh** strips the backslashes, so the bar printed the literal `342226223`. A default for an octal escape has to be set on a separate line.
-- **`$c:claude/...` inside a remote zsh command** hit zsh's `:c` modifier. Write `${c}:`.
-- **Grepping the whole Claude binary** with a `.{300}` context regex ran for more than 2 minutes. Grep for the field's line text instead.
-- **The pilot README's 192k reasoning** (192k leaves room for a 32k reply) didn't hold for VIL-391, which died at 173k. That cause isn't confirmed, so it isn't written down yet.
-- **The worker's sandbox refused a check command containing `;`** (VIL-417's `python -c "…; …"`). The runner's own check of the same command passed. The cause isn't confirmed.
+- **LM Studio tokens can't be made from the CLI.** `lms` has no token command, and the docs show only the GUI. The details are in the doc above.
+- **My Syd test calls overlapped a hal-bench speed run.** The "milestone 1 baseline" run on `qwen3.8-27b`, run as `david` on hal, was going at about 10:16–10:19 PDT. LM Studio serves 2 requests at a time, so whatever hal-bench tests ran in that window may be slowed. I didn't tell the hal-bench session.
 
 ## What's Next
-1. **Report on the 01:30 PT Sat 2026-10-24 pilot run** (VIL-391 and VIL-381 part A), as `david` on hal:
+1. **Report on the 01:30 PT Sat 2026-10-24 pilot run** (VIL-391 and VIL-381 part A), as `david` on hal.
    - Read `~/runs/log/runner.log`.
    - For each run, read `run.json` and run `pilot/timing.py`.
-   - If VIL-391 runs out of context again, test the 160k hypothesis and write the result into `pilot/README.md`.
-2. **Hand mergewren#80 (VIL-417) to the MergeWren session** once it's running. Its two low threads need fixing or declining before the merge.
-   - Also close or handle the failed #79 and #81.
-   - Also hand over mergewren#61, #69 and #73, carried from the last session.
-3. **Queue the part B tickets** once each part A is merged:
+   - If VIL-391 runs out of context again, test the 160k hypothesis and write the result in `pilot/README.md`.
+   - Hand any mergewren PRs to the "VIL-317 and VIL-400 pilot merges" session (MergeWren, Remote Control).
+2. **Queue part B once each part A has merged:**
    - VIL-391 part B: `codex_delegate._parse_events` and `watch.transient_cause`, plus a grep test for `splitlines`.
    - VIL-381 part B: fix the stale citations, then handle test-name citations.
-4. **VIL-515: move `pilot/` into the private repo `villavicencio/hal-pilot`**, after item 1's report. Two reasons: a dotfiles pull on hal also changes the overnight runner, and dotfiles is one of the pilot's own target repos. Steps and acceptance are on the ticket. Reloading the LaunchDaemon needs `admin`'s sudo password on hal. hal-bench (`~/Projects/hal-bench` on hal, as `david`) copies `timing.py`'s parsing rather than taking the file.
-5. **The statusline's PR-state colors are still red/green** (approved green, changes_requested red). Convert them to the protan palette if David wants.
-6. **Carried:**
+3. **VIL-515: move `pilot/` into the private repo `villavicencio/hal-pilot`**, after item 1. The steps are on the ticket. Reloading the LaunchDaemon needs `admin`'s sudo password on hal.
+4. **Tell the hal-bench session about the 10:16–10:19 PDT overlap**, if David hasn't already, so it can rerun any test that ran in that window.
+5. **Carried:**
    - VIL-422: David checks the work Mac for herdr.
    - `ci/op-agent-checks.sh`: refused cases should assert the stub was never called.
    - VIL-431: settings drift.
    - VIL-426: re-measure on 2026-11-05.
+   - The pilot branches of the closed #79 and #81 are still on origin. They're deleted only if David approves, because the standing approval to delete branches covers merged PRs only.
 
 ## Gotchas & Watch-outs
-- **The statusline links into this checkout.** Switching branches here changes the live statusline at once, and a half-applied edit breaks it, which happened for a few seconds this session.
-- **The `hal` account's statusline link was made by hand.** The server profile doesn't make it; see `docs/reference/install-and-server.md`.
-- **MergeWren's incremental round on a commit isn't the verdict.** The full review of the same commit came later with a new high. Wait for a result for the current commit that isn't "no verdict".
-- **Cross-session messages to tripletail-87 were held** because it runs in bypass mode, and David approved them by hand. Expect the same for any session running in a different permission mode.
-- **`ssh hal` reaches `david`, and `ssh hal-orca` reaches `hal`.** LM Studio runs as `hal` (`llmster`), so `david` can't read its draft-model config.
-- **Another session owns #247** (`chore/hal-bench-memory-pull`, "mirror hal-bench's memory into a vault"). It was opened during this session and isn't this session's work, so leave its branch and merge to that session.
+- **`qwen3.8-27b` is shared** by the pilot (01:30–06:00 PT), hal-bench and now Syd, and LM Studio serves 2 requests at a time. Don't run Syd on hal during the pilot or a hal-bench run.
+- **Hermes reads config at startup.** Any Syd session started before a config change needs a restart.
+- **The statusline links into this checkout**, so switching branches here changes the live statusline.
+- **The mergewren#80 handover is done.** Earlier handoffs listed it as a to-do, so don't redo it.
+- **A message to MergeWren over Remote Control** doesn't report whether it was read. Check the PRs' state on GitHub instead.
+- **Another session owns #247** (`chore/hal-bench-memory-pull`). Leave it to that session.
