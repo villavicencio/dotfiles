@@ -10,8 +10,10 @@ T="$(mktemp -d)" || { echo "mktemp -d failed" >&2; exit 1; }
 trap 'rm -rf "$T"' EXIT
 mkdir -p "$T/bin"
 # The stub echoes its args and whether it got the token. For `run`, it runs whatever follows
-# `--`, as op does, so the test sees the child's environment.
+# `--`, as op does, so the test sees the child's environment. Every call is also counted in
+# $T/calls, so a refused case can show op was never reached.
 printf '%s\n' '#!/usr/bin/env bash' \
+  "echo called >> '$T/calls'" \
   'if [ "$1" = run ]; then printf "%s token=%s\n" "$*" "${#OP_SERVICE_ACCOUNT_TOKEN}" > "$OP_STUB_LOG"' \
   '  while [ $# -gt 0 ] && [ "$1" != -- ]; do shift; done; shift; exec "$@"; fi' \
   'echo "op $* token=${#OP_SERVICE_ACCOUNT_TOKEN}"' > "$T/bin/op"
@@ -19,11 +21,12 @@ chmod +x "$T/bin/op"
 printf 'ops_fake_token\n' > "$T/token"; chmod 600 "$T/token"
 ln -s /dev/stdout "$T/stdout-link"
 fail=0
-run() { : > "$T/run.log"; PATH="$T/bin:$PATH" OP_AGENT_TOKEN_FILE="$T/token" OP_STUB_LOG="$T/run.log" "$REPO/bin/op-agent" "$@" 2>&1; }
+run() { : > "$T/run.log"; : > "$T/calls"; PATH="$T/bin:$PATH" OP_AGENT_TOKEN_FILE="$T/token" OP_STUB_LOG="$T/run.log" "$REPO/bin/op-agent" "$@" 2>&1; }
 expect() {  # expect <ok|refused> <args...>
   local want="$1"; shift; local out rc pass=0
   out="$(run "$@")"; rc=$?
-  if [ "$want" = refused ]; then [ "$rc" != 0 ] && pass=1
+  # A refusal must come from op-agent itself: a non-zero exit with op never called.
+  if [ "$want" = refused ]; then [ "$rc" != 0 ] && [ ! -s "$T/calls" ] && pass=1
   elif [ "$rc" = 0 ]; then
     # An allowed call must reach op with exactly its arguments and the token. `run` hands off
     # to the child, so the stub logs what op got: the original arguments, with
@@ -81,8 +84,9 @@ if [ "$child" = unset ]; then echo "ok      run's child has no OP_SERVICE_ACCOUN
 else echo "FAIL    run's child saw the token: $child"; fail=1; fi
 # Token file rules: mode, link, empty.
 chmod 644 "$T/token"; expect refused whoami; chmod 600 "$T/token"
-ln -s "$T/token" "$T/tlink"
-if PATH="$T/bin:$PATH" OP_AGENT_TOKEN_FILE="$T/tlink" "$REPO/bin/op-agent" whoami >/dev/null 2>&1; then
+ln -s "$T/token" "$T/tlink"; : > "$T/calls"
+if PATH="$T/bin:$PATH" OP_AGENT_TOKEN_FILE="$T/tlink" "$REPO/bin/op-agent" whoami >/dev/null 2>&1 \
+  || [ -s "$T/calls" ]; then
   echo "FAIL    a linked token file was accepted"; fail=1; else echo "ok      refused  linked token file"; fi
 : > "$T/token"; expect refused whoami
 exit "$fail"
