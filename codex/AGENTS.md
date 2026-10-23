@@ -38,7 +38,7 @@ Repos with their own reviewer follow their own rules: dotfiles and bryancola.com
 
 ## Linear
 - Linear is my tracker: workspace `villavicencio`, team key `VIL`, one project per repo or area. Use it on the personal Mac only; never set it up on the work Mac.
-- Mark linked issues Done at merge. Mentioning a `VIL-` id in a PR title or body can auto-close it on merge, even in "VIL-411 filed" (mergewren#62, 2026-10-22). After merging, re-check every id the PR named and reopen the ones that aren't finished.
+- Mark linked issues Done at merge. Mentioning a `VIL-` id in a PR title or body can auto-close it on merge, even in "VIL-411 filed" (mergewren#62, 2026-10-22). After merging, re-check every id the PR named and reopen the ones that aren't finished. A branch named after a ticket (`feat/vil-391-…`) can close it the same way when its PR merges, so a multi-part ticket gets reopened after the first part.
 - Put real newlines in Linear markdown, not literal `\n`.
 
 ## Current facts

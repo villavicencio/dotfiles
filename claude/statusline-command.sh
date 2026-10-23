@@ -53,6 +53,9 @@ descriptor_color="\033[38;2;205;170;100m"
 wt_color="\033[1;38;2;235;140;60m"
 # PR badge: violet, distinct from the magenta working-branch name.
 pr_color="\033[38;2;170;130;255m"
+# Ticket badge: pale sky blue. Protan vision reads magenta and violet as blue too, so
+# this one stands apart by brightness and its ticket glyph, not by hue.
+ticket_color="\033[38;2;150;205;255m"
 
 # Meter colors are a smooth blue -> gray -> yellow ramp, safe for protan color
 # blindness (David's: red cones at 0%). Red/green meters fail it: under a
@@ -227,6 +230,23 @@ if [ -n "$branch" ]; then
     awk '{a+=$1; r+=$2} END {if (a+r > 0) printf "%d %d", a, r}')
   if [ -n "$delta" ]; then
     printf " \033[2m(\033[0m\033[32m+%s\033[0m\033[2m/\033[0m\033[31m-%s\033[0m\033[2m)\033[0m" "${delta% *}" "${delta#* }"
+  fi
+
+  # Linear ticket badge (ticket glyph U+F145 -> octal \357\205\205), OSC 8-linked to the
+  # issue (VIL-522). A ticket's branch is <type>/vil-N-<slug>, so the id comes from the
+  # first vil-<digits> in the name, either case, with no fork. It must start the name or
+  # follow / - _ or . ("civil-1990" isn't a ticket). Only VIL: other trackers' keys
+  # (ABC-12) never match.
+  tk_pre=${branch%%[vV][iI][lL]-[0-9]*}
+  if [ "$tk_pre" != "$branch" ]; then
+    case "$tk_pre" in
+      ''|*/|*-|*_|*.)
+        tk_num=${branch#"$tk_pre"}; tk_num=${tk_num#????}; tk_num=${tk_num%%[!0-9]*}
+        # shellcheck disable=SC2059  # color var holds \033 escapes; must sit in the format to interpret
+        printf "  ${ticket_color}\357\205\205 "
+        printf '\033]8;;https://linear.app/villavicencio/issue/VIL-%s\007VIL-%s\033]8;;\007' "$tk_num" "$tk_num"
+        printf "\033[0m" ;;
+    esac
   fi
 fi
 

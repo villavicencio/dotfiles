@@ -250,6 +250,8 @@ The `windows` job's `EXPECTED_LINKS` list must match `$links` in `install.ps1`.
 Work on a **feature branch and merge via PR** — the default for this repo, not just for
 tickets. Avoid committing directly to `master`.
 - **Branch per change**, named by type: `feat/…`, `fix/…`, `chore/…`, `docs/…`, `style/…`.
+  A ticket's branch carries its id after the type: `feat/vil-522-statusline-ticket`. The
+  statusline shows the id as a link to the issue.
 - **One PR per logical change**; push and open with `gh pr create`. Keep `master` green.
 - **Merge, then clean up**: delete the branch, mark any linked Linear issue `Done`.
 - **Trivial exceptions** (typo, one-line doc tweak) may go straight to `master`.

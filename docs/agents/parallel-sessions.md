@@ -17,6 +17,9 @@ wt done <topic>           # after the PR merges: remove the worktree and delete 
 wt port [topic]           # the worktree's dev-server port (this one, or the named one)
 ```
 
+For a ticket, start the topic with its id (`wt new vil-522-statusline-ticket feat`): the branch
+then carries it, and the statusline shows it as a link to the issue.
+
 **`wt new`:**
 - **Where the worktree goes.** `<main checkout>/.claude/worktrees/<topic>`, the same place
   `claude --worktree`, the `EnterWorktree` tool and `isolation: worktree` subagents use. Keeping

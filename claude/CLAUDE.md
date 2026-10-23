@@ -39,7 +39,7 @@ Full procedure, check-description table, and rate-limit mechanics: `docs/agents/
 ## Linear
 - Linear is my tracker: workspace `villavicencio`, team key `VIL`, one project per repo or area. The `linear` MCP is in `~/.claude.json`; its tools are deferred (load with ToolSearch, e.g. `select:mcp__linear__save_issue`). Personal Mac only; never set it up on the work Mac.
 - `save_issue`/`save_project` create or update (pass `id` to update). Mark linked issues Done at merge. Put real newlines in markdown, not literal `\n`. Don't create GitHub issues for repos tracked in Linear.
-- Mentioning a `VIL-` id in a PR title or body can auto-close it on merge, even in "VIL-411 filed" (mergewren#62, 2026-10-22). After merging, re-check every id the PR named and reopen the ones that aren't finished.
+- Mentioning a `VIL-` id in a PR title or body can auto-close it on merge, even in "VIL-411 filed" (mergewren#62, 2026-10-22). After merging, re-check every id the PR named and reopen the ones that aren't finished. A branch named after a ticket (`feat/vil-391-…`) can close it the same way when its PR merges, so a multi-part ticket gets reopened after the first part.
 
 ## Current facts and the web
 Full ladder: `docs/agents/web-research.md`.
