@@ -79,10 +79,11 @@ meter_color() { ramp $(( $1 * 1000 / 70 )); }
 # 1M when absent), labeled in tokens. Its color doesn't follow the bar: it ramps
 # from blue to yellow on the way to CTX_HANDOFF, the 200k hand-off cue (VIL-402:
 # every turn re-reads the whole context, so a session should end there), and
-# past it the fill turns solid. The track from the hand-off cue to the
-# compaction point is a gold ▒ runway, and a white ┃ marks where auto-compaction
-# fires: autoCompactWindow, read live from settings.json, so moving it to 500k
-# or 700k moves the marker. No setting, no runway or marker.
+# past it the fill turns solid. Ahead of the fill, a dim ╎ tick marks the hand-off
+# cue and a white ┃ marks where auto-compaction fires: autoCompactWindow, read
+# live from settings.json, so moving it to 500k or 700k moves the marker. No
+# setting, no marker. (A shaded runway between the two read as context already
+# used, so the track stays plain.)
 CTX_HANDOFF=200000
 
 # Render a BAR_CELLS-cell slider for a 0-100 value (the ccstatusline "slider"
@@ -100,16 +101,16 @@ CTX_HANDOFF=200000
 # straddling the new boundaries can regress: 3% and 7% differ at 10 cells and
 # collide at 20. Net gain across the range, not a guarantee for any one pair.
 # See VIL-82.
-# Optional, for the ctx meter: $3 is the first runway cell, $4 the compaction
+# Optional, for the ctx meter: $3 is the hand-off tick cell and $4 the compaction
 # marker cell (-1 for none), and $5 the fill glyph (default ▓; █ -> \342\226\210).
-# Track cells from $3 up to $4 draw as a gold medium shade (U+2592 -> \342\226\222):
-# the thin ░ in dark gold read as gray track to a protan eye. The marker cell is a
-# bold white ┃ (U+2503 -> \342\224\203) whether or not the fill has reached it.
+# The marker cell is a bold white ┃ (U+2503 -> \342\224\203) whether or not the
+# fill has reached it. The tick is a light gray ╎ (U+254E -> \342\225\216) on the
+# track only: the fill and the playhead cover it.
 BAR_CELLS=20
 bar() {
   _bf=$(( ($1 * BAR_CELLS + 50) / 100 )); [ "$_bf" -gt "$BAR_CELLS" ] && _bf=$BAR_CELLS
   # The glyph default can't go in ${5:-...}: the expansion strips its backslashes.
-  _rs=${3:-$BAR_CELLS}; _mk=${4:--1}; _fg=$5; [ -n "$_fg" ] || _fg='\342\226\223'
+  _tk=${3:--1}; _mk=${4:--1}; _fg=$5; [ -n "$_fg" ] || _fg='\342\226\223'
   _bi=0
   while [ "$_bi" -lt "$BAR_CELLS" ]; do
     if [ "$_bi" -eq "$_mk" ]; then
@@ -118,8 +119,8 @@ bar() {
       printf '%s\342\224\202' "$2"
     elif [ "$_bi" -lt "$_bf" ]; then
       printf "%s$_fg" "$2"
-    elif [ "$_bi" -ge "$_rs" ] && [ "$_bi" -lt "$_mk" ]; then
-      printf '\033[38;2;210;170;45m\342\226\222'
+    elif [ "$_bi" -eq "$_tk" ]; then
+      printf '\033[38;2;175;180;200m\342\225\216'
     else
       printf '\033[38;2;92;94;110m\342\226\221'
     fi
@@ -301,18 +302,29 @@ if [ -n "$model" ] || [ -n "$used" ] || [ -n "$ctx_tok" ] || [ -n "$lim5" ] || [
       u=$(( ctx_tok * 100 / win )); [ "$u" -gt 100 ] && u=100
       c=$(ramp $(( ctx_tok * 1000 / CTX_HANDOFF )))
       glyph=""; [ "$ctx_tok" -ge "$CTX_HANDOFF" ] && glyph='\342\226\210'
-      # Runway and marker cells round to nearest, like the playhead. A compaction
-      # point at or past the window's end gets neither.
-      rs=""; mk=-1
-      compact=$(jq -r '.autoCompactWindow // empty' "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/settings.json" 2>/dev/null)
-      # On an assumed window (none in the input) the marker's place would be a guess.
-      if [ "$compact" -gt 0 ] 2>/dev/null && [ "$compact" -lt "$win" ] && [ "$win" = "$ctx_win" ]; then
-        rs=$(( (CTX_HANDOFF * BAR_CELLS + win / 2) / win ))
-        mk=$(( (compact * BAR_CELLS + win / 2) / win ))
+      # Tick and marker cells round to nearest, like the playhead. On an assumed
+      # window (none in the input) their places would be a guess, so neither
+      # draws; nor does a point at or past the window's end.
+      tk=-1; mk=-1
+      if [ "$win" = "$ctx_win" ]; then
+        [ "$CTX_HANDOFF" -lt "$win" ] && tk=$(( (CTX_HANDOFF * BAR_CELLS + win / 2) / win ))
+        compact=$(jq -r '.autoCompactWindow // empty' "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/settings.json" 2>/dev/null)
+        if [ "$compact" -gt 0 ] 2>/dev/null && [ "$compact" -lt "$win" ]; then
+          mk=$(( (compact * BAR_CELLS + win / 2) / win ))
+        fi
         # A point in the last half cell rounds to BAR_CELLS, one past the end.
+        [ "$tk" -ge "$BAR_CELLS" ] && tk=$(( BAR_CELLS - 1 ))
         [ "$mk" -ge "$BAR_CELLS" ] && mk=$(( BAR_CELLS - 1 ))
+        # A compaction point within half a cell of 200k lands in the tick's cell:
+        # the tick steps one cell to its own side of the marker, so both show. If
+        # that side is off the bar, the tick isn't drawn rather than drawn on the
+        # wrong side.
+        if [ "$tk" -ge 0 ] && [ "$tk" -eq "$mk" ]; then
+          if [ "$CTX_HANDOFF" -le "$compact" ]; then tk=$(( mk - 1 )); else tk=$(( mk + 1 )); fi
+          [ "$tk" -ge "$BAR_CELLS" ] && tk=-1
+        fi
       fi
-      printf "%s\033[37mctx \033[0m" "$sep"; bar "$u" "$c" "$rs" "$mk" "$glyph"
+      printf "%s\033[37mctx \033[0m" "$sep"; bar "$u" "$c" "$tk" "$mk" "$glyph"
       if [ "$win" != "$ctx_win" ]; then wl=""
       elif [ $(( win % 1000000 )) -eq 0 ]; then wl="/$(( win / 1000000 ))M"; else wl="/$(( win / 1000 ))k"; fi
       # Round down, so the label never reads 200k before the fill turns solid.
