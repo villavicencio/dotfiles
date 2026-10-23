@@ -76,6 +76,13 @@ How it differs from a desk Mac:
 - **`~/.zshenv`:** a `~/.zshenv` this install didn't write is kept as
   `~/.zshenv.pre-dotfiles` before being replaced. A regular file is copied there, and a
   symlink is moved there as a link.
+- **GitHub over HTTPS only:** neither `hal` nor `david` on hal has github.com in
+  `~/.ssh/known_hosts` (checked 2026-10-23), so `git clone git@github.com:…` fails with
+  "Host key verification failed". Clone with `gh repo clone <owner>/<repo>` or an
+  `https://github.com/…` URL. Every clone there already uses HTTPS: both dotfiles clones,
+  `david`'s `~/Projects/hal-bench`, and the skills clone. The pilot's git calls also
+  authenticate over HTTPS with its own token. Keep HTTPS as the convention rather than adding
+  GitHub's host key.
 
 Verify with `ci/server-profile-checks.sh static` locally. CI's `macos-server` job runs the
 profile in a simulated hal home and checks the pre-existing files, the shell chain, git, and
