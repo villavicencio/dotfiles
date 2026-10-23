@@ -18,7 +18,7 @@ Detailed procedures live in dotfiles `docs/agents/` (`~/Projects/Personal/dotfil
 - Never rewrite or force-push shared git history without asking.
 
 ## Git
-- Changes to runtime behavior, config, or dependencies go on a branch (`feat/`, `fix/`, `chore/`, `docs/`) and merge via PR (or a local merge where a repo has no remote review). Docs, typos, and handoff commits can go straight to the default branch. When in doubt, branch. Stricter repo rules win.
+- Changes to runtime behavior, config, or dependencies go on a branch (`feat/`, `fix/`, `chore/`, `docs/`) and merge via PR (or a local merge where a repo has no remote review). Docs, typos, and handoff commits can go straight to the default branch. When in doubt, branch. A branch for a Linear ticket puts its id after the type, `<type>/vil-N-<slug>` (e.g. `feat/vil-522-statusline-ticket`); the statusline shows it as a link to the issue. Stricter repo rules win.
 - After a PR merges, delete its branch locally and on origin as part of the merge, without asking, using the procedure in `docs/agents/code-review.md` ("After the merge"). It deletes only when the branch holds nothing the merge didn't, and each delete is conditional on the commit it checked. A branch with new commits is kept; say so. A worktree on the branch is cleared first, and only if it's clean. A local merge with no remote deletes the local branch only.
 - Parallel sessions on one repo: one worktree and branch per session, never two sessions in one directory. Make it with `wt new <topic> [type]` and remove it after the merge with `wt done <topic>`; the home session (main checkout) owns merges. Details: `docs/agents/parallel-sessions.md`.
 
