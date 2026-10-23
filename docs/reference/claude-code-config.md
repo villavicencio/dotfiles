@@ -134,7 +134,11 @@ Tracking them would only seed them onto machines without that app. So `--capture
 any hook whose command contains one of those paths, drops a hook group or event left empty, and
 `dot drift` compares the same way. The list is `INSTALLER_HOOKS` in
 `helpers/install_claude_settings.sh`, repeated as `markers` in `helpers/report_drift.sh`. A new
-app whose installer adds hooks gets its path added to both.
+app whose installer adds hooks gets its path added to both. If the live file's only hooks are
+installer-owned, capture refuses, and the migration can't fix that: it sees a `hooks` key and
+adds nothing. Copy the tracked `hooks` entries back into the live file (the installers' hooks
+stay beside them), or delete them from the tracked file by hand if that was on purpose, then
+re-capture.
 
 **Agents cannot write this file** — the auto-mode classifier blocks it by design, so it stops an
 agent widening its own permissions. `helpers/migrate_claude_settings.py` exists for a machine

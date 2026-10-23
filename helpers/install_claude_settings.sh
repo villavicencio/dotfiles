@@ -157,6 +157,19 @@ if isinstance(hooks, dict):
             hooks.pop(event)
     if not hooks:
         live.pop("hooks")
+        # The migration can't help here: it sees the raw file, which still has `hooks`.
+        # Hooks are this repo's to write back, so say what does work (MergeWren 4bc49fa#1).
+        if "hooks" in tracked:
+            print(
+                "Error: the live file's only hooks are installer-owned (Orca, iTerm2), so\n"
+                "       capturing now would drop the tracked hooks from %s.\n"
+                "       Copy the tracked \"hooks\" entries back into ~/.claude/settings.json\n"
+                "       (Claude Code keeps the installers' hooks next to them), or delete them\n"
+                "       from %s by hand if you removed them on purpose, then re-capture."
+                % (os.environ["SRC_REL"], os.environ["SRC_REL"]),
+                file=sys.stderr,
+            )
+            raise SystemExit(1)
 
 # A tracked key the live file lacks is a change the copy-seed never delivered (a live file
 # that predates it), not a removal: capturing would silently drop it from the baseline
