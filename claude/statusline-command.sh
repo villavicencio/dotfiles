@@ -15,12 +15,21 @@ input=$(cat)
 # ($wt) and drew an empty worktree badge. With no line ending there is no CR.
 # Elsewhere -j and -r are identical here: $(...) strips the newline anyway.
 US=$(printf '\037')
+# The window the ctx bar assumes when the input doesn't carry context_window_size.
+CTX_WINDOW_DEFAULT=1000000
+# ctx_tok: total_input_tokens is 0 before the first API response, so then it's
+# derived from used_percentage and the window, and the ctx meter always draws
+# through one path (the hand-off cue and marker included).
 IFS="$US" read -r cwd model used ctx_tok ctx_win effort lim5 lim7 pr_num pr_state pr_url wt <<EOF
-$(printf '%s\n' "$input" | jq -j '[
+$(printf '%s\n' "$input" | jq -j --argjson dw "$CTX_WINDOW_DEFAULT" '[
   (.workspace.current_dir // .cwd // ""),
   (.model.display_name // ""),
   (.context_window.used_percentage // ""),
-  (.context_window.total_input_tokens // ""),
+  (.context_window as $c
+   | if ($c.total_input_tokens // 0) > 0 then $c.total_input_tokens
+     elif $c.used_percentage != null
+       then ($c.used_percentage * ($c.context_window_size // $dw) / 100 | floor)
+     else ($c.total_input_tokens // "") end),
   (.context_window.context_window_size // ""),
   (.effort.level // ""),
   (.rate_limits.five_hour.used_percentage // ""),
@@ -31,8 +40,6 @@ $(printf '%s\n' "$input" | jq -j '[
   (.worktree.name // .workspace.git_worktree // "")
 ] | map(tostring) | join("\u001f")')
 EOF
-# total_input_tokens is 0 before the first API response: treat it as absent.
-[ "$ctx_tok" = 0 ] && ctx_tok=""
 
 # Accent colors (truecolor; ASCII + octal \033 only, so POSIX/dash-safe). The
 # parenthetical descriptor (e.g. "1M", "context" stripped) and the effort level
@@ -75,7 +82,6 @@ meter_color() { ramp $(( $1 * 1000 / 70 )); }
 # fires: autoCompactWindow, read live from settings.json, so moving it to 500k
 # or 700k moves the marker. No setting, no runway or marker.
 CTX_HANDOFF=200000
-CTX_WINDOW_DEFAULT=1000000
 
 # Render a BAR_CELLS-cell slider for a 0-100 value (the ccstatusline "slider"
 # style): cells left of the playhead are filled (U+2593 dark shade ->
@@ -287,7 +293,7 @@ if [ -n "$model" ] || [ -n "$used" ] || [ -n "$ctx_tok" ] || [ -n "$lim5" ] || [
   if [ -n "$used" ] || [ -n "$ctx_tok" ] || [ -n "$lim5" ] || [ -n "$lim7" ]; then
     printf "%s" "$m2sep"
     sep=""
-    if [ -n "$ctx_tok" ] && [ "$ctx_tok" -gt 0 ] 2>/dev/null; then
+    if [ "$ctx_tok" -ge 0 ] 2>/dev/null; then
       win=$ctx_win; [ "$win" -gt 0 ] 2>/dev/null || win=$CTX_WINDOW_DEFAULT
       u=$(( ctx_tok * 100 / win )); [ "$u" -gt 100 ] && u=100
       c=$(ramp $(( ctx_tok * 1000 / CTX_HANDOFF )))
@@ -304,10 +310,6 @@ if [ -n "$model" ] || [ -n "$used" ] || [ -n "$ctx_tok" ] || [ -n "$lim5" ] || [
       if [ $(( win % 1000000 )) -eq 0 ]; then wl="$(( win / 1000000 ))M"; else wl="$(( win / 1000 ))k"; fi
       # Round down, so the label never reads 200k before the fill turns solid.
       printf "%s %dk/%s\033[0m" "$c" $(( ctx_tok / 1000 )) "$wl"; sep="  "
-    elif [ -n "$used" ]; then
-      # Before the first API response total_input_tokens is 0: fall back to the percentage.
-      u=$(printf "%.0f" "$used"); c=$(meter_color "$u")
-      printf "%s\033[37mctx \033[0m" "$sep"; bar "$u" "$c"; printf "%s %d%%\033[0m" "$c" "$u"; sep="  "
     fi
     if [ -n "$lim5" ]; then
       v=$(printf "%.0f" "$lim5"); c=$(meter_color "$v")
