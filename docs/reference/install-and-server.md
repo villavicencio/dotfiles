@@ -49,7 +49,11 @@ How it differs from a desk Mac:
   - The nvm, node, uv and Claude Code installers. node and uv come from the Brewfile, and
     Claude Code is installed separately on hal.
   - The Claude settings seed and the `~/.claude` links. `~/.claude` arrives from the VPS with
-    regular files in those places.
+    regular files in those places. One exception, made by hand on 2026-10-23 (#244):
+    `hal`'s `~/.claude/statusline-command.sh` is a link into its clone, so a pull updates it.
+    The July copy it replaced is `~/.claude/statusline-command.sh.pre-link-20261023`.
+    `hal` and `david` on hal also have `autoCompactWindow: 400000`, which places the
+    statusline's compaction marker.
   - The iTerm profile.
   - The `~/.config/nvim` link and the plugin bootstrap. Without the bootstrap, the first
     `nvim` would rewrite `nvim/lazy-lock.json`, so the server's nvim runs with no config. A
