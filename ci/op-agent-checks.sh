@@ -11,9 +11,9 @@ trap 'rm -rf "$T"' EXIT
 mkdir -p "$T/bin"
 # The stub echoes its args and whether it got the token. For `run`, it runs whatever follows
 # `--`, as op does, so the test sees the child's environment. Every call is also counted in
-# $T/calls, so a refused case can show op was never reached.
+# $OP_STUB_CALLS, so a refused case can show op was never reached.
 printf '%s\n' '#!/usr/bin/env bash' \
-  "echo called >> '$T/calls'" \
+  'echo called >> "$OP_STUB_CALLS"' \
   'if [ "$1" = run ]; then printf "%s token=%s\n" "$*" "${#OP_SERVICE_ACCOUNT_TOKEN}" > "$OP_STUB_LOG"' \
   '  while [ $# -gt 0 ] && [ "$1" != -- ]; do shift; done; shift; exec "$@"; fi' \
   'echo "op $* token=${#OP_SERVICE_ACCOUNT_TOKEN}"' > "$T/bin/op"
@@ -21,7 +21,7 @@ chmod +x "$T/bin/op"
 printf 'ops_fake_token\n' > "$T/token"; chmod 600 "$T/token"
 ln -s /dev/stdout "$T/stdout-link"
 fail=0
-run() { : > "$T/run.log"; : > "$T/calls"; PATH="$T/bin:$PATH" OP_AGENT_TOKEN_FILE="$T/token" OP_STUB_LOG="$T/run.log" "$REPO/bin/op-agent" "$@" 2>&1; }
+run() { : > "$T/run.log"; : > "$T/calls"; PATH="$T/bin:$PATH" OP_AGENT_TOKEN_FILE="$T/token" OP_STUB_LOG="$T/run.log" OP_STUB_CALLS="$T/calls" "$REPO/bin/op-agent" "$@" 2>&1; }
 expect() {  # expect <ok|refused> <args...>
   local want="$1"; shift; local out rc pass=0
   out="$(run "$@")"; rc=$?
@@ -85,7 +85,7 @@ else echo "FAIL    run's child saw the token: $child"; fail=1; fi
 # Token file rules: mode, link, empty.
 chmod 644 "$T/token"; expect refused whoami; chmod 600 "$T/token"
 ln -s "$T/token" "$T/tlink"; : > "$T/calls"
-if PATH="$T/bin:$PATH" OP_AGENT_TOKEN_FILE="$T/tlink" "$REPO/bin/op-agent" whoami >/dev/null 2>&1 \
+if PATH="$T/bin:$PATH" OP_AGENT_TOKEN_FILE="$T/tlink" OP_STUB_CALLS="$T/calls" "$REPO/bin/op-agent" whoami >/dev/null 2>&1 \
   || [ -s "$T/calls" ]; then
   echo "FAIL    a linked token file was accepted"; fail=1; else echo "ok      refused  linked token file"; fi
 : > "$T/token"; expect refused whoami
