@@ -35,11 +35,11 @@ project's vault only when asked.
 - **Synced vaults (Syncthing ↔ VPS): only `hermes`** (David+Atlas — personal/feeds/brain/
   TaskNotes) **and `axiom`** (work), both served by the single syncthing-hermes container.
   CC project vaults are Mac-local by design — do not add shares for them unless asked.
-- **Projects that live on hal** (as `david`: `skills`, `bryancola.com`) write memory on hal,
+- **Projects that live on hal** (as `david`: `skills`, `bryancola.com`, `hal-bench`) write memory on hal,
   at `/Users/david/.claude/projects/<slug>/memory/`, which is a real folder there (hal has no
   Obsidian). The LaunchAgent `com.dvillavicencio.hal-memory-pull` copies each one hourly into
   `~/Obsidian/<vault>/memory/` on the personal Mac (`skills` → `skills`, `bryancola.com` →
-  `bryancola`). It's one-way: the vault is a read-only mirror, and an edit made there is
+  `bryancola`, `hal-bench` → `hal-bench`). It's one-way: the vault is a read-only mirror, and an edit made there is
   replaced on the next run, even if nothing changed on hal. The replaced folder moves to
   `~/Obsidian/<vault>/.sync-backup/<UTC stamp>.<suffix>/memory/` rather than being
   deleted. A project moved to hal gets a row in the table in `helpers/hal_memory_pull.sh`, then

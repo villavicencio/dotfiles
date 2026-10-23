@@ -2,7 +2,7 @@
 #
 # hal_memory_pull.sh — mirror Claude Code project memory from hal into Obsidian vaults.
 #
-# Projects whose working copy lives on hal as `david` (skills, bryancola.com) write their
+# Projects whose working copy lives on hal as `david` (skills, bryancola.com, hal-bench) write their
 # Claude Code memory to ~/.claude/projects/<slug>/memory/ in david's home on hal. hal has no
 # Obsidian, so this job copies each of those folders into ~/Obsidian/<vault>/memory/ on
 # the personal Mac. It's one-way: hal is where memory is written, the vault is a read-only
@@ -28,6 +28,7 @@ export PATH
 PROJECTS='
 -Users-david-Projects-skills skills
 -Users-david-Projects-bryancola-com bryancola
+-Users-david-Projects-hal-bench hal-bench
 '
 
 PROJECTS="${HAL_MEMORY_PULL_PROJECTS:-$PROJECTS}"   # overrides are for testing
