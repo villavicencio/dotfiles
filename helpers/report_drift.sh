@@ -314,6 +314,24 @@ except Exception as exc:
 for k in list(d):
     if k in strip or k == "//":
         d.pop(k)
+# Hooks an installer writes and owns (Orca, iTerm2) aren't tracked (VIL-431). Same list
+# as INSTALLER_HOOKS in helpers/install_claude_settings.sh; keep the two in step.
+markers = (".orca/agent-hooks/", ".config/iterm2/cc-status")
+hooks = d.get("hooks")
+if isinstance(hooks, dict):
+    for event in list(hooks):
+        groups = hooks[event]
+        if not isinstance(groups, list):
+            continue
+        for g in groups:
+            if isinstance(g, dict) and isinstance(g.get("hooks"), list):
+                g["hooks"] = [h for h in g["hooks"]
+                              if not any(m in str(h.get("command", "")) for m in markers)]
+        hooks[event] = [g for g in groups if not (isinstance(g, dict) and g.get("hooks") == [])]
+        if not hooks[event]:
+            hooks.pop(event)
+    if not hooks:
+        d.pop("hooks")
 # Fold $HOME paths to ~/ on the parsed values, as capture does: a blob-level
 # replace can't match a Windows home, which json.dumps escapes (C:\\Users\\...).
 home = os.path.expanduser("~").rstrip("\\/")

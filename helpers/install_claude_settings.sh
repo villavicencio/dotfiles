@@ -59,6 +59,14 @@ native_path() {
 #                it; capture drops it so a stale live file cannot reintroduce it.
 STRIP_KEYS="effortLevel modelSettings autoMode mcpServers allowedTools"
 
+# Hooks an agent-integration installer writes into the live file and owns (VIL-431). A hook
+# whose command contains one of these is left out of capture, and out of `dot drift`
+# (helpers/report_drift.sh keeps the same list): the installer writes it back, and machines
+# without that app don't need it. Space-separated substrings, matched with or without ~/.
+#   .orca/agent-hooks/        Orca's agent hooks (one inline command per event)
+#   .config/iterm2/cc-status  iTerm2's Claude Code status hook
+INSTALLER_HOOKS=".orca/agent-hooks/ .config/iterm2/cc-status"
+
 # Dry-run guard comes FIRST so it covers --capture too: capture writes to the
 # repo, and `DOTFILES_DRY_RUN=1 ... --capture` must not mutate anything.
 if [ "${DOTFILES_DRY_RUN:-0}" = "1" ]; then
@@ -94,7 +102,7 @@ if [ "${1:-}" = "--capture" ]; then
   fi
   [ "$PYTHON_FOUND" -eq 1 ] || { echo "Error: no working python3/python on PATH, and no working uv to run one" >&2; exit 1; }
 
-  STRIP_KEYS="$STRIP_KEYS" SRC="$(native_path "$SRC")" DEST="$(native_path "$DEST")" \
+  STRIP_KEYS="$STRIP_KEYS" INSTALLER_HOOKS="$INSTALLER_HOOKS" SRC="$(native_path "$SRC")" DEST="$(native_path "$DEST")" \
     SRC_REL="$SRC_REL" PYTHON_CMD="${PYTHON[*]}" "${PYTHON[@]}" - <<'PY' || exit 1
 import json, collections, os, sys
 
@@ -145,6 +153,27 @@ if missing:
 dropped = [k for k in strip if k in live]
 for k in dropped:
     live.pop(k)
+
+# Drop installer-owned hooks, then any group or event they leave empty.
+markers = os.environ["INSTALLER_HOOKS"].split()
+skipped = 0
+hooks = live.get("hooks")
+if isinstance(hooks, dict):
+    for event in list(hooks):
+        groups = hooks[event]
+        if not isinstance(groups, list):
+            continue
+        for g in groups:
+            if isinstance(g, dict) and isinstance(g.get("hooks"), list):
+                kept = [h for h in g["hooks"]
+                        if not any(m in str(h.get("command", "")) for m in markers)]
+                skipped += len(g["hooks"]) - len(kept)
+                g["hooks"] = kept
+        hooks[event] = [g for g in groups if not (isinstance(g, dict) and g.get("hooks") == [])]
+        if not hooks[event]:
+            hooks.pop(event)
+    if not hooks:
+        live.pop("hooks")
 
 # Preserve the tracked file's "//" header comment; it explains the whole scheme
 # and Claude Code never writes it back.
@@ -205,6 +234,8 @@ except Exception:
 print("Captured live Claude settings into %s" % src)
 if dropped:
     print("  dropped machine-local keys: %s" % ", ".join(sorted(dropped)))
+if skipped:
+    print("  left out %d installer-owned hook(s) (Orca, iTerm2)" % skipped)
 if normalized:
     print("  normalized absolute $HOME paths to ~/")
 print("  review with: git diff %s" % os.environ["SRC_REL"])
