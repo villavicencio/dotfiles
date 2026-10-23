@@ -1,7 +1,7 @@
 ---
-created_at: "2026-10-23T07:21:50-07:00"
+created_at: "2026-10-23T09:16:09-07:00"
 branch: "master"
-head: "3f42474"
+head: "a1cae04"
 worktree: "/Users/dvillavicencio/Projects/Personal/dotfiles"
 ---
 # HANDOFF — 2026-10-23, morning (PDT)
@@ -20,7 +20,8 @@ This session ran the hal pilot during the day instead of at 01:30, re-queued its
   - The bar spans the whole window, and the label reads in tokens (`133k/1M`).
   - All three meters use a blue → gray → yellow `ramp()`.
   - The ctx fill turns solid at 200k.
-  - A gold `▒` runway (brightened in #245, `7a47222`) leads to a white `┃` at `autoCompactWindow`, which is read live from settings.json.
+  - A white `┃` marks `autoCompactWindow`, read live from settings.json.
+- **#245 then #246 (`a1cae04`):** #245 brightened the gold runway between 200k and the marker into `▒`, but David read it as context already used. #246 replaced it with a plain track and a light gray `╎` tick at 200k. When the tick and the marker round to the same cell, the tick steps to its own side of the marker, or isn't drawn if that side is off the bar.
 - **hal (`3f42474`, in `docs/reference/install-and-server.md`):**
   - Both clones are at `2b37e30` or later.
   - `hal`'s `~/.claude/statusline-command.sh` is now a link into its clone. The July copy it replaced is kept at `.pre-link-20261023`.
@@ -58,8 +59,9 @@ This session ran the hal pilot during the day instead of at 01:30, re-queued its
 3. **Queue the part B tickets** once each part A is merged:
    - VIL-391 part B: `codex_delegate._parse_events` and `watch.transient_cause`, plus a grep test for `splitlines`.
    - VIL-381 part B: fix the stale citations, then handle test-name citations.
-4. **The statusline's PR-state colors are still red/green** (approved green, changes_requested red). Convert them to the protan palette if David wants.
-5. **Carried:**
+4. **VIL-515: move `pilot/` into the private repo `villavicencio/hal-pilot`**, after item 1's report. Two reasons: a dotfiles pull on hal also changes the overnight runner, and dotfiles is one of the pilot's own target repos. Steps and acceptance are on the ticket. Reloading the LaunchDaemon needs `admin`'s sudo password on hal. hal-bench (`~/Projects/hal-bench` on hal, as `david`) copies `timing.py`'s parsing rather than taking the file.
+5. **The statusline's PR-state colors are still red/green** (approved green, changes_requested red). Convert them to the protan palette if David wants.
+6. **Carried:**
    - VIL-422: David checks the work Mac for herdr.
    - `ci/op-agent-checks.sh`: refused cases should assert the stub was never called.
    - VIL-431: settings drift.
