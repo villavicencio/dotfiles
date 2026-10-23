@@ -20,7 +20,7 @@ This session ran the hal pilot during the day instead of at 01:30, re-queued its
   - The bar spans the whole window, and the label reads in tokens (`133k/1M`).
   - All three meters use a blue → gray → yellow `ramp()`.
   - The ctx fill turns solid at 200k.
-  - A dim gold runway leads to a white `┃` at `autoCompactWindow`, which is read live from settings.json.
+  - A gold `▒` runway (brightened in #245, `7a47222`) leads to a white `┃` at `autoCompactWindow`, which is read live from settings.json.
 - **hal (`3f42474`, in `docs/reference/install-and-server.md`):**
   - Both clones are at `2b37e30` or later.
   - `hal`'s `~/.claude/statusline-command.sh` is now a link into its clone. The July copy it replaced is kept at `.pre-link-20261023`.
