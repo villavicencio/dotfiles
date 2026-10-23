@@ -18,18 +18,20 @@ US=$(printf '\037')
 # The window the ctx bar assumes when the input doesn't carry context_window_size.
 CTX_WINDOW_DEFAULT=1000000
 # ctx_tok: total_input_tokens is 0 before the first API response, so then it's
-# derived from used_percentage and the window, and the ctx meter always draws
-# through one path (the hand-off cue and marker included).
+# derived from used_percentage, but only when the input names the window: a
+# percentage of an assumed 1M would claim 200k on a 200k model at 40k. With
+# neither, ctx_tok is empty and the meter shows the plain percentage.
 IFS="$US" read -r cwd model used ctx_tok ctx_win effort lim5 lim7 pr_num pr_state pr_url wt <<EOF
-$(printf '%s\n' "$input" | jq -j --argjson dw "$CTX_WINDOW_DEFAULT" '[
+$(printf '%s\n' "$input" | jq -j '[
   (.workspace.current_dir // .cwd // ""),
   (.model.display_name // ""),
   (.context_window.used_percentage // ""),
   (.context_window as $c
    | if ($c.total_input_tokens // 0) > 0 then $c.total_input_tokens
-     elif $c.used_percentage != null
-       then ($c.used_percentage * ($c.context_window_size // $dw) / 100 | floor)
-     else ($c.total_input_tokens // "") end),
+     elif ($c.context_window_size // 0) > 0 and $c.used_percentage != null
+       then ($c.used_percentage * $c.context_window_size / 100 | floor)
+     elif ($c.context_window_size // 0) > 0 then ($c.total_input_tokens // "")
+     else "" end),
   (.context_window.context_window_size // ""),
   (.effort.level // ""),
   (.rate_limits.five_hour.used_percentage // ""),
@@ -302,14 +304,22 @@ if [ -n "$model" ] || [ -n "$used" ] || [ -n "$ctx_tok" ] || [ -n "$lim5" ] || [
       # point at or past the window's end gets neither.
       rs=""; mk=-1
       compact=$(jq -r '.autoCompactWindow // empty' "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/settings.json" 2>/dev/null)
-      if [ "$compact" -gt 0 ] 2>/dev/null && [ "$compact" -lt "$win" ]; then
+      # On an assumed window (none in the input) the marker's place would be a guess.
+      if [ "$compact" -gt 0 ] 2>/dev/null && [ "$compact" -lt "$win" ] && [ "$win" = "$ctx_win" ]; then
         rs=$(( (CTX_HANDOFF * BAR_CELLS + win / 2) / win ))
         mk=$(( (compact * BAR_CELLS + win / 2) / win ))
+        # A point in the last half cell rounds to BAR_CELLS, one past the end.
+        [ "$mk" -ge "$BAR_CELLS" ] && mk=$(( BAR_CELLS - 1 ))
       fi
       printf "%s\033[37mctx \033[0m" "$sep"; bar "$u" "$c" "$rs" "$mk" "$glyph"
-      if [ $(( win % 1000000 )) -eq 0 ]; then wl="$(( win / 1000000 ))M"; else wl="$(( win / 1000 ))k"; fi
+      if [ "$win" != "$ctx_win" ]; then wl=""
+      elif [ $(( win % 1000000 )) -eq 0 ]; then wl="/$(( win / 1000000 ))M"; else wl="/$(( win / 1000 ))k"; fi
       # Round down, so the label never reads 200k before the fill turns solid.
-      printf "%s %dk/%s\033[0m" "$c" $(( ctx_tok / 1000 )) "$wl"; sep="  "
+      printf "%s %dk%s\033[0m" "$c" $(( ctx_tok / 1000 )) "$wl"; sep="  "
+    elif [ -n "$used" ]; then
+      # No token count and no window: no token claim, no hand-off cue, no marker.
+      u=$(printf "%.0f" "$used"); c=$(meter_color "$u")
+      printf "%s\033[37mctx \033[0m" "$sep"; bar "$u" "$c"; printf "%s %d%%\033[0m" "$c" "$u"; sep="  "
     fi
     if [ -n "$lim5" ]; then
       v=$(printf "%.0f" "$lim5"); c=$(meter_color "$v")
