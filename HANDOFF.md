@@ -1,7 +1,7 @@
 ---
-created_at: "2026-10-23T09:16:09-07:00"
+created_at: "2026-10-23T09:18:17-07:00"
 branch: "master"
-head: "a1cae04"
+head: "a00a13d"
 worktree: "/Users/dvillavicencio/Projects/Personal/dotfiles"
 ---
 # HANDOFF — 2026-10-23, morning (PDT)
@@ -73,3 +73,4 @@ This session ran the hal pilot during the day instead of at 01:30, re-queued its
 - **MergeWren's incremental round on a commit isn't the verdict.** The full review of the same commit came later with a new high. Wait for a result for the current commit that isn't "no verdict".
 - **Cross-session messages to tripletail-87 were held** because it runs in bypass mode, and David approved them by hand. Expect the same for any session running in a different permission mode.
 - **`ssh hal` reaches `david`, and `ssh hal-orca` reaches `hal`.** LM Studio runs as `hal` (`llmster`), so `david` can't read its draft-model config.
+- **Another session owns #247** (`chore/hal-bench-memory-pull`, "mirror hal-bench's memory into a vault"). It was opened during this session and isn't this session's work, so leave its branch and merge to that session.
