@@ -134,27 +134,10 @@ if unmerged:
     )
     raise SystemExit(1)
 
-# A tracked key the live file lacks is a change the copy-seed never delivered (a live file
-# that predates it), not a removal: capturing would silently drop it from the baseline
-# (MergeWren 259cbf8#1, autoCompactWindow). Refuse and point at the migration, which
-# carries such keys. A key removed on purpose is deleted from the tracked file by hand.
-missing = [k for k in tracked if k != "//" and k not in strip and k not in live]
-if missing:
-    print(
-        "Error: live settings lacks tracked key(s) %s. Capturing now would drop them\n"
-        "       from the tracked baseline. Bring the live file up to date first:\n"
-        "           %s helpers/migrate_claude_settings.py\n"
-        "       (a key you removed on purpose: delete it from %s by hand, then re-capture)"
-        % (", ".join(missing), os.environ["PYTHON_CMD"], os.environ["SRC_REL"]),
-        file=sys.stderr,
-    )
-    raise SystemExit(1)
-
-dropped = [k for k in strip if k in live]
-for k in dropped:
-    live.pop(k)
-
-# Drop installer-owned hooks, then any group or event they leave empty.
+# Drop installer-owned hooks, then any group or event they leave empty. This runs before
+# the missing-key check: a live file whose only hooks are installer-owned loses `hooks`
+# here, and the check must then refuse instead of dropping the tracked hooks (MergeWren
+# e597ba2#1).
 markers = os.environ["INSTALLER_HOOKS"].split()
 skipped = 0
 hooks = live.get("hooks")
@@ -174,6 +157,26 @@ if isinstance(hooks, dict):
             hooks.pop(event)
     if not hooks:
         live.pop("hooks")
+
+# A tracked key the live file lacks is a change the copy-seed never delivered (a live file
+# that predates it), not a removal: capturing would silently drop it from the baseline
+# (MergeWren 259cbf8#1, autoCompactWindow). Refuse and point at the migration, which
+# carries such keys. A key removed on purpose is deleted from the tracked file by hand.
+missing = [k for k in tracked if k != "//" and k not in strip and k not in live]
+if missing:
+    print(
+        "Error: live settings lacks tracked key(s) %s. Capturing now would drop them\n"
+        "       from the tracked baseline. Bring the live file up to date first:\n"
+        "           %s helpers/migrate_claude_settings.py\n"
+        "       (a key you removed on purpose: delete it from %s by hand, then re-capture)"
+        % (", ".join(missing), os.environ["PYTHON_CMD"], os.environ["SRC_REL"]),
+        file=sys.stderr,
+    )
+    raise SystemExit(1)
+
+dropped = [k for k in strip if k in live]
+for k in dropped:
+    live.pop(k)
 
 # Preserve the tracked file's "//" header comment; it explains the whole scheme
 # and Claude Code never writes it back.
