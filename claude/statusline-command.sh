@@ -15,12 +15,24 @@ input=$(cat)
 # ($wt) and drew an empty worktree badge. With no line ending there is no CR.
 # Elsewhere -j and -r are identical here: $(...) strips the newline anyway.
 US=$(printf '\037')
-IFS="$US" read -r cwd model used ctx_tok effort lim5 lim7 pr_num pr_state pr_url wt <<EOF
+# The window the ctx bar assumes when the input doesn't carry context_window_size.
+CTX_WINDOW_DEFAULT=1000000
+# ctx_tok: total_input_tokens is 0 before the first API response, so then it's
+# derived from used_percentage, but only when the input names the window: a
+# percentage of an assumed 1M would claim 200k on a 200k model at 40k. With
+# neither, ctx_tok is empty and the meter shows the plain percentage.
+IFS="$US" read -r cwd model used ctx_tok ctx_win effort lim5 lim7 pr_num pr_state pr_url wt <<EOF
 $(printf '%s\n' "$input" | jq -j '[
   (.workspace.current_dir // .cwd // ""),
   (.model.display_name // ""),
   (.context_window.used_percentage // ""),
-  (.context_window.total_input_tokens // ""),
+  (.context_window as $c
+   | if ($c.total_input_tokens // 0) > 0 then $c.total_input_tokens
+     elif ($c.context_window_size // 0) > 0 and $c.used_percentage != null
+       then ($c.used_percentage * $c.context_window_size / 100 | floor)
+     elif ($c.context_window_size // 0) > 0 then ($c.total_input_tokens // "")
+     else "" end),
+  (.context_window.context_window_size // ""),
   (.effort.level // ""),
   (.rate_limits.five_hour.used_percentage // ""),
   (.rate_limits.seven_day.used_percentage // ""),
@@ -30,8 +42,6 @@ $(printf '%s\n' "$input" | jq -j '[
   (.worktree.name // .workspace.git_worktree // "")
 ] | map(tostring) | join("\u001f")')
 EOF
-# total_input_tokens is 0 before the first API response: treat it as absent.
-[ "$ctx_tok" = 0 ] && ctx_tok=""
 
 # Accent colors (truecolor; ASCII + octal \033 only, so POSIX/dash-safe). The
 # parenthetical descriptor (e.g. "1M", "context" stripped) and the effort level
@@ -44,29 +54,36 @@ wt_color="\033[1;38;2;235;140;60m"
 # PR badge: violet, distinct from the magenta working-branch name.
 pr_color="\033[38;2;170;130;255m"
 
-# Color a 0-100 meter (thresholds per the source article): green < 50,
-# yellow 50-70, red > 70. Brighter truecolor lime/amber/salmon to match the
-# reference status line.
-meter_color() {
-  if [ "$1" -gt 70 ]; then printf '\033[38;2;246;108;108m'    # salmon red
-  elif [ "$1" -ge 50 ]; then printf '\033[38;2;232;184;74m'   # amber
-  else printf '\033[38;2;158;226;78m'                          # lime green
+# Meter colors are a smooth blue -> gray -> yellow ramp, safe for protan color
+# blindness (David's: red cones at 0%). Red/green meters fail it: under a
+# protanopia simulation (Machado 2009) the old lime reads as bright yellow and
+# the old salmon red as a dull gray-olive, so the meter got *dimmer* as it
+# filled. Blue-yellow is the axis protans keep, and luminance rises along the
+# ramp, so "fuller" also reads as "brighter". $1 is 0-1000 (permille of the way
+# to full warning); out-of-range values clamp.
+ramp() {
+  _p=$1; [ "$_p" -lt 0 ] && _p=0; [ "$_p" -gt 1000 ] && _p=1000
+  if [ "$_p" -le 500 ]; then   # blue (90,160,255) -> gray (175,185,200)
+    _r=$(( 90 + 85 * _p / 500 )); _g=$(( 160 + 25 * _p / 500 )); _b=$(( 255 - 55 * _p / 500 ))
+  else                         # gray -> yellow (255,214,10)
+    _q=$(( _p - 500 ))
+    _r=$(( 175 + 80 * _q / 500 )); _g=$(( 185 + 29 * _q / 500 )); _b=$(( 200 - 190 * _q / 500 ))
   fi
+  printf '\033[38;2;%d;%d;%dm' "$_r" "$_g" "$_b"
 }
 
-# The context meter measures tokens in context against CTX_BUDGET, not a percentage
-# of the model's window: on a 1M window, 25% is already 250k tokens, and every turn
-# re-reads all of it (VIL-402). The budget is where a session should end, not where
-# it compacts: autoCompactWindow in claude/settings.json (400k) is only a backstop.
-# Green below 60% of the budget, amber from 60%, red from 80% (200k): time for a
-# handoff and /clear.
-CTX_BUDGET=250000
-ctx_color() {
-  if [ "$1" -ge 80 ]; then printf '\033[38;2;246;108;108m'    # salmon red
-  elif [ "$1" -ge 60 ]; then printf '\033[38;2;232;184;74m'   # amber
-  else printf '\033[38;2;158;226;78m'                          # lime green
-  fi
-}
+# Color a 0-100 rate-limit meter: full yellow from 70% (the old red threshold).
+meter_color() { ramp $(( $1 * 1000 / 70 )); }
+
+# The context meter is a bar over the model's whole window (context_window_size,
+# 1M when absent), labeled in tokens. Its color doesn't follow the bar: it ramps
+# from blue to yellow on the way to CTX_HANDOFF, the 200k hand-off cue (VIL-402:
+# every turn re-reads the whole context, so a session should end there), and
+# past it the fill turns solid. The track from the hand-off cue to the
+# compaction point is a dim gold runway, and a white ┃ marks where auto-compaction
+# fires: autoCompactWindow, read live from settings.json, so moving it to 500k
+# or 700k moves the marker. No setting, no runway or marker.
+CTX_HANDOFF=200000
 
 # Render a BAR_CELLS-cell slider for a 0-100 value (the ccstatusline "slider"
 # style): cells left of the playhead are filled (U+2593 dark shade ->
@@ -83,15 +100,25 @@ ctx_color() {
 # straddling the new boundaries can regress: 3% and 7% differ at 10 cells and
 # collide at 20. Net gain across the range, not a guarantee for any one pair.
 # See VIL-82.
+# Optional, for the ctx meter: $3 is the first runway cell, $4 the compaction
+# marker cell (-1 for none), and $5 the fill glyph (default ▓; █ -> \342\226\210).
+# Track cells from $3 up to $4 draw in dim gold, and the marker cell is a bold
+# white ┃ (U+2503 -> \342\224\203) whether or not the fill has reached it.
 BAR_CELLS=20
 bar() {
   _bf=$(( ($1 * BAR_CELLS + 50) / 100 )); [ "$_bf" -gt "$BAR_CELLS" ] && _bf=$BAR_CELLS
+  # The glyph default can't go in ${5:-...}: the expansion strips its backslashes.
+  _rs=${3:-$BAR_CELLS}; _mk=${4:--1}; _fg=$5; [ -n "$_fg" ] || _fg='\342\226\223'
   _bi=0
   while [ "$_bi" -lt "$BAR_CELLS" ]; do
-    if [ "$_bi" -eq "$_bf" ]; then
+    if [ "$_bi" -eq "$_mk" ]; then
+      printf '\033[1;38;2;245;245;245m\342\224\203\033[22m'
+    elif [ "$_bi" -eq "$_bf" ]; then
       printf '%s\342\224\202' "$2"
     elif [ "$_bi" -lt "$_bf" ]; then
-      printf '%s\342\226\223' "$2"
+      printf "%s$_fg" "$2"
+    elif [ "$_bi" -ge "$_rs" ] && [ "$_bi" -lt "$_mk" ]; then
+      printf '\033[38;2;170;140;30m\342\226\221'
     else
       printf '\033[38;2;92;94;110m\342\226\221'
     fi
@@ -268,15 +295,29 @@ if [ -n "$model" ] || [ -n "$used" ] || [ -n "$ctx_tok" ] || [ -n "$lim5" ] || [
   if [ -n "$used" ] || [ -n "$ctx_tok" ] || [ -n "$lim5" ] || [ -n "$lim7" ]; then
     printf "%s" "$m2sep"
     sep=""
-    if [ -n "$ctx_tok" ] && [ "$ctx_tok" -gt 0 ] 2>/dev/null; then
-      # Absolute tokens against the budget; the bar caps at full.
-      u=$(( ctx_tok * 100 / CTX_BUDGET )); [ "$u" -gt 100 ] && u=100
-      c=$(ctx_color "$u")
-      printf "%s\033[37mctx \033[0m" "$sep"; bar "$u" "$c"
-      # Round down, so the label never reads 200k while the color still says under 200k.
-      printf "%s %dk/%dk\033[0m" "$c" $(( ctx_tok / 1000 )) $(( CTX_BUDGET / 1000 )); sep="  "
+    if [ "$ctx_tok" -ge 0 ] 2>/dev/null; then
+      win=$ctx_win; [ "$win" -gt 0 ] 2>/dev/null || win=$CTX_WINDOW_DEFAULT
+      u=$(( ctx_tok * 100 / win )); [ "$u" -gt 100 ] && u=100
+      c=$(ramp $(( ctx_tok * 1000 / CTX_HANDOFF )))
+      glyph=""; [ "$ctx_tok" -ge "$CTX_HANDOFF" ] && glyph='\342\226\210'
+      # Runway and marker cells round to nearest, like the playhead. A compaction
+      # point at or past the window's end gets neither.
+      rs=""; mk=-1
+      compact=$(jq -r '.autoCompactWindow // empty' "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/settings.json" 2>/dev/null)
+      # On an assumed window (none in the input) the marker's place would be a guess.
+      if [ "$compact" -gt 0 ] 2>/dev/null && [ "$compact" -lt "$win" ] && [ "$win" = "$ctx_win" ]; then
+        rs=$(( (CTX_HANDOFF * BAR_CELLS + win / 2) / win ))
+        mk=$(( (compact * BAR_CELLS + win / 2) / win ))
+        # A point in the last half cell rounds to BAR_CELLS, one past the end.
+        [ "$mk" -ge "$BAR_CELLS" ] && mk=$(( BAR_CELLS - 1 ))
+      fi
+      printf "%s\033[37mctx \033[0m" "$sep"; bar "$u" "$c" "$rs" "$mk" "$glyph"
+      if [ "$win" != "$ctx_win" ]; then wl=""
+      elif [ $(( win % 1000000 )) -eq 0 ]; then wl="/$(( win / 1000000 ))M"; else wl="/$(( win / 1000 ))k"; fi
+      # Round down, so the label never reads 200k before the fill turns solid.
+      printf "%s %dk%s\033[0m" "$c" $(( ctx_tok / 1000 )) "$wl"; sep="  "
     elif [ -n "$used" ]; then
-      # Before the first API response total_input_tokens is 0: fall back to the percentage.
+      # No token count and no window: no token claim, no hand-off cue, no marker.
       u=$(printf "%.0f" "$used"); c=$(meter_color "$u")
       printf "%s\033[37mctx \033[0m" "$sep"; bar "$u" "$c"; printf "%s %d%%\033[0m" "$c" "$u"; sep="  "
     fi
