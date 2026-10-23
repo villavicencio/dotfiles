@@ -80,7 +80,7 @@ meter_color() { ramp $(( $1 * 1000 / 70 )); }
 # from blue to yellow on the way to CTX_HANDOFF, the 200k hand-off cue (VIL-402:
 # every turn re-reads the whole context, so a session should end there), and
 # past it the fill turns solid. The track from the hand-off cue to the
-# compaction point is a dim gold runway, and a white ┃ marks where auto-compaction
+# compaction point is a gold ▒ runway, and a white ┃ marks where auto-compaction
 # fires: autoCompactWindow, read live from settings.json, so moving it to 500k
 # or 700k moves the marker. No setting, no runway or marker.
 CTX_HANDOFF=200000
@@ -102,8 +102,9 @@ CTX_HANDOFF=200000
 # See VIL-82.
 # Optional, for the ctx meter: $3 is the first runway cell, $4 the compaction
 # marker cell (-1 for none), and $5 the fill glyph (default ▓; █ -> \342\226\210).
-# Track cells from $3 up to $4 draw in dim gold, and the marker cell is a bold
-# white ┃ (U+2503 -> \342\224\203) whether or not the fill has reached it.
+# Track cells from $3 up to $4 draw as a gold medium shade (U+2592 -> \342\226\222):
+# the thin ░ in dark gold read as gray track to a protan eye. The marker cell is a
+# bold white ┃ (U+2503 -> \342\224\203) whether or not the fill has reached it.
 BAR_CELLS=20
 bar() {
   _bf=$(( ($1 * BAR_CELLS + 50) / 100 )); [ "$_bf" -gt "$BAR_CELLS" ] && _bf=$BAR_CELLS
@@ -118,7 +119,7 @@ bar() {
     elif [ "$_bi" -lt "$_bf" ]; then
       printf "%s$_fg" "$2"
     elif [ "$_bi" -ge "$_rs" ] && [ "$_bi" -lt "$_mk" ]; then
-      printf '\033[38;2;170;140;30m\342\226\221'
+      printf '\033[38;2;210;170;45m\342\226\222'
     else
       printf '\033[38;2;92;94;110m\342\226\221'
     fi
