@@ -1,73 +1,73 @@
 ---
-created_at: "2026-10-22T14:20:01-07:00"
+created_at: "2026-10-23T07:21:50-07:00"
 branch: "master"
-head: "47011eb"
+head: "3f42474"
 worktree: "/Users/dvillavicencio/Projects/Personal/dotfiles"
-resume_focus: "morning report on the 2026-10-23 01:30 PT hal pilot run (VIL-391, VIL-417, VIL-381), as david on hal"
 ---
-# HANDOFF — 2026-10-22, afternoon (PDT)
+# HANDOFF — 2026-10-23, morning (PDT)
 
-This session groomed and worked the whole Dotfiles backlog (VIL-422, VIL-402, VIL-399; VIL-300 canceled) to the "finish the tickets, clean the backlog" goal David set. All three PRs merged (#240, #242, #241), 1Password is live on hal for both accounts, and only VIL-422's work-Mac check remains. Earlier in the session dissolution was added to Orca, and a catch-up prompt was written for the skills project on hal.
+This session ran the hal pilot during the day instead of at 01:30, re-queued its two failures as smaller "part A" tickets, and answered a benchmark question from another session. Most of it went to a redesign of the statusline ctx meter, which merged as #244. The new meter is safe for David's protan color blindness and marks the compaction point, and it's live on this Mac and on hal for both accounts.
 
 ## What We Built
-- **#240 merged (`e52a9da`), VIL-422 herdr retirement.**
-  - The repo side is complete. History lives in `docs/solutions/integration-issues/herdr-agent-fleet-retired-2026-10-22.md`.
-  - This Mac is done too: the hooks were removed by David's script, `herdr` and `terminal-notifier` are uninstalled, `~/.config/herdr/` is archived at `~/Projects/_archive/herdr-config/`, and both `chore/herdr-retire-*` branches are deleted.
-  - VIL-422 stays In Progress only for the work Mac.
-- **#242 merged (`2c3747e`), VIL-402 context discipline. VIL-402 is Done.**
-  - Startup context went from 68.0k to 27.4k (measured with `claude -p "/context"`). `CLAUDE.md` is now rules plus pointers, and the write-ups live in `docs/reference/` (12 files).
-  - `autoCompactWindow: 400000` is set in the tracked settings and in this Mac's live file.
-  - The statusline `ctx` meter shows tokens out of a 250k budget and turns red at 200k.
-  - `helpers/migrate_claude_settings.py` removes herdr hooks, folds `allowedTools`, and adds missing tracked keys (desk Macs and Windows only). `--capture` refuses to drop tracked keys, and `dot drift` skips Claude settings on Linux and hal's server profile.
-- **#241 merged (`47011eb`), VIL-399 1Password. VIL-399 is Done.**
-  - Contents: `bin/op-agent`, `ci/op-agent-checks.sh` (run by hand), `docs/agents/1password.md`, and the `1password-cli` cask on both Brewfiles plus the CI allowlist.
-  - `master` was merged in to resolve conflicts with #240/#242. All 12 of #241's edits were confirmed present after the merge; the server-cask note now lives in `docs/reference/install-and-server.md`.
-  - **Live on hal:**
-    - As `hal`: `DOTFILES_PROFILE=server ./install` added the `op` 2.41.1 cask and the `op-agent` link.
-    - As `david`: clone pulled to `47011eb`, `op-agent` linked by hand.
-    - Both accounts passed `op-agent whoami` (`SERVICE_ACCOUNT`) and a 32-byte test read.
-    - `~/.local/bin/op-agent` is also linked on this Mac (no token here).
-- **1Password, done by David:**
-  - The Agents vault, the `op-agent-test` item, and the `hal-agents` service account (read-only on Agents) exist. Its token is saved in David's 1Password as "hal-agents service account".
-  - Token files are written on hal for `hal` and `david` at `~/.config/op-agent/token`: mode 600, 820 bytes each, same SHA-256, both start with `ops_`.
-- **New tickets:** VIL-426 (re-measure, due 2026-11-05) and VIL-431 (settings drift: Orca and iTerm hooks in live settings vs tracked).
-- **Memory:** `project_context_budget.md` (Max 5x goal and the compaction policy). The herdr memory entries are marked retired.
+- **Daytime pilot run, 2026-10-22 15:17–17:52 PDT** (as `david` on hal, `runner.py --ignore-window`, started over SSH with the LaunchDaemon's env). Logs are in `~/runs/log/vil-{391,417,381}-20261022-*`.
+  - **mergewren#80 (VIL-417) passed.** MergeWren's verdict: "mergeable — 0 open at medium+". It still has 2 unresolved low threads, at `docs/IMPLEMENTATION_PLAN.md:2125` and `src/review_stack/adoption.py:181`.
+  - **mergewren#79 (VIL-391) failed** with "Prompt is too long" at 173k, under the 192k cap.
+  - **mergewren#81 (VIL-381) failed** at the 60-minute limit, with no edits.
+- **Part-A re-queue:** `~/runs/queue/12-vil-391.md` and `13-vil-381.md` on hal, with mtimes set for that run order. They run at **01:30 PT Sat 2026-10-24**; the Fri 01:30 run found the queue empty.
+  - Each file has a "Not in scope" section naming its part B.
+  - Each also says to read only the functions it names, never a whole file.
+- **#244 merged (`2b37e30`):** the statusline ctx meter, in `claude/statusline-command.sh`.
+  - The bar spans the whole window, and the label reads in tokens (`133k/1M`).
+  - All three meters use a blue → gray → yellow `ramp()`.
+  - The ctx fill turns solid at 200k.
+  - A dim gold runway leads to a white `┃` at `autoCompactWindow`, which is read live from settings.json.
+- **hal (`3f42474`, in `docs/reference/install-and-server.md`):**
+  - Both clones are at `2b37e30` or later.
+  - `hal`'s `~/.claude/statusline-command.sh` is now a link into its clone. The July copy it replaced is kept at `.pre-link-20261023`.
+  - Both accounts' settings have `autoCompactWindow: 400000`. David ran the command, which left backups at `~/.claude/settings.json.bak-20261023`.
+- **Memory:**
+  - New: `user_protan_color_vision.md`.
+  - Updated: `project_context_budget.md` and `claude/CLAUDE.md` now describe the new 200k cue.
 
 ## Decisions Made
-- **Compaction:** the 400k backstop is David's call, after 250k → 660k → 400k. Max 5x is still the goal. The hand-off habit (red at 200k) does the work, compaction only catches runaways, and idle compaction stays on. Don't lower the backstop without David.
-- **VIL-399:** a service account scoped to the Agents vault. `david` gets a token too: David accepted that the pilot worker (which runs as `david`) can read the vault, so keep only worker-safe secrets in it.
-- **Waived:** #242's critical secret-scan hit, which is the documented gitleaks fake token in old commit `4586f58` (David, 2026-10-22).
-- **Declined on #241:** `13b7bbf#1` (the `ops_` check is a placeholder guard, not proof) and `#2` (refusing `=` in a first word is deliberate). The low `#3` is a follow-up: refused test cases should assert the stub was never called.
-- **Declined on #242:** `d84cc71#1` and `#2`, the zprofile.server marker and not comparing unseeded settings.
-- **The review loop on #241 is stopped for mediums and lows.** Merge on a current-head verdict with no new high or critical finding.
-- **dissolution:** added to Orca as a project (id `6aa21df3…`). No `orca.yaml` yet. It has no git remote, and its `AGENTS.md` is untracked and differs from `CLAUDE.md`.
+- **Meter colors** follow the blue↔yellow axis, with brightness rising toward urgency, plus a shape cue (the solid fill). Under a Machado 2009 protanopia simulation, the old lime looked bright yellow and the old salmon red looked dull gray-olive, so the old meter got dimmer as it filled.
+- **Missing data:**
+  - With no window size reported, the bar doesn't work out tokens from the percentage. It shows a plain percentage with no 200k cue.
+  - With tokens but no window, the label drops `/1M` and there's no marker.
+- **MergeWren on #244:**
+  - Fixed 5 findings.
+  - Declined `5274df0#1` (high) and `#2`. Both claimed `total_input_tokens` adds up over the session; the statusline docs and the 2.1.309 binary's schema say it's the current context.
+  - David waived the high (2026-10-23).
+- **#80 was not handed to MergeWren.** No MergeWren session was reachable (none in `ListAgents`, no Orca project here). David has the handoff text, as printed in that turn.
 
 ## What Didn't Work
-- **Rebasing #241 onto the new master** conflicted on every commit. A single `git merge --no-ff origin/master` was used instead. The repo has ff-only merge config, so `--no-ff` must be explicit.
-- **Running a test snippet containing `rm` through `sh -c`** is blocked by Claude Code's removal safety check. Test with the cleanup stubbed out (`:`) and a fresh `mktemp -d` dir instead of `rm -rf`.
-- **Stopping at MergeWren's incremental round.** A full review of the same head can post later with new findings (it happened on `a1375c7`). Wait for a non-"no verdict" result for the current head.
+- **`${5:-\342\226\223}` in sh** strips the backslashes, so the bar printed the literal `342226223`. A default for an octal escape has to be set on a separate line.
+- **`$c:claude/...` inside a remote zsh command** hit zsh's `:c` modifier. Write `${c}:`.
+- **Grepping the whole Claude binary** with a `.{300}` context regex ran for more than 2 minutes. Grep for the field's line text instead.
+- **The pilot README's 192k reasoning** (192k leaves room for a 32k reply) didn't hold for VIL-391, which died at 173k. That cause isn't confirmed, so it isn't written down yet.
+- **The worker's sandbox refused a check command containing `;`** (VIL-417's `python -c "…; …"`). The runner's own check of the same command passed. The cause isn't confirmed.
 
 ## What's Next
-1. **Morning report on the hal pilot run, 01:30 PT 2026-10-23** (VIL-391, VIL-417, VIL-381), as `david` on hal:
-   - Start from `~/runs/log/runner.log`.
+1. **Report on the 01:30 PT Sat 2026-10-24 pilot run** (VIL-391 and VIL-381 part A), as `david` on hal:
+   - Read `~/runs/log/runner.log`.
    - For each run, read `run.json` and run `pilot/timing.py`.
-   - The three queue files share mtime Oct 22 10:30, so their run order is a tie.
-   - `david`'s clone now carries #240–#242. `pilot/` is unchanged, but the planner reads the new, much shorter `CLAUDE.md`. Watch whether its briefs miss detail that moved to `docs/reference/`, and add that to VIL-426's list.
-2. **VIL-422:** David checks the work Mac for herdr (the retirement doc's "On another Mac" steps). Then close VIL-422.
-3. **Carried:**
-   - Hand mergewren#61, #69 and #73 to the MergeWren session.
-   - Refill the pilot queue.
-4. **Skills project:** David has a catch-up prompt for the hal skills session. Expect its triage report.
-5. **Small follow-ups:**
-   - `ci/op-agent-checks.sh`: refused cases should assert the stub was never called (logged on VIL-399).
-   - VIL-431 (settings drift) and VIL-426 (re-measure, 2026-11-05).
+   - If VIL-391 runs out of context again, test the 160k hypothesis and write the result into `pilot/README.md`.
+2. **Hand mergewren#80 (VIL-417) to the MergeWren session** once it's running. Its two low threads need fixing or declining before the merge.
+   - Also close or handle the failed #79 and #81.
+   - Also hand over mergewren#61, #69 and #73, carried from the last session.
+3. **Queue the part B tickets** once each part A is merged:
+   - VIL-391 part B: `codex_delegate._parse_events` and `watch.transient_cause`, plus a grep test for `splitlines`.
+   - VIL-381 part B: fix the stale citations, then handle test-name citations.
+4. **The statusline's PR-state colors are still red/green** (approved green, changes_requested red). Convert them to the protan palette if David wants.
+5. **Carried:**
+   - VIL-422: David checks the work Mac for herdr.
+   - `ci/op-agent-checks.sh`: refused cases should assert the stub was never called.
+   - VIL-431: settings drift.
+   - VIL-426: re-measure on 2026-11-05.
 
 ## Gotchas & Watch-outs
-- **hal's PATH has GNU `stat`.** Use `/usr/bin/stat -f …` there. `hal-orca` reaches the `hal` account with key auth, and `hal` reaches `david`.
-- **`op whoami` with the 1Password app integration** reports "not signed in" and never prompts. Run `op signin` first (documented in #241's doc).
-- **`gh pr merge --match-head-commit` needs the full 40-char sha.**
-- **MergeWren on #241–#242 found real bugs for about 10 rounds** (token leaks into `op run`'s child, `-o=` bypasses, migration data loss). Late rounds were mostly doc-snippet edge cases. Mediums got declined with reasons once no high or critical was left.
-- **Unresolved-threads check:** my thread-resolving loop only matched threads carrying `finding=` markers. Always run the paginated unresolved-threads query before merging; it caught 4 extra threads on #242.
-- **Another session merged #243 on master during this session.** One session per worktree still applies.
-- **Codex's Vercel MCP refresh token is invalid** (seen in `codex exec` output). Re-auth is needed sometime; unrelated to this work.
-- **VIL-431:** the live `~/.claude/settings.json` is about 220 lines ahead of the tracked file (Orca hooks). Don't run `--capture` until that ticket decides.
+- **The statusline links into this checkout.** Switching branches here changes the live statusline at once, and a half-applied edit breaks it, which happened for a few seconds this session.
+- **The `hal` account's statusline link was made by hand.** The server profile doesn't make it; see `docs/reference/install-and-server.md`.
+- **MergeWren's incremental round on a commit isn't the verdict.** The full review of the same commit came later with a new high. Wait for a result for the current commit that isn't "no verdict".
+- **Cross-session messages to tripletail-87 were held** because it runs in bypass mode, and David approved them by hand. Expect the same for any session running in a different permission mode.
+- **`ssh hal` reaches `david`, and `ssh hal-orca` reaches `hal`.** LM Studio runs as `hal` (`llmster`), so `david` can't read its draft-model config.
