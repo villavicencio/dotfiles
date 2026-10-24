@@ -24,7 +24,9 @@ safe to re-run, and a no-op once applied:
    file that the live file lacks (the machine-local
    keys below and the "//" header excepted), with the tracked value. That's what a fresh
    seed would have given this machine: `autoCompactWindow` (VIL-402), say. A key already
-   there is the machine's choice and is left alone. A tracked key you dropped on purpose
+   there is the machine's choice and is left alone, unless the tracked value is an object
+   and the live one isn't (`null`, a list): that malformed value is replaced with the
+   tracked one, a copy of the old file staying in the backup. A tracked key you dropped on purpose
    is deleted from the tracked file, not re-added here. `--capture` refuses while such a
    gap exists, and points here. One level down the same goes for each tracked hook (event +
    command) the live `hooks` lacks, and each plugin the tracked `enabledPlugins` lists that
