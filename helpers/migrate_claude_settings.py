@@ -86,7 +86,7 @@ def main():
     # and no rewrite, so re-running really is a no-op.
     def is_herdr(h):
         return "herdr" in str(h.get("command", ""))
-    hooks = data.get("hooks") or {}
+    hooks = data.get("hooks") if isinstance(data.get("hooks"), dict) else {}
     herdr = [(e, h.get("command")) for e, groups in hooks.items() if isinstance(groups, list)
              for g in groups if isinstance(g, dict) for h in g.get("hooks", []) if is_herdr(h)]
     try:
@@ -95,7 +95,10 @@ def main():
         print("Error: cannot read the tracked settings at %s (%s) — refusing to migrate"
               % (TRACKED, exc), file=sys.stderr)
         return 1
-    missing = ([k for k in tracked if k != "//" and k not in MACHINE_LOCAL and k not in data]
+    # A tracked object whose live value isn't one (`null`, a list) is replaced whole, as
+    # capture counts it missing (MergeWren 9059f65#1).
+    missing = ([k for k in tracked if k != "//" and k not in MACHINE_LOCAL and (
+                    k not in data or (isinstance(tracked[k], dict) and not isinstance(data[k], dict)))]
                if SEEDED else [])
     # A tracked hook (event + command) the live `hooks` lacks never arrives otherwise: the key
     # exists, so `missing` skips it, and capture then refuses (VIL-431, MergeWren db1417d#1).

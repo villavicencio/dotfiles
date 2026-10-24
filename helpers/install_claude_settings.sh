@@ -162,7 +162,10 @@ if isinstance(hooks, dict):
 # that predates it), not a removal: capturing would silently drop it from the baseline
 # (MergeWren 259cbf8#1, autoCompactWindow). Refuse and point at the migration, which
 # carries such keys. A key removed on purpose is deleted from the tracked file by hand.
-missing = [k for k in tracked if k != "//" and k not in strip and k not in live]
+# A tracked object whose live value isn't one (`null`, a list) counts as missing too, so
+# the per-entry checks below never see a malformed value (MergeWren 9059f65#1).
+missing = [k for k in tracked if k != "//" and k not in strip and (
+    k not in live or (isinstance(tracked[k], dict) and not isinstance(live[k], dict)))]
 if missing:
     print(
         "Error: live settings lacks tracked key(s) %s. Capturing now would drop them\n"
