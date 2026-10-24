@@ -106,8 +106,8 @@ def main():
     own = [h for groups in hooks.values() if isinstance(groups, list)
            for g in groups if isinstance(g, dict) for h in g.get("hooks", [])
            if not is_installer(h) and not is_herdr(h)]
-    restore_hooks = (SEEDED and "hooks" in tracked and "hooks" in data and not own
-                     and isinstance(hooks, dict))
+    restore_hooks = (SEEDED and "hooks" in tracked and isinstance(data.get("hooks"), dict)
+                     and not own)
     if "allowedTools" not in data and not herdr and not missing and not restore_hooks:
         print("Nothing to migrate: no allowedTools key, no herdr hooks, no missing tracked keys.")
         return 0
@@ -121,8 +121,10 @@ def main():
     for k in missing:
         data[k] = copy.deepcopy(tracked[k])
     if restore_hooks:
+        # data["hooks"] itself, not `hooks`: for an empty `"hooks": {}` that is a separate
+        # dict, and additions to it would never be written (MergeWren 6ce0e83#1).
         for event, groups in tracked["hooks"].items():
-            hooks.setdefault(event, []).extend(copy.deepcopy(groups))
+            data["hooks"].setdefault(event, []).extend(copy.deepcopy(groups))
 
     legacy = data.pop("allowedTools", [])
     allow = data.setdefault("permissions", collections.OrderedDict()).setdefault("allow", [])
