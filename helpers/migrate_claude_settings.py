@@ -28,7 +28,8 @@ safe to re-run, and a no-op once applied:
    is deleted from the tracked file, not re-added here. `--capture` refuses while such a
    gap exists, and points here. Also, when the live file's only hooks are installer-owned
    (Orca, iTerm2), add the tracked hooks back beside them: capture leaves those hooks out,
-   sees no `hooks` key, and refuses the same way (VIL-431).
+   sees no `hooks` key, and refuses the same way (VIL-431). And add any plugin the tracked
+   `enabledPlugins` lists that the live one doesn't list at all.
 
 Run it on any machine whose settings.json predates 2026-08-25, on any Mac that had
 herdr, and after a change to a tracked key this script carries. Writes a timestamped backup first and parse-checks before replacing.
@@ -108,7 +109,15 @@ def main():
            if not is_installer(h) and not is_herdr(h)]
     restore_hooks = (SEEDED and "hooks" in tracked and isinstance(data.get("hooks"), dict)
                      and not own)
-    if "allowedTools" not in data and not herdr and not missing and not restore_hooks:
+    # A plugin the tracked file enables that the live `enabledPlugins` doesn't list at all
+    # never arrives otherwise: the key exists, so `missing` skips it (MergeWren 8d0c1df#1).
+    # A plugin turned off live is stored as false, not removed, so this can't undo it.
+    live_plugins, tracked_plugins = data.get("enabledPlugins"), tracked.get("enabledPlugins")
+    new_plugins = ([p for p in tracked_plugins if p not in live_plugins]
+                   if SEEDED and isinstance(live_plugins, dict) and isinstance(tracked_plugins, dict)
+                   else [])
+    if ("allowedTools" not in data and not herdr and not missing and not restore_hooks
+            and not new_plugins):
         print("Nothing to migrate: no allowedTools key, no herdr hooks, no missing tracked keys.")
         return 0
 
@@ -120,6 +129,8 @@ def main():
     # and the legacy rules then merge into its `allow` (MergeWren 8d3b94c#1, 2aa9ec9#1).
     for k in missing:
         data[k] = copy.deepcopy(tracked[k])
+    for p in new_plugins:
+        live_plugins[p] = copy.deepcopy(tracked_plugins[p])
     if restore_hooks:
         # data["hooks"] itself, not `hooks`: for an empty `"hooks": {}` that is a separate
         # dict, and additions to it would never be written (MergeWren 6ce0e83#1).
@@ -169,6 +180,8 @@ def main():
                                       else "skipped (no seeded baseline on Linux or the server profile)"))
     if restore_hooks:
         print("tracked hooks:     added back beside the installer-owned ones")
+    if new_plugins:
+        print("tracked plugins added: %s" % ", ".join(new_plugins))
     print("herdr hooks:       %s" % ("removed: " + ", ".join("%s %s" % h for h in herdr) if herdr
                                      else "none"))
     return 0
