@@ -2,7 +2,7 @@
 """Bring an existing ~/.claude/settings.json in line with changes the copy-seed can't reach.
 
 The tracked claude/settings.json is copied in only when the live file is absent, so a
-change to it never reaches a machine that already has one. Two fixes, both idempotent —
+change to it never reaches a machine that already has one. Three fixes, all idempotent —
 safe to re-run, and a no-op once applied:
 
 1. Undo a resurrected legacy top-level `allowedTools` key. When both it and
@@ -142,6 +142,7 @@ def main():
     # Missing tracked keys first, so the fold below lands in what a fresh seed would have
     # given this machine: a `permissions` block it lacked arrives whole (defaultMode and all),
     # and the legacy rules then merge into its `allow` (MergeWren 8d3b94c#1, 2aa9ec9#1).
+    replaced = [k for k in missing if k in data]
     for k in missing:
         data[k] = copy.deepcopy(tracked[k])
     for p in new_plugins:
@@ -189,7 +190,11 @@ def main():
     print("allowedTools:      %s" % ("removed, %d rules folded in" % len(legacy) if legacy
                                      else "absent (already migrated)"))
     print("permissions.allow: %d rules" % len(merged))
-    print("tracked keys added: %s" % (", ".join(missing) if missing
+    if replaced:
+        print("tracked keys replaced: %s (the live value wasn't an object; the backup has it)"
+              % ", ".join(replaced))
+    added = [k for k in missing if k not in replaced]
+    print("tracked keys added: %s" % (", ".join(added) if added
                                       else "none missing" if SEEDED
                                       else "skipped (no seeded baseline on Linux or the server profile)"))
     if add_groups:

@@ -140,7 +140,9 @@ Capture also refuses when the live file lacks a tracked hook (same event and com
 plugin the tracked `enabledPlugins` lists, just as it does for a missing top-level key: it
 would otherwise drop them from the tracked file. `helpers/migrate_claude_settings.py` adds the
 missing ones back, beside any installer hooks, then re-capture. A plugin turned off live is
-stored as `false`, so it counts as present and stays off. An entry you removed on purpose is
+stored as `false`, so it counts as present and stays off. A tracked object whose live value
+is `null` or a list counts as missing, and the migration replaces it with the tracked value
+(the backup keeps the old file). An entry you removed on purpose is
 deleted from the tracked file by hand. Windows tracks no hooks, so only plugins apply there.
 
 **Agents cannot write this file** — the auto-mode classifier blocks it by design, so it stops an
