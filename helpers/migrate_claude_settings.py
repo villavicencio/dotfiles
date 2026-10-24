@@ -26,7 +26,9 @@ safe to re-run, and a no-op once applied:
    seed would have given this machine: `autoCompactWindow` (VIL-402), say. A key already
    there is the machine's choice and is left alone. A tracked key you dropped on purpose
    is deleted from the tracked file, not re-added here. `--capture` refuses while such a
-   gap exists, and points here.
+   gap exists, and points here. Also, when the live file's only hooks are installer-owned
+   (Orca, iTerm2), add the tracked hooks back beside them: capture leaves those hooks out,
+   sees no `hooks` key, and refuses the same way (VIL-431).
 
 Run it on any machine whose settings.json predates 2026-08-25, on any Mac that had
 herdr, and after a change to a tracked key this script carries. Writes a timestamped backup first and parse-checks before replacing.
@@ -95,7 +97,18 @@ def main():
         return 1
     missing = ([k for k in tracked if k != "//" and k not in MACHINE_LOCAL and k not in data]
                if SEEDED else [])
-    if "allowedTools" not in data and not herdr and not missing:
+    # A live file whose only hooks are installer-owned (Orca, iTerm2) has a `hooks` key but
+    # none of the tracked ones, and capture refuses it (VIL-431). Add the tracked hooks back
+    # beside the installers'. Same list as INSTALLER_HOOKS in install_claude_settings.sh.
+    markers = (".orca/agent-hooks/", ".config/iterm2/cc-status")
+    def is_installer(h):
+        return any(m in str(h.get("command", "")) for m in markers)
+    own = [h for groups in hooks.values() if isinstance(groups, list)
+           for g in groups if isinstance(g, dict) for h in g.get("hooks", [])
+           if not is_installer(h) and not is_herdr(h)]
+    restore_hooks = (SEEDED and "hooks" in tracked and "hooks" in data and not own
+                     and isinstance(hooks, dict))
+    if "allowedTools" not in data and not herdr and not missing and not restore_hooks:
         print("Nothing to migrate: no allowedTools key, no herdr hooks, no missing tracked keys.")
         return 0
 
@@ -107,6 +120,9 @@ def main():
     # and the legacy rules then merge into its `allow` (MergeWren 8d3b94c#1, 2aa9ec9#1).
     for k in missing:
         data[k] = copy.deepcopy(tracked[k])
+    if restore_hooks:
+        for event, groups in tracked["hooks"].items():
+            hooks.setdefault(event, []).extend(copy.deepcopy(groups))
 
     legacy = data.pop("allowedTools", [])
     allow = data.setdefault("permissions", collections.OrderedDict()).setdefault("allow", [])
@@ -149,6 +165,8 @@ def main():
     print("tracked keys added: %s" % (", ".join(missing) if missing
                                       else "none missing" if SEEDED
                                       else "skipped (no seeded baseline on Linux or the server profile)"))
+    if restore_hooks:
+        print("tracked hooks:     added back beside the installer-owned ones")
     print("herdr hooks:       %s" % ("removed: " + ", ".join("%s %s" % h for h in herdr) if herdr
                                      else "none"))
     return 0
