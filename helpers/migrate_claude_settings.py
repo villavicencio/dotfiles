@@ -2,7 +2,7 @@
 """Bring an existing ~/.claude/settings.json in line with changes the copy-seed can't reach.
 
 The tracked claude/settings.json is copied in only when the live file is absent, so a
-change to it never reaches a machine that already has one. Two fixes, both idempotent —
+change to it never reaches a machine that already has one. Three fixes, all idempotent —
 safe to re-run, and a no-op once applied:
 
 1. Undo a resurrected legacy top-level `allowedTools` key. When both it and
@@ -24,9 +24,13 @@ safe to re-run, and a no-op once applied:
    file that the live file lacks (the machine-local
    keys below and the "//" header excepted), with the tracked value. That's what a fresh
    seed would have given this machine: `autoCompactWindow` (VIL-402), say. A key already
-   there is the machine's choice and is left alone. A tracked key you dropped on purpose
+   there is the machine's choice and is left alone, unless the tracked value is an object
+   and the live one isn't (`null`, a list): that malformed value is replaced with the
+   tracked one, a copy of the old file staying in the backup. A tracked key you dropped on purpose
    is deleted from the tracked file, not re-added here. `--capture` refuses while such a
-   gap exists, and points here.
+   gap exists, and points here. One level down the same goes for each tracked hook (event +
+   command) the live `hooks` lacks, and each plugin the tracked `enabledPlugins` lists that
+   the live one doesn't list at all (VIL-431). Those are added too.
 
 Run it on any machine whose settings.json predates 2026-08-25, on any Mac that had
 herdr, and after a change to a tracked key this script carries. Writes a timestamped backup first and parse-checks before replacing.
@@ -84,7 +88,7 @@ def main():
     # and no rewrite, so re-running really is a no-op.
     def is_herdr(h):
         return "herdr" in str(h.get("command", ""))
-    hooks = data.get("hooks") or {}
+    hooks = data.get("hooks") if isinstance(data.get("hooks"), dict) else {}
     herdr = [(e, h.get("command")) for e, groups in hooks.items() if isinstance(groups, list)
              for g in groups if isinstance(g, dict) for h in g.get("hooks", []) if is_herdr(h)]
     try:
@@ -93,9 +97,42 @@ def main():
         print("Error: cannot read the tracked settings at %s (%s) — refusing to migrate"
               % (TRACKED, exc), file=sys.stderr)
         return 1
-    missing = ([k for k in tracked if k != "//" and k not in MACHINE_LOCAL and k not in data]
+    # A tracked object whose live value isn't one (`null`, a list) is replaced whole, as
+    # capture counts it missing (MergeWren 9059f65#1).
+    missing = ([k for k in tracked if k != "//" and k not in MACHINE_LOCAL and (
+                    k not in data or (isinstance(tracked[k], dict) and not isinstance(data[k], dict)))]
                if SEEDED else [])
-    if "allowedTools" not in data and not herdr and not missing:
+    # A tracked hook (event + command) the live `hooks` lacks never arrives otherwise: the key
+    # exists, so `missing` skips it, and capture then refuses (VIL-431, MergeWren db1417d#1).
+    # Add the missing ones back in a copy of their tracked group, beside whatever is there
+    # (installer hooks included). Commands compare with $HOME folded to ~/, as capture does.
+    home = os.path.expanduser("~").rstrip("\\/")
+    def norm(cmd):
+        return str(cmd).replace(home + "/", "~/")
+    have = {(e, norm(h.get("command", ""))) for e, groups in hooks.items()
+            if isinstance(groups, list) for g in groups if isinstance(g, dict)
+            for h in g.get("hooks") or [] if isinstance(h, dict)}
+    add_groups = []
+    if SEEDED and isinstance(tracked.get("hooks"), dict) and isinstance(data.get("hooks"), dict):
+        for event, groups in tracked["hooks"].items():
+            for g in groups if isinstance(groups, list) else ():
+                if not isinstance(g, dict):
+                    continue
+                lacking = [h for h in g.get("hooks") or []
+                           if isinstance(h, dict) and (event, norm(h.get("command", ""))) not in have]
+                if lacking:
+                    ng = copy.deepcopy(g)
+                    ng["hooks"] = copy.deepcopy(lacking)
+                    add_groups.append((event, ng))
+    # A plugin the tracked file enables that the live `enabledPlugins` doesn't list at all
+    # never arrives otherwise: the key exists, so `missing` skips it (MergeWren 8d0c1df#1).
+    # A plugin turned off live is stored as false, not removed, so this can't undo it.
+    live_plugins, tracked_plugins = data.get("enabledPlugins"), tracked.get("enabledPlugins")
+    new_plugins = ([p for p in tracked_plugins if p not in live_plugins]
+                   if SEEDED and isinstance(live_plugins, dict) and isinstance(tracked_plugins, dict)
+                   else [])
+    if ("allowedTools" not in data and not herdr and not missing and not add_groups
+            and not new_plugins):
         print("Nothing to migrate: no allowedTools key, no herdr hooks, no missing tracked keys.")
         return 0
 
@@ -105,8 +142,15 @@ def main():
     # Missing tracked keys first, so the fold below lands in what a fresh seed would have
     # given this machine: a `permissions` block it lacked arrives whole (defaultMode and all),
     # and the legacy rules then merge into its `allow` (MergeWren 8d3b94c#1, 2aa9ec9#1).
+    replaced = [k for k in missing if k in data]
     for k in missing:
         data[k] = copy.deepcopy(tracked[k])
+    for p in new_plugins:
+        live_plugins[p] = copy.deepcopy(tracked_plugins[p])
+    # data["hooks"] itself, not `hooks`: for an empty `"hooks": {}` that is a separate
+    # dict, and additions to it would never be written (MergeWren 6ce0e83#1).
+    for event, g in add_groups:
+        data["hooks"].setdefault(event, []).append(g)
 
     legacy = data.pop("allowedTools", [])
     allow = data.setdefault("permissions", collections.OrderedDict()).setdefault("allow", [])
@@ -146,9 +190,17 @@ def main():
     print("allowedTools:      %s" % ("removed, %d rules folded in" % len(legacy) if legacy
                                      else "absent (already migrated)"))
     print("permissions.allow: %d rules" % len(merged))
-    print("tracked keys added: %s" % (", ".join(missing) if missing
+    if replaced:
+        print("tracked keys replaced: %s (the live value wasn't an object; the backup has it)"
+              % ", ".join(replaced))
+    added = [k for k in missing if k not in replaced]
+    print("tracked keys added: %s" % (", ".join(added) if added
                                       else "none missing" if SEEDED
                                       else "skipped (no seeded baseline on Linux or the server profile)"))
+    if add_groups:
+        print("tracked hooks added: %s" % ", ".join("%s %s" % (e, h.get("command")) for e, g in add_groups for h in g["hooks"]))
+    if new_plugins:
+        print("tracked plugins added: %s" % ", ".join(new_plugins))
     print("herdr hooks:       %s" % ("removed: " + ", ".join("%s %s" % h for h in herdr) if herdr
                                      else "none"))
     return 0

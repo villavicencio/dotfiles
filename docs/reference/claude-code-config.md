@@ -127,6 +127,24 @@ It refuses when the live file lacks a key the tracked file has (since 2026-10-22
 means a tracked change never reached this machine, so run `helpers/migrate_claude_settings.py`
 first. Only a key you removed on purpose gets deleted from the tracked file by hand.
 
+**Hooks an installer writes stay untracked (VIL-431, 2026-10-23).** Orca's agent hooks
+(commands under `~/.orca/agent-hooks/`) and iTerm2's status hook (`~/.config/iterm2/cc-status`)
+are written into the live file by their own installers, which write them back on reinstall.
+Tracking them would only seed them onto machines without that app. So `--capture` leaves out
+any hook whose command contains one of those paths, drops a hook group or event left empty, and
+`dot drift` compares the same way. The list is `INSTALLER_HOOKS` in
+`helpers/install_claude_settings.sh`, repeated as `markers` in `helpers/report_drift.sh`. A new
+app whose installer adds hooks gets its path added to both.
+
+Capture also refuses when the live file lacks a tracked hook (same event and command) or a
+plugin the tracked `enabledPlugins` lists, just as it does for a missing top-level key: it
+would otherwise drop them from the tracked file. `helpers/migrate_claude_settings.py` adds the
+missing ones back, beside any installer hooks, then re-capture. A plugin turned off live is
+stored as `false`, so it counts as present and stays off. A tracked object whose live value
+is `null` or a list counts as missing, and the migration replaces it with the tracked value
+(the backup keeps the old file). An entry you removed on purpose is
+deleted from the tracked file by hand. Windows tracks no hooks, so only plugins apply there.
+
 **Agents cannot write this file** — the auto-mode classifier blocks it by design, so it stops an
 agent widening its own permissions. `helpers/migrate_claude_settings.py` exists for a machine
 whose settings predate this scheme (folds `allowedTools` back into `permissions.allow`);

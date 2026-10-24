@@ -59,6 +59,14 @@ native_path() {
 #                it; capture drops it so a stale live file cannot reintroduce it.
 STRIP_KEYS="effortLevel modelSettings autoMode mcpServers allowedTools"
 
+# Hooks an agent-integration installer writes into the live file and owns (VIL-431). A hook
+# whose command contains one of these is left out of capture, and out of `dot drift`
+# (helpers/report_drift.sh keeps the same list): the installer writes it back, and machines
+# without that app don't need it. Space-separated substrings, matched with or without ~/.
+#   .orca/agent-hooks/        Orca's agent hooks (one inline command per event)
+#   .config/iterm2/cc-status  iTerm2's Claude Code status hook
+INSTALLER_HOOKS=".orca/agent-hooks/ .config/iterm2/cc-status"
+
 # Dry-run guard comes FIRST so it covers --capture too: capture writes to the
 # repo, and `DOTFILES_DRY_RUN=1 ... --capture` must not mutate anything.
 if [ "${DOTFILES_DRY_RUN:-0}" = "1" ]; then
@@ -94,7 +102,7 @@ if [ "${1:-}" = "--capture" ]; then
   fi
   [ "$PYTHON_FOUND" -eq 1 ] || { echo "Error: no working python3/python on PATH, and no working uv to run one" >&2; exit 1; }
 
-  STRIP_KEYS="$STRIP_KEYS" SRC="$(native_path "$SRC")" DEST="$(native_path "$DEST")" \
+  STRIP_KEYS="$STRIP_KEYS" INSTALLER_HOOKS="$INSTALLER_HOOKS" SRC="$(native_path "$SRC")" DEST="$(native_path "$DEST")" \
     SRC_REL="$SRC_REL" PYTHON_CMD="${PYTHON[*]}" "${PYTHON[@]}" - <<'PY' || exit 1
 import json, collections, os, sys
 
@@ -126,11 +134,38 @@ if unmerged:
     )
     raise SystemExit(1)
 
+# Drop installer-owned hooks, then any group or event they leave empty. This runs before
+# the missing-key check: a live file whose only hooks are installer-owned loses `hooks`
+# here, and the check must then refuse instead of dropping the tracked hooks (MergeWren
+# e597ba2#1). The migration it points at adds the tracked hooks back (4bc49fa#1).
+markers = os.environ["INSTALLER_HOOKS"].split()
+skipped = 0
+hooks = live.get("hooks")
+if isinstance(hooks, dict):
+    for event in list(hooks):
+        groups = hooks[event]
+        if not isinstance(groups, list):
+            continue
+        for g in groups:
+            if isinstance(g, dict) and isinstance(g.get("hooks"), list):
+                kept = [h for h in g["hooks"]
+                        if not any(m in str(h.get("command", "")) for m in markers)]
+                skipped += len(g["hooks"]) - len(kept)
+                g["hooks"] = kept
+        hooks[event] = [g for g in groups if not (isinstance(g, dict) and g.get("hooks") == [])]
+        if not hooks[event]:
+            hooks.pop(event)
+    if not hooks:
+        live.pop("hooks")
+
 # A tracked key the live file lacks is a change the copy-seed never delivered (a live file
 # that predates it), not a removal: capturing would silently drop it from the baseline
 # (MergeWren 259cbf8#1, autoCompactWindow). Refuse and point at the migration, which
 # carries such keys. A key removed on purpose is deleted from the tracked file by hand.
-missing = [k for k in tracked if k != "//" and k not in strip and k not in live]
+# A tracked object whose live value isn't one (`null`, a list) counts as missing too, so
+# the per-entry checks below never see a malformed value (MergeWren 9059f65#1).
+missing = [k for k in tracked if k != "//" and k not in strip and (
+    k not in live or (isinstance(tracked[k], dict) and not isinstance(live[k], dict)))]
 if missing:
     print(
         "Error: live settings lacks tracked key(s) %s. Capturing now would drop them\n"
@@ -191,6 +226,35 @@ live = fold_home(live, home_prefixes())
 blob = json.dumps(live, indent=2)
 normalized = blob != before
 
+# The same rule one level down (MergeWren db1417d#1/#2): a tracked hook (event + command)
+# or a tracked plugin the live file doesn't have is a change that never reached this
+# machine, not a removal. Checked after folding $HOME, since the tracked file uses ~/.
+def hook_keys(hooks):
+    keys = set()
+    for event, groups in (hooks.items() if isinstance(hooks, dict) else ()):
+        for g in (groups if isinstance(groups, list) else ()):
+            for h in (g.get("hooks") or [] if isinstance(g, dict) else ()):
+                if isinstance(h, dict):
+                    keys.add((event, str(h.get("command", ""))))
+    return keys
+gone_hooks = sorted(hook_keys(tracked.get("hooks")) - hook_keys(live.get("hooks")))
+tp, lp = tracked.get("enabledPlugins"), live.get("enabledPlugins")
+gone_plugins = [p for p in tp if p not in lp] if isinstance(tp, dict) and isinstance(lp, dict) else []
+if gone_hooks or gone_plugins:
+    print(
+        "Error: live settings lacks tracked entries. Capturing now would drop them from %s:\n"
+        "%s"
+        "       Bring the live file up to date first:\n"
+        "           %s helpers/migrate_claude_settings.py\n"
+        "       (an entry you removed on purpose: delete it from %s by hand, then re-capture)"
+        % (os.environ["SRC_REL"],
+           "".join("         hook %s: %s\n" % h for h in gone_hooks)
+           + "".join("         plugin %s\n" % p for p in gone_plugins),
+           os.environ["PYTHON_CMD"], os.environ["SRC_REL"]),
+        file=sys.stderr,
+    )
+    raise SystemExit(1)
+
 tmp = src + ".tmp.%d" % os.getpid()
 try:
     with open(tmp, "w", encoding="utf-8", newline="\n") as fh:  # LF even on Windows
@@ -205,6 +269,8 @@ except Exception:
 print("Captured live Claude settings into %s" % src)
 if dropped:
     print("  dropped machine-local keys: %s" % ", ".join(sorted(dropped)))
+if skipped:
+    print("  left out %d installer-owned hook(s) (Orca, iTerm2)" % skipped)
 if normalized:
     print("  normalized absolute $HOME paths to ~/")
 print("  review with: git diff %s" % os.environ["SRC_REL"])
