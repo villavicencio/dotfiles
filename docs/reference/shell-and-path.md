@@ -163,3 +163,10 @@ login shells (`zsh -l -c`) never read `zshrc`, so they keep
 ## OMZ plugin sync
 When adding an Oh My Zsh plugin to the `plugins=()` list in `zshrc`, also add the corresponding
 `git clone` to `helpers/install_omz.sh` so it gets installed on fresh machines.
+
+## zsh's `path` variable is `PATH`
+In zsh, the lowercase `path` array is tied to `PATH`. A script or one-off command run under
+zsh that uses `path` as an ordinary variable (`while read -r id path; do …`) overwrites `PATH`.
+Every command after that fails with `command not found`. Agent Bash calls run under zsh here, so
+name such a variable something else (`fpath` is taken too; use `file` or `p`). Found 2026-10-23
+when a review-thread loop lost `gh` partway through.
