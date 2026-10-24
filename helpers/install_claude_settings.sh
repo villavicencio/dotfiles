@@ -223,6 +223,35 @@ live = fold_home(live, home_prefixes())
 blob = json.dumps(live, indent=2)
 normalized = blob != before
 
+# The same rule one level down (MergeWren db1417d#1/#2): a tracked hook (event + command)
+# or a tracked plugin the live file doesn't have is a change that never reached this
+# machine, not a removal. Checked after folding $HOME, since the tracked file uses ~/.
+def hook_keys(hooks):
+    keys = set()
+    for event, groups in (hooks.items() if isinstance(hooks, dict) else ()):
+        for g in (groups if isinstance(groups, list) else ()):
+            for h in (g.get("hooks") or [] if isinstance(g, dict) else ()):
+                if isinstance(h, dict):
+                    keys.add((event, str(h.get("command", ""))))
+    return keys
+gone_hooks = sorted(hook_keys(tracked.get("hooks")) - hook_keys(live.get("hooks")))
+tp, lp = tracked.get("enabledPlugins"), live.get("enabledPlugins")
+gone_plugins = [p for p in tp if p not in lp] if isinstance(tp, dict) and isinstance(lp, dict) else []
+if gone_hooks or gone_plugins:
+    print(
+        "Error: live settings lacks tracked entries. Capturing now would drop them from %s:\n"
+        "%s"
+        "       Bring the live file up to date first:\n"
+        "           %s helpers/migrate_claude_settings.py\n"
+        "       (an entry you removed on purpose: delete it from %s by hand, then re-capture)"
+        % (os.environ["SRC_REL"],
+           "".join("         hook %s: %s\n" % h for h in gone_hooks)
+           + "".join("         plugin %s\n" % p for p in gone_plugins),
+           os.environ["PYTHON_CMD"], os.environ["SRC_REL"]),
+        file=sys.stderr,
+    )
+    raise SystemExit(1)
+
 tmp = src + ".tmp.%d" % os.getpid()
 try:
     with open(tmp, "w", encoding="utf-8", newline="\n") as fh:  # LF even on Windows
