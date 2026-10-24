@@ -51,7 +51,7 @@ Each line is a rule; the file in parentheses has the why, the history and the ex
 
 **Tickets, branches and review** (`docs/reference/review-and-merge.md`)
 - Issues live in Linear (project Dotfiles, team key VIL); use `/ticket`. Never create GitHub issues.
-- Behavior and config changes go on a branch (`feat/`, `fix/`, `chore/`, `docs/`, `style/`) and merge by PR. Docs, typos and handoffs can go straight to `master`. A ticket always gets its own branch.
+- Behavior and config changes go on a branch (`feat/`, `fix/`, `chore/`, `docs/`, `style/`) and merge by PR. Docs, typos and handoffs can go straight to `master`. A ticket always gets its own branch, named `<type>/vil-N-<slug>` (e.g. `feat/vil-522-statusline-ticket`), so the statusline shows its id (VIL-522).
 - Review is review-stack (MergeWren). It reviews each new head of a non-draft PR in 2–6 minutes. Wait for the comment for the current head (poll every 60 s, give up after 20 min):
   `gh pr view <N> --repo villavicencio/dotfiles --json headRefOid,comments --jq '.headRefOid as $h | [.comments[] | select(.body | contains("review-stack:head=" + $h))] | last | .body // "PENDING"'`
   It's merge-ready when that comment has no unwaived high or critical finding and the unresolved-threads check is empty. A `partial` or `failed` verdict, or "did not complete", means not reviewed. Don't wait for or trigger CodeRabbit here.

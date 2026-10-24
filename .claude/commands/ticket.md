@@ -82,6 +82,7 @@ Reply with:
 - Issue URL (from the save_issue result)
 - Labels applied
 - One-line summary of what was captured
+- The branch to work it on: `<type>/vil-N-<slug>`, e.g. `feat/vil-12-dedupe-path`, or in a worktree `wt new vil-12-dedupe-path feat`. The id in the name is what the statusline shows.
 
 ## Tips
 - One issue per distinct problem — don't bundle unrelated fixes

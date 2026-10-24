@@ -18,7 +18,7 @@ Detailed procedures live in dotfiles `docs/agents/` (`~/Projects/Personal/dotfil
 - Never rewrite or force-push shared git history without asking.
 
 ## Git
-- Changes to runtime behavior, config, or dependencies go on a branch (`feat/`, `fix/`, `chore/`, `docs/`) and merge via PR (or a local merge where a repo has no remote review). Docs, typos, and handoff commits can go straight to the default branch. When in doubt, branch. Stricter repo rules win.
+- Changes to runtime behavior, config, or dependencies go on a branch (`feat/`, `fix/`, `chore/`, `docs/`) and merge via PR (or a local merge where a repo has no remote review). Docs, typos, and handoff commits can go straight to the default branch. When in doubt, branch. A branch for a Linear ticket puts its id after the type, `<type>/vil-N-<slug>` (e.g. `feat/vil-522-statusline-ticket`), so David's Claude Code statusline can show it. Stricter repo rules win.
 - After a PR merges, delete its branch locally and on origin as part of the merge, without asking, using the procedure in `docs/agents/code-review.md` ("After the merge"). It deletes only when the branch holds nothing the merge didn't, and each delete is conditional on the commit it checked. A branch with new commits is kept; say so. A worktree on the branch is cleared first, and only if it's clean. A local merge with no remote deletes the local branch only.
 - Parallel sessions on one repo: one worktree and branch per session, never two sessions in one directory. Make it with `wt new <topic> [type]` and remove it after the merge with `wt done <topic>`; the home session (main checkout) owns merges. Details: `docs/agents/parallel-sessions.md`.
 
@@ -38,7 +38,7 @@ Repos with their own reviewer follow their own rules: dotfiles and bryancola.com
 
 ## Linear
 - Linear is my tracker: workspace `villavicencio`, team key `VIL`, one project per repo or area. Use it on the personal Mac only; never set it up on the work Mac.
-- Mark linked issues Done at merge. Mentioning a `VIL-` id in a PR title or body can auto-close it on merge, even in "VIL-411 filed" (mergewren#62, 2026-10-22). After merging, re-check every id the PR named and reopen the ones that aren't finished.
+- Mark linked issues Done at merge. Mentioning a `VIL-` id in a PR title or body can auto-close it on merge, even in "VIL-411 filed" (mergewren#62, 2026-10-22). After merging, re-check every id the PR named and reopen the ones that aren't finished. A branch named after a ticket (`feat/vil-391-…`) can close it the same way when its PR merges, so a multi-part ticket gets reopened after the first part.
 - Put real newlines in Linear markdown, not literal `\n`.
 
 ## Current facts
