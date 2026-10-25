@@ -54,6 +54,7 @@ STOP_STARTING_AT = dt.time(6, 0)   # local (PT) — don't start a ticket after t
 PLANNER_TIMEOUT_S = 20 * 60
 WORKER_TIMEOUT_S = 60 * 60
 CHECK_TIMEOUT_S = 15 * 60
+SYNC_TIMEOUT_S = 10 * 60
 PLANNER_BUDGET_USD = "10"
 
 # Bash commands the worker may always run, on top of the brief's checks.
@@ -224,6 +225,21 @@ def prepare_worktree(repo, branch, wt, env):
     default = git(["symbolic-ref", "--short", "refs/remotes/origin/HEAD"], clone, env)
     git(["worktree", "add", "-b", branch, str(wt), default], clone, env)
     return default.split("/", 1)[1]
+
+
+def sync_env(wt, rundir):
+    """Fill david's uv cache from the worktree's lockfile, online, before the worker starts.
+    The worker and the checks run `uv run --offline`, which finds only what the cache holds,
+    so a dependency the repo added since the last fill failed every check (VIL-528). Returns
+    None when there's no uv.lock or the sync worked, else why; the output is in sync.log."""
+    if not (wt / "uv.lock").exists():
+        return None
+    cmd = ["uv", "sync", "--locked"]
+    rc, out, err, killed = run_limited(cmd, wt, dict(os.environ), SYNC_TIMEOUT_S)
+    (rundir / "sync.log").write_text(f"$ {' '.join(cmd)}\nexit {rc} {killed or ''}\n{out}{err}")
+    if rc == 0 and not killed:
+        return None
+    return f"`{' '.join(cmd)}` {killed or f'exit {rc}'}: {(out + err).strip()[-1500:]}"
 
 
 # ---------------------------------------------------------------- processes
@@ -576,6 +592,10 @@ def run_ticket(ticket, dry_run=False):
     try:
         base = prepare_worktree(ticket["repo"], branch, wt, env)
         log(f"{run_id}: worktree {wt} on {branch} from {base}")
+        # A broken environment isn't a broken change: no planner, no worker, no PR.
+        why = sync_env(wt, rundir)
+        if why:
+            return finish("env-failed", error=why)
         if dry_run:
             return finish("dry-run")
         return run_stages(ticket, run_id, branch, base, wt, rundir, env, finish,
@@ -749,6 +769,15 @@ def run_queue(args):
             if not args.ticket:
                 shelve_back(ticket["path"])
             log("planner failed; ticket requeued, stopping for the night")
+            break
+        if s["status"] == "env-failed":
+            # Set aside, not requeued: a lasting cause (a broken lockfile) would otherwise
+            # fail the same ticket first every night and block the queue behind it. Stop
+            # anyway, since a passing one (the network) would fail the next ticket too.
+            if not args.ticket and not args.dry_run:
+                shelve(ticket["path"], "env-failed")
+            log("dependency sync failed; ticket set aside in queue/env-failed/, "
+                "stopping for the night")
             break
     return 0
 
