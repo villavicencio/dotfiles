@@ -244,13 +244,16 @@ if gone_hooks or gone_plugins:
     print(
         "Error: live settings lacks tracked entries. Capturing now would drop them from %s:\n"
         "%s"
-        "       Bring the live file up to date first:\n"
-        "           %s helpers/migrate_claude_settings.py\n"
-        "       (an entry you removed on purpose: delete it from %s by hand, then re-capture)"
+        "       If you edited or removed it live on purpose, make the same change in %s\n"
+        "       by hand, then re-capture. Don't run the migration for that: hooks match on\n"
+        "       their exact command, so it would add the old hook back beside your edit and\n"
+        "       both would run.\n"
+        "       If this machine just never got it (a live file older than the tracked one):\n"
+        "           %s helpers/migrate_claude_settings.py"
         % (os.environ["SRC_REL"],
            "".join("         hook %s: %s\n" % h for h in gone_hooks)
            + "".join("         plugin %s\n" % p for p in gone_plugins),
-           os.environ["PYTHON_CMD"], os.environ["SRC_REL"]),
+           os.environ["SRC_REL"], os.environ["PYTHON_CMD"]),
         file=sys.stderr,
     )
     raise SystemExit(1)

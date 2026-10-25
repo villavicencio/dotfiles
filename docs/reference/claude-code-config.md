@@ -138,8 +138,11 @@ app whose installer adds hooks gets its path added to both.
 
 Capture also refuses when the live file lacks a tracked hook (same event and command) or a
 plugin the tracked `enabledPlugins` lists, just as it does for a missing top-level key: it
-would otherwise drop them from the tracked file. `helpers/migrate_claude_settings.py` adds the
-missing ones back, beside any installer hooks, then re-capture. A plugin turned off live is
+would otherwise drop them from the tracked file. For an entry this machine never got,
+`helpers/migrate_claude_settings.py` adds the missing ones back, beside any installer hooks,
+then re-capture. For a hook you edited or removed live on purpose, make the same change in
+`claude/settings.json` by hand and re-capture. Don't run the migration for that: hooks match
+on their exact command, so it would add the old one back beside the edit and both would run. A plugin turned off live is
 stored as `false`, so it counts as present and stays off. A tracked object whose live value
 is `null` or a list counts as missing, and the migration replaces it with the tracked value
 (the backup keeps the old file). An entry you removed on purpose is
