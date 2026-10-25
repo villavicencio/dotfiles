@@ -104,8 +104,9 @@ folds `allowedTools` and removes herdr hooks, and `dot drift` doesn't compare th
 
 ```bash
 dot drift                                            # see what diverged
-python3 helpers/migrate_claude_settings.py           # by hand, every time, after the step below:
-                                                     # adds tracked entries the live file lacks,
+# A hook or plugin you changed live on purpose: make the same change in claude/settings.json first.
+python3 helpers/migrate_claude_settings.py           # then this, by hand, every time: adds tracked
+                                                     # keys, hooks and plugins the live file lacks,
                                                      # removes herdr hooks (capture keeps those)
 bash helpers/install_claude_settings.sh --capture    # regenerate claude/settings.json, then commit
 ```
@@ -115,16 +116,16 @@ up only by `install.ps1` has uv but no Python, so the migration runs through uv)
 
 ```bash
 bash helpers/report_drift.sh                                    # see what diverged
-python helpers/migrate_claude_settings.py                       # by hand, every time, after the step
-                                                                # below, if Python works
+# A hook or plugin you changed live on purpose: make the same change in windows/claude-settings.json first.
+python helpers/migrate_claude_settings.py                       # then this, by hand, every time,
+                                                                # if Python works
 uv run --no-project python helpers/migrate_claude_settings.py   # instead, on a PC with no Python
 bash helpers/install_claude_settings.sh --capture               # regenerates windows/claude-settings.json, then commit
 ```
 
-On either, first copy any change you made live on purpose (a hook edited or removed, a plugin
-removed) into the tracked file by hand, then run the migration. The migration adds back every
-tracked entry the live file lacks, so with the old entry still tracked it puts it back, and an
-edited hook would then run twice. Once the tracked file matches your change, the migration has
+On either, that first step matters. The migration adds back a tracked top-level key, hook
+(matched on event and exact command) or plugin the live file lacks. So while the tracked file
+still has the old entry, it puts that entry back, and an edited hook would then run twice. Once the tracked file matches your change, the migration has
 nothing of it to restore. It also removes herdr hooks, which capture would otherwise record.
 
 `--capture` regenerates rather than `cp`s: it drops the machine-local keys
