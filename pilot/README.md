@@ -37,7 +37,8 @@ Everything here runs on **hal as `david`**, from `david`'s dotfiles clone at
    the repo added since the cache was last filled fails every check before any test runs,
    and a good change reads `[pilot][failed]` (VIL-391 and VIL-381 on 2026-10-23,
    `markdown-it-py`; VIL-528). If the sync fails, the run is `env-failed`: no planner, no
-   worker, no PR. The ticket moves to `queue/env-failed/` and the night ends. It isn't
+   worker, no PR, and the night ends. A ticket taken from the queue moves to
+   `queue/env-failed/` (a `--ticket` or `--dry-run` run leaves its file where it is). It isn't
    requeued: a lasting cause, such as a broken lockfile, would otherwise fail the same ticket
    first every night and block everything behind it. Nothing shows on GitHub, so check
    `~/runs/log/runner.log` and the run's `sync.log`, fix the cause, and move the ticket back
@@ -181,7 +182,7 @@ The schedule is a LaunchDaemon, not a LaunchAgent, because `david` has no GUI se
 As `david` on hal:
 
 ```sh
-~/Projects/Personal/dotfiles/pilot/runner.py --dry-run --ticket <file> --ignore-window   # gates + worktree only
+~/Projects/Personal/dotfiles/pilot/runner.py --dry-run --ticket <file> --ignore-window   # gates, worktree, online uv sync
 ~/Projects/Personal/dotfiles/pilot/runner.py --once --ignore-window                      # one ticket from the queue
 ~/Projects/Personal/dotfiles/pilot/timing.py ~/runs/log/<run>/ ...                        # where a worker's time went
 ```

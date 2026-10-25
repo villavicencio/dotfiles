@@ -175,7 +175,10 @@ def shelve_back(path):
 def shelve(path, where):
     dest = RUNS / "queue" / where
     dest.mkdir(parents=True, exist_ok=True)
-    return Path(shutil.move(str(path), dest / path.name))
+    target = dest / path.name
+    if target.exists():   # the same name shelved before; keep both
+        target = dest / f"{path.stem}.{int(time.time())}{path.suffix}"
+    return Path(shutil.move(str(path), target))
 
 
 # ---------------------------------------------------------------- git
@@ -235,7 +238,10 @@ def sync_env(wt, rundir):
     if not (wt / "uv.lock").exists():
         return None
     cmd = ["uv", "sync", "--locked"]
-    rc, out, err, killed = run_limited(cmd, wt, dict(os.environ), SYNC_TIMEOUT_S)
+    try:
+        rc, out, err, killed = run_limited(cmd, wt, dict(os.environ), SYNC_TIMEOUT_S)
+    except OSError as e:   # uv missing or not executable: still env-failed, not runner-error
+        rc, out, err, killed = None, "", str(e), "could not start"
     (rundir / "sync.log").write_text(f"$ {' '.join(cmd)}\nexit {rc} {killed or ''}\n{out}{err}")
     if rc == 0 and not killed:
         return None
@@ -711,7 +717,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--once", action="store_true", help="run at most one ticket")
     ap.add_argument("--dry-run", action="store_true",
-                    help="gates and worktree only; no models, no push")
+                    help="gates, worktree and dependency sync only; no models, no push")
     ap.add_argument("--ticket", type=Path, help="run this ticket file, not the queue")
     ap.add_argument("--max", type=int, default=MAX_TICKETS_PER_NIGHT,
                     help=f"most tickets to run (default {MAX_TICKETS_PER_NIGHT})")
@@ -775,9 +781,11 @@ def run_queue(args):
             # fail the same ticket first every night and block the queue behind it. Stop
             # anyway, since a passing one (the network) would fail the next ticket too.
             if not args.ticket and not args.dry_run:
-                shelve(ticket["path"], "env-failed")
-            log("dependency sync failed; ticket set aside in queue/env-failed/, "
-                "stopping for the night")
+                where = shelve(ticket["path"], "env-failed")
+                log(f"dependency sync failed; ticket set aside as {where}, "
+                    "stopping for the night")
+            else:
+                log("dependency sync failed; stopping")
             break
     return 0
 
