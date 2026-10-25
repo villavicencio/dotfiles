@@ -104,8 +104,9 @@ folds `allowedTools` and removes herdr hooks, and `dot drift` doesn't compare th
 
 ```bash
 dot drift                                            # see what diverged
-python3 helpers/migrate_claude_settings.py           # only if capture refuses over entries this
-                                                     # machine never got (see below)
+python3 helpers/migrate_claude_settings.py           # by hand, every time, after the step below:
+                                                     # adds tracked entries the live file lacks,
+                                                     # removes herdr hooks (capture keeps those)
 bash helpers/install_claude_settings.sh --capture    # regenerate claude/settings.json, then commit
 ```
 
@@ -114,16 +115,17 @@ up only by `install.ps1` has uv but no Python, so the migration runs through uv)
 
 ```bash
 bash helpers/report_drift.sh                                    # see what diverged
-python helpers/migrate_claude_settings.py                       # only if capture refuses over entries
-                                                                # this PC never got, if Python works
+python helpers/migrate_claude_settings.py                       # by hand, every time, after the step
+                                                                # below, if Python works
 uv run --no-project python helpers/migrate_claude_settings.py   # instead, on a PC with no Python
 bash helpers/install_claude_settings.sh --capture               # regenerates windows/claude-settings.json, then commit
 ```
 
-On either, a change you made live on purpose (a hook edited or removed, a plugin removed) goes
-into the tracked file by hand before capturing. The migration is for entries the copy-seed never
-delivered: run on an intentional change, it puts the old entry back, and an edited hook would
-then run twice.
+On either, first copy any change you made live on purpose (a hook edited or removed, a plugin
+removed) into the tracked file by hand, then run the migration. The migration adds back every
+tracked entry the live file lacks, so with the old entry still tracked it puts it back, and an
+edited hook would then run twice. Once the tracked file matches your change, the migration has
+nothing of it to restore. It also removes herdr hooks, which capture would otherwise record.
 
 `--capture` regenerates rather than `cp`s: it drops the machine-local keys
 (`effortLevel`, `modelSettings`, `autoMode`, `mcpServers`, and `allowedTools` — which must never be tracked),
