@@ -104,8 +104,8 @@ folds `allowedTools` and removes herdr hooks, and `dot drift` doesn't compare th
 
 ```bash
 dot drift                                            # see what diverged
-python3 helpers/migrate_claude_settings.py           # by hand, first: adds tracked keys the live file
-                                                     # lacks (capture refuses until then)
+python3 helpers/migrate_claude_settings.py           # only if capture refuses over entries this
+                                                     # machine never got (see below)
 bash helpers/install_claude_settings.sh --capture    # regenerate claude/settings.json, then commit
 ```
 
@@ -114,10 +114,16 @@ up only by `install.ps1` has uv but no Python, so the migration runs through uv)
 
 ```bash
 bash helpers/report_drift.sh                                    # see what diverged
-python helpers/migrate_claude_settings.py                       # by hand, first, if Python works
+python helpers/migrate_claude_settings.py                       # only if capture refuses over entries
+                                                                # this PC never got, if Python works
 uv run --no-project python helpers/migrate_claude_settings.py   # instead, on a PC with no Python
 bash helpers/install_claude_settings.sh --capture               # regenerates windows/claude-settings.json, then commit
 ```
+
+On either, a change you made live on purpose (a hook edited or removed, a plugin removed) goes
+into the tracked file by hand before capturing. The migration is for entries the copy-seed never
+delivered: run on an intentional change, it puts the old entry back, and an edited hook would
+then run twice.
 
 `--capture` regenerates rather than `cp`s: it drops the machine-local keys
 (`effortLevel`, `modelSettings`, `autoMode`, `mcpServers`, and `allowedTools` — which must never be tracked),
