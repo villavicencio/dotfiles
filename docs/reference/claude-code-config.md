@@ -104,8 +104,10 @@ folds `allowedTools` and removes herdr hooks, and `dot drift` doesn't compare th
 
 ```bash
 dot drift                                            # see what diverged
-python3 helpers/migrate_claude_settings.py           # by hand, first: adds tracked keys the live file
-                                                     # lacks (capture refuses until then)
+# A hook or plugin you changed live on purpose: make the same change in claude/settings.json first.
+python3 helpers/migrate_claude_settings.py           # then this, by hand, every time: adds tracked
+                                                     # keys, hooks and plugins the live file lacks,
+                                                     # removes herdr hooks (capture keeps those)
 bash helpers/install_claude_settings.sh --capture    # regenerate claude/settings.json, then commit
 ```
 
@@ -114,10 +116,17 @@ up only by `install.ps1` has uv but no Python, so the migration runs through uv)
 
 ```bash
 bash helpers/report_drift.sh                                    # see what diverged
-python helpers/migrate_claude_settings.py                       # by hand, first, if Python works
+# A hook or plugin you changed live on purpose: make the same change in windows/claude-settings.json first.
+python helpers/migrate_claude_settings.py                       # then this, by hand, every time,
+                                                                # if Python works
 uv run --no-project python helpers/migrate_claude_settings.py   # instead, on a PC with no Python
 bash helpers/install_claude_settings.sh --capture               # regenerates windows/claude-settings.json, then commit
 ```
+
+On either, that first step matters. The migration adds back a tracked top-level key, hook
+(matched on event and exact command) or plugin the live file lacks. So while the tracked file
+still has the old entry, it puts that entry back, and an edited hook would then run twice. Once the tracked file matches your change, the migration has
+nothing of it to restore. It also removes herdr hooks, which capture would otherwise record.
 
 `--capture` regenerates rather than `cp`s: it drops the machine-local keys
 (`effortLevel`, `modelSettings`, `autoMode`, `mcpServers`, and `allowedTools` — which must never be tracked),
@@ -138,8 +147,11 @@ app whose installer adds hooks gets its path added to both.
 
 Capture also refuses when the live file lacks a tracked hook (same event and command) or a
 plugin the tracked `enabledPlugins` lists, just as it does for a missing top-level key: it
-would otherwise drop them from the tracked file. `helpers/migrate_claude_settings.py` adds the
-missing ones back, beside any installer hooks, then re-capture. A plugin turned off live is
+would otherwise drop them from the tracked file. For an entry this machine never got,
+`helpers/migrate_claude_settings.py` adds the missing ones back, beside any installer hooks,
+then re-capture. For a hook you edited or removed live on purpose, make the same change in
+`claude/settings.json` by hand and re-capture. Don't run the migration for that: hooks match
+on their exact command, so it would add the old one back beside the edit and both would run. A plugin turned off live is
 stored as `false`, so it counts as present and stays off. A tracked object whose live value
 is `null` or a list counts as missing, and the migration replaces it with the tracked value
 (the backup keeps the old file). An entry you removed on purpose is
