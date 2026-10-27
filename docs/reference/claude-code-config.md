@@ -208,8 +208,9 @@ with davidv.sh's `OPS_SECRET`. Opening the magic link on the Mac (`open -a Safar
 It also blocks writing an unattended agent's instructions ("Create Unsafe Agents", seen
 2026-10-18 on `plan-prompt.md`, VIL-396, when the pilot runner still lived in this repo's
 `pilot/`; it is now the private `villavicencio/hal-pilot` repo, VIL-515). David unblocked it
-with an `Edit(pilot/**)` rule in this repo's `.claude/settings.local.json`; a new home for
-agent code, `hal-pilot` included, needs the same human-added rule in its own settings.
+with an `Edit(pilot/**)` rule in this repo's `.claude/settings.local.json`. A new home for
+agent code needs its own human-added rule matching its own paths: in `hal-pilot` the file is at
+the repo root, so the rule there is `Edit(plan-prompt.md)` in that repo's `settings.local.json`.
 
 **`Write(path)` rules are inert — file-permission checks match `Edit(path)` only**, and an
 `Edit(…)` rule covers every file-editing tool (Write, Edit, NotebookEdit). Claude Code warns at
