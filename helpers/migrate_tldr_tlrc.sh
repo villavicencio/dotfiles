@@ -33,9 +33,14 @@ owner="$(readlink "$HOMEBREW_PREFIX/bin/tldr" 2>/dev/null | sed -nE 's#.*/Cellar
 
 if [ "$have_old" = 0 ]; then
   [ "$have_tlrc" = 1 ] && [ "$owner" != tlrc ] || exit 0
+  # Something else owns bin/tldr (tealdeer, a hand-made link): leave it, never overwrite.
+  if [ -e "$HOMEBREW_PREFIX/bin/tldr" ] || [ -L "$HOMEBREW_PREFIX/bin/tldr" ]; then
+    echo "migrate_tldr_tlrc: $HOMEBREW_PREFIX/bin/tldr isn't tlrc's; leaving it. To use tlrc, remove it and run: brew link tlrc" >&2
+    exit 0
+  fi
   if [ "${DOTFILES_DRY_RUN:-0}" = "1" ]; then echo "[dry-run] would link tlrc (installed, not linked)"; exit 0; fi
   echo "migrate_tldr_tlrc: linking tlrc (installed, not linked)"
-  brew link --overwrite tlrc
+  brew link tlrc
   exit 0
 fi
 
@@ -46,7 +51,8 @@ fi
 
 echo "migrate_tldr_tlrc: replacing the disabled tldr formula with tlrc"
 brew unlink tldr >/dev/null
-if [ "$have_tlrc" = 1 ]; then put=(brew link --overwrite tlrc); else put=(brew install tlrc); fi
+# No --overwrite: unlinking tldr freed its own paths, and anything else in the way stays.
+if [ "$have_tlrc" = 1 ]; then put=(brew link tlrc); else put=(brew install tlrc); fi
 if ! "${put[@]}"; then
   if brew link tldr >/dev/null; then
     echo "ERROR: \`${put[*]}\` failed; relinked tldr, so the tldr command still works" >&2
