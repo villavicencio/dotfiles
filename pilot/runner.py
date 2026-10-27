@@ -54,6 +54,7 @@ STOP_STARTING_AT = dt.time(6, 0)   # local (PT) — don't start a ticket after t
 PLANNER_TIMEOUT_S = 20 * 60
 WORKER_TIMEOUT_S = 60 * 60
 CHECK_TIMEOUT_S = 15 * 60
+SYNC_TIMEOUT_S = 10 * 60
 PLANNER_BUDGET_USD = "10"
 
 # Bash commands the worker may always run, on top of the brief's checks.
@@ -164,17 +165,26 @@ def next_ticket():
     return None
 
 
+def free_name(target, tag):
+    """target, or the first `<stem>.<tag>-<n><suffix>` beside it that doesn't exist yet: a
+    timestamp alone repeats within a second (MergeWren fae1693#2)."""
+    base, n = target, 1
+    while target.exists():
+        target = base.with_name(f"{base.stem}.{tag}-{n}{base.suffix}")
+        n += 1
+    return target
+
+
 def shelve_back(path):
-    dest = RUNS / "queue" / path.name
-    if dest.exists():   # a new ticket arrived under the same name; keep both
-        dest = dest.with_name(f"{path.stem}.requeued-{int(time.time())}{path.suffix}")
-    return Path(shutil.move(str(path), dest))
+    # A new ticket may have arrived under the same name; keep both.
+    return Path(shutil.move(str(path), free_name(RUNS / "queue" / path.name, "requeued")))
 
 
 def shelve(path, where):
     dest = RUNS / "queue" / where
     dest.mkdir(parents=True, exist_ok=True)
-    return Path(shutil.move(str(path), dest / path.name))
+    # The same name may have been shelved here before; keep both.
+    return Path(shutil.move(str(path), free_name(dest / path.name, "again")))
 
 
 # ---------------------------------------------------------------- git
@@ -226,6 +236,28 @@ def prepare_worktree(repo, branch, wt, env):
     return default.split("/", 1)[1]
 
 
+def sync_env(wt, rundir):
+    """Fill david's uv cache from the worktree's lockfile, online, before the worker starts.
+    Tickets have the worker and the checks run `uv run --offline` (the runner doesn't enforce it),
+    so a dependency the repo added since the last fill failed every check (VIL-528). Returns
+    None when there's no uv.lock or the sync worked, else why; the output is in sync.log."""
+    if not (wt / "uv.lock").exists():
+        return None
+    cmd = ["uv", "sync", "--locked"]
+    # uv missing is env-failed too, not runner-error. Checked up front rather than by
+    # catching OSError, which would also swallow one raised by a SIGTERM mid-sync.
+    if not shutil.which("uv"):
+        (rundir / "sync.log").write_text("uv not found on PATH\n")
+        return "`uv sync --locked` could not start: uv not found on PATH"
+    # Written first, so a run stopped mid-sync (kill.sh) still leaves a sync.log.
+    (rundir / "sync.log").write_text(f"$ {' '.join(cmd)}\nstarted; stopped before it finished\n")
+    rc, out, err, killed = run_limited(cmd, wt, dict(os.environ), SYNC_TIMEOUT_S)
+    (rundir / "sync.log").write_text(f"$ {' '.join(cmd)}\nexit {rc} {killed or ''}\n{out}{err}")
+    if rc == 0 and not killed:
+        return None
+    return f"`{' '.join(cmd)}` {killed or f'exit {rc}'}: {(out + err).strip()[-1500:]}"
+
+
 # ---------------------------------------------------------------- processes
 
 CHILD_PGIDS = set()   # process groups started by run_limited and still running
@@ -244,7 +276,9 @@ def stop_groups(pgids, grace=10):
         for pgid in list(alive):
             try:
                 os.killpg(pgid, 0)
-            except ProcessLookupError:
+            except (ProcessLookupError, PermissionError):
+                # macOS answers EPERM for a group whose leader has exited but isn't
+                # reaped yet: gone too. Uncaught, it escaped on_sigterm (VIL-528).
                 alive.discard(pgid)
         time.sleep(0.5)
     for pgid in alive:
@@ -576,12 +610,22 @@ def run_ticket(ticket, dry_run=False):
     try:
         base = prepare_worktree(ticket["repo"], branch, wt, env)
         log(f"{run_id}: worktree {wt} on {branch} from {base}")
+        # A broken environment isn't a broken change: no planner, no worker, no PR.
+        why = sync_env(wt, rundir)
+        if why:
+            # The kill switch also stops the sync; that's `disabled`, not a broken environment.
+            return finish("disabled") if disabled() else finish("env-failed", error=why)
         if dry_run:
             return finish("dry-run")
         return run_stages(ticket, run_id, branch, base, wt, rundir, env, finish,
                           summary)
     except Exception as e:
         return finish("runner-error", error=str(e))
+    except SystemExit:
+        # SIGTERM (kill.sh, launchd) unwinds through here from any stage, the sync
+        # included: record the run before the worktree goes (MergeWren 2be6f49#1).
+        finish("disabled" if disabled() else "killed")
+        raise
     finally:
         # An unpushed commit is the run's only copy of the work: keep its branch.
         keep = summary["committed"] and not summary["pushed"]
@@ -691,7 +735,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--once", action="store_true", help="run at most one ticket")
     ap.add_argument("--dry-run", action="store_true",
-                    help="gates and worktree only; no models, no push")
+                    help="gates, worktree and dependency sync only; no models, no push")
     ap.add_argument("--ticket", type=Path, help="run this ticket file, not the queue")
     ap.add_argument("--max", type=int, default=MAX_TICKETS_PER_NIGHT,
                     help=f"most tickets to run (default {MAX_TICKETS_PER_NIGHT})")
@@ -749,6 +793,17 @@ def run_queue(args):
             if not args.ticket:
                 shelve_back(ticket["path"])
             log("planner failed; ticket requeued, stopping for the night")
+            break
+        if s["status"] == "env-failed":
+            # Set aside, not requeued: a lasting cause (a broken lockfile) would otherwise
+            # fail the same ticket first every night and block the queue behind it. Stop
+            # anyway, since a passing one (the network) would fail the next ticket too.
+            if not args.ticket and not args.dry_run:
+                where = shelve(ticket["path"], "env-failed")
+                log(f"dependency sync failed; ticket set aside as {where}, "
+                    "stopping for the night")
+            else:
+                log("dependency sync failed; stopping")
             break
     return 0
 

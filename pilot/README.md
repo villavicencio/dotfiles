@@ -31,6 +31,19 @@ Everything here runs on **hal as `david`**, from `david`'s dotfiles clone at
 2. **Worktree.** The runner keeps one clone per repo under `~/runs/repos/`. Each run gets a
    fresh worktree under `~/runs/work/` on branch `pilot/<ticket>-<YYYYMMDD-HHMMSS>`, cut from
    origin's default branch (re-read from GitHub each run with `git remote set-head --auto`).
+   A worktree with a `uv.lock` then gets one online `uv sync --locked` (stopped after 10
+   minutes, output in `sync.log`). The kill switch stops it too, like any other stage. The runner doesn't enforce offline commands, but the "Environment on hal" note
+   in each mergewren ticket has the worker and the checks use `uv run --offline`,
+   which finds only what `david`'s uv cache (`~/.cache/uv`) holds. Without the sync, a dependency
+   the repo added since the cache was last filled fails every check before any test runs,
+   and a good change reads `[pilot][failed]` (VIL-391 and VIL-381 on 2026-10-23,
+   `markdown-it-py`; VIL-528). If the sync fails, the run is `env-failed`: no planner, no
+   worker, no PR, and the night ends. A ticket taken from the queue moves to
+   `queue/env-failed/` (a `--ticket` or `--dry-run` run leaves its file where it is). It isn't
+   requeued: a lasting cause, such as a broken lockfile, would otherwise fail the same ticket
+   first every night and block everything behind it. Nothing shows on GitHub, so check
+   `~/runs/log/runner.log` and the run's `sync.log`, fix the cause, and move the ticket back
+   into `queue/`.
 3. **Planner.** This is `claude -p --model opus` on `david`'s claude.ai login, with only Read,
    Grep and Glob, no MCP, a $10 API-equivalent cap and a 20-minute limit. It reads the
    repo's CLAUDE.md and AGENTS.md and returns JSON (`--json-schema`) with:
@@ -85,6 +98,7 @@ Everything here runs on **hal as `david`**, from `david`'s dotfiles clone at
 
 Each run's record is kept in `~/runs/log/<run-id>/`:
 - `run.json` (the summary);
+- `sync.log` (the dependency sync, for a repo with a `uv.lock`);
 - `planner.json` and `brief.md`;
 - `worker.jsonl` (the worker's transcript) and `worker.stderr`;
 - `checks.log`;
@@ -169,7 +183,7 @@ The schedule is a LaunchDaemon, not a LaunchAgent, because `david` has no GUI se
 As `david` on hal:
 
 ```sh
-~/Projects/Personal/dotfiles/pilot/runner.py --dry-run --ticket <file> --ignore-window   # gates + worktree only
+~/Projects/Personal/dotfiles/pilot/runner.py --dry-run --ticket <file> --ignore-window   # gates, worktree, online uv sync
 ~/Projects/Personal/dotfiles/pilot/runner.py --once --ignore-window                      # one ticket from the queue
 ~/Projects/Personal/dotfiles/pilot/timing.py ~/runs/log/<run>/ ...                        # where a worker's time went
 ```
@@ -195,6 +209,11 @@ As `david` on hal:
 ~/Projects/Personal/dotfiles/pilot/kill.sh        # stop now and stay off
 ~/Projects/Personal/dotfiles/pilot/kill.sh --on   # allow runs again
 ```
+
+A run it stops, at any stage including the dependency sync, is recorded in its `run.json`
+as `disabled` (or `killed`, for a SIGTERM without the kill switch, from launchd say). Its
+ticket, if it came from the queue, stays in `queue/taken/`; move it back into `queue/` to
+run it again. (A `--ticket` file stays where it was.)
 
 The kill switch does **not** unload either LM Studio model. Atlas and Axiom use both (VIL-395).
 To remove the schedule as well, run `sudo launchctl bootout system/dev.hal.pilot` as `admin`.
