@@ -220,6 +220,16 @@ account (any repo there, public or private, is his) and the same command went th
 classifier blocks an action on David's own repos, read that block before adding allow rules. Its
 other lines (trusted repo, sensitive files, prod hosts) are still browse-gateway's.
 
+**Resolving a review thread is an "External System Writes" soft block** even on a PR the agent
+is working on: that rule's PR-work exception covers only posting a comment and editing the
+title or body. On 2026-10-27 David added an `autoMode.allow` entry (after `"$defaults"`, so the
+built-in exceptions stay) that clears `resolveReviewThread` on a `villavicencio` PR the user
+asked the agent to work on or the agent opened, once the agent has pushed the fix in that
+session. `autoMode` is read only from user, managed and `--settings` scope, never from a
+repo's `.claude/settings*.json`; its entries are prose, not tool patterns. Check the effective
+lists with `claude auto-mode config`, and read a built-in rule with
+`claude auto-mode defaults --label '<rule name>'`.
+
 **`Write(path)` rules are inert — file-permission checks match `Edit(path)` only**, and an
 `Edit(…)` rule covers every file-editing tool (Write, Edit, NotebookEdit). Claude Code warns at
 startup: `Permission deny rule … Write(<glob>) is not matched by file permission checks — only
