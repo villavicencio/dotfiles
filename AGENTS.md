@@ -57,8 +57,6 @@ iterm/      iTerm2 preferences
 lazygit/    lazygit config
 nvim/       Neovim config (NvChad v2.5; the whole dir is linked as ~/.config/nvim,
             %LOCALAPPDATA%\nvim on Windows). Plugins pinned in lazy-lock.json
-pilot/      hal overnight coding-pilot runner (VIL-396); runs on hal as david, not
-            installed by Dotbot. See pilot/README.md
 starship/   Starship prompt config (command_timeout is a global top-level key)
 tmux/       tmux config + status-bar scripts + window-meta persistence
 topgrade/   Topgrade system-updater config
@@ -88,6 +86,9 @@ windows/    Windows layer, applied by install.ps1 (repo root): packages.json (wi
             (system settings, the `defaults write` counterpart; opt-in, not run by install.ps1);
             install_nvim.ps1 (the helpers/install_nvim.sh counterpart)
 ```
+
+The hal overnight coding-pilot runner (VIL-396) is not in this repo. It moved to the private
+repo `villavicencio/hal-pilot` (VIL-515), cloned on hal as `david` at `~/Projects/hal-pilot`.
 
 ---
 
