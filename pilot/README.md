@@ -32,8 +32,9 @@ Everything here runs on **hal as `david`**, from `david`'s dotfiles clone at
    fresh worktree under `~/runs/work/` on branch `pilot/<ticket>-<YYYYMMDD-HHMMSS>`, cut from
    origin's default branch (re-read from GitHub each run with `git remote set-head --auto`).
    A worktree with a `uv.lock` then gets one online `uv sync --locked` (10 minutes at most,
-   output in `sync.log`). The worker's and the checks' commands are `uv run --offline`, which
-   find only what `david`'s uv cache (`~/.cache/uv`) holds. Without the sync, a dependency
+   output in `sync.log`). The runner doesn't enforce offline commands, but the "Environment on
+   hal" note in each mergewren ticket has the worker and the checks use `uv run --offline`,
+   which finds only what `david`'s uv cache (`~/.cache/uv`) holds. Without the sync, a dependency
    the repo added since the cache was last filled fails every check before any test runs,
    and a good change reads `[pilot][failed]` (VIL-391 and VIL-381 on 2026-10-23,
    `markdown-it-py`; VIL-528). If the sync fails, the run is `env-failed`: no planner, no

@@ -238,7 +238,7 @@ def prepare_worktree(repo, branch, wt, env):
 
 def sync_env(wt, rundir):
     """Fill david's uv cache from the worktree's lockfile, online, before the worker starts.
-    The worker and the checks run `uv run --offline`, which finds only what the cache holds,
+    Tickets have the worker and the checks run `uv run --offline` (the runner doesn't enforce it),
     so a dependency the repo added since the last fill failed every check (VIL-528). Returns
     None when there's no uv.lock or the sync worked, else why; the output is in sync.log."""
     if not (wt / "uv.lock").exists():
