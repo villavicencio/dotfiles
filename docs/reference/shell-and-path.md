@@ -170,3 +170,7 @@ zsh that uses `path` as an ordinary variable (`while read -r id path; do …`) o
 Every command after that fails with `command not found`. Agent Bash calls run under zsh here, so
 name such a variable something else (`fpath` is taken too; use `file` or `p`). Found 2026-10-23
 when a review-thread loop lost `gh` partway through.
+
+The same shell also doesn't word-split an unquoted `$var`: `printf '%s\n' $state` prints
+`tldr tlrc` as one line, where bash prints two. In a zsh test harness write `${=var}`, or put
+the harness in a `bash` script.

@@ -76,6 +76,13 @@ then carries it, and the statusline shows it as a link to the issue.
     titles.
 
 **`wt done`:**
+- **Ignored files stop it too.** It keeps the worktree when `git status --ignored` shows anything,
+  including the `.claude/settings.local.json` that `.worktreeinclude` copied in and a
+  `__pycache__` from a test run. Check that the copied file still matches the main checkout's
+  (`cmp`), remove both, and rerun (2026-10-27, VIL-528).
+- **Bringing master into a PR branch:** this repo sets `merge.ff = only`, so a plain
+  `git merge origin/master` on a branch that has diverged fails with "Not possible to
+  fast-forward". Use `git merge --no-ff origin/master`.
 - **Run it from outside the worktree.** It refuses while your shell is inside the worktree, or
   while any process has its working directory there. It checks with `lsof`, or `/proc` where
   there's no `lsof`, and refuses outright when it has neither, when `lsof` exits nonzero, when

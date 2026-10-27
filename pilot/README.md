@@ -180,6 +180,11 @@ The schedule is a LaunchDaemon, not a LaunchAgent, because `david` has no GUI se
 
 ## Run by hand
 
+Test changes to the runner's process handling (`run_limited`, `stop_groups`, SIGTERM) on hal,
+as `david`, with `PILOT_RUNS` pointing at a scratch dir, not inside a Claude Code session on the
+Mac. That sandbox refuses `setsid`, so every `start_new_session=True` child fails with EPERM, and
+that failure looks like a runner bug.
+
 As `david` on hal:
 
 ```sh
