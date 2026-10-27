@@ -1,70 +1,72 @@
 ---
-created_at: "2026-10-27T10:16:31-07:00"
+created_at: "2026-10-27T15:06:24-07:00"
 branch: "master"
-head: "b2085b3"
+head: "5286b4a"
 worktree: "/Users/dvillavicencio/Projects/Personal/dotfiles"
+resume_focus: "morning check of the first hal-pilot batch (runner.log, run.json, [pilot] PRs in mergewren) and close VIL-515 if the 01:30 run started from ~/Projects/hal-pilot"
 ---
-# HANDOFF — 2026-10-27, morning (PDT)
+# HANDOFF — 2026-10-27, afternoon (PDT)
 
-A long session, from the 2026-10-23 pickup to 2026-10-27. Six dotfiles PRs merged: the statusline ticket badge, a follow-up on how capture handles hooks and plugins an installer added, a CI break from Homebrew dropping `tldr`, and the pilot runner's dependency sync (VIL-528). VIL-391 part B ran on hal and came back with every check passing. MergeWren spent several hours halted on a false-positive incident lock, which David cleared.
+This session moved the hal pilot runner out of dotfiles into its own private repo (VIL-515), fixed two auto-mode classifier blocks at their root, and restarted the pilot's measurements by queueing a batch of 8 mergewren tickets. The pilot queue had been empty since the 01:30 PT run on Sun 10-25, so the 10-26 and 10-27 runs measured nothing.
 
 ## What We Built
-- **#250** (VIL-522, Done): `claude/statusline-command.sh` shows a linked `VIL-N` badge when the branch is `<type>/vil-N-<slug>`.
-  - It matches `vil-` only, so the work Mac's tracker keys never trigger it.
-  - The global naming rule is in `claude/CLAUDE.md` and `codex/AGENTS.md`.
-- **#249** (VIL-431, Done): `--capture` and `dot drift` ignore hooks the Orca and iTerm2 installers add. The marker list is kept in three places: `install_claude_settings.sh`, `report_drift.sh` and `migrate_claude_settings.py`.
-  - **Capture refuses when** the live file lacks a tracked hook (matched on event and exact command), a tracked plugin, or a tracked top-level key. A tracked object whose live value is `null` or a list also counts as missing.
-  - **The migration** adds the missing entries back and prints separately any key it replaced.
-  - Tracks `cc-plugin-you-should-know@builtin`.
-- **#251:** capture's refusal message and `docs/reference/claude-code-config.md` now say what to do for a hook or plugin changed live on purpose: copy the change into the tracked file first, then migrate, then capture. Run the migration on an intentional change and it restores the old hook beside the new one, so both run.
-  - David waived high finding 62b9dfe#1. It contradicted b6d7a4a#1, which needs the migration to keep running for its herdr-hook cleanup. The waiver is recorded in the PR.
-- **#254:** Homebrew disabled the `tldr` formula (unmaintained; the replacement is `tlrc`). That broke CI's `macos` leg on master and every branch from 2026-10-25.
-  - `brew/Brewfile` now names `tlrc`.
-  - `helpers/migrate_tldr_tlrc.sh` runs before the desk `brew bundle`. It unlinks `tldr`, links or installs `tlrc`, and only then uninstalls `tldr`. If `tlrc` fails it relinks `tldr`. It never overwrites a `bin/tldr` it doesn't own.
-- **#252** (VIL-528, Done): `pilot/runner.py` `sync_env` runs `uv sync --locked` online, once per run, for any repo with a `uv.lock`.
-  - **A failed sync** is recorded as `env-failed`. No PR opens, the ticket moves to `queue/env-failed/`, and the night stops.
-  - **A run stopped by SIGTERM** at any stage is recorded as `disabled` (kill switch) or `killed`.
-  - **Name clashes:** `shelve` and `shelve_back` pick the first free numbered name.
-  - **Deployed:** David pulled hal's runner checkout (`david`, `~/Projects/Personal/dotfiles`) to `b2085b3`.
-- **#248:** `ci/op-agent-checks.sh` asserts that refused cases never call the stub.
-- **Docs pushed straight to master:**
-  - `docs/reference/shell-and-path.md`: zsh's `path` and `fpath` are tied to `PATH` and `FPATH`, so never use them as loop variables.
-  - `docs/agents/code-review.md`: `mergeStateStatus: UNSTABLE` means a check failed, and the merge button still works.
+- **`villavicencio/hal-pilot`** (private): `pilot/`'s 8 commits (subtree split, gitleaks clean), plus `375041f` (paths now `~/Projects/hal-pilot`) and `8b6df58` (project `CLAUDE.md`: hal's clone is production, deploy = `git -C ~/Projects/hal-pilot pull --ff-only` as `david`, test on hal in a scratch clone, token never covers this repo). David has since added more lines to that `CLAUDE.md` himself (`docs/solutions`, `ce-compound`, `ce-noslop`).
+  - **On hal (`david`):** cloned to `~/Projects/hal-pilot`, `install.sh` run. David reloaded `dev.hal.pilot` as `admin`, and `launchctl print` shows `/Users/david/Projects/hal-pilot/runner.py`. The dry run from the new path ended `dry-run`.
+  - **On this Mac:** cloned to `~/Projects/hal-pilot`, added to Orca, vault `~/Obsidian/hal-pilot/` with the memory symlink and standard config.
+- **#255** (merged `5286b4a`): `pilot/` removed from dotfiles, the four docs now point at hal-pilot. On hal, a dotfiles pull left every hal-pilot tracked file unchanged (hash before = after).
+- **`docs/reference/claude-code-config.md`** (`3dec426`, `d85d38e`, straight to master): `autoMode.environment` sets the classifier's trust boundary, and `autoMode.allow` clears resolving review threads. Read both paragraphs before touching classifier problems.
+- **Live `~/.claude/settings.json`** (David ran both; `autoMode` is untracked by design, so there's nothing to capture). Backups are `settings.json.bak-20261027` and `bak-20261027b`.
+  - `autoMode.environment`'s `**Source control**` line now covers the whole `villavicencio` GitHub account.
+  - `autoMode.allow` = `["$defaults", <resolve review threads on a villavicencio PR the agent works on, after pushing the fix>]`.
+- **Pilot batch 1:** 8 files in hal's `~/runs/queue/` (as `david`), modification times 14:04–14:11 in order:
+  - `15-vil-516`, `16-vil-449`, `17-vil-451`
+  - `18-vil-452` (item 3 only), `19-vil-521` (2 items only)
+  - `20-vil-428`, `21-vil-345` (part a only), `22-vil-450`
+
+  All are mergewren and all are labelled `hal-overnight`. The drafts are in this session's scratchpad (`queue-batch1/`); hal's copies are the source of truth.
 - **Linear:**
-  - VIL-422 Done (herdr was never on the work Mac).
-  - VIL-528 filed and Done.
-  - VIL-529 (connector-active false alarm) and VIL-530 (Slack halt alert) were filed by the MergeWren session.
-- **Memory:** `feedback_work_mac_parked.md` says to raise no work-Mac follow-ups until David brings the work Mac up again.
+  - VIL-515 is In Progress, with a progress comment; its step 7 moved to VIL-454 (comment there says what to copy from `timing.py`).
+  - VIL-537 (onboard hal-pilot to MergeWren) is David's, in progress.
+- **MergeWren session** ("VIL-317 and VIL-400 pilot merges", Remote Control) was told about mergewren#90's conflicts and about the 8 incoming pilot PRs. It took #90 with David's OK. Delivery is unconfirmed: that route reports nothing back.
 
 ## Decisions Made
-- **Statusline ticket source:** the branch name only, showing the id without a title. A per-branch config, the PR body and the transcript were all ruled out. Linear's GitHub integration acting on branch names is fine.
-- **Installer hooks stay untracked:** David chose "ignore them" over tracking them on the desk Macs only.
-- **Nested guard, not top-level only (David, 2026-10-24):** capture refuses on a missing nested hook or plugin as well as a missing top-level key. He chose that over dropping the plugin or waiving the finding.
-- **`env-failed` sets the ticket aside rather than requeuing it,** from a side agent's review point. A lasting cause, such as a broken lockfile, would otherwise fail the same ticket first every night. The night still stops, so a network blip costs one ticket, not the whole queue.
-- **Declined with reasons** (on the threads and in the PR bodies):
-  - #254 1a79a02#1: a foreign `bin/tldr` exits 0, so the install doesn't stop over a working tool.
-  - #254 9005ee7#1: doc wording.
-  - #252 f14143b#2: a `uv` that can't execute ends as `runner-error`. Catching it means a catch-all `OSError`, and that catch-all swallowed SIGTERM.
-- **#249 merged** with the medium 5373489#1 still listed. It was fixed twice, and incremental rounds carried it forward with no new reasoning. The repo gate blocks on high or critical only.
+- **hal-pilot code is written on the Mac (Orca); hal's clone only runs it.** A second, editable clone on hal would sit under the same account the worker runs as. David considered making the run copy unwritable by `david` and chose to change nothing for now.
+- **Review gate for hal-pilot: MergeWren** (David; VIL-537). Until it lands, `CLAUDE.md` there still says "not decided yet". Update it when onboarding is done.
+- **VIL-515 closes after tonight's 01:30 run starts from the new path.** Steps 6 and 7 don't hold it: step 6 is decided and tracked in VIL-537, and step 7 moved to VIL-454.
+- **Batch 1 excluded on purpose:**
+  - Anything in MergeWren's review logic (E13, baseline rules, read evidence, findings rules, VIL-336, VIL-406), because the pilot must not edit the reviewer that grades it.
+  - VIL-423: its bug is tests writing the real lane lock, which on hal could stop MergeWren.
+  - VIL-529 and VIL-531: the incident-lock area the MergeWren session is working in. VIL-531's replay tests also need the `hal` account's run files.
+  - VIL-448: wait for mergewren#89, whose citation checker can verify the fix.
+  - VIL-127: has an open design question for David (success results carry the failure class or not).
+- **Pilot end state** (from P-VIL-11 and VIL-398): a two-week verdict, measured against VIL-398's bar (≥60% accepted unchanged or with small fixes, no high or critical finding merged, review cheaper than doing the ticket).
+  - VIL-398 is still Backlog. The 22 real runs since 10-18 were mostly a shakedown: 3 passed, 7 opened `[failed]` PRs, 7 failed before opening a PR, 3 runner errors, 2 declines.
+  - If the verdict is yes, the README's accepted risk needs fixing (own account or Seatbelt) and VIL-397 (queue intake from Linear) gets built.
 
 ## What Didn't Work
-- **A broad `except OSError` around `run_limited`** (in #252) also caught the `PermissionError` raised by `on_sigterm`, so a kill during the sync read as `env-failed`. Replaced with a `shutil.which("uv")` check before the sync starts.
-- **Timestamp suffixes for shelved tickets** repeat within the same second, so a clash could still overwrite. They became numbered free names.
-- **Testing the runner locally:** the Claude Code sandbox refuses `setsid`, so `start_new_session=True` Popen fails with EPERM. Test `runner.py` process handling on hal as `david`, in a scratch dir with `PILOT_RUNS` set.
-- **zsh test harnesses:** an unquoted `$var` isn't word-split in zsh (use `${=var}`), and `read … path` overwrites `PATH`. Each made a correct script look broken once.
+- **An allow rule for `gh repo create`:** `Bash(gh repo:*)` was already allowed and the classifier still blocked it, because allow rules don't move its trust boundary. The fix was the `autoMode.environment` line.
+- **Resolving a review thread through the API** is an "External System Writes" soft block even on the agent's own PR. That rule's exception for working on a PR covers only posting comments and editing the title or body. The `autoMode.allow` entry fixed it. A command that bundles a blocked step gets the whole command denied, so split the risky step out.
+- **`stat -f` over SSH on hal** resolved to GNU coreutils and failed, so a before/after snapshot hash was meaningless. Use `/usr/bin/stat`, or `find -mmin`/`-cmin`.
 
 ## What's Next
-1. **mergewren#90** (VIL-391 part B, from Sun 2026-10-25 01:30 PT): titled `[pilot][failed]` only because the worker hit its 60-minute limit. All three checks passed: the 2 new regression tests, both test files, and ruff. MergeWren's comment says "review incomplete". The MergeWren session owns it and was told (Remote Control, delivery unconfirmed). Once #90 and #89 merge, VIL-391 can close. VIL-381 part B waits on #89.
-2. **Pilot queue is empty.** Packets live in hal's `~/runs/queue/` (as `david`). Copy the "Environment on hal" block from `queue/taken/14-vil-391.md`. The runner now syncs deps itself, so `--offline` checks no longer need a warm cache.
-3. **VIL-515:** move `pilot/` into a private repo. VIL-528 is now done, so the move can go ahead.
-4. **This Mac still has both `tldr` and `tlrc`.** The next `./install` runs `migrate_tldr_tlrc.sh` and swaps them.
-5. **Old pilot branches #79 and #81** are still on mergewren's origin, waiting for David's OK to delete them. Not done.
+1. **Morning check of batch 1** (on hal, as `david`):
+   - `~/runs/log/runner.log` for tonight's entries;
+   - the new `~/runs/log/<run>/run.json` files;
+   - `[pilot]` PRs in mergewren.
+
+   If the 01:30 run started from `~/Projects/hal-pilot`, mark VIL-515 Done with a comment linking VIL-537 and VIL-454. Batch 1 runs at most 3 tickets a night, so it lasts through the night of Thu 10-29.
+2. **hal-pilot `CLAUDE.md`:** replace the "Review gate: not decided yet" line once VIL-537 lands (MergeWren, plus how to wait for its comment). Edit `~/Projects/hal-pilot` on the Mac, then pull on hal.
+3. **Batch 2:** VIL-448 after mergewren#89 merges, and VIL-127 if David decides its success-result question. Queue more before batch 1 runs dry, or the two-week clock stalls again.
+4. **mergewren#89 (VIL-381 part A)** is waiting for David's approval, and the MergeWren session owns it. When it and #90 merge, VIL-391 can close, and VIL-381 part B unblocks.
+5. **Carried from before:** this Mac still has both `tldr` and `tlrc` until the next `./install`. Old pilot branches #79 and #81 on mergewren's origin wait for David's OK to delete.
+6. **Optional, David's call:** move the browse-gateway-only lines out of the user-scope `autoMode.environment`. `autoMode` isn't read from a repo's `.claude/settings*.json`, so they'd need another home or rewording as account-wide. The two tool-pattern entries in `autoMode.soft_deny` (`Bash(rm -rf private/*)`, `Bash(git push --force*)`) are read as prose; a hard block belongs in `permissions.deny`.
 
 ## Gotchas & Watch-outs
-- **MergeWren halts on an incident lock and posts nothing.** Its last comment just stops, while the watcher process is alive, idle and has no children. Only David clears the lock: `docs/runbooks/incidents/` in the mergewren repo, with the lock at `~/.local/state/review-stack/lane/.lock` as `hal`. VIL-529 covers the false-positive class. Clearing doesn't re-review the head that tripped it.
-- **MergeWren's incremental rounds carry a finding forward without re-reading the fix.** After a real fix, a "still open" entry with no new reasoning can be declined on the thread. Mediums don't block, but a high still needs fixing or David's waiver.
-- **Check CI before every merge:** `gh pr checks <N> --json name,state`. #251 merged with `macos` red because `UNSTABLE` was missed.
-- **On macOS, `os.killpg(pgid, 0)` returns EPERM** (not ESRCH) for an exited, unreaped group leader. `stop_groups` now treats that as gone.
-- **This repo's `merge.ff` setting refuses plain `git merge origin/master`** on a diverged branch. Use `--no-ff`.
-- **`wt done` stops on ignored files** in the worktree, such as `settings.local.json` copied by `.worktreeinclude` or a stray `__pycache__`. Check the copy matches the main checkout's, remove both, then rerun.
-- **A squash merge's commit message lists every branch commit,** so ids named only in commits (VIL-381 and VIL-391 in #252) land on master. Both were checked and still In Progress.
+- **hal's `~/Projects/hal-pilot` is production:**
+  - Never edit or branch there. Deploy is a pull.
+  - A plist template change also needs `install.sh` plus David's `admin` reload: `ssh -t admin@hal '…'`, since `!` can't take a sudo password.
+- **The pilot worker runs as `david` and can write `~/Projects/hal-pilot`** through any test it runs. This is known and accepted for now (see Decisions).
+- **Auto-mode classifier:** check `claude auto-mode config` before adding allow rules. `autoMode` is user-scope only, and its entries are prose.
+- **Queue file order is by modification time, not name.** Set mtimes when copying (`touch -t`) and move with `mv` so they're kept. Check each file with the runner's own `parse_ticket` before queueing.
+- **A pilot ticket's "Environment on hal" block** is in every batch-1 file. Copy it into new mergewren tickets.
+- **The MergeWren session gets messages over Remote Control with no delivery receipt.** It replied once this session, so it reads them, but don't assume it has.
