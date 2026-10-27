@@ -206,9 +206,11 @@ Materialization") or writing it into an Apple Note ("Credential Leakage"), both 
 with davidv.sh's `OPS_SECRET`. Opening the magic link on the Mac (`open -a Safari …`) and
 `pbcopy` were allowed. Away from the Mac, David reads the value from the Vercel dashboard himself.
 It also blocks writing an unattended agent's instructions ("Create Unsafe Agents", seen
-2026-10-18 on `pilot/plan-prompt.md`, VIL-396). David unblocked it with `Edit(pilot/**)` in
-this repo's `.claude/settings.local.json`; a new directory of agent code needs the same
-human-added rule.
+2026-10-18 on `plan-prompt.md`, VIL-396, when the pilot runner still lived in this repo's
+`pilot/`; it is now the private `villavicencio/hal-pilot` repo, VIL-515). David unblocked it
+with an `Edit(pilot/**)` rule in this repo's `.claude/settings.local.json`. A new home for
+agent code needs its own human-added rule matching its own paths: in `hal-pilot` the file is at
+the repo root, so the rule there is `Edit(plan-prompt.md)` in `hal-pilot/.claude/settings.local.json`.
 
 **Allow rules don't override the classifier's trust boundary; `autoMode.environment` sets it.**
 On 2026-10-27 (VIL-515) `gh repo create villavicencio/hal-pilot --private --push` was blocked as

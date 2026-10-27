@@ -47,6 +47,7 @@ Each line is a rule; the file in parentheses has the why, the history and the ex
 - Topgrade from an agent shell has no TTY, so a cask's sudo fails. Touch ID for sudo is a manual root step (`docs/reference/tooling.md`).
 - `topgrade/topgrade.toml` skips steps via `[misc] disable` with exact variant names; `vim` stays disabled.
 - Windows: adding or removing a link in `install.ps1` means updating CI's `EXPECTED_LINKS`; never run `python3` in a Windows install step (`docs/reference/windows.md`).
+- The hal overnight pilot runner (VIL-396) lives in the private repo `villavicencio/hal-pilot`, cloned on hal as `david` at `~/Projects/hal-pilot`, not here (VIL-515).
 - The `atlas`/`axiom`/`syd` functions and their Orca tabs: `docs/reference/hermes-commands.md`. hal's server profile: `docs/reference/install-and-server.md`. WSL and the Linux git overlay: `docs/reference/wsl-linux.md`. Work Mac setup: `docs/reference/work-mac.md`.
 
 **Tickets, branches and review** (`docs/reference/review-and-merge.md`)
@@ -80,8 +81,6 @@ lazygit/        lazygit config
 npm/            npm global package list (npm-requirements.txt)
 nvim/           Neovim config (NvChad v2.5; the whole dir is linked as ~/.config/nvim,
                 %LOCALAPPDATA%\nvim on Windows). Plugins pinned in lazy-lock.json
-pilot/          hal overnight coding-pilot runner (VIL-396); runs on hal as david, not
-                installed by Dotbot. See pilot/README.md
 starship/       Starship prompt config (command_timeout is a global top-level key)
 windows/        Windows layer, applied by install.ps1 at the repo root (NOT Dotbot):
   packages.json           winget package list — the Brewfile counterpart

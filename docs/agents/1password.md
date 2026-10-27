@@ -48,7 +48,7 @@ read the token file directly.
 
 Each account that holds a token file can read **everything** in the vault. On hal, the
 overnight pilot's worker runs as `david`, and the code it runs has `david`'s full access
-(`pilot/README.md`, "Accepted risk"). Since `david` holds a token, the worker can read the
+(`README.md` in the private `villavicencio/hal-pilot` repo, "Accepted risk"). Since `david` holds a token, the worker can read the
 whole vault too. **David accepted that on 2026-10-22** (VIL-399): both `hal` and `david` get
 a token. So:
 
