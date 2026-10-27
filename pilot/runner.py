@@ -244,10 +244,12 @@ def sync_env(wt, rundir):
     if not (wt / "uv.lock").exists():
         return None
     cmd = ["uv", "sync", "--locked"]
-    try:
-        rc, out, err, killed = run_limited(cmd, wt, dict(os.environ), SYNC_TIMEOUT_S)
-    except OSError as e:   # uv missing or not executable: still env-failed, not runner-error
-        rc, out, err, killed = None, "", str(e), "could not start"
+    # uv missing is env-failed too, not runner-error. Checked up front rather than by
+    # catching OSError, which would also swallow one raised by a SIGTERM mid-sync.
+    if not shutil.which("uv"):
+        (rundir / "sync.log").write_text("uv not found on PATH\n")
+        return "`uv sync --locked` could not start: uv not found on PATH"
+    rc, out, err, killed = run_limited(cmd, wt, dict(os.environ), SYNC_TIMEOUT_S)
     (rundir / "sync.log").write_text(f"$ {' '.join(cmd)}\nexit {rc} {killed or ''}\n{out}{err}")
     if rc == 0 and not killed:
         return None
@@ -272,7 +274,9 @@ def stop_groups(pgids, grace=10):
         for pgid in list(alive):
             try:
                 os.killpg(pgid, 0)
-            except ProcessLookupError:
+            except (ProcessLookupError, PermissionError):
+                # macOS answers EPERM for a group whose leader has exited but isn't
+                # reaped yet: gone too. Uncaught, it escaped on_sigterm (VIL-528).
                 alive.discard(pgid)
         time.sleep(0.5)
     for pgid in alive:
@@ -615,6 +619,11 @@ def run_ticket(ticket, dry_run=False):
                           summary)
     except Exception as e:
         return finish("runner-error", error=str(e))
+    except SystemExit:
+        # SIGTERM (kill.sh, launchd) unwinds through here from any stage, the sync
+        # included: record the run before the worktree goes (MergeWren 2be6f49#1).
+        finish("disabled" if disabled() else "killed")
+        raise
     finally:
         # An unpushed commit is the run's only copy of the work: keep its branch.
         keep = summary["committed"] and not summary["pushed"]
