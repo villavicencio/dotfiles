@@ -47,6 +47,8 @@ elif [ "$(uname)" = "Darwin" ]; then
     bash helpers/migrate_legacy_fonts.sh || exit $?
     # Same reason: the old vercel formula blocks the cask the Brewfile names.
     bash helpers/migrate_vercel_cask.sh || exit $?
+    # And the disabled tldr formula owns bin/tldr, which tlrc needs.
+    bash helpers/migrate_tldr_tlrc.sh || exit $?
     bash helpers/install_from_brewfile.sh
 else
     echo "Linux detected — using apt"

@@ -33,7 +33,7 @@ brew "duf"                  # disk usage/free (df replacement)
 brew "ncdu"                 # interactive disk usage
 brew "jq"                   # JSON processor
 brew "glow"                 # markdown renderer
-brew "tldr"                 # simplified, example-first man pages
+brew "tlrc"                 # tldr pages client (installs `tldr`; Homebrew disabled the old "tldr" formula 2026-10)
 brew "watch"                # run a command periodically
 brew "most"                 # feature-rich pager
 
