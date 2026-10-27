@@ -110,6 +110,12 @@ the diff itself routes through one of the two tools above.
   you merge past silently.
 - **A trivial diff may skip review**, but the skip and its reason must be stated when reporting
   the merge. The skip is fine; the silence isn't.
+- **`mergeStateStatus: UNSTABLE` means a check failed, and the merge button still works.**
+  This repo's checks aren't required, so GitHub lets the merge through. Before merging, list the checks
+  (`gh pr checks <N> --json name,state -q '.[]|"\(.state) \(.name)"'`) and stop on any `FAILURE`:
+  fix it, or name it in the merge report as a failure the PR didn't cause. dotfiles#251 merged
+  on 2026-10-27 with `macos` red (Homebrew had disabled the `tldr` formula), unnoticed until
+  after the merge.
 - **`mergeStateStatus: CLEAN` does not mean reviewed.** It means nothing is *blocking* the
   button. There are at least three ways a PR reads clean with findings outstanding: the review
   was **throttled** (below), it was **skipped** because `auto_incremental_review: false` (below),
