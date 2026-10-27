@@ -37,6 +37,11 @@ How it differs from a desk Mac:
 - **Packages:** `brew/Brewfile.server`, formulae only plus two CLI-only casks (`vercel`, which
   Homebrew moved out of core, and `1password-cli`; CI allows exactly those). An old `vercel`/`vercel-cli` formula
   blocks that cask, so `helpers/migrate_vercel_cask.sh` swaps it first, on both profiles.
+  On the desk profile, `helpers/migrate_tldr_tlrc.sh` likewise runs first: it unlinks the
+  disabled `tldr` formula, links or installs `tlrc`, and only then uninstalls `tldr`
+  (if `tlrc` fails it relinks `tldr`, says so when even that fails, and stops the install).
+  On a Mac without the old formula, a `bin/tldr` that isn't `tlrc`'s is left alone, with a
+  message, and the install carries on.
   Installed by `brew bundle` with
   `HOMEBREW_BUNDLE_NO_UPGRADE=1` and `HOMEBREW_NO_INSTALL_UPGRADE=1`, so installed formulae
   aren't upgraded under running services. A new formula can still upgrade a shared
