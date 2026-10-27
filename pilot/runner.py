@@ -607,7 +607,8 @@ def run_ticket(ticket, dry_run=False):
         # A broken environment isn't a broken change: no planner, no worker, no PR.
         why = sync_env(wt, rundir)
         if why:
-            return finish("env-failed", error=why)
+            # The kill switch also stops the sync; that's `disabled`, not a broken environment.
+            return finish("disabled") if disabled() else finish("env-failed", error=why)
         if dry_run:
             return finish("dry-run")
         return run_stages(ticket, run_id, branch, base, wt, rundir, env, finish,
