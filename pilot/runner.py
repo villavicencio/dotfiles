@@ -165,20 +165,26 @@ def next_ticket():
     return None
 
 
+def free_name(target, tag):
+    """target, or the first `<stem>.<tag>-<n><suffix>` beside it that doesn't exist yet: a
+    timestamp alone repeats within a second (MergeWren fae1693#2)."""
+    base, n = target, 1
+    while target.exists():
+        target = base.with_name(f"{base.stem}.{tag}-{n}{base.suffix}")
+        n += 1
+    return target
+
+
 def shelve_back(path):
-    dest = RUNS / "queue" / path.name
-    if dest.exists():   # a new ticket arrived under the same name; keep both
-        dest = dest.with_name(f"{path.stem}.requeued-{int(time.time())}{path.suffix}")
-    return Path(shutil.move(str(path), dest))
+    # A new ticket may have arrived under the same name; keep both.
+    return Path(shutil.move(str(path), free_name(RUNS / "queue" / path.name, "requeued")))
 
 
 def shelve(path, where):
     dest = RUNS / "queue" / where
     dest.mkdir(parents=True, exist_ok=True)
-    target = dest / path.name
-    if target.exists():   # the same name shelved before; keep both
-        target = dest / f"{path.stem}.{int(time.time())}{path.suffix}"
-    return Path(shutil.move(str(path), target))
+    # The same name may have been shelved here before; keep both.
+    return Path(shutil.move(str(path), free_name(dest / path.name, "again")))
 
 
 # ---------------------------------------------------------------- git
