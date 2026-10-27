@@ -210,6 +210,16 @@ It also blocks writing an unattended agent's instructions ("Create Unsafe Agents
 this repo's `.claude/settings.local.json`; a new directory of agent code needs the same
 human-added rule.
 
+**Allow rules don't override the classifier's trust boundary; `autoMode.environment` sets it.**
+On 2026-10-27 (VIL-515) `gh repo create villavicencio/hal-pilot --private --push` was blocked as
+"Public Data-Sharing Upload" although `Bash(gh repo:*)` was allowed. The live
+`autoMode.environment` (user scope, untracked) still had browse-gateway's lines, including
+`**Source control**: villavicencio/browse-gateway … only`, so every other repo under the account
+counted as outside the boundary. David widened that one line to the whole `villavicencio` GitHub
+account (any repo there, public or private, is his) and the same command went through. When the
+classifier blocks an action on David's own repos, read that block before adding allow rules. Its
+other lines (trusted repo, sensitive files, prod hosts) are still browse-gateway's.
+
 **`Write(path)` rules are inert — file-permission checks match `Edit(path)` only**, and an
 `Edit(…)` rule covers every file-editing tool (Write, Edit, NotebookEdit). Claude Code warns at
 startup: `Permission deny rule … Write(<glob>) is not matched by file permission checks — only
