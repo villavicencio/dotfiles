@@ -39,7 +39,8 @@ How it differs from a desk Mac:
   blocks that cask, so `helpers/migrate_vercel_cask.sh` swaps it first, on both profiles.
   On the desk profile, `helpers/migrate_tldr_tlrc.sh` likewise runs first: it unlinks the
   disabled `tldr` formula, links or installs `tlrc`, and only then uninstalls `tldr`
-  (relinking it if `tlrc` fails). A `bin/tldr` that belongs to neither is left alone.
+  (if `tlrc` fails it relinks `tldr`, and says so when even that fails). A `bin/tldr` that
+  belongs to neither is left alone, with a message, and the install carries on.
   Installed by `brew bundle` with
   `HOMEBREW_BUNDLE_NO_UPGRADE=1` and `HOMEBREW_NO_INSTALL_UPGRADE=1`, so installed formulae
   aren't upgraded under running services. A new formula can still upgrade a shared
