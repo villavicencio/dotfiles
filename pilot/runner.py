@@ -249,6 +249,8 @@ def sync_env(wt, rundir):
     if not shutil.which("uv"):
         (rundir / "sync.log").write_text("uv not found on PATH\n")
         return "`uv sync --locked` could not start: uv not found on PATH"
+    # Written first, so a run stopped mid-sync (kill.sh) still leaves a sync.log.
+    (rundir / "sync.log").write_text(f"$ {' '.join(cmd)}\nstarted; stopped before it finished\n")
     rc, out, err, killed = run_limited(cmd, wt, dict(os.environ), SYNC_TIMEOUT_S)
     (rundir / "sync.log").write_text(f"$ {' '.join(cmd)}\nexit {rc} {killed or ''}\n{out}{err}")
     if rc == 0 and not killed:
