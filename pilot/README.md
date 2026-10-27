@@ -212,7 +212,8 @@ As `david` on hal:
 
 A run it stops, at any stage including the dependency sync, is recorded in its `run.json`
 as `disabled` (or `killed`, for a SIGTERM without the kill switch, from launchd say). Its
-ticket stays in `queue/taken/`; move it back into `queue/` to run it again.
+ticket, if it came from the queue, stays in `queue/taken/`; move it back into `queue/` to
+run it again. (A `--ticket` file stays where it was.)
 
 The kill switch does **not** unload either LM Studio model. Atlas and Axiom use both (VIL-395).
 To remove the schedule as well, run `sudo launchctl bootout system/dev.hal.pilot` as `admin`.
