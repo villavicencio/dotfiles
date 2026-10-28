@@ -7,17 +7,14 @@ fi
 
 . ./zsh/zshenv
 
-# Source brew only on macOS
 if [ "$(uname)" = "Darwin" ] && [ -f ./helpers/init_homebrew.sh ]; then
     . ./helpers/init_homebrew.sh
 fi
 
-# Function to log messages
 log_message() {
   echo "$1" | tee -a "$LOG_FILE"
 }
 
-# Error handling function
 handle_error() {
   log_message "Error: $1" >&2
   exit 1
@@ -35,7 +32,6 @@ TPM_REPO_URL="https://github.com/tmux-plugins/tpm"
 
 log_message "Starting TMux installation..."
 
-# Install TPM
 if [ ! -d "$TPM_INSTALL_DIR" ]; then
   log_message "Installing TPM..."
   git clone "$TPM_REPO_URL" "$TPM_INSTALL_DIR" || handle_error "Failed to clone TPM repository"
@@ -43,7 +39,6 @@ else
   log_message "TPM already installed, skipping..."
 fi
 
-# Install TMux plugins
 log_message "Installing TMux plugins..."
 if [ "${DOTFILES_PROFILE:-desk}" = "server" ]; then
   # TPM's install_plugins reads its plugin list and TMUX_PLUGIN_MANAGER_PATH from
