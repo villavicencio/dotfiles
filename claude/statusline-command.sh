@@ -132,6 +132,12 @@ bar() {
   printf '\033[0m'
 }
 
+# "<label> <bar> <pct>%" for a meter that only has a percentage ($2). Sets sep.
+pct_meter() {
+  v=$(printf "%.0f" "$2"); c=$(meter_color "$v")
+  printf "%s\033[37m%s \033[0m" "$sep" "$1"; bar "$v" "$c"; printf "%s %d%%\033[0m" "$c" "$v"; sep="  "
+}
+
 # Shorten home directory to ~  (POSIX prefix substitution; works in dash AND
 # bash — the bash-only form ${cwd/#$home/~} triggers "Bad substitution" under
 # dash, which is /bin/sh and how settings.json invokes this script).
@@ -356,16 +362,9 @@ if [ -n "$model" ] || [ -n "$used" ] || [ -n "$ctx_tok" ] || [ -n "$lim5" ] || [
       printf "%s %dk%s\033[0m" "$c" $(( ctx_tok / 1000 )) "$wl"; sep="  "
     elif [ -n "$used" ]; then
       # No token count and no window: no token claim, no hand-off cue, no marker.
-      u=$(printf "%.0f" "$used"); c=$(meter_color "$u")
-      printf "%s\033[37mctx \033[0m" "$sep"; bar "$u" "$c"; printf "%s %d%%\033[0m" "$c" "$u"; sep="  "
+      pct_meter ctx "$used"
     fi
-    if [ -n "$lim5" ]; then
-      v=$(printf "%.0f" "$lim5"); c=$(meter_color "$v")
-      printf "%s\033[37m5h \033[0m" "$sep"; bar "$v" "$c"; printf "%s %d%%\033[0m" "$c" "$v"; sep="  "
-    fi
-    if [ -n "$lim7" ]; then
-      v=$(printf "%.0f" "$lim7"); c=$(meter_color "$v")
-      printf "%s\033[37m7d \033[0m" "$sep"; bar "$v" "$c"; printf "%s %d%%\033[0m" "$c" "$v"; sep="  "
-    fi
+    if [ -n "$lim5" ]; then pct_meter 5h "$lim5"; fi
+    if [ -n "$lim7" ]; then pct_meter 7d "$lim7"; fi
   fi
 fi
