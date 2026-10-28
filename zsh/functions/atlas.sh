@@ -1,4 +1,4 @@
-#!/usr/bin/env sh
+#!/usr/bin/env zsh
 
 # atlas — open the Atlas console on hal in an Orca tab. Atlas is Hermes's
 # default profile and runs as the `hal` account. Orca's hal host logs in as

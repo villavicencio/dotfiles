@@ -2,9 +2,8 @@ import sys, os, re
 try:
     repo = sys.argv[1]
     top_entries = set(os.listdir(repo))   # every real top-level name (dirs + files)
-    bt = chr(96)                           # backtick, kept out of the source literally
-    fence = re.compile(bt * 3 + r'.*?' + bt * 3, re.DOTALL)   # strip fenced blocks first
-    pat = re.compile(bt + r'([^' + bt + r']+)' + bt)          # then inline path spans
+    fence = re.compile(r'```.*?```', re.DOTALL)   # strip fenced blocks first
+    pat = re.compile(r'`([^`]+)`')                  # then inline path spans
     missing = set()
     for df in sys.argv[2:]:
         p = os.path.join(repo, df)

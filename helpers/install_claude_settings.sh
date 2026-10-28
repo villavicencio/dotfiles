@@ -31,41 +31,13 @@ DEST="$HOME/.claude/settings.json"
 # Windows (Git Bash) tracks a hook-free sibling, which install.ps1 seeds. Point
 # at it here too, or --capture run on the PC would overwrite the Mac baseline
 # with a file that has no hooks.
-IS_WINDOWS=0
-case "$(uname -s)" in
-  MINGW*|MSYS*|CYGWIN*) IS_WINDOWS=1; SRC="$REPO_ROOT/windows/claude-settings.json" ;;
-esac
+# shellcheck source=helpers/lib/python.sh
+. "$REPO_ROOT/helpers/lib/python.sh"
+[ "$IS_WINDOWS" -eq 1 ] && SRC="$REPO_ROOT/windows/claude-settings.json"
 SRC_REL="${SRC#"$REPO_ROOT"/}"   # for messages: claude/settings.json or windows/claude-settings.json
 
-# A native Windows python can't open a Git Bash path (/c/Users/...); hand it
-# the C:\... form. Everywhere else the path passes through unchanged.
-native_path() {
-  if [ "$IS_WINDOWS" -eq 1 ] && command -v cygpath >/dev/null 2>&1; then
-    cygpath -w "$1"
-  else
-    printf '%s\n' "$1"
-  fi
-}
-
-# Keys that are machine- or session-specific and must never be tracked. The
-# file's own "//" header states the rule; these are the observed offenders.
-#   effortLevel  session pin
-#   modelSettings per-model pins (e.g. {"claude-opus-5-5": {"effortLevel": ...}}),
-#                the newer home of the effort pin — seen live on the Windows PC
-#   autoMode    per-project classifier context (has leaked a project's
-#                trusted-repo path and service list into user scope before)
-#   mcpServers   per-machine server definitions
-#   allowedTools LEGACY key — silently overrides permissions.allow. Never track
-#                it; capture drops it so a stale live file cannot reintroduce it.
-STRIP_KEYS="effortLevel modelSettings autoMode mcpServers allowedTools"
-
-# Hooks an agent-integration installer writes into the live file and owns (VIL-431). A hook
-# whose command contains one of these is left out of capture, and out of `dot drift`
-# (helpers/report_drift.sh keeps the same list): the installer writes it back, and machines
-# without that app don't need it. Space-separated substrings, matched with or without ~/.
-#   .orca/agent-hooks/        Orca's agent hooks (one inline command per event)
-#   .config/iterm2/cc-status  iTerm2's Claude Code status hook
-INSTALLER_HOOKS=".orca/agent-hooks/ .config/iterm2/cc-status"
+# shellcheck source=helpers/lib/claude-settings-keys.sh
+. "$REPO_ROOT/helpers/lib/claude-settings-keys.sh"
 
 # Dry-run guard comes FIRST so it covers --capture too: capture writes to the
 # repo, and `DOTFILES_DRY_RUN=1 ... --capture` must not mutate anything.
@@ -83,24 +55,7 @@ if [ "${1:-}" = "--capture" ]; then
   [ -f "$SRC" ]  || { echo "Error: tracked settings missing at $SRC" >&2; exit 1; }
   # Resolved here, inside --capture and after the file checks, so the seed
   # path, dry runs, and early exits never probe or let uv download anything.
-  # Probe by running it: on Windows `python3` is often the Microsoft Store
-  # placeholder, which `command -v` finds but which exits non-zero. PYTHON is
-  # an array (the uv fallback is several words); PYTHON_FOUND is the test,
-  # since Bash 3.2 under `set -u` treats an empty array as unbound.
-  PYTHON=(); PYTHON_FOUND=0
-  for _py in python3 python; do
-    if "$_py" -c 'import sys' >/dev/null 2>&1; then PYTHON=("$_py"); PYTHON_FOUND=1; break; fi
-  done
-  # No working Python on PATH (a Windows PC set up only by install.ps1 has uv
-  # but no Python): run one through uv, which uses an interpreter it can
-  # discover or, if there is none, downloads a managed one into its own store
-  # (intended — capture needs Python). --no-project stops uv treating this
-  # repo as a project. Same fallback as helpers/report_drift.sh.
-  if [ "$PYTHON_FOUND" -eq 0 ] && command -v uv >/dev/null 2>&1 \
-     && uv run --no-project --quiet python -c 'import sys' >/dev/null 2>&1; then
-    PYTHON=(uv run --no-project --quiet python); PYTHON_FOUND=1
-  fi
-  [ "$PYTHON_FOUND" -eq 1 ] || { echo "Error: no working python3/python on PATH, and no working uv to run one" >&2; exit 1; }
+  resolve_python || { echo "Error: no working python3/python on PATH, and no working uv to run one" >&2; exit 1; }
 
   STRIP_KEYS="$STRIP_KEYS" INSTALLER_HOOKS="$INSTALLER_HOOKS" SRC="$(native_path "$SRC")" DEST="$(native_path "$DEST")" \
     SRC_REL="$SRC_REL" PYTHON_CMD="${PYTHON[*]}" "${PYTHON[@]}" - <<'PY' || exit 1

@@ -1,4 +1,4 @@
-#!/usr/bin/env sh
+#!/usr/bin/env zsh
 
 # axiom — open the Axiom console on hal in an Orca tab. Axiom is the Hermes
 # profile `axiom` and runs as the `hal` account, like Atlas. The tab opens in

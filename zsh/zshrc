@@ -40,8 +40,6 @@ fi
 # zsh/zprofile.server does the same for hal's login shells.
 [[ -f "$ZDOTDIR/.zshenv" ]] && source "$ZDOTDIR/.zshenv"
 
-# NVM configuration
-
 # History configuration
 setopt EXTENDED_HISTORY       # Write the history file in the ':start:elapsed;command' format.
 setopt INC_APPEND_HISTORY     # Write to the history file immediately, not when the shell exits.
@@ -93,13 +91,13 @@ source "$HOME/env.sh" 2>/dev/null   # Optional overrides at the very end
 # stays atuin. (The old lazy block sourced a non-existent ~/.fzf.zsh and bound
 # ^T to a plain function that was never a zle widget.)
 if command -v fzf >/dev/null 2>&1; then
-  if fzf --zsh >/dev/null 2>&1; then
-    # fzf >= 0.48 ships `fzf --zsh` (real zle widgets + completion). Capability-
-    # checked just above, so the ONLY thing this 2>/dev/null hides is fzf's
+  if _fzf_init=$(fzf --zsh 2>/dev/null); then
+    # fzf >= 0.48 ships `fzf --zsh` (real zle widgets + completion). Its exit
+    # status is the capability check, so the ONLY thing this 2>/dev/null hides is fzf's
     # benign option-restore "can't change option: zle", which fires solely under
     # the tty-less `zsh -i -c` health check (a real interactive session is clean)
     # — not a genuine init error. Keeps `zsh -i -c true` a true breakage signal.
-    source <(fzf --zsh) 2>/dev/null
+    source <(print -r -- "$_fzf_init") 2>/dev/null
   else
     # Older fzf (e.g. Ubuntu 24.04 ships 0.44, which predates `--zsh`): source the
     # distro/Homebrew integration scripts instead. Same narrow rationale for the
@@ -116,6 +114,7 @@ if command -v fzf >/dev/null 2>&1; then
     done
     unset _fzf_dir
   fi
+  unset _fzf_init
 fi
 
 # Lazy load pyenv

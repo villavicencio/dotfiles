@@ -7,13 +7,11 @@ if [ "${DOTFILES_DRY_RUN:-0}" = "1" ]; then
   exit 0
 fi
 
-# Source the Homebrew initialization script
 . "./helpers/init_homebrew.sh"
 
 # Set the Brewfile path (can be overridden by setting BREWFILE_PATH environment variable)
 BREWFILE_PATH=${BREWFILE_PATH:-"./brew/Brewfile"}
 
-# Run brew bundle and handle potential errors
 if ! brew bundle --file="$BREWFILE_PATH"; then
     echo "Error: Failed to install packages from Brewfile"
     exit 1

@@ -54,7 +54,7 @@ import sys
 import time
 
 SETTINGS = os.path.expanduser("~/.claude/settings.json")
-# Keep in step with STRIP_KEYS in helpers/install_claude_settings.sh: never tracked.
+# Never tracked. Must equal STRIP_KEYS in helpers/lib/claude-settings-keys.sh (`dot check`).
 MACHINE_LOCAL = {"effortLevel", "modelSettings", "autoMode", "mcpServers", "allowedTools"}
 # The tracked baseline this repo seeds: Windows has its own sibling.
 _REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))

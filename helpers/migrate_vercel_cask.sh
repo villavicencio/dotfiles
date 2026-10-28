@@ -55,8 +55,8 @@ fi
 # The keg that owns bin/vercel now (vercel-cli is usually an alias of the vercel
 # keg), so a failure relinks exactly that one.
 linked="$(readlink "$HOMEBREW_PREFIX/bin/vercel" 2>/dev/null | sed -nE 's#.*/Cellar/([^/]+)/.*#\1#p' || true)"  # unlinked: empty
+keg=${linked:-$(printf '%s\n' "$old" | head -1)}
 relink() {
-  local keg=${linked:-$(printf '%s\n' "$old" | head -1)}
   if brew link --overwrite "$keg" >/dev/null; then
     echo "ERROR: $1; relinked formula $keg, so vercel still works" >&2
   else
@@ -71,7 +71,6 @@ if ! brew install --cask vercel; then
   # A cask that failed after registering may own bin/vercel now. Remove it
   # before relinking, so the formula never overwrites the cask's link. If it
   # won't go, or Homebrew can't say whether it's there, stop without relinking.
-  keg=${linked:-$(printf '%s\n' "$old" | head -1)}  # same keg relink() would pick
   fix="brew uninstall --cask --force vercel && brew link --overwrite $keg"
   casks="$(brew list --cask -1)" || {
     echo "ERROR: the vercel cask didn't install, and brew list --cask failed, so it's unknown whether a half-installed cask owns bin/vercel. Check with \`brew list --cask\`." >&2

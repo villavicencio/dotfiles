@@ -1,4 +1,4 @@
-#!/usr/bin/env sh
+#!/usr/bin/env zsh
 
 # _hal_console — the shared body of `atlas` and `axiom`, the Hermes agents that
 # run as hal's `hal` account. Usage:

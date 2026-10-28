@@ -1,4 +1,4 @@
-#!/usr/bin/env sh
+#!/usr/bin/env zsh
 
 # List the size of all the folders and files.
 alias ducks='du -cksh * | sort -rn | head -11'

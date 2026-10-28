@@ -1,4 +1,4 @@
-#!/usr/bin/env sh
+#!/usr/bin/env zsh
 
 # hh — history search shortcut (formerly bound to hstr; retired in favor of
 # atuin). Drives the same engine as ^R: atuin's interactive search is a ZLE

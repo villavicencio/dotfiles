@@ -1,4 +1,4 @@
-#!/usr/bin/env sh
+#!/usr/bin/env zsh
 
 # syd — start Syd, the Hermes profile `syd` that lives only on the personal
 # Mac, in the TUI. Arguments pass through, so `syd -c` continues the last

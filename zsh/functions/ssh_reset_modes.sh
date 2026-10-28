@@ -1,4 +1,4 @@
-#!/usr/bin/env sh
+#!/usr/bin/env zsh
 
 # ssh — reset terminal modes after every session. A remote TUI (Claude Code,
 # vim, tmux) turns on mouse tracking, focus reporting, bracketed paste and the

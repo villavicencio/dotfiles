@@ -7,17 +7,14 @@ fi
 
 . ./zsh/zshenv
 
-# Source brew only on macOS
 if [ "$(uname)" = "Darwin" ] && [ -f ./helpers/init_homebrew.sh ]; then
     . ./helpers/init_homebrew.sh
 fi
 
-# Function to log messages
 log_message() {
   echo "$1" | tee -a "$LOG_FILE"
 }
 
-# Error handling function
 handle_error() {
   log_message "Error: $1" >&2
   exit 1
@@ -35,7 +32,6 @@ TPM_REPO_URL="https://github.com/tmux-plugins/tpm"
 
 log_message "Starting TMux installation..."
 
-# Install TPM
 if [ ! -d "$TPM_INSTALL_DIR" ]; then
   log_message "Installing TPM..."
   git clone "$TPM_REPO_URL" "$TPM_INSTALL_DIR" || handle_error "Failed to clone TPM repository"
@@ -43,7 +39,6 @@ else
   log_message "TPM already installed, skipping..."
 fi
 
-# Install TMux plugins
 log_message "Installing TMux plugins..."
 if [ "${DOTFILES_PROFILE:-desk}" = "server" ]; then
   # TPM's install_plugins reads its plugin list and TMUX_PLUGIN_MANAGER_PATH from
@@ -64,14 +59,16 @@ if [ "${DOTFILES_PROFILE:-desk}" = "server" ]; then
     || handle_error "$HOME/.config/tmux/local.conf is not linked to tmux/local.server.conf; not running TPM (it could write a Tmux.Start.plist LaunchAgent)"
   tpm_sock_dir="$(mktemp -d /tmp/dotfiles-tpm.XXXXXX)" && [ -n "$tpm_sock_dir" ] \
     || handle_error "could not create a private tmux socket dir; not running TPM"
-  ( unset TMUX; TMUX_TMPDIR="$tpm_sock_dir" "$TPM_INSTALL_DIR/bin/install_plugins" )
+  # Run a command against the private server only.
+  private_tmux() { ( unset TMUX; TMUX_TMPDIR="$tpm_sock_dir" "$@" ); }
+  private_tmux "$TPM_INSTALL_DIR/bin/install_plugins"
   tpm_rc=$?
   # kill-server exits 1 when no server was left running, so its status says
   # nothing; check the socket instead. A private server that outlived the install
   # would keep running its plugins (continuum's autosave) with nobody attached.
-  ( unset TMUX; TMUX_TMPDIR="$tpm_sock_dir" tmux kill-server >/dev/null 2>&1 )
+  private_tmux tmux kill-server >/dev/null 2>&1
   tries=0
-  while ( unset TMUX; TMUX_TMPDIR="$tpm_sock_dir" tmux list-sessions >/dev/null 2>&1 ); do
+  while private_tmux tmux list-sessions >/dev/null 2>&1; do
     tries=$((tries + 1))
     [ "$tries" -lt 10 ] || handle_error "the private tmux server in $tpm_sock_dir is still running; stop it with: TMUX_TMPDIR=$tpm_sock_dir tmux kill-server"
     sleep 0.5

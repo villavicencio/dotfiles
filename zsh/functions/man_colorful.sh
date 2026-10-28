@@ -1,4 +1,4 @@
-#!/usr/bin/env sh
+#!/usr/bin/env zsh
 
 # Colorful manpages
 # This function is aliased to 'man' for colorful manpages by default.

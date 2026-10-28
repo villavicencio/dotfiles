@@ -35,6 +35,8 @@ green() { printf '\033[32m%s\033[0m' "$1"; }
 red()   { printf '\033[31m%s\033[0m' "$1"; }
 yellow(){ printf '\033[33m%s\033[0m' "$1"; }
 
+DOTBOT_CONFIGS=(dotbot-conf/base.yaml dotbot-conf/darwin.yaml dotbot-conf/linux.yaml dotbot-conf/server.yaml)
+
 # doctor state
 _fail=0; _warn=0
 ok()   { printf '  %s %s\n' "$(green PASS)" "$1"; }
@@ -92,7 +94,7 @@ cmd_check() {
     while IFS= read -r f; do
       [ -n "$f" ] || continue
       head -1 "$REPO/$f" | grep -qE '^#!.*(bash|sh)|^# shellcheck shell=(bash|sh)' || continue
-      if shellcheck -S warning "$REPO/$f" >/dev/null 2>&1; then :; else
+      if ! shellcheck -S warning "$REPO/$f" >/dev/null 2>&1; then
         echo "  $(red FAIL) $f"; shellcheck -S warning "$REPO/$f" 2>&1 | head -5; rc=1
       fi
     done <<< "$shf"
@@ -126,9 +128,20 @@ cmd_check() {
   [ "$found" = 1 ] || echo "  $(yellow skip) no bin/lib/*.py"
   rm -rf "$REPO/bin/lib/__pycache__"
 
+  echo "Claude settings key lists (STRIP_KEYS = migrate's MACHINE_LOCAL):"
+  local keys_out
+  # shellcheck disable=SC2046  # word-split STRIP_KEYS into argv on purpose
+  if keys_out="$(python3 "$REPO/bin/lib/check-claude-keys.py" "$REPO/helpers/migrate_claude_settings.py" \
+       $(. "$REPO/helpers/lib/claude-settings-keys.sh" && printf '%s\n' "$STRIP_KEYS") 2>&1)"; then
+    echo "  $(green ok) same keys"
+  else
+    echo "  $(red FAIL) helpers/lib/claude-settings-keys.sh and helpers/migrate_claude_settings.py differ"
+    printf '%s\n' "$keys_out" | sed 's/^/    /'; rc=1
+  fi
+
   echo "dotbot --dry-run parse:"
   local cfg
-  for cfg in dotbot-conf/base.yaml dotbot-conf/darwin.yaml dotbot-conf/linux.yaml dotbot-conf/server.yaml; do
+  for cfg in "${DOTBOT_CONFIGS[@]}"; do
     [ -f "$REPO/$cfg" ] || continue
     local fake; fake="$(mktemp -d)"
     if PYTHONDONTWRITEBYTECODE=1 DOTFILES_DRY_RUN=1 HOME="$fake" \
@@ -162,7 +175,7 @@ cmd_doctor() {
   case "$(uname)" in Darwin) active_platform="dotbot-conf/darwin.yaml" ;; *) active_platform="dotbot-conf/linux.yaml" ;; esac
   [ "${DOTFILES_PROFILE:-desk}" = "server" ] && active_platform="dotbot-conf/server.yaml"
   out="$(mktemp)"
-  for cfg in dotbot-conf/base.yaml dotbot-conf/darwin.yaml dotbot-conf/linux.yaml dotbot-conf/server.yaml; do
+  for cfg in "${DOTBOT_CONFIGS[@]}"; do
     if [ ! -f "$REPO/$cfg" ]; then echo "MISSING_CONFIG $cfg" >>"$out"; perr=1; continue; fi
     local mode="sources"; { [ "$cfg" = "dotbot-conf/base.yaml" ] || [ "$cfg" = "$active_platform" ]; } && mode="full"
     # The parser prints PARSER_ERROR and exits non-zero on any import/parse/schema

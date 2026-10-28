@@ -2,24 +2,20 @@
 #              BASE CONFIG
 # ======================================
 
-# Add XDG base directory specification support.
 export XDG_CONFIG_HOME=$HOME/.config
 export XDG_DATA_HOME=$HOME/.local/share
 export XDG_CACHE_HOME=$HOME/.cache
 
-# Use less as default pager with color support.
 export PAGER='less'
 export LESS=' -R -X -F '
 if command -v bat >/dev/null 2>&1; then
     export LESSOPEN="| bat --color=always --style=plain %s"
 fi
 
-# Set the system locale to US English with UTF-8 encoding.
 export LANG=en_US.UTF-8
 export LANGUAGE=en_US:en
 export LC_ALL=en_US.UTF-8
 
-# Detect Homebrew prefix based on CPU architecture
 if [[ "$(uname -m)" == "arm64" ]]; then
   export BREW_PREFIX="/opt/homebrew"
 else
@@ -36,7 +32,6 @@ fi
 # Bypass checks for faster shell startup.
 export ZSH_DISABLE_COMPFIX=true
 
-# Make vim the default editor.
 export EDITOR='nvim'
 
 # Prioritize using GNU commands over BSD commands (macOS only)
@@ -63,7 +58,6 @@ fi
 #             PATH CONFIG
 # ======================================
 
-# Define common paths
 BREW_CURL="$BREW_PREFIX/opt/curl/bin"
 BREW_BIN="$BREW_PREFIX/bin"
 BREW_SBIN="$BREW_PREFIX/sbin"
@@ -84,30 +78,23 @@ LOCAL_SHARE_BIN="$HOME/.local/bin"
 # Unix convention: user-scope beats system-scope.
 export PATH="$LOCAL_BIN:$LOCAL_SHARE_BIN:$BREW_CURL:$BREW_BIN:$BREW_SBIN:$MYSQL_BIN:$RVM_BIN:$YARN_BIN:$CARGO_BIN:${HOME}/perl5/bin${PATH:+:${PATH}}"
 
-# Auto-deduplicate PATH entries
 [[ -n "$ZSH_VERSION" ]] && typeset -U PATH
 
 # ======================================
 #             OMZ CONFIG
 # ======================================
 
-# Path to oh-my-zsh installation.
 export ZSH="$HOME/.oh-my-zsh"
 
-# How often to auto-update (in days).
 export UPDATE_ZSH_DAYS=7
 
-# Case and hyphen-insensitive completion.
 export CASE_INSENSITIVE="true"
 export HYPHEN_INSENSITIVE="true"
 
-# Enable auto-setting terminal title.
 export DISABLE_AUTO_TITLE="false"
 
-# Command auto-correction.
 export ENABLE_CORRECTION="false"
 
-# Display dots while waiting for completion.
 export COMPLETION_WAITING_DOTS="true"
 
 # Disable marking untracked files, makes repo status checks faster.
@@ -117,10 +104,8 @@ export DISABLE_UNTRACKED_FILES_DIRTY="true"
 #           HISTORY CONFIG
 # ======================================
 
-# Set history file location.
 export HISTFILE="$ZDOTDIR/.zsh_history"
 
-# Change the time stamp shown in the history command output.
 export HIST_STAMPS="mm/dd/yyyy"
 
 # Allow up to 1,000,000 entries; the default is 500.
@@ -131,7 +116,6 @@ export SAVEHIST=$HISTSIZE
 #             NVM CONFIG
 # ======================================
 
-# Node Version Manager path.
 export NVM_DIR=$XDG_CONFIG_HOME/nvm
 
 # ======================================
@@ -141,7 +125,6 @@ export NVM_DIR=$XDG_CONFIG_HOME/nvm
 # Node version — update when upgrading via nvm
 export NODE_VERSION=24.13.0
 
-# Enable persistent REPL history for `node`.
 export NODE_REPL_HISTORY_FILE="$HOME/.node_history"
 
 # Allow 32³ entries; the default is 1000.
@@ -151,7 +134,6 @@ export NODE_REPL_HISTORY_SIZE='32768'
 #           PYTHON CONFIG
 # ======================================
 
-# Pyenv virtualenv
 export PYENV_VIRTUALENV_DISABLE_PROMPT=1
 
 export PYENV_ROOT="$HOME/.pyenv"
@@ -161,7 +143,6 @@ export PATH="$PYENV_ROOT/bin:$PATH"
 #            AWS CONFIG
 # ======================================
 
-# Set default AWS region and session TTL
 export AWS_REGION=us-east-1
 export AWS_SESSION_TTL=12h
 export AWS_ASSUME_ROLE_TTL=12h
@@ -170,12 +151,10 @@ export AWS_ASSUME_ROLE_TTL=12h
 #         STARSHIP CONFIG
 # ======================================
 
-# Starship prompt config
 export STARSHIP_CONFIG=$DOTFILES/starship/starship.toml
 
 # ======================================
 #           TMUX CONFIG
 # ======================================
 
-# Set the path for the Tmux plugin manager to store installed plugins
 export TMUX_PLUGIN_MANAGER_PATH=$XDG_CONFIG_HOME/tmux/plugins/
