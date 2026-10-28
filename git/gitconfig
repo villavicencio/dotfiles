@@ -4,8 +4,6 @@
 [push]
     default = current
     recurseSubmodules = on-demand
-[commit]
-    #template = ~/.gitcommit.template
 [color]
     ui = true
     status = true
