@@ -47,8 +47,7 @@ self="$(cd "$(dirname "$0")" && pwd)/$(basename "$0")"
 # Forged or malformed API responses cannot smuggle a tmux format directive
 # through the cache.
 sanitize() {
-  LC_ALL=C tr -d '#[]{}()`$\\'"'"'"' \
-    | LC_ALL=C tr -d '\000-\037\177'
+  LC_ALL=C tr -d '#[]{}()`$\\'"'"'"\000-\037\177'
 }
 
 # Reject results longer than 64 chars (degenerate/forged payloads).
@@ -189,7 +188,7 @@ if [ "${1:-}" = "--refresh" ]; then
 fi
 
 # ── Hot path (no args): cache read + maybe-spawn-worker ───────────────
-mkdir -p "$cache_dir"
+[ -d "$cache_dir" ] || mkdir -p "$cache_dir"
 
 # Belt-and-suspenders: sanitize on read too. The worker sanitizes on write,
 # but if the cache file ever gets tampered with (or was written by an older
