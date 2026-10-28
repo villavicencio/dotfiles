@@ -40,6 +40,7 @@ Each line is a rule; the file in parentheses has the why, the history and the ex
 
 **Repo mechanics**
 - Never `./install` from a worktree, never launch nvim there, never `git submodule deinit` there. Removing an Orca worktree takes the cleanup and then Force delete (`docs/reference/orca-worktrees.md`).
+- The main checkout is what this Mac runs: zsh, nvim, tmux and the Claude hooks and statusline are linked into it. Branch work that changes them goes in a worktree (`wt new`), not a branch checked out in the main checkout, or it's live before review (#256, 2026-10-28).
 - No heredocs in `bin/dot`; its Python lives in `bin/lib/*.py` (`docs/reference/tooling.md`).
 - A new state-mutating helper gets the `DOTFILES_DRY_RUN` guard, and `./install --dry-run` stays mutation-free (`docs/reference/tooling.md`).
 - Keep the nvim install's snapshot/restore/verify; don't collapse it into one `Lazy! restore`. Minimum Neovim is 0.12 (`docs/reference/neovim.md`).

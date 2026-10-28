@@ -254,6 +254,9 @@ tickets. Avoid committing directly to `master`.
   A ticket's branch carries its id after the type: `feat/vil-522-statusline-ticket`. The
   statusline shows the id as a link to the issue.
 - **One PR per logical change**; push and open with `gh pr create`. Keep `master` green.
+- **Work in a worktree, not the main checkout.** The main checkout is what the Mac runs
+  (zsh, nvim, tmux, Claude hooks and statusline are linked into it), so a branch checked
+  out there is live before review. Use `wt new <topic> [type]`.
 - **Merge, then clean up**: delete the branch, mark any linked Linear issue `Done`.
 - **Trivial exceptions** (typo, one-line doc tweak) may go straight to `master`.
 - **Docs-only PRs skip the install matrix, not the review** — `install-matrix.yml` sets
