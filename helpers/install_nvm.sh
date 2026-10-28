@@ -7,7 +7,12 @@ if [ "${DOTFILES_DRY_RUN:-0}" = "1" ]; then
   exit 0
 fi
 
-if [ ! -d "$HOME/.config/nvm" ]; then
+# Check out nvm's newest release tag in the current directory.
+checkout_latest_tag() {
+  git checkout "$(git describe --abbrev=0 --tags --match "v[0-9]*" "$(git rev-list --tags --max-count=1)")"
+}
+
+if [ ! -d "$NVM_DIR" ]; then
   echo "Installing NVM..."
   export NVM_DIR="$XDG_CONFIG_HOME/nvm" && (
     git clone https://github.com/nvm-sh/nvm.git "$NVM_DIR" || {
@@ -18,12 +23,12 @@ if [ ! -d "$HOME/.config/nvm" ]; then
       echo "Failed to change directory"
       exit 1
     }
-    git checkout "$(git describe --abbrev=0 --tags --match "v[0-9]*" "$(git rev-list --tags --max-count=1)")"
+    checkout_latest_tag
   ) && \. "$NVM_DIR/nvm.sh"
   echo "NVM installed successfully"
 else
   echo "NVM is already installed. Updating to the latest version..."
   cd "$NVM_DIR" && git fetch --tags origin &&
-    git checkout "$(git describe --abbrev=0 --tags --match "v[0-9]*" "$(git rev-list --tags --max-count=1)")"
+    checkout_latest_tag
   . "$NVM_DIR/nvm.sh"
 fi
