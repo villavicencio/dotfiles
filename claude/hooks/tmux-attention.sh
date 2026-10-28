@@ -86,6 +86,12 @@ strip_leading_emoji() {
   local current_name
   current_name=$(tmux display-message -p -t "$pane" '#{window_name}')
 
+  # A name already found to have no leading emoji: skip starting python3,
+  # which this hook would otherwise do on every tool call.
+  local checked
+  checked=$(tmux show-options -wv -t "$pane" @win_emoji_checked 2>/dev/null) || true
+  [ -n "$current_name" ] && [ "$checked" = "$current_name" ] && return 0
+
   local stripped
   stripped=$(python3 -c "
 import re, sys
@@ -100,6 +106,8 @@ if m:
   if [ -n "$stripped" ]; then
     tmux set-option -w -t "$pane" @win_original_name "$current_name" 2>/dev/null
     tmux rename-window -t "$pane" "$stripped" 2>/dev/null
+  else
+    tmux set-option -w -t "$pane" @win_emoji_checked "$current_name" 2>/dev/null
   fi
 }
 
