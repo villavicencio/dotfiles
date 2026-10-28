@@ -37,6 +37,8 @@ status=0
 # reported as failures. The Claude settings comparison still runs.
 # shellcheck source=helpers/lib/python.sh
 . "$REPO_ROOT/helpers/lib/python.sh"
+# shellcheck source=helpers/lib/claude-settings-keys.sh
+. "$REPO_ROOT/helpers/lib/claude-settings-keys.sh"
 
 hr() { printf '\n== %s ==\n' "$1"; }
 indent() { sed 's/^/  /'; }
@@ -259,11 +261,12 @@ else
   # only real, actionable drift. Explicit utf-8 so Windows' locale codec can't
   # choke on non-ASCII (the default on macOS/Linux already is utf-8).
   claude_norm() {
-    CLAUDE_FILE="$(native_path "$1")" "${PYTHON[@]}" - <<'PYEOF'
+    STRIP_KEYS="$STRIP_KEYS" INSTALLER_HOOKS="$INSTALLER_HOOKS" CLAUDE_FILE="$(native_path "$1")" \
+      "${PYTHON[@]}" - <<'PYEOF'
 import collections, json, os, sys
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(newline="\n")   # Windows would emit CRLF lines
-strip = {"effortLevel", "modelSettings", "autoMode", "mcpServers", "allowedTools"}
+strip = set(os.environ["STRIP_KEYS"].split())
 try:
     with open(os.environ["CLAUDE_FILE"], encoding="utf-8") as fh:
         d = json.load(fh, object_pairs_hook=collections.OrderedDict)
@@ -272,9 +275,8 @@ except Exception as exc:
 for k in list(d):
     if k in strip or k == "//":
         d.pop(k)
-# Hooks an installer writes and owns (Orca, iTerm2) aren't tracked (VIL-431). Same list
-# as INSTALLER_HOOKS in helpers/install_claude_settings.sh; keep the two in step.
-markers = (".orca/agent-hooks/", ".config/iterm2/cc-status")
+# Hooks an installer writes and owns (Orca, iTerm2) aren't tracked (VIL-431).
+markers = os.environ["INSTALLER_HOOKS"].split()
 hooks = d.get("hooks")
 if isinstance(hooks, dict):
     for event in list(hooks):

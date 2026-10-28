@@ -142,8 +142,8 @@ are written into the live file by their own installers, which write them back on
 Tracking them would only seed them onto machines without that app. So `--capture` leaves out
 any hook whose command contains one of those paths, drops a hook group or event left empty, and
 `dot drift` compares the same way. The list is `INSTALLER_HOOKS` in
-`helpers/install_claude_settings.sh`, repeated as `markers` in `helpers/report_drift.sh`. A new
-app whose installer adds hooks gets its path added to both.
+`helpers/lib/claude-settings-keys.sh`, which both scripts source. A new app whose installer adds
+hooks gets its path added there.
 
 Capture also refuses when the live file lacks a tracked hook (same event and command) or a
 plugin the tracked `enabledPlugins` lists, just as it does for a missing top-level key: it

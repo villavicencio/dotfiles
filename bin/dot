@@ -128,6 +128,17 @@ cmd_check() {
   [ "$found" = 1 ] || echo "  $(yellow skip) no bin/lib/*.py"
   rm -rf "$REPO/bin/lib/__pycache__"
 
+  echo "Claude settings key lists (STRIP_KEYS = migrate's MACHINE_LOCAL):"
+  local keys_out
+  # shellcheck disable=SC2046  # word-split STRIP_KEYS into argv on purpose
+  if keys_out="$(python3 "$REPO/bin/lib/check-claude-keys.py" "$REPO/helpers/migrate_claude_settings.py" \
+       $(. "$REPO/helpers/lib/claude-settings-keys.sh" && printf '%s\n' "$STRIP_KEYS") 2>&1)"; then
+    echo "  $(green ok) same keys"
+  else
+    echo "  $(red FAIL) helpers/lib/claude-settings-keys.sh and helpers/migrate_claude_settings.py differ"
+    printf '%s\n' "$keys_out" | sed 's/^/    /'; rc=1
+  fi
+
   echo "dotbot --dry-run parse:"
   local cfg
   for cfg in "${DOTBOT_CONFIGS[@]}"; do
