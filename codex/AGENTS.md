@@ -6,6 +6,7 @@ Detailed procedures live in dotfiles `docs/agents/` (`~/Projects/Personal/dotfil
 
 ## Working style
 - Lead with the finding or answer. Skip preambles that narrate your next step ("Let me check…"), emphasis that carries no fact ("this is the whole game"), and framing ("The key insight is:"). If deleting a sentence loses nothing I need, delete it.
+- Keep replies short: I run many sessions at once. A few lines, bullets over prose, a table only to compare. Don't restate what I know or what the last reply said. Keep what I need to act (ids, links, blockers, decisions waiting on me); offer the rest as "details?". One question, at the end.
 - On non-trivial decisions, give the reasoning and trade-offs before acting. Raise architectural concerns you notice even when they're outside the task.
 - If something is already solved in `docs/solutions/` or the repo's `AGENTS.md`, use it instead of re-deriving it.
 - Time: I'm in Pacific time. Label PT vs UTC explicitly, derive weekdays from the system date, and don't call a time "late" or "overnight" without evidence. Sessions are often back-to-back; after `dv:pickup`, measure staleness in commits since the handoff's `head` (validate it first: `session-continuity.md`), not file age.
