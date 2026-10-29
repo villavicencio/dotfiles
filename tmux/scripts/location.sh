@@ -40,12 +40,9 @@ self="$(cd "$(dirname "$0")" && pwd)/$(basename "$0")"
 
 # ── Sanitization + truncation helpers ─────────────────────────────────
 
-# Strip tmux-format-significant chars (#[]{}()), shell metachars (` $ \ ' "),
-# and control bytes (0x00-0x1F + 0x7F). Multibyte UTF-8 (·, …, accented
-# letters) passes through untouched — those are not dangerous to tmux's
-# format engine and are needed by the pill's separator.
-# Forged or malformed API responses cannot smuggle a tmux format directive
-# through the cache.
+# Strip tmux format chars (#[]{}()), shell metachars (` $ \ ' ") and control bytes,
+# so a forged API response can't smuggle a tmux format directive through the cache.
+# Multibyte UTF-8 (·, …, accents) passes through; the pill needs it.
 sanitize() {
   LC_ALL=C tr -d '#[]{}()`$\\'"'"'"\000-\037\177'
 }
@@ -190,11 +187,8 @@ fi
 # ── Hot path (no args): cache read + maybe-spawn-worker ───────────────
 [ -d "$cache_dir" ] || mkdir -p "$cache_dir"
 
-# Belt-and-suspenders: sanitize on read too. The worker sanitizes on write,
-# but if the cache file ever gets tampered with (or was written by an older
-# buggy script version), this stops bad bytes reaching the tmux format
-# engine. Use stdin redirect rather than `cat | sanitize` — saves one fork
-# per status-bar tick (status-interval is 1).
+# Sanitize on read too, in case the cache was tampered with. A redirect, not
+# `cat |`: one fork fewer per status-bar tick.
 if [ -s "$cache_file" ]; then
   sanitize < "$cache_file"
 fi

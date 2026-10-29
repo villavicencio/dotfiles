@@ -16,6 +16,25 @@ Persistence is a JSON sidecar at `~/.config/tmux/window-meta.json`, written by
 with `set-hook -g client-attached`). The curated palette the skill draws from is
 part of the plugin, not this repo.
 
+## Statusline meters (`claude/statusline-command.sh`)
+- **Colors are protan-safe.** The meters ramp blue → gray → yellow. David's red cones are at 0%, and
+  red/green meters fail that: under a protanopia simulation (Machado 2009) the old lime reads as
+  bright yellow and the old salmon red as a dull gray-olive, so the meter got *dimmer* as it
+  filled. Blue–yellow is the axis protans keep, and luminance rises along the ramp, so "fuller"
+  also reads as "brighter".
+- **Context meter.** A bar over the model's whole window (`context_window_size`, 1M when absent),
+  labeled in tokens. Its color doesn't follow the bar: it ramps to yellow on the way to
+  `CTX_HANDOFF`, the 200k hand-off cue (VIL-402: every turn re-reads the whole context, so a
+  session should end there), and past it the fill turns solid. Ahead of the fill a dim ╎ marks the
+  hand-off cue and a white ┃ marks `autoCompactWindow`, read live from `settings.json`, so moving
+  it moves the marker; no setting, no marker. A shaded runway between the two read as context
+  already used, so the track stays plain.
+- **Slider width (VIL-82).** 20 cells, 5 points each. Three meters render ~105 columns, which fits a
+  full-width pane but wraps in a split one, so 20 is the ceiling. Halving the step from 10 separated
+  most pairs that used to share a cell (1%/4%, 5%/9%, 17%/22%), but nearest-cell rounding still
+  merges values inside one band, and a pair straddling the new boundaries can regress (3% and 7%
+  split at 10 cells and collide at 20): a net gain, not a guarantee for any one pair.
+
 ## Claude Code tmux tab indicator
 `claude/hooks/tmux-attention.sh` is invoked by Claude Code hooks (declared in
 `claude/settings.json`) to drive a per-window tmux user option `@claude_status`,

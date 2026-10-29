@@ -107,3 +107,31 @@ new link is a plain Dotbot `link:`, and apt adds the three packages), then `gh a
 if gh isn't authenticated yet.
 
 Gotchas behind these rules: `docs/solutions/cross-machine/wsl-ubuntu-target-2026-09-24.md`.
+
+## CI image (`ci/Dockerfile`)
+The install matrix's Linux leg runs in a minimal Ubuntu 26.04 image. Why it's built the way it is:
+
+- **Bare server, as root.** The install runbook and `dotbot-conf/linux.yaml` assume root. The image
+  carries only the bootstrap deps `helpers/install_packages.sh` doesn't install itself; later apt
+  installs are the pipeline's own job. 26.04 since VIL-154, so CI tests the same release as WSL.
+- **Published, pinned, not baked.** `publish-ci-image.yml` publishes it to
+  `ghcr.io/<owner>/dotfiles-ci-ubuntu` on master pushes that touch the Dockerfile; consumers pin
+  the SHA digest, not the `:26.04` tag (`:24.04` is left as it was). The repo is mounted at
+  runtime, so repo changes need no rebuild. The base image is digest-pinned too (multi-arch
+  manifest list), matching the consumer-side pin; bump it with
+  `docker buildx imagetools inspect ubuntu:26.04` when Canonical ships patches.
+- **sudo, even as root.** `install_packages.sh` runs `sudo apt-get install …`. As root sudo is a
+  no-op, but without the binary the helper aborts and later helpers cascade-fail ("tmux: command
+  not found"). An earlier image left it out and the workflow had to apt-install it at runtime
+  (#58). On 26.04 the package is classic sudo (`sudo.ws`); a stock install, like the WSL distro,
+  defaults to sudo-rs. As root neither authenticates, so CI never exercises sudo-rs; the first
+  real run is `./install` on the distro.
+- **python3, not python3-minimal.** Dotbot imports `json` and `yaml` at startup, and
+  python3-minimal strips the stdlib (`ModuleNotFoundError`). The full metapackage adds
+  libpython3-stdlib (~45 MB) and matches stock Ubuntu Server.
+- **`Acquire::ForceIPv4`, first in the chain.** archive.ubuntu.com resolves to Cloudflare IPv6,
+  which the Actions runners sometimes can't reach, so every fresh apt connection waited ~60 s
+  before falling back (the 60–69 s gaps of 2026-05-04, #65). It's set in the image, not at
+  runtime, so earlier apt calls get it, and not in the install pipeline, where real hosts don't
+  need it. It comes before `apt-get update` so the image build itself is protected too. Full
+  investigation: `docs/solutions/cross-machine/install-matrix-ipv6-fallback-misattribution-2026-05-05.md`.
