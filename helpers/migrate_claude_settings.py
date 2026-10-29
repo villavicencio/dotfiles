@@ -13,9 +13,8 @@ safe to re-run, and a no-op once applied:
    Folds allowedTools into permissions.allow (dedup, order-preserving) and
    deletes the legacy key.
 
-2. Remove every hook whose command runs a retired hook script (RETIRED_HOOKS). The
-   script is gone from the repo, so its ~/.claude/hooks link dangles and every event
-   the hook was on prints a hook error.
+2. Remove every hook whose command matches RETIRED_HOOKS. Its script is gone, so
+   every event the hook was on prints a hook error.
 
 3. Desk Macs and Windows only, where the seed runs: add every top-level key of the tracked
    file that the live file lacks (the machine-local
@@ -53,9 +52,10 @@ import time
 SETTINGS = os.path.expanduser("~/.claude/settings.json")
 # Never tracked. Must equal STRIP_KEYS in helpers/lib/claude-settings-keys.sh (`dot check`).
 MACHINE_LOCAL = {"effortLevel", "modelSettings", "autoMode", "mcpServers", "allowedTools"}
-# Hook scripts this repo no longer ships. tmux-attention.sh: the tmux tab indicator, retired
-# with tmux as the agent host (Orca hosts the sessions).
-RETIRED_HOOKS = ("tmux-attention.sh",)
+# Commands of retired hooks, matched as substrings. A machine can miss one migration and pull
+# several retirements at once, so entries stay. herdr: the agent host before Orca.
+# tmux-attention.sh: the tmux tab indicator, retired with tmux as the agent host.
+RETIRED_HOOKS = ("herdr", "tmux-attention.sh")
 # The tracked baseline this repo seeds: Windows has its own sibling.
 _REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 _ON_WINDOWS = os.name == "nt" or sys.platform in ("cygwin", "msys")

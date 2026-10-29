@@ -75,9 +75,8 @@ What `install.ps1` does, in order — each step idempotent, `-DryRun` mutates no
 
 Windows-specific rules:
 
-- **Windows seeds `windows/claude-settings.json`, never `claude/settings.json`.** Every hook
-  in the Mac file calls a tmux bash script, which would error on every event here.
-  The Windows file is the Mac baseline with three things removed, and nothing added:
+- **Windows seeds `windows/claude-settings.json`, never `claude/settings.json`.** Both are
+  hook-free. The Windows file is the Mac baseline with two things removed, and nothing added:
 
   | Removed | Why |
   |---|---|

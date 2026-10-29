@@ -36,7 +36,11 @@ part of the plugin, not this repo.
   split at 10 cells and collide at 20): a net gain, not a guarantee for any one pair.
 
 ## A hook symlinked into the repo is branch-fragile — land the file before wiring it
-`~/.claude/hooks/*.sh` are Dotbot symlinks **into this working tree**, so they resolve against
+No hook is tracked today (the last, `tmux-attention.sh`, was retired 2026-10-28). A new one goes
+in `claude/hooks/`, gets a Dotbot `link:` in `dotbot-conf/darwin.yaml` plus a `create:` for
+`~/.claude/hooks`, and its `settings.json` entries.
+
+A hook linked that way points **into this working tree**, so it resolves against
 whatever branch is checked out. A hook whose file exists only on a *feature* branch goes
 dangling the moment you switch away, and Claude Code then prints a non-blocking error on
 **every** `SessionStart` and `UserPromptSubmit`, in every session, across every project:
@@ -54,6 +58,7 @@ live before the PR merges, install a *copy* rather than a symlink — a copy is 
 
 ```bash
 tmp="$(mktemp)"
+mkdir -p ~/.claude/hooks &&
 git show <branch>:claude/hooks/<hook>.sh > "$tmp" && chmod +x "$tmp" &&
   mv -f "$tmp" ~/.claude/hooks/<hook>.sh
 ```

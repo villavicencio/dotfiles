@@ -111,8 +111,8 @@ Gotchas behind these rules: `docs/solutions/cross-machine/wsl-ubuntu-target-2026
 ## CI image (`ci/Dockerfile`)
 The install matrix's Linux leg runs in a minimal Ubuntu 26.04 image. Why it's built the way it is:
 
-- **Bare server, as root.** The install runbook and `dotbot-conf/linux.yaml` assume root. The image
-  carries only the bootstrap deps `helpers/install_packages.sh` doesn't install itself; later apt
+- **Bare server, as root.** The container runs as root because that's simplest in CI; the real
+  Linux install runs as a normal user (it `chsh`es that user). The image carries only the bootstrap deps `helpers/install_packages.sh` doesn't install itself; later apt
   installs are the pipeline's own job. 26.04 since VIL-154, so CI tests the same release as WSL.
 - **Published, pinned, not baked.** `publish-ci-image.yml` publishes it to
   `ghcr.io/<owner>/dotfiles-ci-ubuntu` on master pushes that touch the Dockerfile; consumers pin
