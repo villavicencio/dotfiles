@@ -28,7 +28,7 @@
     helper = !/usr/bin/gh auth git-credential
 
 # core.pager = vim - is a macOS preference (CLAUDE.md "Things intentionally left
-# as-is"). On the openclaw-prod VPS (2026-09-02) it turned git output in agent
+# as-is"). On a Linux host it turned git output in agent
 # terminal sessions into vim buffers. Git only pages when stdout is a tty, so
 # scripts never hit it; interactive and agent pty sessions do. less with the
 # flags git itself defaults LESS to (F: quit if one screen, R: keep colors,

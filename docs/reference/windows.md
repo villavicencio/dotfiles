@@ -75,13 +75,11 @@ What `install.ps1` does, in order — each step idempotent, `-DryRun` mutates no
 
 Windows-specific rules:
 
-- **Windows seeds `windows/claude-settings.json`, never `claude/settings.json`.** Every hook
-  in the Mac file calls a tmux bash script, which would error on every event here.
-  The Windows file is the Mac baseline with three things removed, and nothing added:
+- **Windows seeds `windows/claude-settings.json`, never `claude/settings.json`.** Both are
+  hook-free. The Windows file is the Mac baseline with two things removed, and nothing added:
 
   | Removed | Why |
   |---|---|
-  | `hooks` (all of them) | `tmux-attention.sh` — no tmux on Windows |
   | `preferredNotifChannel: "iterm2"` | iTerm2 is macOS-only; Claude Code picks a default |
   | `Bash(brew …)`, `Bash(tmux -V*)` allow rules | no Homebrew or tmux; dead rules |
 

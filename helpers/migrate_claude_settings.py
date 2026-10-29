@@ -13,12 +13,8 @@ safe to re-run, and a no-op once applied:
    Folds allowedTools into permissions.allow (dedup, order-preserving) and
    deletes the legacy key.
 
-2. Remove every hook whose command mentions herdr. herdr was retired on 2026-10-22
-   (VIL-422): its blank-state hook links into this repo, so once a machine pulls the
-   retirement the link dangles and every SessionStart/UserPromptSubmit prints a hook
-   error. Run `herdr integration uninstall claude` first where herdr is still
-   installed; this catches what that leaves, including our own blank-state entries.
-   (Until VIL-422 this step registered the blank-state hook instead.)
+2. Remove every hook whose command matches RETIRED_HOOKS. Its script is gone, so
+   every event the hook was on prints a hook error.
 
 3. Desk Macs and Windows only, where the seed runs: add every top-level key of the tracked
    file that the live file lacks (the machine-local
@@ -32,8 +28,8 @@ safe to re-run, and a no-op once applied:
    command) the live `hooks` lacks, and each plugin the tracked `enabledPlugins` lists that
    the live one doesn't list at all (VIL-431). Those are added too.
 
-Run it on any machine whose settings.json predates 2026-08-25, on any Mac that had
-herdr, and after a change to a tracked key this script carries. Writes a timestamped backup first and parse-checks before replacing.
+Run it on any machine whose settings.json predates 2026-08-25, after a hook retirement, and
+after a change to a tracked key this script carries. Writes a timestamped backup first and parse-checks before replacing.
 
 NOTE: Claude Code's auto-mode classifier blocks agents from writing this file
 (by design — it stops an agent widening its own permissions), so this is a
@@ -56,14 +52,19 @@ import time
 SETTINGS = os.path.expanduser("~/.claude/settings.json")
 # Never tracked. Must equal STRIP_KEYS in helpers/lib/claude-settings-keys.sh (`dot check`).
 MACHINE_LOCAL = {"effortLevel", "modelSettings", "autoMode", "mcpServers", "allowedTools"}
+# Commands of retired hooks, matched as substrings. A machine can miss one migration and pull
+# several retirements at once, so entries stay. herdr: the agent host before Orca.
+# tmux-attention.sh: the tmux tab indicator, retired with tmux as the agent host.
+# Must equal RETIRED_HOOKS in helpers/lib/claude-settings-keys.sh.
+RETIRED_HOOKS = ("herdr", "tmux-attention.sh")
 # The tracked baseline this repo seeds: Windows has its own sibling.
 _REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 _ON_WINDOWS = os.name == "nt" or sys.platform in ("cygwin", "msys")
 TRACKED = os.path.join(_REPO, "windows" if _ON_WINDOWS else "claude",
                        "claude-settings.json" if _ON_WINDOWS else "settings.json")
 # The seed runs only on desk Macs (darwin.yaml) and Windows (install.ps1). Linux and hal's
-# server profile never get one, so the Mac baseline's tmux hooks and iTerm channel don't belong
-# there (MergeWren a1375c7#1). The server profile is the install that links
+# server profile never get one, so the Mac baseline's iTerm channel and allow rules don't
+# belong there. The server profile is the install that links
 # ~/.config/zsh/.zprofile to zsh/zprofile.server.
 _ZPROFILE = os.path.realpath(os.path.expanduser("~/.config/zsh/.zprofile"))
 SEEDED = _ON_WINDOWS or (sys.platform == "darwin" and not _ZPROFILE.endswith("zsh/zprofile.server"))
@@ -71,7 +72,7 @@ SEEDED = _ON_WINDOWS or (sys.platform == "darwin" and not _ZPROFILE.endswith("zs
 
 def main():
     if os.environ.get("DOTFILES_DRY_RUN", "0") == "1":
-        print("[dry-run] would repair %s (allowedTools fold, herdr hook removal, missing tracked keys)" % SETTINGS)
+        print("[dry-run] would repair %s (allowedTools fold, retired hook removal, missing tracked keys)" % SETTINGS)
         return 0
     if not os.path.exists(SETTINGS):
         print("No settings at %s — nothing to migrate." % SETTINGS)
@@ -86,11 +87,12 @@ def main():
 
     # Decide before touching anything: an already-migrated file gets no backup
     # and no rewrite, so re-running really is a no-op.
-    def is_herdr(h):
-        return "herdr" in str(h.get("command", ""))
+    def is_retired(h):
+        return any(m in str(h.get("command", "")) for m in RETIRED_HOOKS)
     hooks = data.get("hooks") if isinstance(data.get("hooks"), dict) else {}
-    herdr = [(e, h.get("command")) for e, groups in hooks.items() if isinstance(groups, list)
-             for g in groups if isinstance(g, dict) for h in g.get("hooks", []) if is_herdr(h)]
+    retired = [(e, h.get("command")) for e, groups in hooks.items() if isinstance(groups, list)
+               for g in groups if isinstance(g, dict) for h in g.get("hooks") or []
+               if isinstance(h, dict) and is_retired(h)]
     try:
         tracked = json.load(open(TRACKED, encoding="utf-8"), object_pairs_hook=collections.OrderedDict)
     except Exception as exc:
@@ -98,12 +100,12 @@ def main():
               % (TRACKED, exc), file=sys.stderr)
         return 1
     # A tracked object whose live value isn't one (`null`, a list) is replaced whole, as
-    # capture counts it missing (MergeWren 9059f65#1).
+    # capture counts it missing.
     missing = ([k for k in tracked if k != "//" and k not in MACHINE_LOCAL and (
                     k not in data or (isinstance(tracked[k], dict) and not isinstance(data[k], dict)))]
                if SEEDED else [])
     # A tracked hook (event + command) the live `hooks` lacks never arrives otherwise: the key
-    # exists, so `missing` skips it, and capture then refuses (VIL-431, MergeWren db1417d#1).
+    # exists, so `missing` skips it, and capture then refuses (VIL-431).
     # Add the missing ones back in a copy of their tracked group, beside whatever is there
     # (installer hooks included). Commands compare with $HOME folded to ~/, as capture does.
     home = os.path.expanduser("~").rstrip("\\/")
@@ -125,15 +127,15 @@ def main():
                     ng["hooks"] = copy.deepcopy(lacking)
                     add_groups.append((event, ng))
     # A plugin the tracked file enables that the live `enabledPlugins` doesn't list at all
-    # never arrives otherwise: the key exists, so `missing` skips it (MergeWren 8d0c1df#1).
+    # never arrives otherwise: the key exists, so `missing` skips it.
     # A plugin turned off live is stored as false, not removed, so this can't undo it.
     live_plugins, tracked_plugins = data.get("enabledPlugins"), tracked.get("enabledPlugins")
     new_plugins = ([p for p in tracked_plugins if p not in live_plugins]
                    if SEEDED and isinstance(live_plugins, dict) and isinstance(tracked_plugins, dict)
                    else [])
-    if ("allowedTools" not in data and not herdr and not missing and not add_groups
+    if ("allowedTools" not in data and not retired and not missing and not add_groups
             and not new_plugins):
-        print("Nothing to migrate: no allowedTools key, no herdr hooks, no missing tracked keys.")
+        print("Nothing to migrate: no allowedTools key, no retired hooks, no missing tracked keys.")
         return 0
 
     backup = "%s.bak-%d" % (SETTINGS, int(time.time()))
@@ -141,14 +143,14 @@ def main():
 
     # Missing tracked keys first, so the fold below lands in what a fresh seed would have
     # given this machine: a `permissions` block it lacked arrives whole (defaultMode and all),
-    # and the legacy rules then merge into its `allow` (MergeWren 8d3b94c#1, 2aa9ec9#1).
+    # and the legacy rules then merge into its `allow`.
     replaced = [k for k in missing if k in data]
     for k in missing:
         data[k] = copy.deepcopy(tracked[k])
     for p in new_plugins:
         live_plugins[p] = copy.deepcopy(tracked_plugins[p])
     # data["hooks"] itself, not `hooks`: for an empty `"hooks": {}` that is a separate
-    # dict, and additions to it would never be written (MergeWren 6ce0e83#1).
+    # dict, and additions to it would never be written.
     for event, g in add_groups:
         data["hooks"].setdefault(event, []).append(g)
 
@@ -157,7 +159,7 @@ def main():
     merged = list(dict.fromkeys(list(allow) + list(legacy)))
     data["permissions"]["allow"] = merged
 
-    if herdr:
+    if retired:
         for event in list(hooks):
             groups = hooks[event]
             if not isinstance(groups, list):
@@ -165,7 +167,7 @@ def main():
             kept = []
             for g in groups:
                 if isinstance(g, dict) and isinstance(g.get("hooks"), list):
-                    g["hooks"] = [h for h in g["hooks"] if not is_herdr(h)]
+                    g["hooks"] = [h for h in g["hooks"] if not (isinstance(h, dict) and is_retired(h))]
                     if not g["hooks"]:
                         continue
                 kept.append(g)
@@ -173,6 +175,8 @@ def main():
                 hooks[event] = kept
             else:
                 del hooks[event]
+        if not hooks:
+            data.pop("hooks", None)
 
     tmp = SETTINGS + ".tmp.%d" % os.getpid()
     try:
@@ -201,7 +205,7 @@ def main():
         print("tracked hooks added: %s" % ", ".join("%s %s" % (e, h.get("command")) for e, g in add_groups for h in g["hooks"]))
     if new_plugins:
         print("tracked plugins added: %s" % ", ".join(new_plugins))
-    print("herdr hooks:       %s" % ("removed: " + ", ".join("%s %s" % h for h in herdr) if herdr
+    print("retired hooks:     %s" % ("removed: " + ", ".join("%s %s" % h for h in retired) if retired
                                      else "none"))
     return 0
 

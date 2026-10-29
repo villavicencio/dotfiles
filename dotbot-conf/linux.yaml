@@ -2,7 +2,7 @@
 #
 # Active target since 2026-09-24: WSL Ubuntu on the Windows gaming PC (VIL-148),
 # on 26.04 since 2026-09-25, the same release CI tests (VIL-154); sudo there is
-# sudo-rs. The Hetzner VPS target was retired 2026-05-21. The en_US.UTF-8
+# sudo-rs. The en_US.UTF-8
 # locale generation (and the zsh it needs for Oh My Zsh) lives in base.yaml
 # (uname-guarded) because it must run before the helpers base runs.
 

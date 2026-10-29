@@ -159,13 +159,12 @@ complete!" only when nothing failed.
 
 ## Claude Code and Windows Terminal
 
-**`claude/settings.json` must not be seeded on Windows.** Every hook in it
-calls a tmux bash script (`tmux-attention.sh`; until the 2026-10-22 herdr
-retirement also `herdr-agent-state.sh` and `herdr-blank-state.sh`), so each
-event would error. Since VIL-150, `install.ps1`
+**`claude/settings.json` must not be seeded on Windows.** Since VIL-150, `install.ps1`
 seeds `windows/claude-settings.json` instead (only when `~/.claude/settings.json`
-is absent): the Mac baseline minus the hooks, the iTerm2 notification channel and
-the brew/tmux allow rules. `claude/CLAUDE.md` is safe to link, because its
+is absent): the Mac baseline minus the iTerm2 notification channel and the brew/tmux
+allow rules. Both files are hook-free since 2026-10-28. Before then every Mac hook
+called a tmux bash script (`tmux-attention.sh`, and until 2026-10-22 herdr's), which
+would have errored on every event here. `claude/CLAUDE.md` is safe to link, because its
 Mac-only sections are already labeled as such.
 
 **The status line works unchanged under Git Bash's `sh`**, including the Mac

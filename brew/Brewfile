@@ -79,7 +79,7 @@ brew "curl"                 # newer curl (opt/curl/bin on PATH)
 brew "wget"
 brew "aria2"                # multi-connection downloader
 brew "yt-dlp"               # video/audio downloader
-brew "mosh"                 # roaming remote shell — VPS tmux attaches (AXIOM/hermes);
+brew "mosh"                 # roaming remote shell (Moshi from the phone);
                             # UDP rides inside the Tailscale tunnel, no firewall changes
 
 # --- System monitoring & cleanup ---

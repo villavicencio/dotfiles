@@ -73,7 +73,7 @@ disable = [
 
 # Custom commands appended to the topgrade run.
 # `command -v` guard makes each command a no-op on hosts where the binary is
-# absent, so the same config works on macOS + the VPS without per-host forks.
+# absent, so the same config works on macOS + Linux without per-host forks.
 # `yes y |` feeds the post-dry-run "Continue? [y/n]:" prompt — mac-cleanup-py's
 # --force accepts warnings but does NOT skip that final confirmation, and
 # topgrade runs non-interactively so a hanging stdin would block the whole run.

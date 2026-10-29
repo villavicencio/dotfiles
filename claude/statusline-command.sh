@@ -57,13 +57,9 @@ pr_color="\033[38;2;170;130;255m"
 # this one stands apart by brightness and its ticket glyph, not by hue.
 ticket_color="\033[38;2;150;205;255m"
 
-# Meter colors are a smooth blue -> gray -> yellow ramp, safe for protan color
-# blindness (David's: red cones at 0%). Red/green meters fail it: under a
-# protanopia simulation (Machado 2009) the old lime reads as bright yellow and
-# the old salmon red as a dull gray-olive, so the meter got *dimmer* as it
-# filled. Blue-yellow is the axis protans keep, and luminance rises along the
-# ramp, so "fuller" also reads as "brighter". $1 is 0-1000 (permille of the way
-# to full warning); out-of-range values clamp.
+# Meter colors: a blue -> gray -> yellow ramp that brightens as it fills (protan-safe;
+# why: docs/reference/claude-code-config.md). $1 is 0-1000 (permille of the way to
+# full warning); out-of-range values clamp.
 ramp() {
   _p=$1; [ "$_p" -lt 0 ] && _p=0; [ "$_p" -gt 1000 ] && _p=1000
   if [ "$_p" -le 500 ]; then   # blue (90,160,255) -> gray (175,185,200)
@@ -78,15 +74,9 @@ ramp() {
 # Color a 0-100 rate-limit meter: full yellow from 70% (the old red threshold).
 meter_color() { ramp $(( $1 * 1000 / 70 )); }
 
-# The context meter is a bar over the model's whole window (context_window_size,
-# 1M when absent), labeled in tokens. Its color doesn't follow the bar: it ramps
-# from blue to yellow on the way to CTX_HANDOFF, the 200k hand-off cue (VIL-402:
-# every turn re-reads the whole context, so a session should end there), and
-# past it the fill turns solid. Ahead of the fill, a dim ╎ tick marks the hand-off
-# cue and a white ┃ marks where auto-compaction fires: autoCompactWindow, read
-# live from settings.json, so moving it to 500k or 700k moves the marker. No
-# setting, no marker. (A shaded runway between the two read as context already
-# used, so the track stays plain.)
+# Context meter: a bar over the whole window (1M when absent) whose color ramps to
+# yellow at CTX_HANDOFF, the hand-off cue; ╎ marks the cue and ┃ marks autoCompactWindow,
+# read live. Details: docs/reference/claude-code-config.md.
 CTX_HANDOFF=200000
 
 # Render a BAR_CELLS-cell slider for a 0-100 value (the ccstatusline "slider"
@@ -96,14 +86,7 @@ CTX_HANDOFF=200000
 # \342\226\221). $2 is raw escape bytes (e.g. from meter_color). Playhead rounds
 # to nearest cell: (pct * BAR_CELLS + 50) / 100; at 100% the bar is fully filled
 # with no cursor. Each cell is one character, so the slider stays compact.
-# 20 cells = 5pp per cell; three meters render ~105 columns, which fits a
-# full-width pane but would wrap in a split one — that width is the ceiling,
-# not a starting point. Halving the step separates most pairs that used to
-# share a cell (1%/4%, 5%/9%, 17%/22% all collide at 10 and split at 20), but
-# nearest-cell rounding still collapses anything inside one band, and a pair
-# straddling the new boundaries can regress: 3% and 7% differ at 10 cells and
-# collide at 20. Net gain across the range, not a guarantee for any one pair.
-# See VIL-82.
+# 20 cells is the width ceiling (VIL-82): docs/reference/claude-code-config.md.
 # Optional, for the ctx meter: $3 is the hand-off tick cell and $4 the compaction
 # marker cell (-1 for none), and $5 the fill glyph (default ▓; █ -> \342\226\210).
 # The marker cell is a bold white ┃ (U+2503 -> \342\224\203) whether or not the

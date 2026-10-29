@@ -44,7 +44,7 @@ case "${DOTFILES_PROFILE:-desk}" in
     export DOTFILES_PROFILE=server
     PLATFORM_CONFIG="dotbot-conf/server.yaml"
     # No `clean` on the server. Dotbot only removes dead links in ~ that resolve
-    # into this repo, but hal also carries dangling links copied from the VPS
+    # into this repo, but hal also carries dangling links copied from another host
     # (~/personal and friends) that resolve once Syncthing seeds the vault, and
     # a first install there has no stale repo links to clean.
     BASE_EXTRA_ARGS=(--except clean) ;;

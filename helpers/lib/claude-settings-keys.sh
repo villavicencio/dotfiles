@@ -1,5 +1,5 @@
 # shellcheck shell=bash
-# shellcheck disable=SC2034  # both lists are read by the scripts that source this file
+# shellcheck disable=SC2034  # the lists are read by the scripts that source this file
 #
 # Sourced by helpers/install_claude_settings.sh (--capture) and
 # helpers/report_drift.sh (`dot drift`), so both leave out the same things.
@@ -25,3 +25,8 @@ STRIP_KEYS="effortLevel modelSettings autoMode mcpServers allowedTools"
 #   .orca/agent-hooks/        Orca's agent hooks (one inline command per event)
 #   .config/iterm2/cc-status  iTerm2's Claude Code status hook
 INSTALLER_HOOKS=".orca/agent-hooks/ .config/iterm2/cc-status"
+
+# Commands of retired hooks. --capture refuses while the live file still has one, since it
+# would write it back into the tracked seed; the migration removes them. Must equal
+# RETIRED_HOOKS in helpers/migrate_claude_settings.py.
+RETIRED_HOOKS="herdr tmux-attention.sh"

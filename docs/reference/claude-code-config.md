@@ -16,25 +16,31 @@ Persistence is a JSON sidecar at `~/.config/tmux/window-meta.json`, written by
 with `set-hook -g client-attached`). The curated palette the skill draws from is
 part of the plugin, not this repo.
 
-## Claude Code tmux tab indicator
-`claude/hooks/tmux-attention.sh` is invoked by Claude Code hooks (declared in
-`claude/settings.json`) to drive a per-window tmux user option `@claude_status`,
-which is read by a ternary in `tmux/tmux.display.conf`'s `window-status-format`.
-Active states: `asking` (bright yellow `\uf128` for any `PermissionRequest` —
-Bash tool-use confirmations, AskUserQuestion, all user-decision prompts render
-the same glyph), spinner frame (orange star cycling at 150ms), or unset (no
-icon). An amber `waiting` branch exists in the tmux ternary as reserved state
-for future non-permission attention events but is not currently written by
-the hook. The spinner runs as a disowned bash subshell tagged
-`claude-spinner-marker-<pane>` so `pkill` can find leaks. It self-terminates
-when (a) the sentinel file is removed, (b) Claude Code's PID is gone, or
-(c) the 5-minute safety cap is hit. Its cleanup block is gated on
-sentinel-still-exists so it does not race the main-thread state writer — see
-`docs/solutions/runtime-errors/tmux-attention-hook-race-condition-and-askuserquestion-state-2026-04-19.md`.
-If a leaked loop ever shows up, kill it via `pkill -f claude-spinner-marker`.
+## Statusline meters (`claude/statusline-command.sh`)
+- **Colors are protan-safe.** The meters ramp blue → gray → yellow. David's red cones are at 0%, and
+  red/green meters fail that: under a protanopia simulation (Machado 2009) the old lime reads as
+  bright yellow and the old salmon red as a dull gray-olive, so the meter got *dimmer* as it
+  filled. Blue–yellow is the axis protans keep, and luminance rises along the ramp, so "fuller"
+  also reads as "brighter".
+- **Context meter.** A bar over the model's whole window (`context_window_size`, 1M when absent),
+  labeled in tokens. Its color doesn't follow the bar: it ramps to yellow on the way to
+  `CTX_HANDOFF`, the 200k hand-off cue (VIL-402: every turn re-reads the whole context, so a
+  session should end there), and past it the fill turns solid. Ahead of the fill a dim ╎ marks the
+  hand-off cue and a white ┃ marks `autoCompactWindow`, read live from `settings.json`, so moving
+  it moves the marker; no setting, no marker. A shaded runway between the two read as context
+  already used, so the track stays plain.
+- **Slider width (VIL-82).** 20 cells, 5 points each. Three meters render ~105 columns, which fits a
+  full-width pane but wraps in a split one, so 20 is the ceiling. Halving the step from 10 separated
+  most pairs that used to share a cell (1%/4%, 5%/9%, 17%/22%), but nearest-cell rounding still
+  merges values inside one band, and a pair straddling the new boundaries can regress (3% and 7%
+  split at 10 cells and collide at 20): a net gain, not a guarantee for any one pair.
 
 ## A hook symlinked into the repo is branch-fragile — land the file before wiring it
-`~/.claude/hooks/*.sh` are Dotbot symlinks **into this working tree**, so they resolve against
+No hook is tracked today (the last, `tmux-attention.sh`, was retired 2026-10-28). A new one goes
+in `claude/hooks/`, gets a Dotbot `link:` in `dotbot-conf/darwin.yaml` plus a `create:` for
+`~/.claude/hooks`, and its `settings.json` entries.
+
+A hook linked that way points **into this working tree**, so it resolves against
 whatever branch is checked out. A hook whose file exists only on a *feature* branch goes
 dangling the moment you switch away, and Claude Code then prints a non-blocking error on
 **every** `SessionStart` and `UserPromptSubmit`, in every session, across every project:
@@ -44,15 +50,15 @@ SessionStart:startup hook error
 Failed with non-blocking status code: /bin/sh: ~/.claude/hooks/<hook>.sh: No such file or directory
 ```
 
-Observed 2026-08-25 with `herdr-blank-state.sh` (since retired): registered in `settings.json` and symlinked
-while on its feature branch, then broken by a routine `git checkout` of an unrelated branch.
-`tmux-attention.sh` never hit this only because it has been on `master` for months.
+Observed 2026-08-25 with a hook registered in `settings.json` and symlinked while on its feature
+branch, then broken by a routine `git checkout` of an unrelated branch.
 
 **So: do not register a hook in `settings.json` until its file is on `master`.** If you need it
 live before the PR merges, install a *copy* rather than a symlink — a copy is branch-independent:
 
 ```bash
 tmp="$(mktemp)"
+mkdir -p ~/.claude/hooks &&
 git show <branch>:claude/hooks/<hook>.sh > "$tmp" && chmod +x "$tmp" &&
   mv -f "$tmp" ~/.claude/hooks/<hook>.sh
 ```
@@ -100,14 +106,14 @@ the live file legitimately carries machine-local keys that are deliberately untr
 diff would report permanent un-actionable drift. To record live changes:
 
 Desk Macs (Linux and hal's server profile get no seeded settings: there the migration only
-folds `allowedTools` and removes herdr hooks, and `dot drift` doesn't compare them):
+folds `allowedTools` and removes retired hooks, and `dot drift` doesn't compare them):
 
 ```bash
 dot drift                                            # see what diverged
 # A hook or plugin you changed live on purpose: make the same change in claude/settings.json first.
 python3 helpers/migrate_claude_settings.py           # then this, by hand, every time: adds tracked
                                                      # keys, hooks and plugins the live file lacks,
-                                                     # removes herdr hooks (capture keeps those)
+                                                     # removes retired hooks (capture refuses while any remain)
 bash helpers/install_claude_settings.sh --capture    # regenerate claude/settings.json, then commit
 ```
 
@@ -126,7 +132,7 @@ bash helpers/install_claude_settings.sh --capture               # regenerates wi
 On either, that first step matters. The migration adds back a tracked top-level key, hook
 (matched on event and exact command) or plugin the live file lacks. So while the tracked file
 still has the old entry, it puts that entry back, and an edited hook would then run twice. Once the tracked file matches your change, the migration has
-nothing of it to restore. It also removes herdr hooks, which capture would otherwise record.
+nothing of it to restore. It also removes retired hooks (`RETIRED_HOOKS`); `--capture` refuses while any remain, so it never writes one back.
 
 `--capture` regenerates rather than `cp`s: it drops the machine-local keys
 (`effortLevel`, `modelSettings`, `autoMode`, `mcpServers`, and `allowedTools` — which must never be tracked),
