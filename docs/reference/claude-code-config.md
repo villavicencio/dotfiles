@@ -113,7 +113,7 @@ dot drift                                            # see what diverged
 # A hook or plugin you changed live on purpose: make the same change in claude/settings.json first.
 python3 helpers/migrate_claude_settings.py           # then this, by hand, every time: adds tracked
                                                      # keys, hooks and plugins the live file lacks,
-                                                     # removes retired hooks (capture keeps those)
+                                                     # removes retired hooks (capture refuses while any remain)
 bash helpers/install_claude_settings.sh --capture    # regenerate claude/settings.json, then commit
 ```
 
@@ -132,7 +132,7 @@ bash helpers/install_claude_settings.sh --capture               # regenerates wi
 On either, that first step matters. The migration adds back a tracked top-level key, hook
 (matched on event and exact command) or plugin the live file lacks. So while the tracked file
 still has the old entry, it puts that entry back, and an edited hook would then run twice. Once the tracked file matches your change, the migration has
-nothing of it to restore. It also removes retired hooks (`RETIRED_HOOKS`), which capture would otherwise record.
+nothing of it to restore. It also removes retired hooks (`RETIRED_HOOKS`); `--capture` refuses while any remain, so it never writes one back.
 
 `--capture` regenerates rather than `cp`s: it drops the machine-local keys
 (`effortLevel`, `modelSettings`, `autoMode`, `mcpServers`, and `allowedTools` — which must never be tracked),
