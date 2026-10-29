@@ -63,7 +63,7 @@ topgrade/   Topgrade system-updater config
 vale/       Vale prose linter config
 zsh/        zshenv (env/PATH/BREW_PREFIX), zshrc, alias.sh, functions.sh, functions/
 claude/     Claude Code config, delivered into ~/.claude/ two different ways:
-            CLAUDE.md, statusline, hooks/  → symlinked
+            CLAUDE.md, statusline          → symlinked
             settings.json                  → COPY-SEEDED, never symlinked (see gotchas)
 codex/      Codex global instructions — AGENTS.md symlinked to ~/.codex/AGENTS.md
             (kept short on purpose, like claude/CLAUDE.md; both point at docs/agents/)

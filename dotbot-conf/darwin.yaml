@@ -10,7 +10,6 @@
       stderr: true
 
 - create:
-    - ~/.claude/hooks
     - ~/.claude/skills
     - ~/.codex
 
@@ -52,7 +51,6 @@
     # writes through this symlink; revert it with git.
     ~/.codex/AGENTS.md: codex/AGENTS.md
     ~/.claude/statusline-command.sh: claude/statusline-command.sh
-    ~/.claude/hooks/tmux-attention.sh: claude/hooks/tmux-attention.sh
     # iTerm2 Dynamic Profile. `create: true` makes the DynamicProfiles parent dir
     # if iTerm hasn't yet. Replaces the live-synced full prefs plist (which leaked
     # usernames/hostname/window arrangements).

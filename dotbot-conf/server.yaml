@@ -15,7 +15,7 @@
 #                            stays for the scripts copied there.
 #   install_claude_code      Claude Code is installed separately on hal; a
 #                            second (native-installer) copy would shadow it.
-#   install_claude_settings, ~/.claude/{CLAUDE.md,statusline-command.sh,hooks}
+#   install_claude_settings, ~/.claude/{CLAUDE.md,statusline-command.sh}
 #                            ~/.claude arrives from that copy with its own
 #                            regular files there; linking would fail on them
 #                            (Dotbot only replaces symlinks) or replace them.

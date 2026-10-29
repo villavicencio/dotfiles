@@ -81,7 +81,6 @@ Windows-specific rules:
 
   | Removed | Why |
   |---|---|
-  | `hooks` (all of them) | `tmux-attention.sh` — no tmux on Windows |
   | `preferredNotifChannel: "iterm2"` | iTerm2 is macOS-only; Claude Code picks a default |
   | `Bash(brew …)`, `Bash(tmux -V*)` allow rules | no Homebrew or tmux; dead rules |
 

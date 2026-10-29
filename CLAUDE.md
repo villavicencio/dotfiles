@@ -114,7 +114,6 @@ claude/
   CLAUDE.md              Global Claude Code instructions (symlinked to ~/.claude/CLAUDE.md)
   settings.json          Claude Code settings — plugins, allowed tools (COPY-SEEDED to ~/.claude/settings.json, never symlinked)
   statusline-command.sh  Statusline script (symlinked to ~/.claude/statusline-command.sh)
-  hooks/                 Claude Code hooks (e.g. tmux-attention.sh)
 ```
 
 Note: the `/handoff`, `/pickup`, and `/review-claudemd` slash commands now live in an
