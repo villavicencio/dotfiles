@@ -52,7 +52,7 @@ ALLOWED_CASKS_RE='vercel|1password-cli'
 
 # Must never appear: the container runtime is installed out of band, and the
 # rest is desk-only.
-EXCLUDED="docker-desktop colima docker mosh irssi handbrake yt-dlp aria2
+EXCLUDED="docker-desktop colima docker mosh herdr irssi handbrake yt-dlp aria2
 mac-cleanup-py pam-reattach terminal-notifier corelocationcli lolcat
 screenfetch jrnl pyenv pyenv-virtualenv go yarn perl cpanminus vercel-cli vercel"
 

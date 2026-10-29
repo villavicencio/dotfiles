@@ -55,6 +55,7 @@ MACHINE_LOCAL = {"effortLevel", "modelSettings", "autoMode", "mcpServers", "allo
 # Commands of retired hooks, matched as substrings. A machine can miss one migration and pull
 # several retirements at once, so entries stay. herdr: the agent host before Orca.
 # tmux-attention.sh: the tmux tab indicator, retired with tmux as the agent host.
+# Must equal RETIRED_HOOKS in helpers/lib/claude-settings-keys.sh.
 RETIRED_HOOKS = ("herdr", "tmux-attention.sh")
 # The tracked baseline this repo seeds: Windows has its own sibling.
 _REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))

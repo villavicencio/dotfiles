@@ -255,7 +255,7 @@ tickets. Avoid committing directly to `master`.
   statusline shows the id as a link to the issue.
 - **One PR per logical change**; push and open with `gh pr create`. Keep `master` green.
 - **Work in a worktree, not the main checkout.** The main checkout is what the Mac runs
-  (zsh, nvim, tmux, Claude hooks and statusline are linked into it), so a branch checked
+  (zsh, nvim, tmux and the Claude statusline are linked into it), so a branch checked
   out there is live before review. Use `wt new <topic> [type]`.
 - **Merge, then clean up**: delete the branch, mark any linked Linear issue `Done`.
 - **Trivial exceptions** (typo, one-line doc tweak) may go straight to `master`.
@@ -433,10 +433,9 @@ Verify with `ci/server-profile-checks.sh static`. The full write-up (layers, ove
   `docs/solutions/runtime-errors/lazy-nvim-first-launch-drifts-lockfile-2026-09-24.md`.
 - **Windows gets stubs, not links, for `~/.gitconfig` and `$PROFILE`** — git has no
   OS-conditional include, and `$PROFILE` sits under a OneDrive-redirected Documents folder.
-  **Windows seeds `windows/claude-settings.json`, never `claude/settings.json`** (the Mac
-  file's hooks are tmux bash scripts that would error on every event). The Windows
-  file is the Mac baseline minus `hooks`, `preferredNotifChannel`, and the brew/tmux allow
-  rules; the `statusLine` block is identical and runs under Git Bash's `sh`. Keep the two
+  **Windows seeds `windows/claude-settings.json`, never `claude/settings.json`.** Both are
+  hook-free. The Windows file is the Mac baseline minus `preferredNotifChannel` and the
+  brew/tmux allow rules; the `statusLine` block is identical and runs under Git Bash's `sh`. Keep the two
   files' shared keys in step by hand. Same copy-only-when-absent contract, and the
   helpers (`install_claude_settings.sh --capture`, `report_drift.sh`) switch to the
   Windows file under Git Bash so a capture on the PC can't overwrite the Mac baseline.

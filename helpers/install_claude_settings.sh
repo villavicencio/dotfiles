@@ -56,7 +56,7 @@ if [ "${1:-}" = "--capture" ]; then
   # path, dry runs, and early exits never probe or let uv download anything.
   resolve_python || { echo "Error: no working python3/python on PATH, and no working uv to run one" >&2; exit 1; }
 
-  STRIP_KEYS="$STRIP_KEYS" INSTALLER_HOOKS="$INSTALLER_HOOKS" SRC="$(native_path "$SRC")" DEST="$(native_path "$DEST")" \
+  STRIP_KEYS="$STRIP_KEYS" INSTALLER_HOOKS="$INSTALLER_HOOKS" RETIRED_HOOKS="$RETIRED_HOOKS" SRC="$(native_path "$SRC")" DEST="$(native_path "$DEST")" \
     SRC_REL="$SRC_REL" PYTHON_CMD="${PYTHON[*]}" "${PYTHON[@]}" - <<'PY' || exit 1
 import json, collections, os, sys
 
@@ -84,6 +84,24 @@ if unmerged:
         "       them. Run this first, then re-capture:\n"
         "           %s helpers/migrate_claude_settings.py\n"
         "       Unmerged: %s" % (len(unmerged), os.environ["PYTHON_CMD"], ", ".join(unmerged[:5])),
+        file=sys.stderr,
+    )
+    raise SystemExit(1)
+
+# A retired hook would be captured back into the tracked seed. Refuse and point at the
+# migration, which removes it.
+retired_markers = os.environ["RETIRED_HOOKS"].split()
+retired = sorted({str(h.get("command", "")) for groups in (live.get("hooks") or {}).values()
+                  if isinstance(groups, list) for g in groups if isinstance(g, dict)
+                  for h in g.get("hooks") or [] if isinstance(h, dict)
+                  and any(m in str(h.get("command", "")) for m in retired_markers)}
+                 if isinstance(live.get("hooks"), dict) else [])
+if retired:
+    print(
+        "Error: live settings still has retired hook(s): %s\n"
+        "       Remove them first:\n"
+        "           %s helpers/migrate_claude_settings.py"
+        % (", ".join(retired), os.environ["PYTHON_CMD"]),
         file=sys.stderr,
     )
     raise SystemExit(1)
