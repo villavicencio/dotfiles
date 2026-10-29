@@ -63,8 +63,8 @@ _ON_WINDOWS = os.name == "nt" or sys.platform in ("cygwin", "msys")
 TRACKED = os.path.join(_REPO, "windows" if _ON_WINDOWS else "claude",
                        "claude-settings.json" if _ON_WINDOWS else "settings.json")
 # The seed runs only on desk Macs (darwin.yaml) and Windows (install.ps1). Linux and hal's
-# server profile never get one, so the Mac baseline's tmux hooks and iTerm channel don't belong
-# there. The server profile is the install that links
+# server profile never get one, so the Mac baseline's iTerm channel and allow rules don't
+# belong there. The server profile is the install that links
 # ~/.config/zsh/.zprofile to zsh/zprofile.server.
 _ZPROFILE = os.path.realpath(os.path.expanduser("~/.config/zsh/.zprofile"))
 SEEDED = _ON_WINDOWS or (sys.platform == "darwin" and not _ZPROFILE.endswith("zsh/zprofile.server"))
