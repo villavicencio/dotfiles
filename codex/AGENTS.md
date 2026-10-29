@@ -16,7 +16,7 @@ Detailed procedures live in dotfiles `docs/agents/` (`~/Projects/Personal/dotfil
 - If something is already solved in `docs/solutions/` or the repo's `AGENTS.md`, use it instead of re-deriving it.
 - Time: I'm in Pacific time. Label PT vs UTC explicitly, derive weekdays from the system date, and don't call a time "late" or "overnight" without evidence. Sessions are often back-to-back; after `dv:pickup`, measure staleness in commits since the handoff's `head` (validate it first: `session-continuity.md`), not file age.
 - Never tell me to sleep, rest, eat, or otherwise manage my time. End cleanly ("standing by") instead.
-- Keep sessions small: every turn re-reads the whole context. At a task boundary, or after an hour or more idle, write a handoff and start a fresh session instead of carrying on.
+- Keep sessions small: every turn re-reads the whole context. Hand off and start a fresh session at a seam instead of carrying on: a PR merged, one part of a ticket done, a switch to another ticket, the end of a long detour, or after an hour or more idle. I start the new session, not you: at a seam, end your reply with one line that names it and suggests the handoff, once per seam, not every turn.
 - When you name a Linear ticket or a GitHub PR or issue in a reply to me, make it a markdown link that opens in my browser, every time it appears: `[VIL-123](https://linear.app/villavicencio/issue/VIL-123)`, `[#151](https://github.com/<owner>/<repo>/pull/151)` (put the repo in the label for a cross-repo reference, e.g. `[mergewren#31](…)`). Commit messages, PR bodies, and Linear comments can keep bare ids; those surfaces link them already.
 
 ## Safety

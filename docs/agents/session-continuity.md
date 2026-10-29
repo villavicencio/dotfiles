@@ -30,3 +30,15 @@ model-written and can be wrong — one was observed nine minutes *ahead* of both
 the commit it described, i.e. less accurate than the mtime it was meant to replace. Also weigh
 recent commit timestamps and any continuation cues in the conversation. If signals say
 same-session, say so explicitly instead of pretending it's been hours.
+
+# The context meter
+
+<!-- Moved out of claude/CLAUDE.md on 2026-10-28: David reads the meter; agents only need the 200k cue, which CLAUDE.md keeps. -->
+
+The statusline `ctx` meter turns full yellow with a solid fill at 200k tokens; that's the cue to
+hand off and start fresh. When Claude Code reports the window size, the bar can also show a dim
+`╎` at 200k ahead of the fill and a white `┃` at `autoCompactWindow`; when each one draws is in
+`claude/statusline-command.sh`. If Claude Code reports neither the token count nor the window
+size, the meter shows a plain percentage with neither cue. Auto-compaction at 400k
+(`autoCompactWindow`; an existing install gets it from `helpers/migrate_claude_settings.py`) is
+only a backstop.
