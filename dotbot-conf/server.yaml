@@ -4,7 +4,7 @@
 # dotbot-conf/base.yaml (run with `--except clean`). It is deliberately small:
 # hal is reached only over SSH as a standard (non-admin) account, and other
 # things already live there (LaunchAgents, OrbStack, LM Studio, and the
-# ~/.claude / ~/.codex / ~/.local/bin contents copied from the VPS).
+# ~/.claude / ~/.codex / ~/.local/bin contents copied from another host).
 #
 # What darwin.yaml does that this layer does NOT, and why:
 #   chsh                     hal's login shell is already macOS's zsh, and chsh
@@ -12,11 +12,11 @@
 #   install_nvm / install_node
 #                            node comes from brew/Brewfile.server.
 #   install_uv               uv comes from brew/Brewfile.server; ~/.local/bin
-#                            stays for the scripts copied from the VPS.
+#                            stays for the scripts copied there.
 #   install_claude_code      Claude Code is installed separately on hal; a
 #                            second (native-installer) copy would shadow it.
 #   install_claude_settings, ~/.claude/{CLAUDE.md,statusline-command.sh,hooks}
-#                            ~/.claude arrives from the VPS copy with its own
+#                            ~/.claude arrives from that copy with its own
 #                            regular files there; linking would fail on them
 #                            (Dotbot only replaces symlinks) or replace them.
 #   the iTerm2 Dynamic Profile

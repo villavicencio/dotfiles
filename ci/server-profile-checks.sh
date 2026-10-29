@@ -52,7 +52,7 @@ ALLOWED_CASKS_RE='vercel|1password-cli'
 
 # Must never appear: the container runtime is installed out of band, and the
 # rest is desk-only.
-EXCLUDED="docker-desktop colima docker mosh herdr irssi handbrake yt-dlp aria2
+EXCLUDED="docker-desktop colima docker mosh irssi handbrake yt-dlp aria2
 mac-cleanup-py pam-reattach terminal-notifier corelocationcli lolcat
 screenfetch jrnl pyenv pyenv-virtualenv go yarn perl cpanminus vercel-cli vercel"
 
@@ -149,7 +149,7 @@ cmd_seed() {
   printf '%s\n' '# OrbStack shell integration (simulated)' \
     'export PATH="$HOME/.orbstack/bin:$PATH"' > "$HOME/.orbstack/shell/init.zsh"
   # Dangling symlinks that must survive: one pointing outside the repo (the
-  # vault links copied from the VPS) and one pointing INTO the repo, which
+  # vault links copied from another host) and one pointing INTO the repo, which
   # Dotbot's clean would delete if it ran.
   ln -sfn /home/node/obsidian/hermes/personal "$HOME/personal"
   ln -sfn "$REPO/no-such-file-server-profile-check" "$HOME/stale-repo-link"

@@ -2,11 +2,10 @@
 #
 # install_claude_settings.sh — seed Claude Code's user-scope settings.json.
 #
-# SEED-ONLY BY DESIGN, for the same reason the retired Otty config was (git history):
+# SEED-ONLY BY DESIGN:
 # ~/.claude/settings.json has independent writers besides this repo —
 # Claude Code itself (effortLevel, tui, notification prefs, autoMode) and
-# agent-integration installers (Orca's agent hooks today; herdr's until its
-# 2026-10-22 retirement, Otty's until 2026-09-03). Each rewrites the file in place, so a Dotbot `link:` there survives only until the
+# agent-integration installers (Orca's agent hooks). Each rewrites the file in place, so a Dotbot `link:` there survives only until the
 # next write, after which the live file is a regular file and the repo copy is a
 # silently-orphaned stale twin.
 #
@@ -91,8 +90,8 @@ if unmerged:
 
 # Drop installer-owned hooks, then any group or event they leave empty. This runs before
 # the missing-key check: a live file whose only hooks are installer-owned loses `hooks`
-# here, and the check must then refuse instead of dropping the tracked hooks (MergeWren
-# e597ba2#1). The migration it points at adds the tracked hooks back (4bc49fa#1).
+# here, and the check must then refuse instead of dropping the tracked hooks.
+# The migration it points at adds the tracked hooks back.
 markers = os.environ["INSTALLER_HOOKS"].split()
 skipped = 0
 hooks = live.get("hooks")
@@ -115,10 +114,10 @@ if isinstance(hooks, dict):
 
 # A tracked key the live file lacks is a change the copy-seed never delivered (a live file
 # that predates it), not a removal: capturing would silently drop it from the baseline
-# (MergeWren 259cbf8#1, autoCompactWindow). Refuse and point at the migration, which
+# (autoCompactWindow, for one). Refuse and point at the migration, which
 # carries such keys. A key removed on purpose is deleted from the tracked file by hand.
 # A tracked object whose live value isn't one (`null`, a list) counts as missing too, so
-# the per-entry checks below never see a malformed value (MergeWren 9059f65#1).
+# the per-entry checks below never see a malformed value.
 missing = [k for k in tracked if k != "//" and k not in strip and (
     k not in live or (isinstance(tracked[k], dict) and not isinstance(live[k], dict)))]
 if missing:
@@ -181,7 +180,7 @@ live = fold_home(live, home_prefixes())
 blob = json.dumps(live, indent=2)
 normalized = blob != before
 
-# The same rule one level down (MergeWren db1417d#1/#2): a tracked hook (event + command)
+# The same rule one level down: a tracked hook (event + command)
 # or a tracked plugin the live file doesn't have is a change that never reached this
 # machine, not a removal. Checked after folding $HOME, since the tracked file uses ~/.
 def hook_keys(hooks):

@@ -33,7 +33,7 @@ platform="$(uname)"
 
 case "$platform" in
   Darwin) ttl=1800  ;; # 30 min — travel-friendly on the Mac
-  *)      ttl=86400 ;; # 24 h  — VPS doesn't move
+  *)      ttl=86400 ;; # 24 h  — non-Mac hosts don't move
 esac
 
 self="$(cd "$(dirname "$0")" && pwd)/$(basename "$0")"
@@ -207,7 +207,7 @@ if [ ! -s "$cache_file" ]; then
   needs_refresh=1
 else
   # Try both stat forms — uname-based dispatch is unsafe because Homebrew's
-  # GNU coreutils (installed on this user's Mac and on the VPS) puts a GNU
+  # GNU coreutils (installed on this user's Mac and on Linux hosts) puts a GNU
   # `stat` ahead of BSD `/usr/bin/stat` in PATH. With GNU stat, `-f` means
   # "filesystem status" (multi-line output) and `-c` is the format flag;
   # the BSD-stat-on-Darwin branch then writes filesystem prose into $mtime

@@ -100,14 +100,13 @@ the live file legitimately carries machine-local keys that are deliberately untr
 diff would report permanent un-actionable drift. To record live changes:
 
 Desk Macs (Linux and hal's server profile get no seeded settings: there the migration only
-folds `allowedTools` and removes herdr hooks, and `dot drift` doesn't compare them):
+folds `allowedTools`, and `dot drift` doesn't compare them):
 
 ```bash
 dot drift                                            # see what diverged
 # A hook or plugin you changed live on purpose: make the same change in claude/settings.json first.
 python3 helpers/migrate_claude_settings.py           # then this, by hand, every time: adds tracked
-                                                     # keys, hooks and plugins the live file lacks,
-                                                     # removes herdr hooks (capture keeps those)
+                                                     # keys, hooks and plugins the live file lacks
 bash helpers/install_claude_settings.sh --capture    # regenerate claude/settings.json, then commit
 ```
 
@@ -126,7 +125,7 @@ bash helpers/install_claude_settings.sh --capture               # regenerates wi
 On either, that first step matters. The migration adds back a tracked top-level key, hook
 (matched on event and exact command) or plugin the live file lacks. So while the tracked file
 still has the old entry, it puts that entry back, and an edited hook would then run twice. Once the tracked file matches your change, the migration has
-nothing of it to restore. It also removes herdr hooks, which capture would otherwise record.
+nothing of it to restore.
 
 `--capture` regenerates rather than `cp`s: it drops the machine-local keys
 (`effortLevel`, `modelSettings`, `autoMode`, `mcpServers`, and `allowedTools` — which must never be tracked),

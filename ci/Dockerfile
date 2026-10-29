@@ -1,8 +1,7 @@
 # Minimal Ubuntu 26.04 image used by the install-matrix workflow to
 # validate the install pipeline cross-platform on every PR.
 #
-# Originally mirrored the (retired) VPS production target documented in
-# docs/solutions/cross-machine/vps-dotfiles-target.md:
+# Mirrors a bare Ubuntu server install:
 #   - ubuntu:26.04 base (moved from 24.04 in VIL-154; the WSL target on
 #     the gaming PC follows when it is reinstalled on 26.04)
 #   - root user (the install runbook expects root; dotbot-conf/linux.yaml
@@ -49,7 +48,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 # `import yaml` at startup. python3-minimal strips the stdlib, so
 # `import json` raises ModuleNotFoundError. The full python3
 # metapackage pulls libpython3-stdlib (~45MB) and matches what
-# Ubuntu Server (the VPS production target) ships out of the box.
+# Ubuntu Server ships out of the box.
 #
 # Acquire::ForceIPv4: archive.ubuntu.com resolves to Cloudflare CDN
 # IPv6 (2606:4700:10::*). When the GH Actions Azure-eastus runner
@@ -59,7 +58,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 # (#65). Forcing IPv4 at the image level skips the IPv6 attempt
 # entirely. Image-level (not workflow runtime, not install-pipeline
 # runtime) because (a) earlier apt invocations would miss runtime
-# injection, (b) the install pipeline also runs on the VPS where
+# injection, (b) the install pipeline also runs on real Linux hosts where
 # IPv4 forcing is wasted opinion. See
 # docs/solutions/cross-machine/install-matrix-ipv6-fallback-misattribution-2026-05-05.md
 # for the full investigation.

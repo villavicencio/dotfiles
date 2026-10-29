@@ -209,7 +209,7 @@ fi
 # Claude Code settings.json
 # ---------------------------------------------------------------------------
 # Seeded by COPY, not symlinked: Claude Code itself and agent-integration
-# installers (Orca's agent hooks; herdr's and Otty's until their removal) rewrite the
+# installers (Orca's agent hooks) rewrite the
 # file in place, so a
 # symlink there is orphaned on the first write (see helpers/install_claude_settings.sh).
 #

@@ -8,7 +8,7 @@
 #         then runs `pre-commit install` to wire the hook.
 # Linux:  pre-commit via pipx (pipx itself comes from install_packages.sh apt
 #         block); gitleaks via GitHub release binary download into ~/.local/bin
-#         (no apt package as of Ubuntu 24.04). The VPS rarely commits, but
+#         (no apt package as of Ubuntu 24.04). Linux hosts rarely commit, but
 #         keeping the helper cross-platform avoids "works on Mac, fails on
 #         Linux" surprises if a commit ever happens there.
 #
