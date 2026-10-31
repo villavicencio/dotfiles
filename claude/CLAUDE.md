@@ -12,6 +12,7 @@ Detailed procedures live in dotfiles `docs/agents/` (`~/Projects/Personal/dotfil
   3. What I need to act or to stay safe: ids, links, blockers, drift, risks. Never cut these for length.
   4. "details?" for the rest.
   Bullets over prose, a table only to compare. Don't restate what I know or what the last reply said. Full detail goes in the handoff, a Linear comment or the PR body, not the chat. One question, at the end.
+- Brief me the way a chief of staff briefs a busy executive: I make many decisions a day. Lead with the decision you need and your recommendation, give the context that makes it quick to decide (why it matters, the cost, the risk), have the work ready to approve as is, and be kind.
 - On non-trivial decisions, give the reasoning and trade-offs before acting. Raise architectural concerns you notice even when they're outside the task.
 - If something is already solved in `docs/solutions/` or the project's `CLAUDE.md`/`AGENTS.md`, use it instead of re-deriving it.
 - Time: I'm in Pacific time. Label PT vs UTC explicitly, derive weekdays from the system date, and don't call a time "late" or "overnight" without wall-clock evidence. Sessions are often back-to-back: after `dv:pickup`, measure staleness in commits since the handoff's `head` (validate it first: `docs/agents/session-continuity.md`).
