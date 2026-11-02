@@ -33,7 +33,7 @@ This session ran 10-29 → 11-02 with a gap: it closed #256's held findings (#25
 1. **Check the 11-03 run**: `ssh hal` (as `david`), `tail ~/runs/log/runner.log`, and each `~/runs/log/vil-54{6,4}-*/run.json`, `vil-550-*/run.json`. Hand passing PRs to MergeWren with the evidence.
 2. **After any merge, reopen the parent ticket** (VIL-546, VIL-544, VIL-550): the pilot PR names it and the merge closes it (VIL-543), but each brief did only part.
 3. **David, in the MergeWren session**: mergewren#105 (VIL-448) — MergeWren recommends merge; mergewren#103 (VIL-345) — its check false-flags 4 adopted records (`**/*.ext` vs `**/__pycache__/**`), rework or close.
-4. **Refill the queue** for 11-04+: small, one-area tickets with checks run on current `main` first (the `hal-overnight` label lists candidates).
+4. **Refill the queue the evening before each run, never days ahead** (David, 2026-11-02): before about 22:00 PT, pick from the `hal-overnight` label and check each brief on mergewren `main` as it stands then. Daytime tickets stay free to close. The empty-queue evening alert is VIL-570 (project hal Local Coding Pilot).
 5. Then VIL-552/553/554 in hal-pilot.
 
 ## Gotchas & Watch-outs
