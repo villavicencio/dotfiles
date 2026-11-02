@@ -1,4 +1,4 @@
-# Repo tooling: bin/dot, dry-run, topgrade, sudo
+# Repo tooling: bin/dot, dry-run, topgrade, sudo, Desktop Commander
 
 Moved out of the always-loaded `CLAUDE.md` on 2026-10-22 (VIL-402), word for word except
 for heading levels. `CLAUDE.md` keeps the one-line rules and points here.
@@ -110,3 +110,49 @@ Undo: `sudo rm /etc/pam.d/sudo_local`. Does not work over SSH (no sensor).
 cannot help either (no TTY to authenticate from, and `tty_tickets` keys the cache to the
 originating terminal). A NOPASSWD sudoers entry broad enough to cover cask scripts is
 effectively passwordless root.
+
+## Desktop Commander remote (LaunchAgent)
+
+Desktop Commander's remote device lets claude.ai chats (phone, web) run commands and edit
+files on the personal Mac. It runs as the LaunchAgent `com.dvillavicencio.desktop-commander-remote`
+(VIL-571), installed by hand on the personal Mac only:
+
+    bash helpers/install_desktop_commander_remote.sh            # install, or restart after a stop
+    bash helpers/install_desktop_commander_remote.sh --remove   # undo
+
+The installer puts the pinned package (`DC_VERSION` in the installer) in
+`~/Library/Application Support/desktop-commander-remote/pkg`, copies
+`helpers/desktop_commander_remote.sh` beside it as the job, and loads the plist. The job
+finds Node through `NVM_DIR`/`NODE_VERSION` (zshenv), so a Node bump needs no reinstall.
+Log: `~/Library/Logs/desktop-commander-remote.log`. The package keeps its own day logs and
+the saved sign-in in `~/.desktop-commander-device/`.
+
+Decisions (David, 2026-11-02):
+- **A LaunchAgent, not a LaunchDaemon.** A daemon runs as root, so claude.ai would get a
+  root shell. The agent runs as David and only while he's logged in.
+- **The Mac stays awake.** The package runs `caffeinate` while it's up (the default), so the
+  Mac doesn't idle-sleep, on battery too. A closed lid still sleeps it. `--disable-no-sleep`
+  is the opt-out.
+- **Pinned, bumped by hand.** `@latest` would run whatever the npm maintainers publish next.
+  When bumping, re-check `SIGNIN_LINE` in the job against the new package.
+- **Telemetry off**: `DESKTOP_COMMANDER_DISABLE_TELEMETRY=1`, at install and at run time.
+
+**It reaches everything David's account can.** Its `allowedDirectories` setting limits only
+the file tools, not its terminal tool, so treat it as a full shell for anyone signed into
+David's claude.ai account (2FA is on).
+
+**Never run a second copy** (`npx … remote` by hand) while the agent is loaded. Both copies
+refresh the same rotating refresh token, and replaying a spent one can revoke the session
+(the package's own note in `dist/remote-device/device.js`). The installer and the job both
+refuse to start beside another copy.
+
+**When it stops for good.** The job exits 0, and so stays down, when:
+- the saved sign-in no longer works (the package starts a browser sign-in; under a restart
+  loop that would open a tab each time),
+- `~/.desktop-commander-device/device.json` is missing, or
+- it crashed within 60 s five times in a row.
+The reason is in the log and in `stopped` in its Application Support folder. To fix a
+sign-in: `bash helpers/install_desktop_commander_remote.sh --remove`, run
+`npx --yes @wonderwhy-er/desktop-commander@<DC_VERSION> remote` in a terminal, finish the
+browser sign-in, press Ctrl+C, then run the installer again. Waiting for the network at login
+doesn't count as a failure.
