@@ -129,7 +129,7 @@ when loading then succeeds too, it exits 1 with the path to delete.
 The installer puts the pinned package (`DC_VERSION` in the installer) in
 `~/Library/Application Support/desktop-commander-remote/pkg` (a symlink to a `pkg-XXXXXX`
 directory, switched in one rename, so an old package stays usable until the new one is in;
-one installer runs at a time, under a lock in that folder), copies
+an install and a `--remove` never overlap: both take a lock in that folder), copies
 `helpers/desktop_commander_remote.sh` beside it as the job, and loads the plist. The job
 finds Node through `NVM_DIR`/`NODE_VERSION` (zshenv), so a Node bump needs no reinstall.
 Log: `~/Library/Logs/desktop-commander-remote.log`. The package keeps its own day logs and

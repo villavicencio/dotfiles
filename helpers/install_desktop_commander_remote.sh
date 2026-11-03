@@ -111,7 +111,9 @@ take_lock() {
 }
 
 if [ "$mode" = remove ]; then
-  [ -d "$JOB_DIR" ] && take_lock
+  # Lock even when nothing is installed, so it can't overlap an install that just started.
+  mkdir -p "$JOB_DIR" || { echo "Error: cannot create $JOB_DIR to lock it" >&2; exit 1; }
+  take_lock
   stop_agent || exit 1
   if ! { rm -f "$PLIST" && rm -rf "$JOB_DIR"; }; then
     echo "Error: cannot remove $PLIST or $JOB_DIR" >&2; exit 1
@@ -139,6 +141,13 @@ if ! { mkdir -p "$JOB_DIR" "$(dirname "$PLIST")" "$(dirname "$LOG")" && chmod 70
 fi
 
 take_lock
+
+# Checked before anything is stopped: pkg must be our symlink, an old package directory
+# (migrated below), or absent.
+if [ -e "$PKG" ] && [ ! -L "$PKG" ] && [ ! -d "$PKG" ]; then
+  echo "Error: $PKG is neither the package symlink nor a package directory; remove it, then re-run." >&2
+  exit 1
+fi
 
 new="$(mktemp -d "$JOB_DIR/pkg-XXXXXX")" || exit 1
 echo "Installing $PKG_SPEC ..."
