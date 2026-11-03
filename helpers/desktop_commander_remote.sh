@@ -51,8 +51,9 @@ log() { printf '%s  %s\n' "$(/bin/date -u +%Y-%m-%dT%H:%M:%SZ)" "$*"; }
 # Copies are made under umask 077 and set to 600: the commands can hold anything.
 # Every copy numbered LOG_KEEP or higher is deleted first, so lowering LOG_KEEP takes effect
 # at the next rotation. If a copy can't be deleted or moved, or the new copy can't be
-# written (a full disk, most likely), the rotation stops shifting, keeps no copy of this
-# log, and still clears it, so it stays bounded; the log line after it says what failed.
+# written (a full disk, most likely), the rotation stops there (steps already done stay
+# done), keeps no copy of this log, and still clears it, so it stays bounded; the log line
+# after it says what failed.
 rotate_log() {
   local f n i=$LOG_KEEP why=""
   for f in "$LOG".[0-9]*; do
@@ -70,8 +71,9 @@ rotate_log() {
   done
   if [ -z "$why" ] &&
     ! { ( umask 077 && /bin/cp "$LOG" "$LOG.1" ) && /bin/chmod 600 "$LOG.1"; } 2>/dev/null; then
-    /bin/rm -f "$LOG.1" 2>/dev/null
     why="could not write $LOG.1"
+    [ -e "$LOG.1" ] && ! /bin/rm -f "$LOG.1" 2>/dev/null &&
+      why="$why, and could not delete the partial copy there"
   fi
   : 2>/dev/null >"$LOG" || { log "could not clear $LOG to rotate it${why:+ ($why)}"; return 1; }
   /usr/bin/touch "$LOG_STAMP" 2>/dev/null || stamp_failed

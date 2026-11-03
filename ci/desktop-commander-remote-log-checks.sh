@@ -67,15 +67,22 @@ if [ "${1:-}" = --unit-child ]; then
   ok "lowered keep: other names left alone" '[ -e "$LOG.1.bak" ]'
   rm -f "$LOG.1.bak"
 
-  # A copy that can't be moved: the chain stops, this log is cleared without a copy.
-  cp "$LOG.1" "$T/before"; chflags uchg "$LOG.1"; fill 1200 i; rotate_log_if_due
-  ok "move fails: .1 untouched" 'cmp -s "$LOG.1" "$T/before"'
+  # A copy that can't be moved: steps before it stay done (.4 deleted, .3 -> .4, .2 -> .3),
+  # the chain stops at .1, and this log is cleared without a copy.
+  for n in 1 2 3; do cp "$LOG.$n" "$T/before.$n"; done
+  chflags uchg "$LOG.1"; fill 1200 i; rotate_log_if_due
+  ok "move fails: earlier steps done, .1 untouched, gap at .2" \
+    'cmp -s "$LOG.4" "$T/before.3" && cmp -s "$LOG.3" "$T/before.2" && [ ! -e "$LOG.2" ] && cmp -s "$LOG.1" "$T/before.1"'
   ok "move fails: log cleared, says why" '[ "$(size "$LOG")" -lt 700 ] && grep -q "without keeping a copy: could not move" "$LOG"'
   chflags nouchg "$LOG.1"
 
-  # A copy that can't be deleted: nothing shifts.
-  chflags uchg "$LOG.4"; cp "$LOG.1" "$T/before"; fill 1200 j; rotate_log_if_due
-  ok "delete fails: nothing shifted" 'cmp -s "$LOG.1" "$T/before"'
+  # A copy that can't be deleted (the first delete): nothing else changes.
+  for c in k l m; do fill 1200 "$c"; rotate_log_if_due; done   # refill .1-.4, no gap
+  ok "refilled: .1-.4 present" '[ -e "$LOG.1" ] && [ -e "$LOG.2" ] && [ -e "$LOG.3" ] && [ -e "$LOG.4" ]'
+  for n in 1 2 3 4; do cp "$LOG.$n" "$T/before.$n"; done
+  chflags uchg "$LOG.4"; fill 1200 j; rotate_log_if_due
+  ok "delete fails: every copy unchanged" \
+    '( for n in 1 2 3 4; do cmp -s "$LOG.$n" "$T/before.$n" || exit 1; done )'
   ok "delete fails: log cleared, says why" '[ "$(size "$LOG")" -lt 700 ] && grep -q "without keeping a copy: could not delete" "$LOG"'
   chflags nouchg "$LOG.4"
 
