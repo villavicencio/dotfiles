@@ -9,7 +9,8 @@
 # Polls every MERGEWREN_POLL_S seconds (60) for up to MERGEWREN_WAIT_S (1200), re-reading the
 # head each time, so a push while waiting moves it to the new head. Returns 0 and prints the
 # review comment once one with a verdict exists for the current head; 1 on a GitHub error;
-# 2 when none arrived in time (PENDING); 3 for a draft, which MergeWren never reviews.
+# 2 when none arrived in time (PENDING); 3 for a draft, which MergeWren never reviews; 4, with
+# the comment printed, when the latest review comment has no "MergeWren: " verdict line.
 mergewren_review() {
   local N=${1:-} R=${2:-} poll=${MERGEWREN_POLL_S:-60} wait=${MERGEWREN_WAIT_S:-1200} info h draft ids id body verdict now
   # $SECONDS (bash and zsh) rather than summing sleeps, so a 0 s poll still times out.
@@ -43,7 +44,11 @@ mergewren_review() {
           # A push during the lookup makes this the old head's review: start over on the new one.
           now=$(gh pr view "$N" -R "$R" --json headRefOid -q .headRefOid) \
             || { echo "ERROR: gh pr view $N -R $R failed" >&2; return 1; }
-          [ "$now" != "$h" ] || { printf '%s\n' "$body"; return 0; }
+          if [ "$now" = "$h" ]; then
+            printf '%s\n' "$body"
+            [ -n "$verdict" ] || { echo "NO VERDICT LINE: MergeWren's comment has none; read it" >&2; return 4; }
+            return 0
+          fi
           continue ;;
       esac
     fi

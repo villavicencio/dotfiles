@@ -35,7 +35,8 @@ this repo, not just ticket work. Avoid committing directly to `master`.
 - **PR review is review-stack, David's own reviewer** (since 2026-09-24, PRs #190 and
   later; replaces CodeRabbit here). It reviews **every new head** of an open, non-draft PR
   automatically, 2–6 minutes after the push, so there is no trigger comment and no hourly
-  budget. It posts **one PR comment per head**, whose first line is
+  budget. It posts **a PR comment per review** (an incremental round posts a `no verdict`
+  placeholder, then the verdict, for the same head), whose first line is
   `<!-- review-stack:head=<full sha> run=<id> -->`, followed by findings with a severity and
   a `path:line`. Wait for the verdict on the *current* head with the shared function (it
   polls every 60 s and gives up after 20 min; `docs/agents/code-review.md`, "Merging on a

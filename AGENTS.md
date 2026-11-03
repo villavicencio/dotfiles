@@ -275,7 +275,8 @@ history — never create new GitHub issues).
 
 - **PR review is review-stack, David's own reviewer** (since 2026-09-24, PRs #190 and
   later; replaces CodeRabbit here). It reviews every new head of an open, non-draft PR
-  automatically, 2–6 minutes after the push, and posts one comment per head, starting with
+  automatically, 2–6 minutes after the push, and posts a comment per review (two for an
+  incremental round: a `no verdict` placeholder, then the verdict), starting with
   `<!-- review-stack:head=<full sha> run=<id> -->`. Wait for the comment for the current
   head with `mergewren_review <N>` (`bin/lib/mergewren-review.sh`; `docs/agents/code-review.md`,
   "Merging on a MergeWren review"), fix the real findings and push; the

@@ -129,12 +129,14 @@ MergeWren (review-stack) reviews every new head of an open, non-draft PR on its 
 minutes after the push, and posts a PR comment for each review from David's account, starting
 with `<!-- review-stack:head=<full sha> run=<id> -->`. A head usually gets one; an incremental
 round gets two (below). There is no trigger comment and no quota. Wait for the verdict with the
-shared function, never a hand-written poll. It returns a review only if the head is unchanged
-after reading it, so a push while it waits moves it on to the new head:
+shared function, never a hand-written poll. It returns a comment only if the head is unchanged
+after reading it, so a push while it waits moves it on to the new head. Only exit 0 means a
+verdict:
 
 ```bash
 source <dotfiles clone>/bin/lib/mergewren-review.sh   # ~/Projects/Personal/dotfiles on the desk Macs
-mergewren_review <pr> [owner/repo]   # 0 + the comment; 1 GitHub error; 2 PENDING after 20 min; 3 draft
+mergewren_review <pr> [owner/repo]   # 0 verdict + the comment; 1 GitHub error; 2 PENDING after 20 min;
+                                     # 3 draft; 4 a review comment with no verdict line (printed: read it)
 ```
 
 Why it reads comments this way (hal-pilot#4, 2026-11-02, where MergeWren flagged the old
