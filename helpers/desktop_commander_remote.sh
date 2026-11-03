@@ -49,24 +49,36 @@ log() { printf '%s  %s\n' "$(/bin/date -u +%Y-%m-%dT%H:%M:%SZ)" "$*"; }
 # while it runs, the watcher rotates, and a line written between its copy and its
 # truncation is lost (a window of milliseconds, once a week or per LOG_MAX_BYTES).
 # Copies are made under umask 077 and set to 600: the commands can hold anything.
-# If the copy fails (a full disk, most likely) the log is cleared anyway, so it stays bounded.
+# Every copy numbered LOG_KEEP or higher is deleted first, so lowering LOG_KEEP takes effect
+# at the next rotation. If a copy can't be deleted or moved, or the new copy can't be
+# written (a full disk, most likely), the rotation stops shifting, keeps no copy of this
+# log, and still clears it, so it stays bounded; the log line after it says what failed.
 rotate_log() {
-  local i=$LOG_KEEP kept=1
-  /bin/rm -f "$LOG.$LOG_KEEP" 2>/dev/null
-  while [ "$i" -gt 1 ]; do
-    [ -e "$LOG.$(( i - 1 ))" ] && /bin/mv -f "$LOG.$(( i - 1 ))" "$LOG.$i" 2>/dev/null
+  local f n i=$LOG_KEEP why=""
+  for f in "$LOG".[0-9]*; do
+    n=${f##*.}
+    case $n in *[!0-9]*) continue ;; esac
+    [ -e "$f" ] && [ "$n" -ge "$LOG_KEEP" ] || continue
+    /bin/rm -f "$f" 2>/dev/null || { why="could not delete $f"; break; }
+  done
+  while [ -z "$why" ] && [ "$i" -gt 1 ]; do
+    if [ -e "$LOG.$(( i - 1 ))" ]; then
+      /bin/mv -f "$LOG.$(( i - 1 ))" "$LOG.$i" 2>/dev/null ||
+        why="could not move $LOG.$(( i - 1 )) to $LOG.$i"
+    fi
     i=$(( i - 1 ))
   done
-  if ! { ( umask 077 && /bin/cp "$LOG" "$LOG.1" ) && /bin/chmod 600 "$LOG.1"; } 2>/dev/null; then
-    /bin/rm -f "$LOG.1"
-    kept=0
+  if [ -z "$why" ] &&
+    ! { ( umask 077 && /bin/cp "$LOG" "$LOG.1" ) && /bin/chmod 600 "$LOG.1"; } 2>/dev/null; then
+    /bin/rm -f "$LOG.1" 2>/dev/null
+    why="could not write $LOG.1"
   fi
-  : 2>/dev/null >"$LOG" || { log "could not clear $LOG to rotate it"; return 1; }
+  : 2>/dev/null >"$LOG" || { log "could not clear $LOG to rotate it${why:+ ($why)}"; return 1; }
   /usr/bin/touch "$LOG_STAMP" 2>/dev/null || stamp_failed
-  if [ "$kept" = 1 ]; then
+  if [ -z "$why" ]; then
     log "log rotated ($1); the previous one is $LOG.1, up to $LOG_KEEP kept"
   else
-    log "log cleared ($1) without keeping a copy: could not write $LOG.1"
+    log "log cleared ($1) without keeping a copy: $why"
   fi
 }
 

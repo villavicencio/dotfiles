@@ -147,9 +147,11 @@ of the package.
 **The log rotates itself (VIL-579).** The package prints every command it receives in full,
 and this log holds that output unredacted, so the job keeps it bounded. At start-up and every
 15 s while it runs, it rotates the log once it passes 1 MB or 7 days after the last rotation.
-The log becomes `.log.1`, the old `.1` becomes `.2`, and anything older is deleted. That
-caps it at about 3 MB and about 3 weeks of history (`LOG_MAX_BYTES`, `LOG_MAX_DAYS`,
-`LOG_KEEP` at the top of the job). Every copy is mode 600. The last rotation's time is the
+It first deletes every copy numbered `LOG_KEEP` (2) or higher, so lowering `LOG_KEEP` takes
+effect at the next rotation. Then the old `.1` becomes `.2` and the log becomes `.log.1`.
+When every step works, that caps the log at about 3 MB and about 3 weeks of history
+(`LOG_MAX_BYTES`, `LOG_MAX_DAYS` and `LOG_KEEP` are at the top of the job). Every copy is
+mode 600. The last rotation's time is the
 mtime of `log-rotated-at` in the job's Application Support folder.
 - **Copy, then truncate in place.** launchd keeps the log open, so renaming it would leave
   the job writing to the renamed file. macOS `newsyslog` can't copy-truncate, which rules it
@@ -158,8 +160,12 @@ mtime of `log-rotated-at` in the job's Application Support folder.
 - **A line can be lost**: one written in the few milliseconds between the copy and the
   truncation. At about 200 lines a second, a test lost one line per rotation. The real log
   gets a few hundred lines a day.
-- **If the copy fails** (most likely a full disk), the log is cleared anyway and says so,
-  so it stays bounded. If the stamp can't be written, only the size counts.
+- **If a step fails**, the live log is still cleared, so it stays bounded. That covers a copy
+  that can't be deleted or moved, and a new copy that can't be written (most likely a full
+  disk). The rotation then stops: the existing copies stay as they were, this log's
+  contents aren't kept, and the next log line names the step that failed. Copies the job
+  couldn't delete stay on disk until whatever blocked them is fixed. If the stamp can't be
+  written, only the size counts.
 - The package's day logs in `~/.desktop-commander-device/` bound themselves: per UTC weekday,
   1 MB × 3 files, last week's removed on first write, at most 21 MB. Those lines are redacted.
 - `--remove` leaves the log and its copies in `~/Library/Logs/`. Delete them by hand if you

@@ -61,8 +61,26 @@ if [ "${1:-}" = --unit-child ]; then
   ok "age, empty log: no rotation" 'cmp -s "$LOG.1" "$T/before"'
   ok "age, empty log: clock restarted" '[ "$(age "$LOG_STAMP")" -lt 5 ]'
 
+  # Copies left above LOG_KEEP (it was larger once) go at the next rotation.
+  echo old >"$LOG.7"; echo old >"$LOG.12"; echo keep >"$LOG.1.bak"; fill 1200 h; rotate_log_if_due
+  ok "lowered keep: copies above it deleted" '[ -e "$LOG.4" ] && [ ! -e "$LOG.5" ] && [ ! -e "$LOG.7" ] && [ ! -e "$LOG.12" ]'
+  ok "lowered keep: other names left alone" '[ -e "$LOG.1.bak" ]'
+  rm -f "$LOG.1.bak"
+
+  # A copy that can't be moved: the chain stops, this log is cleared without a copy.
+  cp "$LOG.1" "$T/before"; chflags uchg "$LOG.1"; fill 1200 i; rotate_log_if_due
+  ok "move fails: .1 untouched" 'cmp -s "$LOG.1" "$T/before"'
+  ok "move fails: log cleared, says why" '[ "$(size "$LOG")" -lt 700 ] && grep -q "without keeping a copy: could not move" "$LOG"'
+  chflags nouchg "$LOG.1"
+
+  # A copy that can't be deleted: nothing shifts.
+  chflags uchg "$LOG.4"; cp "$LOG.1" "$T/before"; fill 1200 j; rotate_log_if_due
+  ok "delete fails: nothing shifted" 'cmp -s "$LOG.1" "$T/before"'
+  ok "delete fails: log cleared, says why" '[ "$(size "$LOG")" -lt 700 ] && grep -q "without keeping a copy: could not delete" "$LOG"'
+  chflags nouchg "$LOG.4"
+
   rm -f "$LOG".[0-9]; fill 1200 z; chmod 500 "$T/Library/Logs"; rotate_log_if_due; chmod 700 "$T/Library/Logs"
-  ok "copy fails: log cleared anyway" '[ "$(size "$LOG")" -lt 600 ] && grep -q "without keeping a copy" "$LOG"'
+  ok "copy fails: log cleared anyway" '[ "$(size "$LOG")" -lt 600 ] && grep -q "without keeping a copy: could not write" "$LOG"'
 
   rm -f "$LOG_STAMP"; chmod 500 "$STATE_DIR"; echo "line"; rotate_log_if_due; rotate_log_if_due
   chmod 700 "$STATE_DIR"
