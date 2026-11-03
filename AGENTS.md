@@ -278,7 +278,7 @@ history — never create new GitHub issues).
   automatically, 2–6 minutes after the push, and posts a comment per review (two for an
   incremental round: a `no verdict` placeholder, then the verdict), starting with
   `<!-- review-stack:head=<full sha> run=<id> -->`. Wait for the comment for the current
-  head with `mergewren_review <N>` (`bin/lib/mergewren-review.sh`; `docs/agents/code-review.md`,
+  head with `source bin/lib/mergewren-review.sh && mergewren_review <N>` (`docs/agents/code-review.md`,
   "Merging on a MergeWren review"), fix the real findings and push; the
   new head is re-reviewed automatically. Merge when the current head's review has no high or
   critical finding that is neither fixed nor waived with David. It doesn't read thread
