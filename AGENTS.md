@@ -348,6 +348,11 @@ Verify with `ci/server-profile-checks.sh static`. The full write-up (layers, ove
   local `hal` account, not on `orca` being on PATH (#229). Usage is in `README.md` ("Hermes agents"), and the details are in
   `docs/reference/hermes-commands.md`.
 
+- **Desktop Commander's remote device is a LaunchAgent, and only one copy may run.**
+  `helpers/install_desktop_commander_remote.sh` (personal Mac only, by hand) installs it. A
+  second copy started by hand replays the same rotating refresh token and can revoke the
+  sign-in; the job and installer refuse to start beside one. Details:
+  `docs/reference/tooling.md` ("Desktop Commander remote").
 - **No heredocs in `bin/dot` — do not inline `bin/lib/*.py` back into `python3 - <<'PY'`.**
   Bash backs a small heredoc with a pipe and writes the *whole* document before forking the
   reader, so a blocked write never clears: the process that would drain the pipe does not

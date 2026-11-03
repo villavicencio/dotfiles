@@ -1,4 +1,4 @@
-# Repo tooling: bin/dot, dry-run, topgrade, sudo
+# Repo tooling: bin/dot, dry-run, topgrade, sudo, Desktop Commander
 
 Moved out of the always-loaded `CLAUDE.md` on 2026-10-22 (VIL-402), word for word except
 for heading levels. `CLAUDE.md` keeps the one-line rules and points here.
@@ -110,3 +110,74 @@ Undo: `sudo rm /etc/pam.d/sudo_local`. Does not work over SSH (no sensor).
 cannot help either (no TTY to authenticate from, and `tty_tickets` keys the cache to the
 originating terminal). A NOPASSWD sudoers entry broad enough to cover cask scripts is
 effectively passwordless root.
+
+## Desktop Commander remote (LaunchAgent)
+
+Desktop Commander's remote device lets claude.ai chats (phone, web) run commands and edit
+files on the personal Mac. It runs as the LaunchAgent `com.dvillavicencio.desktop-commander-remote`
+(VIL-571), installed by hand on the personal Mac only:
+
+    bash helpers/install_desktop_commander_remote.sh            # install, or restart after a stop
+    bash helpers/install_desktop_commander_remote.sh --remove   # undo
+
+**Run both from a terminal on the Mac, never through Desktop Commander** (a claude.ai chat):
+both stop the agent before they finish (`--remove` first thing, an install after staging),
+and the agent is the process carrying the command, so the run would die before reloading it
+and leave the Mac unreachable. The installer refuses when it finds
+the remote device among its parent processes, or can't check one of them. (macOS `pgrep` leaves out its own ancestors, so
+a `pgrep -f` run through Desktop Commander can't see Desktop Commander; add `-a`.)
+
+A reinstall stages everything first, so a failed npm install leaves the running agent alone.
+Both modes refuse (exit 1, saying why) while the agent is still loaded after `bootout`, while
+any copy of the remote device is still running, or when `launchctl` or `pgrep` fails and so
+can't tell. If the swap succeeds but the old package can't be deleted, the installer goes on;
+when loading then succeeds too, it exits 1 with the path to delete.
+
+The installer puts the pinned package (`DC_VERSION` in the installer) in
+`~/Library/Application Support/desktop-commander-remote/pkg` (a symlink to a `pkg-XXXXXX`
+directory, switched in one rename, so an old package stays usable until the new one is in;
+an install and a `--remove` never overlap: both take the lock
+`desktop-commander-remote.install.lock` beside that folder), copies
+`helpers/desktop_commander_remote.sh` beside it as the job, and loads the plist. The job
+finds Node through `NVM_DIR`/`NODE_VERSION` (zshenv), so a Node bump needs no reinstall.
+Log: `~/Library/Logs/desktop-commander-remote.log`. The package keeps its own day logs and
+the saved sign-in in `~/.desktop-commander-device/`, and npm's cache in `~/.npm` holds a copy
+of the package.
+
+Decisions (David, 2026-11-02):
+- **A LaunchAgent, not a LaunchDaemon.** A daemon runs as root, so claude.ai would get a
+  root shell. The agent runs as David and only while he's logged in.
+- **The Mac stays awake.** The package runs `caffeinate` while it's up (the default), so the
+  Mac doesn't idle-sleep, on battery too. A closed lid still sleeps it. `--disable-no-sleep`
+  is the opt-out.
+- **Pinned, bumped by hand.** `@latest` would run whatever the npm maintainers publish next.
+  When bumping, re-check `SIGNIN_LINE` in the job against the new package.
+- **Telemetry off**: `DESKTOP_COMMANDER_DISABLE_TELEMETRY=1`, at install and at run time.
+
+**It reaches everything David's account can.** Its `allowedDirectories` setting limits only
+the file tools, not its terminal tool, so treat it as a full shell for anyone signed into
+David's claude.ai account (2FA is on).
+
+**Never run a second copy** (`npx … remote` by hand) while the agent is loaded. Both copies
+refresh the same rotating refresh token, and replaying a spent one can revoke the session
+(the package's own note in `dist/remote-device/device.js`). The installer and the job both
+refuse to start beside another copy. While running, the job checks every 15 s; when it finds a
+copy started by hand it stops its own (which saves the sign-in on the way out), waits until
+the other exits, then starts again by itself. Both copies can still run together for up to
+15 s plus the time ours takes to shut down, so the habit still matters: after installing, don't use the `curl … | sh` command (it also runs
+`@latest`, not the pinned version). For a hand-started copy, run `--remove` first.
+
+**When it stops for good.** The job exits 0, and so stays down, when:
+- the saved sign-in no longer works (the package starts a browser sign-in; under a restart
+  loop that would open a tab each time),
+- `~/.desktop-commander-device/device.json` is missing,
+- it had five quick failures in a row: the package exiting within 60 s, or a start-up check
+  failing (no Node at `NODE_VERSION`, a `pgrep` error), or
+- it can't save that failure count.
+The reason is in the log. The `stopped` file in its Application Support folder holds it too
+and keeps the job down across logins; if that file can't be written, the log says so and the
+job tries again at the next login. To fix a
+sign-in: `bash helpers/install_desktop_commander_remote.sh --remove`, run
+`npx --yes @wonderwhy-er/desktop-commander@<DC_VERSION> remote` in a terminal, finish the
+browser sign-in, press Ctrl+C, then run the installer again. Waiting for the network at login
+doesn't count as a failure.
