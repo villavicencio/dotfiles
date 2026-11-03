@@ -69,14 +69,25 @@ fi
 # first thing both modes do is stop the agent, which is the process carrying this command,
 # so the run would die before reloading it and leave the Mac unreachable. macOS pgrep
 # skips its own ancestors, so the copy checks below can't see that process either.
+# Any lookup that fails refuses too: an unchecked parent is not proof of a terminal.
+# -ww: ps may otherwise cut long command lines to the terminal's width.
+cannot_check() {
+  echo "Error: cannot check parent process $p ($*); refusing in case this runs through" >&2
+  echo "Desktop Commander. Run it in a terminal on the Mac." >&2
+  exit 1
+}
 p=$PPID
-while [ -n "$p" ] && [ "$p" -gt 1 ]; do
-  if ps -o command= -p "$p" 2>/dev/null | grep -Eq -- "$OTHER_COPY"; then
-    echo "Error: this is running through Desktop Commander (process $p). Stopping the agent" >&2
-    echo "would cut this very connection. Run it in a terminal on the Mac instead." >&2
+while [ "$p" != 1 ]; do
+  case $p in ''|*[!0-9]*) cannot_check "no process id" ;; esac
+  cmd="$(ps -ww -o command= -p "$p" 2>/dev/null)" || cannot_check "ps failed"
+  printf '%s\n' "$cmd" | grep -Eq -- "$OTHER_COPY"; grc=$?
+  if [ "$grc" = 0 ]; then
+    echo "Error: this is running through Desktop Commander (process $p). The installer stops" >&2
+    echo "the agent, which would cut this very connection. Run it in a terminal on the Mac." >&2
     exit 1
   fi
-  p="$(ps -o ppid= -p "$p" 2>/dev/null | tr -d ' ')"
+  [ "$grc" = 1 ] || cannot_check "grep failed"
+  p="$(ps -o ppid= -p "$p" 2>/dev/null | tr -d ' ')" || cannot_check "ps failed"
 done
 
 domain="gui/$(id -u)"

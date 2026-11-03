@@ -121,9 +121,10 @@ files on the personal Mac. It runs as the LaunchAgent `com.dvillavicencio.deskto
     bash helpers/install_desktop_commander_remote.sh --remove   # undo
 
 **Run both from a terminal on the Mac, never through Desktop Commander** (a claude.ai chat):
-they start by stopping the agent, which is the process carrying the command, so the run would
-die before reloading it and leave the Mac unreachable. The installer refuses when it finds
-the remote device among its parent processes. (macOS `pgrep` leaves out its own ancestors, so
+both stop the agent before they finish (`--remove` first thing, an install after staging),
+and the agent is the process carrying the command, so the run would die before reloading it
+and leave the Mac unreachable. The installer refuses when it finds
+the remote device among its parent processes, or can't check one of them. (macOS `pgrep` leaves out its own ancestors, so
 a `pgrep -f` run through Desktop Commander can't see Desktop Commander; add `-a`.)
 
 A reinstall stages everything first, so a failed npm install leaves the running agent alone.
