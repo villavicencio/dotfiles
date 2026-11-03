@@ -33,6 +33,7 @@ if [ "${1:-}" = --unit-child ]; then
   age() { echo $(( $(/bin/date +%s) - $(/usr/bin/stat -f %m "$1") )); }
   fill() { head -c "$1" /dev/zero | tr '\0' "$2" >>"$LOG"; }
   exec 3>&1 >>"$LOG"
+  exec 4>&1  # the log fd again, for idrc below (its stdout is a capture)
   chmod 600 "$LOG"
 
   fill 100 x; rotate_log_if_due
@@ -100,6 +101,18 @@ if [ "${1:-}" = --unit-child ]; then
   ok "stale stamp, locked: no second rotation" 'grep -q "^eight-b$" "$LOG" && [ "$LOG_BY_AGE" = 0 ]'
   chflags nouchg "$LOG_STAMP"
 
+  # $LOG no longer the file on stdout: returns 2 and touches nothing.
+  idrc() { rotate_log_if_due >&4; echo $?; }
+  ok "identity: matches while stdout is the log" '[ "$(idrc)" = 0 ]'
+  fill 1200 r; /bin/mv "$LOG" "$LOG.away"; rc_away=$(idrc)
+  ok "identity: renamed away -> 2, no copy made" '[ "$rc_away" = 2 ] && [ ! -e "$LOG" ] && [ "$(size "$LOG.away")" -gt 1200 ]'
+  echo new >"$T/new"; /bin/cp "$T/new" "$LOG"; rc_new=$(idrc)
+  ok "identity: replaced -> 2, new file untouched" '[ "$rc_new" = 2 ] && cmp -s "$LOG" "$T/new"'
+  /bin/rm -f "$LOG"; /bin/mv "$LOG.away" "$LOG.real"; ln -s "$LOG.real" "$LOG"; rc_link=$(idrc)
+  ok "identity: symlink at the path -> 2, target untouched" '[ "$rc_link" = 2 ] && [ "$(size "$LOG.real")" -gt 1200 ]'
+  /bin/rm -f "$LOG"; /bin/mv "$LOG.real" "$LOG"
+  ok "identity: back in place -> rotates again" '[ "$(idrc)" = 0 ] && grep -q "log rotated" "$LOG"'
+
   echo "unit: $pass passed, $fail failed" >&3
   [ "$fail" = 0 ]
   exit
@@ -141,5 +154,21 @@ check "log under the cap plus one watch of output" '[ "$(/usr/bin/stat -f %z "$L
 lost=$(cat "$L.2" "$L.1" "$L" | sed -n 's/^line \([0-9]*\) .*/\1/p' |
   awk 'NR > 1 && $1 != p + 1 { n += $1 - p - 1 } { p = $1 } END { print n + 0 }')
 echo "e2e: lines lost across rotations: $lost (expected: about one per rotation at this rate)"
+
+# Renaming the log while the job runs, and putting another file at its path: the job leaves
+# that file alone, stops the package and exits 1 (launchd would restart it and reopen the
+# log), and says so in the renamed file.
+rm -f "$L"*; : >"$L"; chmod 600 "$L"
+env -i HOME="$H" PATH=/usr/bin:/bin:/usr/sbin:/sbin /bin/bash "$H/job.sh" >>"$L" 2>&1 </dev/null &
+job=$!
+sleep 2
+mv "$L" "$L.moved"; head -c 5000 /dev/zero | tr '\0' s >"$L"  # over the 4 KB cap
+for _ in 1 2 3 4 5 6 7 8 9 10; do kill -0 "$job" 2>/dev/null || break; sleep 0.5; done
+if kill -0 "$job" 2>/dev/null; then kill -TERM "$job"; jrc=timeout; wait "$job"; else wait "$job"; jrc=$?; fi
+sleep 1
+check "renamed log: job exits 1 by itself (got $jrc)" '[ "$jrc" = 1 ]'
+check "renamed log: says why" 'grep -q "no longer the file this job writes to" "$L.moved"'
+check "renamed log: package stopped" '! /usr/bin/pgrep -f "$D" >/dev/null'
+check "renamed log: the file now at the path untouched" '[ "$(/usr/bin/stat -f %z "$L")" = 5000 ]'
 [ "$efail" = 0 ] && echo "e2e: passed" || rc=1
 exit "$rc"

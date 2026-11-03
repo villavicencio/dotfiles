@@ -151,8 +151,16 @@ It first deletes every copy numbered `LOG_KEEP` (2) or higher, so lowering `LOG_
 effect at the next rotation. Then the old `.1` becomes `.2` and the log becomes `.log.1`.
 When every step works, that caps the log at about 3 MB and about 3 weeks of history
 (`LOG_MAX_BYTES`, `LOG_MAX_DAYS` and `LOG_KEEP` are at the top of the job). Every copy is
-mode 600. The last rotation's time is the
-mtime of `log-rotated-at` in the job's Application Support folder.
+mode 600. The last rotation's time is the mtime of `log-rotated-at` in the job's
+Application Support folder.
+- **It rotates only its own file.** Each check first confirms that the file at the log path
+  is the one on the job's stdout: same device and inode, from `lsof` on the job and `stat`
+  on the path. If the log is renamed or replaced while the job runs, the job stops the
+  package and exits 1. launchd restarts it and reopens the log at its path, and the renamed
+  file gets no more writes. If the path doesn't match at start-up (a symlink there, or the job
+  started by hand), rotation stays off for that run and the log says so, which avoids a
+  restart loop. If `lsof` fails, the check skips rotation and logs it once. The bound holds
+  while the log is a plain file at its path.
 - **Copy, then truncate in place.** launchd keeps the log open, so renaming it would leave
   the job writing to the renamed file. macOS `newsyslog` can't copy-truncate, which rules it
   out (and it would need sudo). launchd opens the log for appending, so after the truncation

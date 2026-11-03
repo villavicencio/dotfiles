@@ -40,6 +40,7 @@ LOG_MAX_DAYS=7
 LOG_KEEP=2
 LOG_STAMP="$STATE_DIR/log-rotated-at"  # its mtime is the last rotation
 LOG_BY_AGE=1  # 0 once the stamp can't be written: from then on only the size counts
+LOG_ROTATE=1  # 0 when $LOG isn't this job's stdout at start-up (see below)
 
 log() { printf '%s  %s\n' "$(/bin/date -u +%Y-%m-%dT%H:%M:%SZ)" "$*"; }
 
@@ -89,12 +90,29 @@ stamp_failed() {
   log "could not update $LOG_STAMP; rotating the log by size only until the job restarts"
 }
 
+# The file on this job's stdout (launchd's open log) and the file at $LOG, as device:inode.
+# Rotation copies and clears $LOG, so it runs only while both are the same file. Otherwise
+# a symlink at $LOG, or a log renamed or replaced while the job runs, would get a file the
+# job doesn't write to rotated, and the one it does write to would grow unbounded.
+# lsof takes about 30 ms; stat without -L sees a symlink itself, not its target.
+stdout_file_id() {
+  /usr/sbin/lsof -a -p "$$" -d 1 -F Di 2>/dev/null |
+    /usr/bin/awk '/^D0x/ { d = substr($0, 4) } /^i/ { i = substr($0, 2) }
+      END { if (d != "" && i != "") print tolower(d) ":" i }'
+}
+log_path_id() { /usr/bin/stat -f '%Xd:%i' "$LOG" 2>/dev/null | /usr/bin/tr 'A-F' 'a-f'; }
+
 # Rotates when the log is over LOG_MAX_BYTES, or LOG_MAX_DAYS after the last rotation. With
 # no stamp yet (first run) the age clock starts now. Once the stamp can't be written, only
 # the size counts (LOG_BY_AGE), so a stale stamp can't rotate the log every 15 s.
+# Returns 2, touching nothing, when $LOG isn't the file on stdout (missing, a symlink,
+# renamed or replaced), and 3 when lsof can't tell.
 rotate_log_if_due() {
-  local size stamp
-  size=$(/usr/bin/stat -f %z "$LOG" 2>/dev/null) || return 0
+  local size stamp out
+  out=$(stdout_file_id)
+  [ -n "$out" ] || return 3
+  [ "$out" = "$(log_path_id)" ] || return 2
+  size=$(/usr/bin/stat -f %z "$LOG" 2>/dev/null) || return 2
   if [ "$size" -ge "$LOG_MAX_BYTES" ]; then
     rotate_log "over $LOG_MAX_BYTES bytes"
     return
@@ -112,7 +130,16 @@ rotate_log_if_due() {
   fi
 }
 
+# launchd has just opened $LOG, so a mismatch here means it isn't a plain file (a symlink)
+# or this run's stdout isn't the log (started by hand): rotation stays off for this run,
+# said once, instead of restarting in a loop. A match also resets the log to mode 600, in
+# case launchd created it.
 rotate_log_if_due
+case $? in
+  2|3) LOG_ROTATE=0
+       log "not rotating the log this run: cannot confirm $LOG is the file this job writes to (a symlink, lsof failing, or started by hand)" ;;
+  *) /bin/chmod 600 "$LOG" 2>/dev/null ;;
+esac
 
 stop_for_good() {
   log "STOPPED: $*"
@@ -182,14 +209,33 @@ node "$ENTRY" remote >"$fifo" 2>&1 </dev/null &
 child=$!
 
 # Watches for another copy while ours runs, and keeps the log bounded (rotate_log_if_due;
-# the only rotation while the package runs, so two never overlap). Any match that isn't
+# the only rotation while the package runs, so two never overlap). If $LOG stops being
+# the file this job writes to (renamed or replaced), it stops our child and exits
+# LOG_MOVED, and the job exits 1 so launchd restarts it and reopens $LOG; the renamed
+# file gets no more writes. Any match that isn't
 # our child counts as another copy. On one it stops our child and exits STEPPED_ASIDE,
 # which is how the main loop learns of it. A failed pgrep (status 2+) is logged and the
 # watch goes on: stopping a working copy on a probe error would cut the remote off for nothing.
 STEPPED_ASIDE=10
+LOG_MOVED=11
 (
+  lsof_warned=0
   while sleep "$WATCH_SECS"; do
-    rotate_log_if_due
+    if [ "$LOG_ROTATE" = 1 ]; then
+      rotate_log_if_due
+      case $? in
+        2)
+          trap '' TERM
+          log "$LOG is no longer the file this job writes to (renamed or replaced?); restarting so launchd reopens it"
+          kill -TERM "$child" 2>/dev/null
+          exit "$LOG_MOVED" ;;
+        3)
+          [ "$lsof_warned" = 1 ] ||
+            log "lsof failed; skipping log rotation until it works again"
+          lsof_warned=1 ;;
+        *) lsof_warned=0 ;;
+      esac
+    fi
     pids="$(/usr/bin/pgrep -f -- "$OTHER_COPY")"; prc=$?
     if [ "$prc" -gt 1 ]; then
       log "pgrep failed (status $prc) while watching for another copy; still watching"
@@ -228,6 +274,8 @@ rm -f "$fifo"
 [ "$stopping" = 1 ] && { log "stopped by launchd"; exit 0; }
 # Stepped aside: restart later; the start-up check waits while the other copy runs.
 [ "$wrc" = "$STEPPED_ASIDE" ] && exit 1
+# The log was renamed or replaced: a restart has launchd reopen it.
+[ "$wrc" = "$LOG_MOVED" ] && exit 1
 [ "$signin" = 1 ] && stop_for_good "the saved sign-in no longer works (sign in once in a terminal)"
 
 if [ $(( $(/bin/date +%s) - start )) -lt "$FAST_SECS" ]; then
