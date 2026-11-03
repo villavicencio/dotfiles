@@ -132,13 +132,15 @@ rotate_log_if_due() {
 
 # launchd has just opened $LOG, so a mismatch here means it isn't a plain file (a symlink)
 # or this run's stdout isn't the log (started by hand): rotation stays off for this run,
-# said once, instead of restarting in a loop. A match also resets the log to mode 600, in
-# case launchd created it.
+# said once, instead of restarting in a loop. If lsof can't tell, the watcher retries it
+# every watch. A match also resets the log to mode 600, in case launchd created it.
 rotate_log_if_due
 case $? in
-  2|3) LOG_ROTATE=0
-       log "not rotating the log this run: cannot confirm $LOG is the file this job writes to (a symlink, lsof failing, or started by hand)" ;;
-  *) /bin/chmod 600 "$LOG" 2>/dev/null ;;
+  2) LOG_ROTATE=0
+     log "not rotating the log this run: $LOG is not the file this job writes to (a symlink, or started by hand)" ;;
+  3) log "lsof failed at start-up; the log check retries every ${WATCH_SECS} s" ;;
+  *) /bin/chmod 600 "$LOG" 2>/dev/null ||
+       log "WARNING: could not set $LOG to mode 600; it holds every command in full, so check who can read it" ;;
 esac
 
 stop_for_good() {
