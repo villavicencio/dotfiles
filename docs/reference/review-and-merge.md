@@ -37,11 +37,12 @@ this repo, not just ticket work. Avoid committing directly to `master`.
   automatically, 2–6 minutes after the push, so there is no trigger comment and no hourly
   budget. It posts **one PR comment per head**, whose first line is
   `<!-- review-stack:head=<full sha> run=<id> -->`, followed by findings with a severity and
-  a `path:line`. Wait for the comment for the *current* head (poll every 60 s, give up after
-  20 min):
+  a `path:line`. Wait for the verdict on the *current* head with the shared function (it
+  polls every 60 s and gives up after 20 min; `docs/agents/code-review.md`, "Merging on a
+  MergeWren review", says why it skips `no verdict` placeholders and quoting comments):
 
   ```bash
-  gh pr view <N> --repo villavicencio/dotfiles --json headRefOid,comments --jq '.headRefOid as $h | [.comments[] | select(.body | contains("review-stack:head=" + $h))] | last | .body // "PENDING"'
+  source bin/lib/mergewren-review.sh; mergewren_review <N>
   ```
 
   Fix the real findings and push; the new head is re-reviewed automatically. **Merge

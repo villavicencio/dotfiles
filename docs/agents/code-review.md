@@ -2,7 +2,7 @@
 
 <!-- Moved out of claude/CLAUDE.md on 2026-09-30 so it loads on demand instead of in every session. The global CLAUDE.md and codex/AGENTS.md keep the one-line rules and point here. -->
 
-Repos with their own review rules override this: dotfiles (review-stack since 2026-09-24) and bryancola.com (MergeWren, review-stack), and any repo whose `CLAUDE.md`/`AGENTS.md` names its own reviewer as the gate. In those repos, don't request or wait for CodeRabbit (`@coderabbitai review` spends the per-developer quota for nothing); a CodeRabbit check that appears there on its own is informational, not a gate.
+Repos with their own review rules override this: dotfiles (review-stack since 2026-09-24), bryancola.com and hal-pilot (MergeWren, review-stack; how to wait for it is under "Merging on a MergeWren review" below), and any repo whose `CLAUDE.md`/`AGENTS.md` names its own reviewer as the gate. In those repos, don't request or wait for CodeRabbit (`@coderabbitai review` spends the per-developer quota for nothing); a CodeRabbit check that appears there on its own is informational, not a gate.
 
 **PR review runs through CodeRabbit; `dv:gauntlet` is the escalation, not the default**
 (reconciled across dotfiles / borealis / skills, 2026-08-24). Before this, the global rule named
@@ -122,6 +122,43 @@ the diff itself routes through one of the two tools above.
   or it **completed and found things** — `COMMENTED` reviews never block, so a PR carrying
   unresolved findings reads `CLEAN` by construction. Full write-up, with the incident that
   produced this rule: `dotfiles/docs/solutions/best-practices/pr-check-pass-state-is-not-a-review-verdict.md`.
+
+## Merging on a MergeWren review
+
+MergeWren (review-stack) reviews every new head of an open, non-draft PR on its own, a few
+minutes after the push, and posts one PR comment per head from David's account, starting with
+`<!-- review-stack:head=<full sha> run=<id> -->`. There is no trigger comment and no quota.
+Wait for the current head's verdict with the shared function, never a hand-written poll:
+
+```bash
+source <dotfiles clone>/bin/lib/mergewren-review.sh   # ~/Projects/Personal/dotfiles on the desk Macs
+mergewren_review <pr> [owner/repo]   # 0 + the comment; 1 GitHub error; 2 PENDING after 20 min; 3 draft
+```
+
+Why it reads comments this way (hal-pilot#4, 2026-11-02, where MergeWren flagged the old
+one-line poll):
+
+- **A draft gets no review at all.** hal-pilot#2 sat unreviewed for two days as a draft; the
+  function says so (exit 3) instead of waiting out its timeout. `gh pr ready <N>` starts the
+  review.
+- **An incremental round posts a placeholder first:** `MergeWren: no verdict — incremental
+  round; full confirmation of <sha> queued`, then the full review of the same head about a
+  minute later. A poll that stops at the first comment for the head reads no verdict as done.
+  The function skips it and keeps waiting.
+- **Only a comment from David's account whose body starts with the marker counts.** The old
+  poll matched any comment that contained `review-stack:head=<sha>`, so a reply quoting it would
+  pass as the review.
+- **It pages through every comment** with `gh api --paginate` on the REST list, rather than
+  trusting `gh pr view --json comments` to return them all.
+- **A failed GitHub call is an error, not `PENDING`.** The old poll printed `PENDING` when `gh`
+  failed, which looks like waiting.
+
+Merge when the verdict comment has no finding that is neither fixed nor declined with David,
+and the unresolved-threads check (above) is empty. A `partial` verdict, or "The review did not
+complete", means a file wasn't reviewed: tell David. Each finding is also an inline thread;
+resolve it once it's fixed or declined. MergeWren doesn't read thread replies, so a decline
+goes in the PR body too. Repo-specific detail (dotfiles' stale-finding case on #239) stays in
+that repo's docs.
 
 ## Rate limits — per developer, not per repository
 
