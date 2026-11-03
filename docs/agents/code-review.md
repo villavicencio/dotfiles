@@ -22,6 +22,25 @@ Either way, **don't hand-roll a review**: no `codex exec review`, no Claude↔Co
 orchestration. Custom workflows may supply research or critique *lenses* upstream; the review of
 the diff itself routes through one of the two tools above.
 
+## Polling `gh` (any reviewer, any repo)
+
+- **`gh`'s `--jq`/`-q` takes one filter and nothing else**: no `--arg`, no `--argjson`, on
+  `gh api`, `gh pr view` and the rest. Splice a value in with the shell (a double-quoted
+  filter, as in the status recipe below), or pipe plain JSON into real `jq --arg`. Passing
+  `--arg` fails with `accepts at most 1 arg(s), received 4`.
+- **A wait loop must tell an error from "not yet".** Check `gh`'s exit status on every
+  pass; on failure, print the error and stop. On dotfiles#259 (2026-11-02) a MergeWren wait
+  loop passed `--arg` to `--jq`. Every pass failed, the empty output read as "still pending",
+  and it spun silently for about 20 minutes until David asked. Shape:
+
+  ```bash
+  for i in $(seq 1 20); do
+    r=$(gh pr view <N> --json comments --jq '<filter>') || { echo "gh failed (error above)" >&2; exit 1; }
+    [ "$r" != PENDING ] && { printf '%s\n' "$r"; exit 0; }
+    sleep 60
+  done; echo "TIMEOUT"
+  ```
+
 ## Merging on a CodeRabbit review
 
 - **Wait for the review, and wait for each re-review** (David, 2026-08-24). Do not merge while its
@@ -74,7 +93,8 @@ the diff itself routes through one of the two tools above.
     | sort_by(.created_at) | last | .description // \"PENDING\""
   ```
 
-  `gh api -q` has no `--arg`, so the time is spliced into a double-quoted filter.
+  `gh`'s `-q` has no `--arg` (see "Polling `gh`" above), so the time is spliced into a
+  double-quoted filter.
 
   `PENDING` (no status since the request) means CodeRabbit hasn't picked it up yet, not that it
   finished. The table above says which description to trust; this says which status to read it
