@@ -72,7 +72,7 @@ Call `mcp__linear__save_issue` (no `id` — that would be an update):
 
 - `team`: `"Villavicencio"`
 - `project`: `"Dotfiles"`
-- `state`: `"Todo"` (actionable now) or `"Backlog"` (someday/needs decision)
+- `state`: `"Todo"` (actionable now) or `"Backlog"` (needs a decision; add the `someday` label for a parked idea)
 - `title` / `description`: from Step 2 — pass real newlines in markdown, not `\n` escapes
 - `labels`: from Step 3, e.g. `["Bug", "zsh"]`
 

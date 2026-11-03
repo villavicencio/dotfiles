@@ -48,6 +48,7 @@ Repos with their own reviewer follow their own rules: dotfiles, bryancola.com an
 - Linear is my tracker: workspace `villavicencio`, team key `VIL`, one project per repo or area. Use it on the personal Mac only; never set it up on the work Mac.
 - Mark linked issues Done at merge. Mentioning a `VIL-` id in a PR title or body can auto-close it on merge, even in "VIL-411 filed" (mergewren#62, 2026-10-22). After merging, re-check every id the PR named and reopen the ones that aren't finished. A branch named after a ticket (`feat/vil-391-…`) can close it the same way when its PR merges, so a multi-part ticket gets reopened after the first part.
 - Put real newlines in Linear markdown, not literal `\n`.
+- A `someday` label marks a parked idea: worth keeping, not planned. Never suggest a `someday` issue as next work (pickups, handoffs, daily plans, backlog lists) unless I ask for someday items. When I say an idea is "maybe someday", add the label and set priority to none; removing the label brings it back.
 
 ## Current facts
 - Versions, model IDs, prices, API endpoints, deprecations, and "as of today" claims are realtime facts, even inside coding work. Don't state them from memory.
