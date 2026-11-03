@@ -95,7 +95,8 @@ stop_agent() {
 
 # One installer at a time: a second one's cleanup could delete the first's staged package.
 # mkdir is atomic; the exit trap below releases it. A lock left by a killed run says so.
-LOCK="$JOB_DIR/.install.lock"
+# Beside the job folder, not in it: --remove deletes that folder while holding the lock.
+LOCK="$JOB_DIR.install.lock"
 have_lock=0
 # Staged paths (set below); whatever hasn't been moved into place is removed on exit,
 # and the lock released.
@@ -112,7 +113,7 @@ take_lock() {
 
 if [ "$mode" = remove ]; then
   # Lock even when nothing is installed, so it can't overlap an install that just started.
-  mkdir -p "$JOB_DIR" || { echo "Error: cannot create $JOB_DIR to lock it" >&2; exit 1; }
+  mkdir -p "$(dirname "$LOCK")" || { echo "Error: cannot create $(dirname "$LOCK")" >&2; exit 1; }
   take_lock
   stop_agent || exit 1
   if ! { rm -f "$PLIST" && rm -rf "$JOB_DIR"; }; then
