@@ -120,12 +120,17 @@ files on the personal Mac. It runs as the LaunchAgent `com.dvillavicencio.deskto
     bash helpers/install_desktop_commander_remote.sh            # install, or restart after a stop
     bash helpers/install_desktop_commander_remote.sh --remove   # undo
 
+A reinstall stages everything first, so a failed npm install leaves the running agent alone.
+Both modes refuse (exit 1, saying why) while the agent is still loaded after `bootout` or any
+copy of the remote device is still running.
+
 The installer puts the pinned package (`DC_VERSION` in the installer) in
 `~/Library/Application Support/desktop-commander-remote/pkg`, copies
 `helpers/desktop_commander_remote.sh` beside it as the job, and loads the plist. The job
 finds Node through `NVM_DIR`/`NODE_VERSION` (zshenv), so a Node bump needs no reinstall.
 Log: `~/Library/Logs/desktop-commander-remote.log`. The package keeps its own day logs and
-the saved sign-in in `~/.desktop-commander-device/`.
+the saved sign-in in `~/.desktop-commander-device/`, and npm's cache in `~/.npm` holds a copy
+of the package.
 
 Decisions (David, 2026-11-02):
 - **A LaunchAgent, not a LaunchDaemon.** A daemon runs as root, so claude.ai would get a
@@ -151,7 +156,9 @@ refuse to start beside another copy.
   loop that would open a tab each time),
 - `~/.desktop-commander-device/device.json` is missing, or
 - it crashed within 60 s five times in a row.
-The reason is in the log and in `stopped` in its Application Support folder. To fix a
+The reason is in the log. The `stopped` file in its Application Support folder holds it too
+and keeps the job down across logins; if that file can't be written, the log says so and the
+job tries again at the next login. To fix a
 sign-in: `bash helpers/install_desktop_commander_remote.sh --remove`, run
 `npx --yes @wonderwhy-er/desktop-commander@<DC_VERSION> remote` in a terminal, finish the
 browser sign-in, press Ctrl+C, then run the installer again. Waiting for the network at login

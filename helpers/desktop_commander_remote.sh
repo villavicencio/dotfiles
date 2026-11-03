@@ -30,8 +30,10 @@ OTHER_COPY='desktop-commander.* remote( |$)'
 log() { printf '%s  %s\n' "$(/bin/date -u +%Y-%m-%dT%H:%M:%SZ)" "$*"; }
 
 stop_for_good() {
-  printf '%s\n' "$*" >"$STOP_FILE"
   log "STOPPED: $*"
+  if ! printf '%s\n' "$*" 2>/dev/null >"$STOP_FILE"; then
+    log "Could not write $STOP_FILE: it stays down until logout, then tries again at the next login."
+  fi
   log "Fix that, then re-run helpers/install_desktop_commander_remote.sh to start again."
   exit 0
 }
