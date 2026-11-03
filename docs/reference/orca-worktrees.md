@@ -76,3 +76,23 @@ does the next `./install`.
 Orca's file parser isn't full YAML: keys under `scripts:` take two spaces and script lines
 four, as in Orca's own template. Orca worktrees live under `~/orca/workspaces/`, not
 `.claude/worktrees/`, so `wt done` doesn't manage them; remove them from Orca.
+
+## What survives an Orca restart or update, and a reboot
+
+Checked 2026-11-03 on the personal Mac, Orca 1.4.238.
+
+- **Orca's terminals don't live in the app.** Each runs under an `Orca Terminal Host` daemon
+  (`~/Library/Application Support/orca/daemon-host/macos/terminal-host-<build hash>/`), whose
+  parent is launchd, not Orca. Quitting, restarting or updating Orca leaves the shells and
+  whatever runs in them (Claude Code, Hermes) running, mid-turn included.
+- **An update doesn't cut them off.** A new build starts a new host with a new hash, and the
+  old host keeps serving its terminals. On 2026-11-03 the app started on 2026-10-23 was showing
+  5 terminals: 2 from the host started 2026-10-20 (shells from 10-21 and 10-22) and 3 from its
+  own host. A host with no shells left (here, one from 2026-10-18) idles until logout.
+- **A reboot ends every local process**, the hosts included. The conversations stay on disk:
+  Claude Code resumes with `claude --resume` (or `claude -c`) in the same directory, and Syd
+  lists its sessions with `syd sessions list`. Whether Orca reopens the tabs by itself after a
+  reboot hasn't been tested (the Mac had been up since 2026-09-22).
+- **Atlas and Axiom don't run on the Mac.** They run in tmux on hal as `hal`, and their Orca
+  tabs are on the `hal-svc` environment, so neither an Orca restart nor a Mac reboot touches
+  them. `atlas` or `axiom` reattaches (`tmux new -A`). Rebooting hal ends them.
