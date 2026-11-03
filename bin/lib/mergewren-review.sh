@@ -36,8 +36,9 @@ mergewren_review() {
         || { echo "ERROR: reading comment $id failed" >&2; return 1; }
       # An incremental round posts "MergeWren: no verdict — … full confirmation of <sha> queued"
       # and the full review of the same head follows, about a minute later on hal-pilot#4.
-      # Only the verdict line is checked: a finding may quote that text.
-      verdict=$(printf '%s\n' "$body" | grep -m 1 '^MergeWren: ')
+      # Only the verdict line is checked: a finding may quote that text. `|| true`: grep finding
+      # no line exits 1, which would end a caller running under `set -e` before exit 4.
+      verdict=$(printf '%s\n' "$body" | grep -m 1 '^MergeWren: ' || true)
       case $verdict in
         "MergeWren: no verdict"*) ;;
         *)
