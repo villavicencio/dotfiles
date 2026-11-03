@@ -59,14 +59,22 @@ fi
 [ -s "$DEVICE_JSON" ] || stop_for_good "no saved sign-in at $DEVICE_JSON (sign in once in a terminal)"
 [ -f "$ENTRY" ] || stop_for_good "package missing at $ENTRY (re-run the installer)"
 
-if /usr/bin/pgrep -f -- "$OTHER_COPY" >/dev/null; then
-  # Logged once per wait, not on every 30 s retry.
-  [ -e "$STEP_ASIDE_FILE" ] ||
-    log "another Desktop Commander remote is running (started by hand?); waiting for it to exit"
-  : >"$STEP_ASIDE_FILE" 2>/dev/null
-  exit 1
+# The stepped-aside marker only keeps the "waiting" line to one per wait; nothing else
+# reads it, so failing to write or clear it costs repeated or missing log lines, no more.
+/usr/bin/pgrep -f -- "$OTHER_COPY" >/dev/null; prc=$?
+case $prc in
+  0)
+    [ -e "$STEP_ASIDE_FILE" ] ||
+      log "another Desktop Commander remote is running (started by hand?); waiting for it to exit"
+    : 2>/dev/null >"$STEP_ASIDE_FILE"
+    exit 1 ;;
+  1) ;;
+  *) fast_failure "pgrep failed (status $prc); cannot tell whether another copy is running" ;;
+esac
+if [ -e "$STEP_ASIDE_FILE" ]; then
+  rm -f "$STEP_ASIDE_FILE" 2>/dev/null || log "could not clear $STEP_ASIDE_FILE (affects log lines only)"
+  log "the other copy is gone; starting"
 fi
-[ -e "$STEP_ASIDE_FILE" ] && { rm -f "$STEP_ASIDE_FILE"; log "the other copy is gone; starting"; }
 
 # Node comes from nvm through zshenv, so a Node upgrade (NODE_VERSION) needs no reinstall.
 node_bin="$(/bin/zsh -c 'print -r -- "$NVM_DIR/versions/node/v$NODE_VERSION/bin"' 2>/dev/null)"
@@ -89,16 +97,24 @@ start=$(/bin/date +%s)
 node "$ENTRY" remote >"$fifo" 2>&1 </dev/null &
 child=$!
 
-# Watches for another copy while ours runs. Every match that isn't our child counts; a
-# failed pgrep (status 2+) is skipped, not taken as a match.
+# Watches for another copy while ours runs; any match that isn't our child counts. On one
+# it stops our child and exits STEPPED_ASIDE, which is how the main loop learns of it. A
+# failed pgrep (status 2+) is logged and the watch goes on: stopping a working copy on a
+# probe error would cut the remote off for nothing.
+STEPPED_ASIDE=10
 (
   while sleep "$WATCH_SECS"; do
-    others="$(/usr/bin/pgrep -f -- "$OTHER_COPY" | grep -v -x "$child")"
+    pids="$(/usr/bin/pgrep -f -- "$OTHER_COPY")"; prc=$?
+    if [ "$prc" -gt 1 ]; then
+      log "pgrep failed (status $prc) while watching for another copy; still watching"
+      continue
+    fi
+    others="$(printf '%s\n' "$pids" | grep -v -x -e "$child" -e '')"
     if [ -n "$others" ]; then
-      log "another Desktop Commander remote started (pid $(echo "$others" | tr '\n' ' ')); stopping ours until it exits"
-      : >"$STEP_ASIDE_FILE" 2>/dev/null
+      log "another Desktop Commander remote started (pid $(printf '%s' "$others" | tr '\n' ' ')); stopping ours until it exits"
+      : 2>/dev/null >"$STEP_ASIDE_FILE"
       kill -TERM "$child" 2>/dev/null
-      exit 0
+      exit "$STEPPED_ASIDE"
     fi
   done
 ) &
@@ -117,11 +133,12 @@ while IFS= read -r line; do
 done <"$fifo"
 wait "$child"; rc=$?
 kill -TERM "$watcher" 2>/dev/null
+wait "$watcher"; wrc=$?
 rm -f "$fifo"
 
 [ "$stopping" = 1 ] && { log "stopped by launchd"; exit 0; }
 # Stepped aside: restart later; the start-up check waits while the other copy runs.
-[ -e "$STEP_ASIDE_FILE" ] && exit 1
+[ "$wrc" = "$STEPPED_ASIDE" ] && exit 1
 [ "$signin" = 1 ] && stop_for_good "the saved sign-in no longer works (sign in once in a terminal)"
 
 if [ $(( $(/bin/date +%s) - start )) -lt "$FAST_SECS" ]; then
