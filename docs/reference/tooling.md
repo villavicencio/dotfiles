@@ -163,10 +163,12 @@ mtime of `log-rotated-at` in the job's Application Support folder.
 - **If a step fails**, the live log is still cleared, so it stays bounded. That covers a copy
   that can't be deleted or moved, and a new copy that can't be written (most likely a full
   disk). The rotation stops at that step. Steps already done stay done, so a copy may
-  already be deleted or shifted up one, leaving a gap in the numbers (after a failed new
-  copy, `.1` itself is missing). The lowest-numbered copy left is always the newest. This
-  log's contents aren't kept, and the next log line names the step that failed. Copies the job couldn't delete stay on disk until whatever blocked them is fixed. If the stamp can't be
-  written, only the size counts.
+  already be deleted or shifted up one, leaving a gap in the numbers. After a failed new
+  copy, `.1` is missing, unless the partial copy couldn't be deleted either; then `.1` holds
+  that partial copy and the log line says so. The lowest-numbered copy left is the newest.
+  This log's contents aren't kept, and the next log line names the step that failed. Copies
+  the job couldn't delete stay on disk until whatever blocked them is fixed. If the stamp
+  can't be written, only the size counts.
 - The package's day logs in `~/.desktop-commander-device/` bound themselves: per UTC weekday,
   1 MB × 3 files, last week's removed on first write, at most 21 MB. Those lines are redacted.
 - `--remove` leaves the log and its copies in `~/Library/Logs/`. Delete them by hand if you
