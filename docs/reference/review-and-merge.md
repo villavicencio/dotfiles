@@ -56,7 +56,11 @@ this repo, not just ticket work. Avoid committing directly to `master`.
   `74e3fde#1` described `timing.py` adding `duration_s`, and stayed open for two rounds after
   that line was removed. Check the finding against the current code. If it no longer
   applies, decline it as stale on its thread and in the PR body, then resolve the thread.
-  Pushing another fix for it won't close it. A **`partial`** verdict means a file wasn't
+  Pushing another fix for it won't close it. **`MergeWren: no verdict — incremental round;
+  full confirmation of <sha> queued`** isn't a result either. A second comment with the same
+  head marker follows a few minutes later with the full review, and it can raise new
+  findings: on #259, `d6c20dc`'s incremental round found nothing new, then its full
+  confirmation found 3. Wait for a verdict line that isn't `no verdict`. A **`partial`** verdict means a file wasn't
   reviewed, not that the review passed. `policy-excluded-path` means a file under
   `coverage_expectation` was dropped, e.g. a `<base>.<suffix>` name such as
   `zsh/zprofile.server` whose suffix OCR doesn't recognise (#208, fixed in MergeWren by
