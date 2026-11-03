@@ -144,6 +144,50 @@ Log: `~/Library/Logs/desktop-commander-remote.log`. The package keeps its own da
 the saved sign-in in `~/.desktop-commander-device/`, and npm's cache in `~/.npm` holds a copy
 of the package.
 
+**The log rotates itself (VIL-579).** The package prints every command it receives in full,
+and this log holds that output unredacted, so the job keeps it bounded. At start-up and every
+15 s while it runs, it rotates the log once it passes 1 MB or 7 days after the last rotation.
+It first deletes every copy numbered `LOG_KEEP` (2) or higher, so lowering `LOG_KEEP` takes
+effect at the next rotation. Then the old `.1` becomes `.2` and the log becomes `.log.1`.
+When every step works, that caps the log at about 3 MB and about 3 weeks of history
+(`LOG_MAX_BYTES`, `LOG_MAX_DAYS` and `LOG_KEEP` are at the top of the job). Every copy is
+mode 600. The last rotation's time is the mtime of `log-rotated-at` in the job's
+Application Support folder.
+- **It rotates only its own file.** Each check first confirms that the file at the log path
+  is the one on the job's stdout: same device and inode, from `lsof` on the job and `stat`
+  on the path. If the log is renamed or replaced while the job runs, the job stops the
+  package and exits 1. launchd restarts it and reopens the log at its path, and the renamed
+  file gets no more writes. If the path doesn't match at start-up (a symlink there, or the job
+  started by hand), rotation stays off for that run and the log says so, which avoids a
+  restart loop. If `lsof` fails, at start-up or later, that check is skipped (logged once)
+  and the next watch retries it, so rotation resumes once `lsof` works. The bound holds
+  while the log is a plain file at its path and `lsof` works. At start-up the job also sets
+  the log to mode 600, in case launchd created it, and logs a warning if it can't.
+- **Copy, then truncate in place.** launchd keeps the log open, so renaming it would leave
+  the job writing to the renamed file. macOS `newsyslog` can't copy-truncate, which rules it
+  out (and it would need sudo). launchd opens the log for appending, so after the truncation
+  every write lands at the new end.
+- **A line can be lost**: one written in the few milliseconds between the copy and the
+  truncation. At about 200 lines a second, a test lost one line per rotation. The real log
+  gets a few hundred lines a day.
+- **If a step fails**, the live log is still cleared, so it stays bounded. That covers a copy
+  that can't be deleted or moved, and a new copy that can't be written (most likely a full
+  disk). The rotation stops at that step. Steps already done stay done, so a copy may
+  already be deleted or shifted up one, leaving a gap in the numbers. After a failed new
+  copy, `.1` is missing, unless the partial copy couldn't be deleted either; then `.1` holds
+  that partial copy and the log line says so. The lowest-numbered copy left is the newest.
+  This log's contents aren't kept, and the next log line names the step that failed. Copies
+  the job couldn't delete stay on disk until whatever blocked them is fixed. If the stamp
+  can't be written, only the size counts.
+- The package's day logs in `~/.desktop-commander-device/` bound themselves: per UTC weekday,
+  1 MB × 3 files, last week's removed on first write, at most 21 MB. Those lines are redacted.
+- `--remove` leaves the log and its copies in `~/Library/Logs/`. Delete them by hand if you
+  want them gone.
+- A change to the job reaches the Mac only through a reinstall from a terminal (the job runs
+  from a copy; see above). Before that, run `ci/desktop-commander-remote-log-checks.sh`: it
+  tests the rotation under a fake HOME, then runs the whole job against a fake package, and
+  leaves the live agent alone.
+
 Decisions (David, 2026-11-02):
 - **A LaunchAgent, not a LaunchDaemon.** A daemon runs as root, so claude.ai would get a
   root shell. The agent runs as David and only while he's logged in.

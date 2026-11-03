@@ -224,6 +224,7 @@ Run these before committing. `bin/dot` (`~/.local/bin/dot` once installed) wraps
 | Server profile | `ci/server-profile-checks.sh static` | exit 0 |
 | Merged-branch cleanup (after changing `bin/lib/cleanup-merged-branch.sh` or `wt done`) | `ci/cleanup-merged-branch-checks.sh` | exit 0, both shells (local only, not in CI) |
 | `op-agent` guards (after changing `bin/op-agent`) | `ci/op-agent-checks.sh` | exit 0 (local only, stub `op`) |
+| Desktop Commander remote log rotation (after changing the job's logging in `helpers/desktop_commander_remote.sh`) | `ci/desktop-commander-remote-log-checks.sh` | exit 0 (local only, macOS, fake HOME; e2e needs Node) |
 
 **Dry-run must never mutate config.** `./install --dry-run` previews Dotbot directives
 without applying them. The only thing the wrapper does regardless is init the vendored

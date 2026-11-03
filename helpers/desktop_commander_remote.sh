@@ -30,8 +30,118 @@ OTHER_COPY='desktop-commander.* remote( |$)'
 # its own copy (which saves its sign-in on the way out) and waits until the other exits.
 WATCH_SECS=15
 STEP_ASIDE_FILE="$STATE_DIR/stepped-aside"
+# The plist's StandardOutPath (set by the installer). The package logs every command it
+# receives in full, so the job keeps the log bounded (VIL-579): past LOG_MAX_BYTES, or
+# LOG_MAX_DAYS after the last rotation, it becomes .1 and the older copies shift up, the
+# oldest past LOG_KEEP dropped. Checked at start-up and on every watch below.
+LOG="$HOME/Library/Logs/desktop-commander-remote.log"
+LOG_MAX_BYTES=$(( 1024 * 1024 ))
+LOG_MAX_DAYS=7
+LOG_KEEP=2
+LOG_STAMP="$STATE_DIR/log-rotated-at"  # its mtime is the last rotation
+LOG_BY_AGE=1  # 0 once the stamp can't be written: from then on only the size counts
+LOG_ROTATE=1  # 0 when $LOG isn't this job's stdout at start-up (see below)
 
 log() { printf '%s  %s\n' "$(/bin/date -u +%Y-%m-%dT%H:%M:%SZ)" "$*"; }
+
+# Copy, then truncate in place: launchd holds the log open, so a rename would leave the job
+# writing into the renamed file. launchd opens it O_APPEND, so after the truncation every
+# writer goes on at the new end. The rotation at start-up runs before the package does;
+# while it runs, the watcher rotates, and a line written between its copy and its
+# truncation is lost (a window of milliseconds, once a week or per LOG_MAX_BYTES).
+# Copies are made under umask 077 and set to 600: the commands can hold anything.
+# Every copy numbered LOG_KEEP or higher is deleted first, so lowering LOG_KEEP takes effect
+# at the next rotation. If a copy can't be deleted or moved, or the new copy can't be
+# written (a full disk, most likely), the rotation stops there (steps already done stay
+# done), keeps no copy of this log, and still clears it, so it stays bounded; the log line
+# after it says what failed.
+rotate_log() {
+  local f n i=$LOG_KEEP why=""
+  for f in "$LOG".[0-9]*; do
+    n=${f##*.}
+    case $n in *[!0-9]*) continue ;; esac
+    [ -e "$f" ] && [ "$n" -ge "$LOG_KEEP" ] || continue
+    /bin/rm -f "$f" 2>/dev/null || { why="could not delete $f"; break; }
+  done
+  while [ -z "$why" ] && [ "$i" -gt 1 ]; do
+    if [ -e "$LOG.$(( i - 1 ))" ]; then
+      /bin/mv -f "$LOG.$(( i - 1 ))" "$LOG.$i" 2>/dev/null ||
+        why="could not move $LOG.$(( i - 1 )) to $LOG.$i"
+    fi
+    i=$(( i - 1 ))
+  done
+  if [ -z "$why" ] &&
+    ! { ( umask 077 && /bin/cp "$LOG" "$LOG.1" ) && /bin/chmod 600 "$LOG.1"; } 2>/dev/null; then
+    why="could not write $LOG.1"
+    [ -e "$LOG.1" ] && ! /bin/rm -f "$LOG.1" 2>/dev/null &&
+      why="$why, and could not delete the partial copy there"
+  fi
+  : 2>/dev/null >"$LOG" || { log "could not clear $LOG to rotate it${why:+ ($why)}"; return 1; }
+  /usr/bin/touch "$LOG_STAMP" 2>/dev/null || stamp_failed
+  if [ -z "$why" ]; then
+    log "log rotated ($1); the previous one is $LOG.1, up to $LOG_KEEP kept"
+  else
+    log "log cleared ($1) without keeping a copy: $why"
+  fi
+}
+
+stamp_failed() {
+  LOG_BY_AGE=0
+  log "could not update $LOG_STAMP; rotating the log by size only until the job restarts"
+}
+
+# The file on this job's stdout (launchd's open log) and the file at $LOG, as device:inode.
+# Rotation copies and clears $LOG, so it runs only while both are the same file. Otherwise
+# a symlink at $LOG, or a log renamed or replaced while the job runs, would get a file the
+# job doesn't write to rotated, and the one it does write to would grow unbounded.
+# lsof takes about 30 ms; stat without -L sees a symlink itself, not its target.
+stdout_file_id() {
+  /usr/sbin/lsof -a -p "$$" -d 1 -F Di 2>/dev/null |
+    /usr/bin/awk '/^D0x/ { d = substr($0, 4) } /^i/ { i = substr($0, 2) }
+      END { if (d != "" && i != "") print tolower(d) ":" i }'
+}
+log_path_id() { /usr/bin/stat -f '%Xd:%i' "$LOG" 2>/dev/null | /usr/bin/tr 'A-F' 'a-f'; }
+
+# Rotates when the log is over LOG_MAX_BYTES, or LOG_MAX_DAYS after the last rotation. With
+# no stamp yet (first run) the age clock starts now. Once the stamp can't be written, only
+# the size counts (LOG_BY_AGE), so a stale stamp can't rotate the log every 15 s.
+# Returns 2, touching nothing, when $LOG isn't the file on stdout (missing, a symlink,
+# renamed or replaced), and 3 when lsof can't tell.
+rotate_log_if_due() {
+  local size stamp out
+  out=$(stdout_file_id)
+  [ -n "$out" ] || return 3
+  [ "$out" = "$(log_path_id)" ] || return 2
+  size=$(/usr/bin/stat -f %z "$LOG" 2>/dev/null) || return 2
+  if [ "$size" -ge "$LOG_MAX_BYTES" ]; then
+    rotate_log "over $LOG_MAX_BYTES bytes"
+    return
+  fi
+  [ "$LOG_BY_AGE" = 1 ] || return 0
+  if ! stamp=$(/usr/bin/stat -f %m "$LOG_STAMP" 2>/dev/null); then
+    /usr/bin/touch "$LOG_STAMP" 2>/dev/null || stamp_failed
+    return 0
+  fi
+  [ $(( $(/bin/date +%s) - stamp )) -ge $(( LOG_MAX_DAYS * 86400 )) ] || return 0
+  if [ "$size" -gt 0 ]; then
+    rotate_log "$LOG_MAX_DAYS days since the last rotation"
+  else
+    /usr/bin/touch "$LOG_STAMP" 2>/dev/null || stamp_failed  # nothing to keep; restart the clock
+  fi
+}
+
+# launchd has just opened $LOG, so a mismatch here means it isn't a plain file (a symlink)
+# or this run's stdout isn't the log (started by hand): rotation stays off for this run,
+# said once, instead of restarting in a loop. If lsof can't tell, the watcher retries it
+# every watch. A match also resets the log to mode 600, in case launchd created it.
+rotate_log_if_due
+case $? in
+  2) LOG_ROTATE=0
+     log "not rotating the log this run: $LOG is not the file this job writes to (a symlink, or started by hand)" ;;
+  3) log "lsof failed at start-up; the log check retries every ${WATCH_SECS} s" ;;
+  *) /bin/chmod 600 "$LOG" 2>/dev/null ||
+       log "WARNING: could not set $LOG to mode 600; it holds every command in full, so check who can read it" ;;
+esac
 
 stop_for_good() {
   log "STOPPED: $*"
@@ -100,13 +210,34 @@ start=$(/bin/date +%s)
 node "$ENTRY" remote >"$fifo" 2>&1 </dev/null &
 child=$!
 
-# Watches for another copy while ours runs; any match that isn't our child counts. On one
-# it stops our child and exits STEPPED_ASIDE, which is how the main loop learns of it. A
-# failed pgrep (status 2+) is logged and the watch goes on: stopping a working copy on a
-# probe error would cut the remote off for nothing.
+# Watches for another copy while ours runs, and keeps the log bounded (rotate_log_if_due;
+# the only rotation while the package runs, so two never overlap). If $LOG stops being
+# the file this job writes to (renamed or replaced), it stops our child and exits
+# LOG_MOVED, and the job exits 1 so launchd restarts it and reopens $LOG; the renamed
+# file gets no more writes. Any match that isn't
+# our child counts as another copy. On one it stops our child and exits STEPPED_ASIDE,
+# which is how the main loop learns of it. A failed pgrep (status 2+) is logged and the
+# watch goes on: stopping a working copy on a probe error would cut the remote off for nothing.
 STEPPED_ASIDE=10
+LOG_MOVED=11
 (
+  lsof_warned=0
   while sleep "$WATCH_SECS"; do
+    if [ "$LOG_ROTATE" = 1 ]; then
+      rotate_log_if_due
+      case $? in
+        2)
+          trap '' TERM
+          log "$LOG is no longer the file this job writes to (renamed or replaced?); restarting so launchd reopens it"
+          kill -TERM "$child" 2>/dev/null
+          exit "$LOG_MOVED" ;;
+        3)
+          [ "$lsof_warned" = 1 ] ||
+            log "lsof failed; skipping log rotation until it works again"
+          lsof_warned=1 ;;
+        *) lsof_warned=0 ;;
+      esac
+    fi
     pids="$(/usr/bin/pgrep -f -- "$OTHER_COPY")"; prc=$?
     if [ "$prc" -gt 1 ]; then
       log "pgrep failed (status $prc) while watching for another copy; still watching"
@@ -145,6 +276,8 @@ rm -f "$fifo"
 [ "$stopping" = 1 ] && { log "stopped by launchd"; exit 0; }
 # Stepped aside: restart later; the start-up check waits while the other copy runs.
 [ "$wrc" = "$STEPPED_ASIDE" ] && exit 1
+# The log was renamed or replaced: a restart has launchd reopen it.
+[ "$wrc" = "$LOG_MOVED" ] && exit 1
 [ "$signin" = 1 ] && stop_for_good "the saved sign-in no longer works (sign in once in a terminal)"
 
 if [ $(( $(/bin/date +%s) - start )) -lt "$FAST_SECS" ]; then

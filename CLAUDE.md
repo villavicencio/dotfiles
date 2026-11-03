@@ -73,8 +73,9 @@ docs/           Compound-engineering pipeline artifacts:
                 Also: docs/agents/ (cross-project agent procedures) and docs/reference/
                 (this repo's long write-ups, moved out of CLAUDE.md)
 ci/             CI assets (Dockerfile for install-matrix's linux leg, PSScriptAnalyzer settings for its windows leg,
-                server-profile-checks.sh for its macos-server leg; cleanup-merged-branch-checks.sh
-                and op-agent-checks.sh, run by hand, not in CI)
+                server-profile-checks.sh for its macos-server leg; cleanup-merged-branch-checks.sh,
+                op-agent-checks.sh and desktop-commander-remote-log-checks.sh, run by hand,
+                not in CI)
 git/            gitconfig, gitignore, gitattributes, gitconfig.linux (Linux overlay — see
                 docs/reference/wsl-linux.md)
 helpers/        Bash scripts called by the install pipeline
