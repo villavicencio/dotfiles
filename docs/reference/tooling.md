@@ -123,8 +123,8 @@ files on the personal Mac. It runs as the LaunchAgent `com.dvillavicencio.deskto
 A reinstall stages everything first, so a failed npm install leaves the running agent alone.
 Both modes refuse (exit 1, saying why) while the agent is still loaded after `bootout`, while
 any copy of the remote device is still running, or when `launchctl` or `pgrep` fails and so
-can't tell. A previous package the installer can't delete makes it exit 1 after loading, with
-the path to delete.
+can't tell. If the old package can't be deleted after the swap, the agent still loads, then
+the installer exits 1 with the path to delete.
 
 The installer puts the pinned package (`DC_VERSION` in the installer) in
 `~/Library/Application Support/desktop-commander-remote/pkg`, copies
@@ -151,7 +151,11 @@ David's claude.ai account (2FA is on).
 **Never run a second copy** (`npx … remote` by hand) while the agent is loaded. Both copies
 refresh the same rotating refresh token, and replaying a spent one can revoke the session
 (the package's own note in `dist/remote-device/device.js`). The installer and the job both
-refuse to start beside another copy.
+refuse to start beside another copy. While running, the job checks every 15 s; when it finds a
+copy started by hand it stops its own (which saves the sign-in on the way out), waits until
+the other exits, then starts again by itself. That leaves a few seconds where both run, so
+the habit still matters: after installing, don't use the `curl … | sh` command (it also runs
+`@latest`, not the pinned version). For a hand-started copy, run `--remove` first.
 
 **When it stops for good.** The job exits 0, and so stays down, when:
 - the saved sign-in no longer works (the package starts a browser sign-in; under a restart
