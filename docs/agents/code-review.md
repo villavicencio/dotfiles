@@ -128,14 +128,16 @@ the diff itself routes through one of the two tools above.
 - **Outside-diff findings have no thread, so the check above can't see them.** When CodeRabbit
   flags a line the PR didn't change, the finding goes only into the review's text, under
   `Outside diff range comments (N)`. No thread is created, so the unresolved-threads check comes
-  back empty and the PR reads `CLEAN` with a finding unanswered. Before merging, read the text
-  of every CodeRabbit review, not only the latest: on skills#53 the finding was in an earlier round.
+  back empty and the PR reads `CLEAN` with a finding unanswered. Before merging, list every
+  CodeRabbit review that has outside-diff findings, not only the latest (on skills#53 they were
+  in an earlier round), with the count each one states:
 
   ```bash
-  gh pr view <N> --json reviews \
-    -q '.reviews[]|select(.author.login|test("coderabbit"))|.body' \
-    | grep -n -A2 -E 'Outside diff|Actionable comments'
+  gh api --paginate repos/<o>/<r>/pulls/<N>/reviews -q '.[]|select(.user.login|test("coderabbit"))|select(.body|test("Outside diff range comments"))|"\(.id) \(.submitted_at) \(.body|capture("Outside diff range comments \\((?<n>[0-9]+)\\)").n) finding(s)"'
   ```
+
+  Then read each listed review in full, since a section can hold several findings:
+  `gh api repos/<o>/<r>/pulls/<N>/reviews/<id> -q .body`.
 
   Answer each one in a PR comment, and record a decline in the PR body too. On skills#49, #51 and
   #53 (2026-10-24) every outside-diff finding was real; one was declined. The reverse case also

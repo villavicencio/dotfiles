@@ -102,12 +102,18 @@ then carries it, and the statusline shows it as a link to the issue.
 - **A worktree with an initialized submodule is refused** before the PR lookup and before
   anything changes: git can't remove it, and `cleanup_merged_branch` would only detach it. `wt new` never initializes one,
   so this only happens after a `git submodule update --init` inside the worktree.
-  `dot check` is what tempts it: without the `dotbot` submodule (and its nested `lib/pyyaml`,
-  so `--recursive`) its dotbot dry-run parse FAILs every config. To run it in a worktree, init
-  with `git submodule update --init --recursive`, then undo it before `wt done`:
-  `git submodule deinit --all -f` and remove `$(git rev-parse --git-dir)/modules`. On hal,
-  `wt` isn't on `david`'s PATH; `git worktree add -b <branch> .claude/worktrees/<topic>` is the
-  bare substitute for `wt new`, without its copied local files (2026-11-03).
+  `dot check` is what tempts it: without the `dotbot` submodule and its nested `lib/pyyaml`,
+  its dotbot dry-run parse FAILs every config. To run it in a worktree, init with
+  `git submodule update --init --recursive`. Before `wt done`, undo exactly that, and only if
+  nothing was done inside it: `git submodule status --recursive` must show no `+` (a different
+  commit checked out), and `git submodule foreach --recursive git status --porcelain` must print
+  only its `Entering` lines. Then run `git submodule deinit -f dotbot`,
+  `rm -rf "$(git rev-parse --git-dir)/modules/dotbot"` and
+  `rmdir "$(git rev-parse --git-dir)/modules"`; the `rmdir` fails, and so stops you, if anything
+  else is in there. On hal, `wt` isn't on `david`'s PATH. The bare substitute for `wt new` runs
+  against the main checkout with an explicit base,
+  `git -C <main checkout> worktree add -b <branch> .claude/worktrees/<topic> master`, and skips
+  `wt new`'s copied local files (2026-11-03).
 - **It needs `gh` to check.** If `gh` isn't installed or the lookup fails, `wt done` stops and
   says so rather than treat the branch as unmerged; `--keep-branch` doesn't need `gh`.
 - **Without a merged PR, it refuses.** `wt done <topic> --keep-branch` removes only the worktree and
