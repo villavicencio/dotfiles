@@ -120,6 +120,12 @@ files on the personal Mac. It runs as the LaunchAgent `com.dvillavicencio.deskto
     bash helpers/install_desktop_commander_remote.sh            # install, or restart after a stop
     bash helpers/install_desktop_commander_remote.sh --remove   # undo
 
+**Run both from a terminal on the Mac, never through Desktop Commander** (a claude.ai chat):
+they start by stopping the agent, which is the process carrying the command, so the run would
+die before reloading it and leave the Mac unreachable. The installer refuses when it finds
+the remote device among its parent processes. (macOS `pgrep` leaves out its own ancestors, so
+a `pgrep -f` run through Desktop Commander can't see Desktop Commander; add `-a`.)
+
 A reinstall stages everything first, so a failed npm install leaves the running agent alone.
 Both modes refuse (exit 1, saying why) while the agent is still loaded after `bootout`, while
 any copy of the remote device is still running, or when `launchctl` or `pgrep` fails and so
