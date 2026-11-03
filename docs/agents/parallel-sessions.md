@@ -104,15 +104,11 @@ then carries it, and the statusline shows it as a link to the issue.
   so this only happens after a `git submodule update --init` inside the worktree.
   `dot check` is what tempts it: without the `dotbot` submodule and its nested `lib/pyyaml`,
   its dotbot dry-run parse FAILs every config. To run it in a worktree, init with
-  `git submodule update --init --recursive`. Before `wt done`, undo exactly that, and only for a
-  submodule you initialized for the check and did nothing inside. Confirm it first:
-  `git submodule status --recursive` must show no `+` (a different commit checked out), and
-  `git submodule foreach --recursive 'git status --porcelain; git log --oneline --branches --not --remotes; git stash list'`
-  must print only its `Entering` lines (no changes, no local-only commits, no stashes). Then run
-  `git submodule deinit -f dotbot`, `rm -rf "$(git rev-parse --git-dir)/modules/dotbot"` and
-  `rmdir "$(git rev-parse --git-dir)/modules"`; the `rmdir` fails, and so stops you, if anything
-  else is in there. On hal, `wt` isn't on `david`'s PATH. The bare substitute for `wt new`
-  fetches and branches from origin's default branch, as `wt new` does:
+  `git submodule update --init --recursive`. After that, `wt done` refuses the worktree, and
+  `cleanup_merged_branch` detaches it instead of removing it; remove it the way `code-review.md`
+  describes under "Worktrees with submodules are detached, not removed", after checking it,
+  rather than deleting its `modules` dir by hand. On hal, `wt` isn't on `david`'s PATH. The bare
+  substitute for `wt new` fetches and branches from origin's default branch, as `wt new` does:
   `git -C <main checkout> fetch origin && git -C <main checkout> worktree add -b <branch> .claude/worktrees/<topic> origin/master`.
   It skips `wt new`'s copied local files (2026-11-03).
 - **It needs `gh` to check.** If `gh` isn't installed or the lookup fails, `wt done` stops and
