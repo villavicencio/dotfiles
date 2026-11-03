@@ -125,6 +125,23 @@ the diff itself routes through one of the two tools above.
   `--paginate` is mandatory — `per_page` alone caps at one page and silently drops findings past
   it, and `gh api repos/<owner>/<repo>/issues/comments/<id>` 404s for review comments (they live
   under `pulls/comments/<id>`).
+- **Outside-diff findings have no thread, so the check above can't see them.** When CodeRabbit
+  flags a line the PR didn't change, the finding goes only into the review's text, under
+  `Outside diff range comments (N)`. No thread is created, so the unresolved-threads check comes
+  back empty and the PR reads `CLEAN` with a finding unanswered. Before merging, read the text
+  of every CodeRabbit review, not only the latest: on skills#53 the finding was in an earlier round.
+
+  ```bash
+  gh pr view <N> --json reviews \
+    -q '.reviews[]|select(.author.login|test("coderabbit"))|.body' \
+    | grep -n -A2 -E 'Outside diff|Actionable comments'
+  ```
+
+  Answer each one in a PR comment, and record a decline in the PR body too. On skills#49, #51 and
+  #53 (2026-10-24) every outside-diff finding was real; one was declined. The reverse case also
+  misleads: a clean re-review posts **no new review**, only a `Review completed` status on the
+  head commit (read it as shown under "After requesting a review"). A latest review sitting on an
+  older commit doesn't mean the round was skipped.
 - **Triage every finding**: fix it on the branch, or decline it with the reason recorded both on
   the thread and in the PR body. A finding you disagree with is a standoff you document, not one
   you merge past silently.
