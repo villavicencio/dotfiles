@@ -66,17 +66,24 @@ fi
 domain="gui/$(id -u)"
 
 # Unloads our agent and waits up to 10 s for every copy of the remote device to exit.
-# Fails, saying why, if the agent is still loaded or any copy (ours or one started by
-# hand) is still running.
+# Fails, saying why, if the agent is still loaded, any copy (ours or one started by hand)
+# is still running, or launchctl or pgrep can't tell: only a clear "absent" lets it pass.
 stop_agent() {
+  local rc
   launchctl bootout "$domain/$LABEL" 2>/dev/null || true
-  if launchctl print "$domain/$LABEL" >/dev/null 2>&1; then
-    echo "Error: $LABEL is still loaded after launchctl bootout" >&2
-    return 1
-  fi
+  launchctl print "$domain/$LABEL" >/dev/null 2>&1; rc=$?
+  case $rc in
+    113) ;;  # launchctl's "Could not find service": not loaded
+    0) echo "Error: $LABEL is still loaded after launchctl bootout" >&2; return 1 ;;
+    *) echo "Error: launchctl print failed (status $rc); cannot tell whether $LABEL is loaded" >&2; return 1 ;;
+  esac
   for _ in 1 2 3 4 5 6 7 8 9 10; do
-    /usr/bin/pgrep -f -- "$OTHER_COPY" >/dev/null || return 0
-    sleep 1
+    /usr/bin/pgrep -f -- "$OTHER_COPY" >/dev/null; rc=$?
+    case $rc in
+      1) return 0 ;;  # no match
+      0) sleep 1 ;;
+      *) echo "Error: pgrep failed (status $rc); cannot tell whether a remote device is running" >&2; return 1 ;;
+    esac
   done
   echo "Error: a Desktop Commander remote device is still running (started by hand?)." >&2
   echo "Stop it (Ctrl+C in its terminal), then re-run this installer. Running:" >&2
@@ -159,10 +166,19 @@ if [ -e "$PKG" ] && ! mv "$PKG" "$old"; then
   echo "Error: cannot move the old package aside" >&2; exit 1
 fi
 if ! mv "$new" "$PKG"; then
-  [ -e "$old" ] && mv "$old" "$PKG"
-  echo "Error: cannot move the new package into $PKG (old one restored)" >&2; exit 1
+  if [ ! -e "$old" ]; then
+    echo "Error: cannot move the new package into $PKG (there was no old one)" >&2
+  elif mv "$old" "$PKG"; then
+    echo "Error: cannot move the new package into $PKG (old one restored)" >&2
+  else
+    echo "Error: cannot move the new package into $PKG, nor the old one back from $old." >&2
+    echo "Move $old to $PKG by hand, or re-run this installer." >&2
+  fi
+  echo "The agent is stopped." >&2
+  exit 1
 fi
-rm -rf "$old"
+leftover=""
+rm -rf "$old" || leftover="$old"
 
 if ! { mv -f "$job_tmp" "$JOB" && mv -f "$plist_tmp" "$PLIST"; }; then
   echo "Error: cannot move the job or the plist into place" >&2; exit 1
@@ -181,3 +197,7 @@ if ! launchctl bootstrap "$domain" "$PLIST"; then
   exit 1
 fi
 echo "$LABEL loaded ($PKG_SPEC). Log: $LOG"
+if [ -n "$leftover" ]; then
+  echo "Warning: could not remove the previous package at $leftover; delete it by hand." >&2
+  exit 1
+fi

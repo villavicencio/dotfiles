@@ -121,8 +121,10 @@ files on the personal Mac. It runs as the LaunchAgent `com.dvillavicencio.deskto
     bash helpers/install_desktop_commander_remote.sh --remove   # undo
 
 A reinstall stages everything first, so a failed npm install leaves the running agent alone.
-Both modes refuse (exit 1, saying why) while the agent is still loaded after `bootout` or any
-copy of the remote device is still running.
+Both modes refuse (exit 1, saying why) while the agent is still loaded after `bootout`, while
+any copy of the remote device is still running, or when `launchctl` or `pgrep` fails and so
+can't tell. A previous package the installer can't delete makes it exit 1 after loading, with
+the path to delete.
 
 The installer puts the pinned package (`DC_VERSION` in the installer) in
 `~/Library/Application Support/desktop-commander-remote/pkg`, copies
