@@ -93,7 +93,25 @@ stop_agent() {
   return 1
 }
 
+# One installer at a time: a second one's cleanup could delete the first's staged package.
+# mkdir is atomic; the exit trap below releases it. A lock left by a killed run says so.
+LOCK="$JOB_DIR/.install.lock"
+have_lock=0
+# Staged paths (set below); whatever hasn't been moved into place is removed on exit,
+# and the lock released.
+new="" job_tmp="" plist_tmp=""
+trap 'rm -rf "$new" "$job_tmp" "$plist_tmp"; [ "$have_lock" = 1 ] && rmdir "$LOCK" 2>/dev/null' EXIT
+take_lock() {
+  if ! mkdir "$LOCK" 2>/dev/null; then
+    echo "Error: another install or --remove is running. If none is (one was killed)," >&2
+    echo "remove $LOCK and re-run." >&2
+    exit 1
+  fi
+  have_lock=1
+}
+
 if [ "$mode" = remove ]; then
+  [ -d "$JOB_DIR" ] && take_lock
   stop_agent || exit 1
   if ! { rm -f "$PLIST" && rm -rf "$JOB_DIR"; }; then
     echo "Error: cannot remove $PLIST or $JOB_DIR" >&2; exit 1
@@ -120,13 +138,8 @@ if ! { mkdir -p "$JOB_DIR" "$(dirname "$PLIST")" "$(dirname "$LOG")" && chmod 70
   echo "Error: cannot create $JOB_DIR or its siblings" >&2; exit 1
 fi
 
-# Staged paths; whatever hasn't been moved into place is removed on exit.
-new="" job_tmp="" plist_tmp=""
-trap 'rm -rf "$new" "$job_tmp" "$plist_tmp"' EXIT
+take_lock
 
-if [ -e "$PKG" ] && [ ! -L "$PKG" ]; then
-  echo "Error: $PKG is a directory, not the expected symlink; remove it, then re-run" >&2; exit 1
-fi
 new="$(mktemp -d "$JOB_DIR/pkg-XXXXXX")" || exit 1
 echo "Installing $PKG_SPEC ..."
 if ! PATH="$node_bin:$PATH" DESKTOP_COMMANDER_DISABLE_TELEMETRY=1 \
@@ -168,10 +181,24 @@ stop_agent || exit 1
 # Point pkg at the new directory: a new symlink renamed over the old one. /bin/mv -h
 # replaces the link itself instead of moving into the directory it points to (GNU mv,
 # first on PATH in agent shells, spells that -T).
+# An install from an earlier version of this script left pkg as a real directory: rename
+# it to a pkg-XXXXXX name first, so the switch below and its cleanup treat it like any
+# old package. If the switch then fails, it is moved back.
+legacy=""
+if [ -e "$PKG" ] && [ ! -L "$PKG" ]; then
+  if ! { legacy="$(mktemp -d "$JOB_DIR/pkg-XXXXXX")" && rmdir "$legacy" && /bin/mv "$PKG" "$legacy"; }; then
+    echo "Error: cannot move the old package directory $PKG aside; the agent is stopped." >&2
+    exit 1
+  fi
+fi
 link_tmp="$JOB_DIR/.pkg-link.$$"
 if ! { ln -sfn "$(basename "$new")" "$link_tmp" && /bin/mv -fh "$link_tmp" "$PKG"; }; then
   rm -f "$link_tmp"
-  echo "Error: cannot switch $PKG to the new package; the old one, if any, is still in use." >&2
+  if [ -n "$legacy" ] && ! /bin/mv "$legacy" "$PKG"; then
+    echo "Error: cannot switch $PKG to the new package, nor move the old one back from $legacy." >&2
+  else
+    echo "Error: cannot switch $PKG to the new package; the old one, if any, is still in use." >&2
+  fi
   echo "The agent is stopped; re-run this installer." >&2
   exit 1
 fi
