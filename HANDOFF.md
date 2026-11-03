@@ -1,42 +1,49 @@
 ---
-created_at: "2026-11-02T19:51:48-08:00"
+created_at: "2026-11-03T07:33:36-08:00"
 branch: "master"
-head: "8defc50"
+head: "8705bb7"
 worktree: "/Users/dvillavicencio/Projects/Personal/dotfiles"
-resume_focus: "check the 2026-11-03 01:30 PST hal pilot run (VIL-546, VIL-544, VIL-550 briefs) and reopen partial tickets after merges; pick tomorrow's briefs that evening, before 22:00 PT"
+resume_focus: "check the 2026-11-03 01:30 PST hal pilot run (VIL-546, VIL-544, VIL-550 briefs), not yet looked at; reopen partial tickets after merges; pick tonight's briefs before 22:00 PT"
 ---
-# HANDOFF — 2026-11-02, evening (PST)
+# HANDOFF — 2026-11-03, morning (PST)
 
-This session picked up after the 15:07 handoff. The pilot run wasn't due until 01:30, so it did side work: a new rule for picking pilot briefs, cleanup of the `comment-cleanup` worktree, and Desktop Commander's remote device as an always-on LaunchAgent (VIL-571, #258), which went through nine MergeWren rounds before merging. The pilot queue for tonight was filled in the previous session and is unchanged.
+This session picked up the 11-02 evening handoff (`8defc50`) and, on David's word, did VIL-579, rotating the Desktop Commander remote's LaunchAgent log. It took seven MergeWren rounds and merged as #259. It then wrote down two review-loop lessons and answered what survives an Orca restart or reboot. Nobody has looked at last night's 01:30 PST pilot run yet.
 
 ## What We Built
-- **#258** (`8defc50`): `helpers/install_desktop_commander_remote.sh` and `helpers/desktop_commander_remote.sh`. Docs are in `docs/reference/tooling.md` ("Desktop Commander remote"), with a rule line in `CLAUDE.md` and an invariant in `AGENTS.md`. David installed it at 18:54 PST and it's live (`com.dvillavicencio.desktop-commander-remote`, package 0.3.1, ~79 MB). Reached from the phone; `launchctl kickstart -k` brought it back in 4 s. The installed job script is byte-identical to `master`.
-- **Pilot rule** (memory `feedback_pilot_queue_night_before.md`, `13d7c6c`): pick and check briefs the evening before each run, before about 22:00 PT, never days ahead.
-- **Linear:** VIL-570 (evening alert when the pilot queue is empty, hal Local Coding Pilot project); VIL-571 Done; VIL-579 (rotate the remote's log; it records every received command in full); VIL-581 (deferred live QA: crash, sleep/wake, Wi-Fi drop, login).
-- `wt done comment-cleanup`: worktree and `chore/comment-cleanup` deleted locally and on origin.
+- **#259** (`31c67a9`, VIL-579 Done): rotation in `helpers/desktop_commander_remote.sh` (`rotate_log`, `rotate_log_if_due`, a watcher check every `WATCH_SECS`, exit code `LOG_MOVED=11` → job exits 1 so launchd restarts it). Hand-run check: `ci/desktop-commander-remote-log-checks.sh` (macOS only; 30 unit cases under `/bin/bash` 3.2 plus a full-job run against a fake package). Policy and failure behavior are in `docs/reference/tooling.md` under "The log rotates itself (VIL-579)". **Not live until David re-runs the installer** (What's Next 1).
+- `3655537`, in `docs/agents/code-review.md` "Polling `gh`": `gh --jq` takes no `--arg`, and wait loops must check `gh`'s exit status. A silent infinite poll on #259 cost a round of waiting.
+- `c6308a2` (`docs/reference/review-and-merge.md`): MergeWren's `no verdict … full confirmation queued` comment isn't a result. A full review follows and can raise new findings. Superseded in practice by #260's `mergewren_review` (`88e9774`, another session's).
+- `8705bb7` (`docs/reference/orca-worktrees.md`, "What survives an Orca restart or update, and a reboot"):
+  - Orca terminals run under a separate `Orca Terminal Host` that launchd starts, so an app restart or update keeps every local session running.
+  - A Mac reboot ends them; the conversations can be resumed.
+  - Atlas and Axiom run in tmux on hal, so neither touches them.
 
 ## Decisions Made
-- **LaunchAgent, not LaunchDaemon:** a daemon would give claude.ai a root shell. David's defaults: keep the package's `caffeinate` (the Mac doesn't idle-sleep), pin the version, telemetry off, stop for good instead of looping when the sign-in fails.
-- **Only one copy may run.** Two copies share one rotating refresh token, and a replayed one can revoke the sign-in. The job steps aside (stops its own copy, waits) when it finds a hand-started one; the installer and job refuse to start beside one.
-- **The installer refuses to run through Desktop Commander:** it stops the agent, which is the process carrying the command, so it would cut the connection mid-run.
-- **Declined MergeWren `6b5465f#2`:** a start-up `pgrep` error counts as a quick failure on purpose. Reason in #258's body.
-- David approved merging past MergeWren's medium-only "not mergeable" banner, per the repo rule (only high/critical block). He also chose to defer the remaining QA to VIL-581 rather than hold VIL-571 open.
+- **Copy-then-truncate, not `newsyslog`:** launchd opens the log O_APPEND. macOS `newsyslog` has no copy-truncate flag, and renaming the file would leave the job writing to the renamed copy.
+- **Identity check before every rotation:** the job compares the device:inode of its stdout (`lsof`) with the path's (`/usr/bin/stat`, no `-L`). A symlink or a replaced file is never truncated. A mismatch at start-up disables rotation for that run; one found by the watcher triggers a restart.
+- **Declined MergeWren `0b082d5#1`/`#2` (gap recorded in #259's body and on VIL-579):** if launchd recreates the log and `lsof` fails at that same start-up, that run skips `chmod 600`. The fix, if wanted, is to chmod on the lsof-failure branch too.
+- **The `gh --jq` lesson went into dotfiles `docs/agents/`, not this repo's reference docs**, because it applies to every repo (David agreed).
 
 ## What Didn't Work
-- Test harnesses that background a shell *function* (`f &`, zsh or bash): `$!` is a wrapper, so the TERM missed the job and left an orphan. Background the `env … /bin/bash job` command itself.
-- zsh doesn't word-split `$VAR`, so `env -i $ENVV …` passed one huge argument. Write such harnesses as bash scripts.
-- A Bash call with `rm -rf "$VAR/…"` inside a multi-part command was blocked by Claude Code's safety check. Use literal paths, or put test steps in a script that removes fixed paths.
+- `gh pr view --jq '…' --arg h <sha>` fails with "accepts at most 1 arg(s), received 4". In a loop without an exit check it spins silently. Splice the value into the filter, or pipe to real `jq`.
+- A wait loop that matched any `review-stack:head=<sha>` comment would also match the "no verdict" placeholder, or wait forever on it. Use `mergewren_review <N>` (#260) now.
+- `stat /dev/fd/1` on macOS returns a devfs node, not the log file. Use `lsof -a -p $$ -d 1 -F Di` (≈26 ms).
 
 ## What's Next
-1. **Check the 11-03 01:30 PST pilot run:** `ssh hal` (as `david`), `tail ~/runs/log/runner.log`, then each `~/runs/log/vil-54{6,4}-*/run.json` and `vil-550-*/run.json`. Hand passing PRs to MergeWren with the evidence.
-2. **After any pilot merge, reopen the parent ticket** (VIL-546, VIL-544, VIL-550): each brief covered only part, and the merge closes it (VIL-543).
-3. **Evening, before 22:00 PT: pick the next night's briefs** from the `hal-overnight` label and check each on current mergewren `main` in a scratch clone (rule above). VIL-570 would alert when the queue is empty.
-4. **David, in the MergeWren session:** mergewren#105 (VIL-448, MergeWren recommends merging); mergewren#103 (VIL-345, false-flags 4 adopted records: rework or close).
-5. VIL-552/553/554 in hal-pilot; VIL-581 (remote QA, needs David at the Mac); VIL-579 (log rotation).
+1. **David, in a terminal on the Mac (not through Desktop Commander):** `bash ~/Projects/Personal/dotfiles/helpers/install_desktop_commander_remote.sh`. This activates the #259 rotation and restarts the remote for a few seconds.
+2. **Check the 11-03 01:30 PST pilot run:** `ssh hal` (as `david`), `tail ~/runs/log/runner.log`, then `~/runs/log/vil-54{6,4}-*/run.json` and `vil-550-*/run.json`. Hand passing PRs to MergeWren with the evidence.
+3. **After any pilot merge, reopen the parent ticket** (VIL-546, VIL-544, VIL-550): each brief covered only part of it (VIL-543).
+4. **Before 22:00 PT tonight, pick the next night's briefs** from the `hal-overnight` label, checking each on current mergewren `main` in a scratch clone.
+5. **David, in the MergeWren session:** mergewren#105 (VIL-448) and mergewren#103 (VIL-345), both carried over.
+6. Backlog: VIL-552/553/554 (hal-pilot), VIL-581 (remote QA, needs David at the Mac), and optionally the declined chmod gap above.
 
 ## Gotchas & Watch-outs
-- **Never run `npx … remote` or the old `curl … | sh` command** while the agent is loaded, and never run the installer or `--remove` through Desktop Commander (it refuses now). The package's own log hints suggest `npx …@latest remote --logout`; running that would sign the Mac out.
-- **macOS `pgrep` skips its own ancestors.** Run through Desktop Commander, `pgrep -f` can't see Desktop Commander; use `pgrep -a`.
-- A Desktop Commander outage from the phone is fixable from a Claude Code session on the Mac (read `~/Library/Logs/desktop-commander-remote.log`, re-run the installer). If it stopped for good, the reason is in that log and in `stopped` in `~/Library/Application Support/desktop-commander-remote/`.
-- Carried over: MergeWren gates pilot merges on David's own per-PR approval in its session; don't relay approvals. A brief's check must pass on `main` as it stands; run it in a scratch clone (`git clone --shared ~/runs/repos/mergewren`, then fetch `refs/remotes/origin/main` from it). Nothing else on hal's local models 01:30–05:00 PST.
-- The skills plugin cache here was 0.7.1 last session; run `claude plugin update dv@villavicencio-skills` on machines not yet on 0.7.2.
+- **Agent shells have GNU `stat` first on PATH.** Rotation code and its tests use `/usr/bin/stat`; the job itself runs under launchd's `/bin/bash` 3.2.
+- **`--remove` leaves the logs behind:** `~/Library/Logs/desktop-commander-remote.log*` and the package's day logs in `~/.desktop-commander-device/`. Deleting them is David's call.
+- **Another session's worktree:** `.claude/worktrees/mergewren-review` on `feat/mergewren-review`. Leave it alone; #260 merged from that work, so it may be ready for `wt done` by its own session.
+- **A lingering Orca Terminal Host from 2026-10-18 (pid 75675) has no shells.** It's harmless, and logout clears it.
+- **Carried over:**
+  - Never run `npx … remote` by hand while the agent is loaded.
+  - Never run the installer or `--remove` through Desktop Commander.
+  - Nothing else runs on hal's local models 01:30–05:00 PST.
+  - MergeWren gates pilot merges on David's own per-PR approval; don't relay approvals.
