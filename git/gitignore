@@ -17,3 +17,6 @@ Session.vim
 **/.claude/settings.local.json.bak-*
 # Worktrees from `wt new` and `claude --worktree` (docs/agents/parallel-sessions.md)
 .claude/worktrees/
+
+# Orca: files dragged into a session pane land here (one per checkout; never committed)
+.orca/drops/
