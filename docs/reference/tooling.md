@@ -133,6 +133,15 @@ any copy of the remote device is still running, or when `launchctl` or `pgrep` f
 can't tell. If the swap succeeds but the old package can't be deleted, the installer goes on;
 when loading then succeeds too, it exits 1 with the path to delete.
 
+**Known bug: a reinstall over a running agent can fail and leave it stopped** (2026-11-03).
+`launchctl bootout` returns before the job has exited (its shutdown takes about a second), and
+the installer checks `launchctl print` once, at once, so it reports "still loaded after
+launchctl bootout" and exits. By then the agent is already stopped, and nothing reloads it:
+the Mac is unreachable from the phone until someone re-runs the installer from a terminal on
+the Mac. A second run passes, because the agent is no longer loaded. The fix (poll the
+`print` check for up to about 10 s, and reload the previous agent on any failure after the
+stop) wasn't ticketed at David's call.
+
 The installer puts the pinned package (`DC_VERSION` in the installer) in
 `~/Library/Application Support/desktop-commander-remote/pkg` (a symlink to a `pkg-XXXXXX`
 directory, switched in one rename, so an old package stays usable until the new one is in;
