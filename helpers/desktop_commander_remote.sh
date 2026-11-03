@@ -111,6 +111,9 @@ STEPPED_ASIDE=10
     fi
     others="$(printf '%s\n' "$pids" | grep -v -x -e "$child" -e '')"
     if [ -n "$others" ]; then
+      # From here on, ignore the main loop's TERM: once our child is stopped, the main loop
+      # kills this watcher, and that must not beat the exit status that reports the step-aside.
+      trap '' TERM
       log "another Desktop Commander remote started (pid $(printf '%s' "$others" | tr '\n' ' ')); stopping ours until it exits"
       : 2>/dev/null >"$STEP_ASIDE_FILE"
       kill -TERM "$child" 2>/dev/null
