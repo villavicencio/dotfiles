@@ -144,6 +144,31 @@ Log: `~/Library/Logs/desktop-commander-remote.log`. The package keeps its own da
 the saved sign-in in `~/.desktop-commander-device/`, and npm's cache in `~/.npm` holds a copy
 of the package.
 
+**The log rotates itself (VIL-579).** The package prints every command it receives in full,
+and this log holds that output unredacted, so the job keeps it bounded. At start-up and every
+15 s while it runs, it rotates the log once it passes 1 MB or 7 days after the last rotation.
+The log becomes `.log.1`, the old `.1` becomes `.2`, and anything older is deleted. That
+caps it at about 3 MB and about 3 weeks of history (`LOG_MAX_BYTES`, `LOG_MAX_DAYS`,
+`LOG_KEEP` at the top of the job). Every copy is mode 600. The last rotation's time is the
+mtime of `log-rotated-at` in the job's Application Support folder.
+- **Copy, then truncate in place.** launchd keeps the log open, so renaming it would leave
+  the job writing to the renamed file. macOS `newsyslog` can't copy-truncate, which rules it
+  out (and it would need sudo). launchd opens the log for appending, so after the truncation
+  every write lands at the new end.
+- **A line can be lost**: one written in the few milliseconds between the copy and the
+  truncation. At about 200 lines a second, a test lost one line per rotation. The real log
+  gets a few hundred lines a day.
+- **If the copy fails** (most likely a full disk), the log is cleared anyway and says so,
+  so it stays bounded. If the stamp can't be written, only the size counts.
+- The package's day logs in `~/.desktop-commander-device/` bound themselves: per UTC weekday,
+  1 MB × 3 files, last week's removed on first write, at most 21 MB. Those lines are redacted.
+- `--remove` leaves the log and its copies in `~/Library/Logs/`. Delete them by hand if you
+  want them gone.
+- A change to the job reaches the Mac only through a reinstall from a terminal (the job runs
+  from a copy; see above). Before that, run `ci/desktop-commander-remote-log-checks.sh`: it
+  tests the rotation under a fake HOME, then runs the whole job against a fake package, and
+  leaves the live agent alone.
+
 Decisions (David, 2026-11-02):
 - **A LaunchAgent, not a LaunchDaemon.** A daemon runs as root, so claude.ai would get a
   root shell. The agent runs as David and only while he's logged in.

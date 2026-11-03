@@ -30,8 +30,75 @@ OTHER_COPY='desktop-commander.* remote( |$)'
 # its own copy (which saves its sign-in on the way out) and waits until the other exits.
 WATCH_SECS=15
 STEP_ASIDE_FILE="$STATE_DIR/stepped-aside"
+# The plist's StandardOutPath (set by the installer). The package logs every command it
+# receives in full, so the job keeps the log bounded (VIL-579): past LOG_MAX_BYTES, or
+# LOG_MAX_DAYS after the last rotation, it becomes .1 and the older copies shift up, the
+# oldest past LOG_KEEP dropped. Checked at start-up and on every watch below.
+LOG="$HOME/Library/Logs/desktop-commander-remote.log"
+LOG_MAX_BYTES=$(( 1024 * 1024 ))
+LOG_MAX_DAYS=7
+LOG_KEEP=2
+LOG_STAMP="$STATE_DIR/log-rotated-at"  # its mtime is the last rotation
+LOG_BY_AGE=1  # 0 once the stamp can't be written: from then on only the size counts
 
 log() { printf '%s  %s\n' "$(/bin/date -u +%Y-%m-%dT%H:%M:%SZ)" "$*"; }
+
+# Copy, then truncate in place: launchd holds the log open, so a rename would leave the job
+# writing into the renamed file. launchd opens it O_APPEND, so after the truncation every
+# writer goes on at the new end. The rotation at start-up runs before the package does;
+# while it runs, the watcher rotates, and a line written between its copy and its
+# truncation is lost (a window of milliseconds, once a week or per LOG_MAX_BYTES).
+# Copies are made under umask 077 and set to 600: the commands can hold anything.
+# If the copy fails (a full disk, most likely) the log is cleared anyway, so it stays bounded.
+rotate_log() {
+  local i=$LOG_KEEP kept=1
+  /bin/rm -f "$LOG.$LOG_KEEP" 2>/dev/null
+  while [ "$i" -gt 1 ]; do
+    [ -e "$LOG.$(( i - 1 ))" ] && /bin/mv -f "$LOG.$(( i - 1 ))" "$LOG.$i" 2>/dev/null
+    i=$(( i - 1 ))
+  done
+  if ! { ( umask 077 && /bin/cp "$LOG" "$LOG.1" ) && /bin/chmod 600 "$LOG.1"; } 2>/dev/null; then
+    /bin/rm -f "$LOG.1"
+    kept=0
+  fi
+  : 2>/dev/null >"$LOG" || { log "could not clear $LOG to rotate it"; return 1; }
+  /usr/bin/touch "$LOG_STAMP" 2>/dev/null || stamp_failed
+  if [ "$kept" = 1 ]; then
+    log "log rotated ($1); the previous one is $LOG.1, up to $LOG_KEEP kept"
+  else
+    log "log cleared ($1) without keeping a copy: could not write $LOG.1"
+  fi
+}
+
+stamp_failed() {
+  LOG_BY_AGE=0
+  log "could not update $LOG_STAMP; rotating the log by size only until the job restarts"
+}
+
+# Rotates when the log is over LOG_MAX_BYTES, or LOG_MAX_DAYS after the last rotation. With
+# no stamp yet (first run) the age clock starts now. Once the stamp can't be written, only
+# the size counts (LOG_BY_AGE), so a stale stamp can't rotate the log every 15 s.
+rotate_log_if_due() {
+  local size stamp
+  size=$(/usr/bin/stat -f %z "$LOG" 2>/dev/null) || return 0
+  if [ "$size" -ge "$LOG_MAX_BYTES" ]; then
+    rotate_log "over $LOG_MAX_BYTES bytes"
+    return
+  fi
+  [ "$LOG_BY_AGE" = 1 ] || return 0
+  if ! stamp=$(/usr/bin/stat -f %m "$LOG_STAMP" 2>/dev/null); then
+    /usr/bin/touch "$LOG_STAMP" 2>/dev/null || stamp_failed
+    return 0
+  fi
+  [ $(( $(/bin/date +%s) - stamp )) -ge $(( LOG_MAX_DAYS * 86400 )) ] || return 0
+  if [ "$size" -gt 0 ]; then
+    rotate_log "$LOG_MAX_DAYS days since the last rotation"
+  else
+    /usr/bin/touch "$LOG_STAMP" 2>/dev/null || stamp_failed  # nothing to keep; restart the clock
+  fi
+}
+
+rotate_log_if_due
 
 stop_for_good() {
   log "STOPPED: $*"
@@ -100,13 +167,15 @@ start=$(/bin/date +%s)
 node "$ENTRY" remote >"$fifo" 2>&1 </dev/null &
 child=$!
 
-# Watches for another copy while ours runs; any match that isn't our child counts. On one
-# it stops our child and exits STEPPED_ASIDE, which is how the main loop learns of it. A
-# failed pgrep (status 2+) is logged and the watch goes on: stopping a working copy on a
-# probe error would cut the remote off for nothing.
+# Watches for another copy while ours runs, and keeps the log bounded (rotate_log_if_due;
+# the only rotation while the package runs, so two never overlap). Any match that isn't
+# our child counts as another copy. On one it stops our child and exits STEPPED_ASIDE,
+# which is how the main loop learns of it. A failed pgrep (status 2+) is logged and the
+# watch goes on: stopping a working copy on a probe error would cut the remote off for nothing.
 STEPPED_ASIDE=10
 (
   while sleep "$WATCH_SECS"; do
+    rotate_log_if_due
     pids="$(/usr/bin/pgrep -f -- "$OTHER_COPY")"; prc=$?
     if [ "$prc" -gt 1 ]; then
       log "pgrep failed (status $prc) while watching for another copy; still watching"
