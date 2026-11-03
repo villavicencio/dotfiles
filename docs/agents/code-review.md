@@ -158,9 +158,10 @@ one-line poll):
 - **A failed GitHub call is an error, not `PENDING`.** The old poll printed `PENDING` when `gh`
   failed, which looks like waiting.
 
-Merge when the verdict comment has no finding that is neither fixed nor declined with David,
-and the unresolved-threads check (above) is empty. A `partial` verdict, or "The review did not
-complete", means a file wasn't reviewed: tell David. Each finding is also an inline thread;
+Merge only on a `mergeable` verdict (or one whose every finding is fixed or declined with
+David) with the unresolved-threads check (above) empty. A `partial` or `failed` verdict, "The
+review did not complete", or exit 4 (no verdict line) means the head wasn't fully reviewed:
+don't merge, tell David. Each finding is also an inline thread;
 resolve it once it's fixed or declined. MergeWren doesn't read thread replies, so a decline
 goes in the PR body too. Repo-specific detail (dotfiles' stale-finding case on #239) stays in
 that repo's docs.
