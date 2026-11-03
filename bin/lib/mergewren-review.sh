@@ -11,7 +11,7 @@
 # review comment once one with a verdict exists for the current head; 1 on a GitHub error;
 # 2 when none arrived in time (PENDING); 3 for a draft, which MergeWren never reviews.
 mergewren_review() {
-  local N=${1:-} R=${2:-} poll=${MERGEWREN_POLL_S:-60} wait=${MERGEWREN_WAIT_S:-1200} info h draft ids id body
+  local N=${1:-} R=${2:-} poll=${MERGEWREN_POLL_S:-60} wait=${MERGEWREN_WAIT_S:-1200} info h draft ids id body verdict now
   # $SECONDS (bash and zsh) rather than summing sleeps, so a 0 s poll still times out.
   local deadline=$((SECONDS + wait))
   [ -n "$N" ] || { echo "usage: mergewren_review <pr> [owner/repo]" >&2; return 1; }
@@ -33,11 +33,18 @@ mergewren_review() {
     if [ -n "$id" ]; then
       body=$(gh api "repos/$R/issues/comments/$id" --jq .body) \
         || { echo "ERROR: reading comment $id failed" >&2; return 1; }
-      # An incremental round posts "no verdict — … full confirmation of <sha> queued" and the
-      # full review of the same head follows, about a minute later on hal-pilot#4.
-      case $body in
-        *"MergeWren: no verdict"*) ;;
-        *) printf '%s\n' "$body"; return 0 ;;
+      # An incremental round posts "MergeWren: no verdict — … full confirmation of <sha> queued"
+      # and the full review of the same head follows, about a minute later on hal-pilot#4.
+      # Only the verdict line is checked: a finding may quote that text.
+      verdict=$(printf '%s\n' "$body" | grep -m 1 '^MergeWren: ')
+      case $verdict in
+        "MergeWren: no verdict"*) ;;
+        *)
+          # A push during the lookup makes this the old head's review: start over on the new one.
+          now=$(gh pr view "$N" -R "$R" --json headRefOid -q .headRefOid) \
+            || { echo "ERROR: gh pr view $N -R $R failed" >&2; return 1; }
+          [ "$now" != "$h" ] || { printf '%s\n' "$body"; return 0; }
+          continue ;;
       esac
     fi
     [ "$SECONDS" -lt "$deadline" ] || { echo "PENDING: no MergeWren verdict for ${h} after ${wait}s" >&2; return 2; }

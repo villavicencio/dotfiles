@@ -126,9 +126,11 @@ the diff itself routes through one of the two tools above.
 ## Merging on a MergeWren review
 
 MergeWren (review-stack) reviews every new head of an open, non-draft PR on its own, a few
-minutes after the push, and posts one PR comment per head from David's account, starting with
-`<!-- review-stack:head=<full sha> run=<id> -->`. There is no trigger comment and no quota.
-Wait for the current head's verdict with the shared function, never a hand-written poll:
+minutes after the push, and posts a PR comment for each review from David's account, starting
+with `<!-- review-stack:head=<full sha> run=<id> -->`. A head usually gets one; an incremental
+round gets two (below). There is no trigger comment and no quota. Wait for the verdict with the
+shared function, never a hand-written poll. It returns a review only if the head is unchanged
+after reading it, so a push while it waits moves it on to the new head:
 
 ```bash
 source <dotfiles clone>/bin/lib/mergewren-review.sh   # ~/Projects/Personal/dotfiles on the desk Macs
@@ -144,7 +146,8 @@ one-line poll):
 - **An incremental round posts a placeholder first:** `MergeWren: no verdict — incremental
   round; full confirmation of <sha> queued`, then the full review of the same head about a
   minute later. A poll that stops at the first comment for the head reads no verdict as done.
-  The function skips it and keeps waiting.
+  The function checks only the `MergeWren:` verdict line, skips the placeholder and keeps
+  waiting.
 - **Only a comment from David's account whose body starts with the marker counts.** The old
   poll matched any comment that contained `review-stack:head=<sha>`, so a reply quoting it would
   pass as the review.
