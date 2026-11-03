@@ -127,7 +127,8 @@ can't tell. If the swap succeeds but the old package can't be deleted, the insta
 when loading then succeeds too, it exits 1 with the path to delete.
 
 The installer puts the pinned package (`DC_VERSION` in the installer) in
-`~/Library/Application Support/desktop-commander-remote/pkg`, copies
+`~/Library/Application Support/desktop-commander-remote/pkg` (a symlink to a `pkg-XXXXXX`
+directory, switched in one rename, so an old package stays usable until the new one is in), copies
 `helpers/desktop_commander_remote.sh` beside it as the job, and loads the plist. The job
 finds Node through `NVM_DIR`/`NODE_VERSION` (zshenv), so a Node bump needs no reinstall.
 Log: `~/Library/Logs/desktop-commander-remote.log`. The package keeps its own day logs and
@@ -160,8 +161,10 @@ the other exits, then starts again by itself. Both copies can still run together
 **When it stops for good.** The job exits 0, and so stays down, when:
 - the saved sign-in no longer works (the package starts a browser sign-in; under a restart
   loop that would open a tab each time),
-- `~/.desktop-commander-device/device.json` is missing, or
-- it crashed within 60 s five times in a row.
+- `~/.desktop-commander-device/device.json` is missing,
+- it had five quick failures in a row: the package exiting within 60 s, or a start-up check
+  failing (no Node at `NODE_VERSION`, a `pgrep` error), or
+- it can't save that failure count.
 The reason is in the log. The `stopped` file in its Application Support folder holds it too
 and keeps the job down across logins; if that file can't be written, the log says so and the
 job tries again at the next login. To fix a

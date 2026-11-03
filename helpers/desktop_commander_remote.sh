@@ -42,11 +42,14 @@ stop_for_good() {
   exit 0
 }
 
-# Counts a run that died within FAST_SECS; MAX_FAST in a row stops the job.
+# Counts a quick failure: a run that died within FAST_SECS, or a start-up check that
+# failed (no Node, pgrep error). MAX_FAST in a row stops the job. If the count can't be
+# saved it stops at once: an unsaved count would never reach MAX_FAST, and the job would
+# restart every ThrottleInterval for good.
 fast_failure() {
   local n
   n=$(( $(cat "$FAILS_FILE" 2>/dev/null || echo 0) + 1 ))
-  echo "$n" >"$FAILS_FILE"
+  echo "$n" 2>/dev/null >"$FAILS_FILE" || stop_for_good "cannot save the failure count in $FAILS_FILE; last: $*"
   [ "$n" -ge "$MAX_FAST" ] && stop_for_good "$n quick failures in a row; last: $*"
   log "quick failure $n/$MAX_FAST: $*"
   exit 1
@@ -147,6 +150,7 @@ rm -f "$fifo"
 if [ $(( $(/bin/date +%s) - start )) -lt "$FAST_SECS" ]; then
   fast_failure "exited with status $rc after under ${FAST_SECS} s"
 fi
-echo 0 >"$FAILS_FILE"
+echo 0 2>/dev/null >"$FAILS_FILE" ||
+  log "could not reset $FAILS_FILE; earlier quick failures still count toward the stop"
 log "exited with status $rc; launchd restarts it"
 exit 1

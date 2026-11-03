@@ -34,6 +34,8 @@ PKG_SPEC="@wonderwhy-er/desktop-commander@$DC_VERSION"
 JOB_SRC="$REPO/helpers/desktop_commander_remote.sh"
 JOB_DIR="$HOME/Library/Application Support/desktop-commander-remote"
 JOB="$JOB_DIR/desktop-commander-remote.sh"
+# A symlink to the live pkg-XXXXXX directory. Switching it is one rename, so there is
+# always exactly one usable package, old or new, whatever fails.
 PKG="$JOB_DIR/pkg"
 ENTRY="$PKG/node_modules/@wonderwhy-er/desktop-commander/dist/index.js"
 PLIST="$HOME/Library/LaunchAgents/$LABEL.plist"
@@ -122,7 +124,10 @@ fi
 new="" job_tmp="" plist_tmp=""
 trap 'rm -rf "$new" "$job_tmp" "$plist_tmp"' EXIT
 
-new="$(mktemp -d "$JOB_DIR/.pkg.XXXXXX")" || exit 1
+if [ -e "$PKG" ] && [ ! -L "$PKG" ]; then
+  echo "Error: $PKG is a directory, not the expected symlink; remove it, then re-run" >&2; exit 1
+fi
+new="$(mktemp -d "$JOB_DIR/pkg-XXXXXX")" || exit 1
 echo "Installing $PKG_SPEC ..."
 if ! PATH="$node_bin:$PATH" DESKTOP_COMMANDER_DISABLE_TELEMETRY=1 \
     "$node_bin/npm" install --prefix "$new" --save-exact --no-fund --no-audit --loglevel=error "$PKG_SPEC" ||
@@ -160,25 +165,23 @@ fi
 # Everything is staged: stop the agent, then move it all into place.
 stop_agent || exit 1
 
-old="$PKG.old"
-if ! rm -rf "$old"; then echo "Error: cannot clear $old" >&2; exit 1; fi
-if [ -e "$PKG" ] && ! mv "$PKG" "$old"; then
-  echo "Error: cannot move the old package aside" >&2; exit 1
-fi
-if ! mv "$new" "$PKG"; then
-  if [ ! -e "$old" ]; then
-    echo "Error: cannot move the new package into $PKG (there was no old one)" >&2
-  elif mv "$old" "$PKG"; then
-    echo "Error: cannot move the new package into $PKG (old one restored)" >&2
-  else
-    echo "Error: cannot move the new package into $PKG, nor the old one back from $old." >&2
-    echo "Move $old to $PKG by hand, or re-run this installer." >&2
-  fi
-  echo "The agent is stopped." >&2
+# Point pkg at the new directory: a new symlink renamed over the old one. /bin/mv -h
+# replaces the link itself instead of moving into the directory it points to (GNU mv,
+# first on PATH in agent shells, spells that -T).
+link_tmp="$JOB_DIR/.pkg-link.$$"
+if ! { ln -sfn "$(basename "$new")" "$link_tmp" && /bin/mv -fh "$link_tmp" "$PKG"; }; then
+  rm -f "$link_tmp"
+  echo "Error: cannot switch $PKG to the new package; the old one, if any, is still in use." >&2
+  echo "The agent is stopped; re-run this installer." >&2
   exit 1
 fi
+live="$(basename "$new")"
+new=""  # live now: keep the exit trap off it
 leftover=""
-rm -rf "$old" || leftover="$old"
+for d in "$JOB_DIR"/pkg-*; do
+  [ -d "$d" ] && [ "$(basename "$d")" != "$live" ] || continue
+  rm -rf "$d" || leftover="$leftover $d"
+done
 
 if ! { mv -f "$job_tmp" "$JOB" && mv -f "$plist_tmp" "$PLIST"; }; then
   echo "Error: cannot move the job or the plist into place" >&2; exit 1
@@ -198,6 +201,6 @@ if ! launchctl bootstrap "$domain" "$PLIST"; then
 fi
 echo "$LABEL loaded ($PKG_SPEC). Log: $LOG"
 if [ -n "$leftover" ]; then
-  echo "Warning: could not remove the previous package at $leftover; delete it by hand." >&2
+  echo "Warning: could not remove the previous package at ${leftover# }; delete it by hand." >&2
   exit 1
 fi
