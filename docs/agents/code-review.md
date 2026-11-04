@@ -2,9 +2,9 @@
 
 <!-- Moved out of claude/CLAUDE.md on 2026-09-30 so it loads on demand instead of in every session. The global CLAUDE.md and codex/AGENTS.md keep the one-line rules and point here. -->
 
-Repos with their own review rules override this: dotfiles (review-stack since 2026-09-24), bryancola.com, hal-pilot and skills (MergeWren, review-stack; skills since 2026-11-03; how to wait for it is under "Merging on a MergeWren review" below), and any repo whose `CLAUDE.md`/`AGENTS.md` names its own reviewer as the gate. In those repos, don't request or wait for CodeRabbit (`@coderabbitai review` spends the per-developer quota for nothing); a CodeRabbit check that appears there on its own is informational, not a gate.
+**MergeWren (review-stack) is the default reviewer since 2026-11-03.** It reviews bryancola.com, browse-gateway, dissolution, dotfiles (since 2026-09-24), hal-bench, hal-pilot, mergewren and skills (since 2026-11-03); the adoption records are in mergewren `docs/adoption/`. atlas-tools is adopted review-only, with no remote, so it never has PRs. How to wait for a verdict is under "Merging on a MergeWren review" below. A new repo is onboarded before its first PR, with a ticket in the MergeWren Linear project modeled on VIL-537 (adoption record, OCR rule, posting allowlist, pin test). A repo whose `CLAUDE.md`/`AGENTS.md` names its own reviewer as the gate follows that. The CodeRabbit sections below apply only to a repo not yet onboarded. In MergeWren repos, don't request or wait for CodeRabbit (`@coderabbitai review` spends the per-developer quota for nothing); a CodeRabbit check that appears there on its own is informational, not a gate.
 
-**PR review runs through CodeRabbit; `dv:gauntlet` is the escalation, not the default**
+**On a repo not yet onboarded, PR review runs through CodeRabbit; `dv:gauntlet` is the escalation, not the default**
 (reconciled across dotfiles / borealis / skills, 2026-08-24). Before this, the global rule named
 gauntlet as the blanket default while two repos had already overridden it per-project — this
 file is the single source of truth, and per-repo `AGENTS.md` files should point here rather
