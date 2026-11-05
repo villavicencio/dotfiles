@@ -44,6 +44,11 @@ override with the corporate email in the local file:
   `gnu-sed` formula, and only as `gsed`; its `gnubin` isn't on PATH. A GNU-style
   `sed -i 's/a/b/' file` fails under BSD sed, which reads the script as the backup suffix:
   `undefined label …`. Use `sed -i '' …` or `gsed -i …`. Seen 2026-10-22.
+- **GNU `rm` can time out on cloud placeholder folders** (File Provider "dataless" folders
+  under `~/Library/CloudStorage/`) when nothing answers for them, for example in a deleted
+  account's leftover home folder: `rm: cannot remove '…/OneDrive-Personal/Documents': Operation
+  timed out`. Apple's `/bin/rm -rf` removed the same folders straight away. Seen 2026-11-05,
+  once; the cause isn't confirmed.
 
 ## Post-installer audit
 After running any third-party installer that modifies shell config (gcloud, rustup, etc.),
