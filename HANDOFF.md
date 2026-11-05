@@ -1,51 +1,60 @@
 ---
-created_at: "2026-11-03T14:23:26-08:00"
+created_at: "2026-11-05T13:04:48-07:00"
 branch: "master"
-head: "b90df04"
+head: "fd512a1"
 worktree: "/Users/dvillavicencio/Projects/Personal/dotfiles"
-resume_focus: "check the 2026-11-03 01:30 PST hal pilot run (VIL-546, VIL-544, VIL-550 briefs), still not looked at; reopen partial tickets after merges"
+resume_focus: "hand mergewren pilot PRs #131-#134 to the MergeWren session with run evidence; reopen parent tickets (VIL-546/544/550/575) after merges"
 ---
-# HANDOFF — 2026-11-03, afternoon (PST)
+# HANDOFF — 2026-11-05, midday (PT)
 
-This session picked up the morning handoff (`206975d`). It meant to check last night's hal pilot run, but David switched to Linear housekeeping instead. VIL-551 was re-scoped, and a `someday` label now parks ideas, with a weekly Atlas reminder. **The pilot run is still unchecked.**
+This session picked up the 11-03 handoff and checked the hal pilot runs. It then turned into a cleanup of this Mac, the personal one. A former employer's MDM and security-agent leftovers, carried over by Migration Assistant years ago, had been blocking macOS updates. The cleanup is done. The pilot PRs have not been handed to MergeWren yet.
 
 ## What We Built
-- **VIL-551 re-scoped:** it now evaluates pdf_oxide (github.com/yfedoseev/pdf_oxide), not PaperPilot, for agent PDF reading and local RAG ingestion. The FedEx invoice angle is dropped. The ticket body holds the facts (fetched 12:40 PT) and the test plan: compare parsers, then a retrieval check (known-answer questions, hit rate in the top 5). It now has the `someday` and `Spike` labels and no priority, and stays in Backlog. The PaperPilot link stays on it for history.
-- **Linear label `someday`** (VIL team, grey): a parked idea that agents don't suggest. The label's description in Linear carries the rule.
-- **Rule in `claude/CLAUDE.md` and `codex/AGENTS.md`** (Linear section), commits `2da3472` and `b90df04`:
-  - Never suggest `someday` issues unless David asks.
-  - "Maybe someday" means: add the label and set no priority.
+- **Pilot run state (hal, as `david`, `~/runs/log/runner.log`):**
+  - 11-03: `planner-error`.
+  - 11-04: all three runs failed, but VIL-546's branch was pushed later as mergewren#131.
+  - 11-05: all three runs passed and opened mergewren#132 (VIL-544), #133 (VIL-575) and #134 (VIL-550).
+  - `~/runs/queue` was empty at about 11:30 PT.
+- **Mac cleanup.** Every change is recorded in Claude memory `mac_hosts_apple_blocks.md`. Removed:
+  - the `/etc/hosts` blocks on Apple's enrollment hosts and `gdmf`; Apple's answer afterwards was "Client is not DEP enabled"
+  - JumpCloud's sudo rules, its admin service account and its `/opt/jc*` files
+  - Jamf, Tanium and CrowdStrike leftovers
+  - the old company's certificate authority
+  - the Remote Management "all users, all privileges" preset
+  - ghost names in the admin group
+  - the `test` account and the orphan `/Users/z`
+  - the crontab, whose two jobs both pulled from the deleted OpenClaw VPS (backup `~/crontab.bak-20261105`)
+  - the Intel Homebrew in `/usr/local` (it had no packages, only the brew repo) and the dead `/usr/local/bin/kymsu` link
 
-  `.claude/commands/ticket.md` points at the label. `david`'s clone on hal is pulled to `b90df04`.
-- **Atlas on hal** (as `hal`, through `ssh hal-orca`):
-  - Daily-plan cron job `bbd383a26726` (MergeWren daily plan): its READY definition now excludes `someday`, and the prompt has a "never pick or suggest" line.
-  - New script-only job `572d2f167b79`, "Someday reminder (Linear, weekly)", runs Fridays at 16:00 PT. It runs `~/.hermes/scripts/someday_digest.py`, which uses `lin.py` from the same folder, and delivers to Slack. It's silent when the list is empty.
-  - Run by hand, the script listed VIL-551. Its first real Slack post is Fri 2026-11-06. Not yet seen.
-  - Backup: `~/.hermes/cron/jobs.json.bak-20261103-someday`.
+  The application firewall is now on.
+- **`docs/reference/shell-and-path.md`** (`fd512a1`): GNU `rm` timed out on dead OneDrive placeholder folders, and `/bin/rm` removed them. Seen once; the cause isn't confirmed.
 
 ## Decisions Made
-- **The label is a label, not a workflow status.** It adds nothing to the VIL team's workflow, which other projects share, and Backlog stays as it is. `/ticket` already used Backlog to mean "someday or needs a decision". The label separates the parked ideas.
-- **The reminder is script-only, with no model run**, so it costs nothing. David can move the Friday 16:00 PT slot.
-- **Atlas's interactive memory wasn't edited.** Hermes manages `~/.hermes/memories/*.md`, and they use lock files. David may tell Atlas the rule himself.
-- **FedEx invoice use case dropped from VIL-551** (David: it doesn't come up often enough to matter).
+- **No backups for now.** There's no Time Machine and no backup app, and David chose to leave it.
+- **FileVault is fine.** There's a personal recovery key and no institutional key. `FileVaultMaster.keychain` is an unused leftover. Earlier in the session it was called a risk; that was wrong.
+- **Orrery and OpenClaw sync scripts and repos are kept**, only unscheduled. Orrery would need pointing at hal to be useful.
 
 ## What Didn't Work
-- `jobs.json` is `{"jobs": [...], "updated_at": …}`, not a bare list, so iterate `d["jobs"]`.
+- Removing `/usr/local/Homebrew` and the `_brew` completion links without sudo. `/usr/local` and `/usr/local/share/zsh/site-functions` are owned by root, so an empty `Homebrew` folder and two dangling links are left.
+- GNU `rm -rf /Users/z` hit "Operation timed out" on File Provider placeholder folders; `sudo /bin/rm -rf` removed them.
 
 ## What's Next
-1. **Check the 11-03 01:30 PST pilot run (carried over, still not done):** `ssh hal` (as `david`), `tail ~/runs/log/runner.log`, then the `run.json` files for vil-546, vil-544 and vil-550. Hand passing PRs to MergeWren with the evidence.
-2. After any pilot merge, reopen its parent ticket (VIL-546, VIL-544 or VIL-550). Each brief covered only part of its ticket (VIL-543).
-3. **Tonight before 22:00 PT, David picks the next briefs.** hal-pilot owns the reminder, if David pasted its prompt.
-4. **David, in the MergeWren session:** mergewren#105 (VIL-448) and mergewren#103 (VIL-345), carried over.
-5. **Friday after 16:00 PT:** confirm the someday reminder posted to Slack. If it didn't, run `hermes cron runs 572d2f167b79` as `hal`.
-6. Backlog: VIL-552, VIL-553 and VIL-554 (hal-pilot); VIL-581 (remote QA, needs David at the Mac).
+1. **David, now: every new shell prints a `compinit` error about `_brew_services`** until the dangling links are removed. Run this on the Mac, as `dvillavicencio`, with your login password:
+   `sudo rm /usr/local/share/zsh/site-functions/_brew /usr/local/share/zsh/site-functions/_brew_services && sudo rmdir /usr/local/Homebrew && zsh -i -c exit`
+2. Hand mergewren#131–#134 to the MergeWren session (SendMessage) with the run evidence above. MergeWren fixes and merges them, and gets David's approval on each PR.
+3. After each merge, reopen its parent ticket (VIL-546, VIL-544, VIL-550 or VIL-575); each brief covered only part of it (VIL-543).
+4. **Tonight before 22:00 PT, David picks the next briefs.** The queue is empty, so VIL-570 alerts.
+5. Optional work on this Mac:
+   - install macOS 27.2 (27.0 now; restart needed)
+   - `sudo rm /Library/Keychains/FileVaultMaster.keychain`
+   - free disk space: 91% full, with `com.apple.wallpaper` 22 GB and `~/Downloads` 22 GB
+6. Carried over: mergewren#105 (VIL-448) and #103 (VIL-345) in the MergeWren session. Friday after 16:00 PT, confirm the someday reminder (job `572d2f167b79`) posted.
 
 ## Gotchas & Watch-outs
-- **Atlas's daily plan covers only the MergeWren project.** Its `someday` skip matters for MergeWren ideas only. Dotfiles tickets never reach it anyway.
-- **Atlas job prompts use `/home/node/...` paths** (for example the plan's `workdir` and its `lin.py` path), but the real files are in `/Users/hal/.hermes/scripts/`. The jobs run, so leave those paths alone unless one breaks.
-- **Edit Hermes cron jobs with `hermes cron edit|create`** (as `hal`, `PATH="$HOME/.local/bin:$PATH"`), not by editing `jobs.json` by hand: the ticker holds a lock on it.
+- **The Mac's clock is set to MST** (`date` shows `-07:00`), not Pacific. Convert to PT before stating times.
+- `/usr/local/bin` still holds app links (Docker, OrbStack, Orca, Cursor, Tailscale, 1password-mcp…), and `/usr/local/share/dotnet` and `/usr/local/mysql` are in use. Only Homebrew's own files were removed. Don't delete `/usr/local` wholesale.
+- Old `.zcompdump-*` files have built up in `~/.config/zsh/`. They're harmless.
 - **Carried over:**
-  - Desktop Commander installer race: re-run the installer from a Mac terminal if it says "still loaded after launchctl bootout". See `docs/reference/tooling.md`.
-  - Never run `npx … remote` by hand while the agent is loaded.
-  - Nothing else may run on hal's local models from 01:30 to 05:00 PST.
-  - MergeWren gates pilot merges on David's own per-PR approval, so don't relay approvals.
+  - Nothing else may use hal's local models from 01:30 to 05:00 PST.
+  - Don't pass David's approvals along to MergeWren.
+  - Never run `npx … remote` by hand while the Desktop Commander agent is loaded.
