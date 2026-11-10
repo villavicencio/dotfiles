@@ -9,6 +9,9 @@ it lives in `david`'s home on hal.
 
 ## Request path
 
+This repo is public, so the public hostname and mount path are not written here. Read them
+on hal with `tailscale funnel status`.
+
 ```
 claude.ai → https://<hal Funnel hostname>/<mount path>/mcp     (Tailscale Funnel, port 443)
           → Caddy 127.0.0.1:9141  (/mcp only; rewrites Host)
@@ -22,6 +25,17 @@ claude.ai → https://<hal Funnel hostname>/<mount path>/mcp     (Tailscale Funn
   `~/.config/garmin-mcp/tailscale-serve.before-20261110.json`.
 - Caddy is there because `tailscale serve` forwards the public `Host` header and the MCP SDK
   answers `421 Misdirected Request` to any non-localhost `Host` when bound to loopback.
+- **Protocol-version shim.** claude.ai opens with MCP `2026-07-28` (`server/discover`, no
+  `initialize`). The pinned server uses SDK `mcp` 1.30, which stops at `2025-11-25` and answers
+  `400` with a legacy error body; claude.ai then reports "Couldn't connect to the server". An
+  empty `400` did not make it fall back either. What works: Caddy answers any request whose
+  `Mcp-Protocol-Version` is not a legacy version with the 2026-07-28
+  `UnsupportedProtocolVersionError` (`-32022`, `data.supported: ["2025-11-25"]`, echoing the
+  request `id`); claude.ai then retries with `initialize` on `2025-11-25`. Remove the
+  `@modern` block once garmin_mcp ships on an SDK that speaks `2026-07-28`.
+- **claude.ai connector settings:** Authentication "No sign-in", one request header
+  `authorization: Bearer <token>`. The "Couldn't check the server" warning while adding it is
+  expected (the server answers `401` until it gets the token); choose Continue anyway.
 - `/healthz` and `/readyz` are not exposed publicly (Caddy returns 404); use them on
   `127.0.0.1:9140`.
 
@@ -48,6 +62,10 @@ profile and units. After changing it, run `tools/list` and check nothing writes.
 
 - Restart (as `admin`): `sudo launchctl kickstart -k system/dev.hal.garmin-mcp` (and
   `…/dev.hal.garmin-mcp-proxy` for Caddy).
+- Caddy has `admin off`, so a Caddyfile change needs a restart. As `david`:
+  `pkill -u david -f 'caddy run'`; launchd starts it again within 30 seconds.
+- What claude.ai asked and got: `~/Library/Logs/garmin-mcp/caddy-access.log` (JSON lines; filter
+  on `User-Agent` `Claude-User`).
 - Health: `curl -s 127.0.0.1:9140/readyz` → `{"status":"ready"}`; `failed` means re-auth.
 - Upgrade: `uv tool install --force --python 3.12 git+https://github.com/Taxuspt/garmin_mcp@<sha>`,
   restart, re-check the tool list.
