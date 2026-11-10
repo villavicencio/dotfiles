@@ -135,6 +135,12 @@ default profile.
   work email here to override the personal default.
 - **`~/.ssh/config`** — per-machine host aliases live here; not tracked.
 
+## Reminders
+
+- **About May 2027:** re-authenticate the Garmin MCP connector on hal; its tokens were
+  issued 2026-11-10 and last roughly six months. Steps:
+  [`docs/reference/hal-garmin-mcp.md`](docs/reference/hal-garmin-mcp.md).
+
 ## Conventions
 
 - Never hardcode `/Users/<name>` (use `$HOME`) or a Homebrew prefix (use
