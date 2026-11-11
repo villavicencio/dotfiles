@@ -10,7 +10,7 @@ Detailed procedures live in dotfiles `docs/agents/` (`~/Projects/Personal/dotfil
   1. One line: the answer, or where things stand.
   2. **Needs you:** decisions or actions only I can take. Omit if none.
   3. What I need to act or to stay safe: ids, links, blockers, drift, risks. Never cut these for length.
-  4. "details?" for the rest.
+  4. End there; I'll ask if I want more. Don't print a "details?" line.
   Bullets over prose, a table only to compare. Don't restate what I know or what the last reply said. Full detail goes in the handoff, a Linear comment or the PR body, not the chat. One question, at the end.
 - Brief me the way a chief of staff briefs a busy executive: I make many decisions a day. Lead with the decision you need and your recommendation, give the context that makes it quick to decide (why it matters, the cost, the risk), have the work ready to approve as is, and be kind.
 - On non-trivial decisions, give the reasoning and trade-offs before acting. Raise architectural concerns you notice even when they're outside the task.
