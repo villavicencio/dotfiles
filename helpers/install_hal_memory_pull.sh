@@ -10,7 +10,9 @@
 #
 # What it does, each step idempotent:
 #   1. Bootstraps each vault the job writes to: ~/Obsidian/<vault>/, with the standard
-#      config from obsidian/vault-template/ when it has no .obsidian yet.
+#      config when it has no .obsidian yet. The standard config lives in the private
+#      obsidian-scriptorium repo (standard/.obsidian), not here; SCRIPTORIUM_DIR
+#      overrides where that clone is.
 #   2. Copies the job to ~/Library/Application Support/hal-memory-pull/.
 #   3. Writes ~/Library/LaunchAgents/com.dvillavicencio.hal-memory-pull.plist (hourly and
 #      at login, log in ~/Library/Logs/hal-memory-pull.log) and (re)loads it.
@@ -26,7 +28,7 @@ JOB_DIR="$HOME/Library/Application Support/hal-memory-pull"
 JOB="$JOB_DIR/hal-memory-pull.sh"
 PLIST="$HOME/Library/LaunchAgents/$LABEL.plist"
 LOG="$HOME/Library/Logs/hal-memory-pull.log"
-TEMPLATE="$REPO/obsidian/vault-template/.obsidian"
+TEMPLATE="${SCRIPTORIUM_DIR:-$HOME/Projects/obsidian-scriptorium}/standard/.obsidian"
 
 if [ "${DOTFILES_DRY_RUN:-0}" = "1" ]; then
   echo "[dry-run] would install $LABEL (job copy at $JOB, plist at $PLIST)"
@@ -51,6 +53,10 @@ while read -r vault; do
   dir="$HOME/Obsidian/$vault"
   mkdir -p "$dir" || { echo "Error: cannot create $dir" >&2; exit 1; }
   if [ ! -e "$dir/.obsidian" ]; then
+    # Checked only when a vault needs stamping, so a machine whose vaults all exist
+    # doesn't need the obsidian-scriptorium clone.
+    [ -f "$TEMPLATE/appearance.json" ] ||
+      { echo "Error: no standard vault config at $TEMPLATE; clone villavicencio/obsidian-scriptorium to ~/Projects/obsidian-scriptorium or set SCRIPTORIUM_DIR" >&2; exit 1; }
     # Copy beside it, then rename, so a failed copy never leaves a half-filled .obsidian
     # that the next run would take as already stamped.
     tmp="$(mktemp -d "$dir/.obsidian.tmp.XXXXXX")" || exit 1
