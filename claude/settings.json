@@ -23,7 +23,7 @@
     ],
     "defaultMode": "auto"
   },
-  "autoCompactWindow": 400000,
+  "autoCompactWindow": 600000,
   "statusLine": {
     "type": "command",
     "command": "sh \"$HOME/.claude/statusline-command.sh\""
