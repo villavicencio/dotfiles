@@ -15,23 +15,20 @@ project's vault only when asked.
   1. `mkdir -p ~/Obsidian/<name>/memory`
   2. If `~/.claude/projects/<slug>/memory` exists as a real dir, move its contents into
      the vault memory dir; either way replace it with a symlink to it.
-  3. Stamp the standard config: `cp -R ~/Projects/Personal/dotfiles/obsidian/vault-template/.obsidian ~/Obsidian/<name>/.obsidian`
+  3. Stamp the standard config: `cp -R ~/Projects/obsidian-scriptorium/standard/.obsidian ~/Obsidian/<name>/.obsidian`
   4. Append the "## Vault" declaration to the project's CLAUDE.md/AGENTS.md (copy the
      shape from `~/Projects/agents/CLAUDE.md`).
   (David registers it in Obsidian's UI via "Open folder as vault" whenever he wants it.)
-- **Standard vault config** — canonical template, git-versioned:
-  `~/Projects/Personal/dotfiles/obsidian/vault-template/.obsidian/` (rev 1 harvested from
-  hermes 2026-07-15; excludes `workspace*.json` + `cache`).
-  - **"Apply the standard to X"** (blank/new vaults — full stamp, overwrites existing
-    config): `rm -rf ~/Obsidian/X/.obsidian && cp -R <template> ~/Obsidian/X/.obsidian`.
-    On first open, Obsidian asks once to enable community plugins — expected.
-  - **Theme-only apply** (vaults an agent has customized — preserves plugins and their
-    data): copy only `appearance.json`, `themes/`, and `snippets/`. (All 11 vaults are
-    on the full standard as of 2026-07-16.)
-  - **"Seed a new standard [from vault Y]"**: David tunes Y (usually hermes) in the
-    Obsidian UI, then: copy Y's `.obsidian` over the template minus `workspace*.json`/
-    `cache`, commit dotfiles with a "vault-template rev N" message, and propagate to
-    other vaults only on request (full-stamp for blanks, theme-only for customized).
+- **Standard vault config and theming** belong to the private repo
+  `villavicencio/obsidian-scriptorium` (`~/Projects/obsidian-scriptorium`, agent Scribe,
+  Linear project Scriptorium) since 2026-11-11. The standard is its `standard/.obsidian/`;
+  rev 1 is the template that used to be `obsidian/vault-template/` here (harvested from
+  hermes 2026-07-15), copied byte for byte. Changing a theme, snippet, plugin or plugin
+  setting, applying the standard to a vault, and seeding a new standard are Scribe's work:
+  the procedures and rules are in that repo's `CLAUDE.md`. This file keeps what dotfiles
+  still owns: where vaults live, the memory symlink, the bootstrap, and the hal mirror.
+  - 17 vaults on 2026-11-11. 15 are on the standard, `hermes` is the standard plus
+    `gridexplorer`, and `syd` has its own config and is outside Scribe's scope.
 - **Synced vaults (Syncthing ↔ VPS): only `hermes`** (David+Atlas — personal/feeds/brain/
   TaskNotes) **and `axiom`** (work), both served by the single syncthing-hermes container.
   CC project vaults are Mac-local by design — do not add shares for them unless asked.

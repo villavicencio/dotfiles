@@ -5,7 +5,7 @@
 useDefault = true
 
 [allowlist]
-description = "Vendored third-party Obsidian plugin code in the vault-config template — minified parser/tokenizer arrays (e.g. obsidian-tasks-plugin Tokens=/VALID_TOKENS=) trip generic-api-key. Only plugin CODE files are allowlisted; plugin data.json settings files are still scanned."
+description = "Vendored third-party Obsidian plugin code in the vault-config template — minified parser/tokenizer arrays (e.g. obsidian-tasks-plugin Tokens=/VALID_TOKENS=) trip generic-api-key. Only plugin CODE files are allowlisted; plugin data.json settings files are still scanned. The template moved to the private obsidian-scriptorium repo on 2026-11-11; this entry stays so a scan of this repo's history still passes."
 paths = [
   '''obsidian/vault-template/\.obsidian/plugins/[^/]+/(main\.js|styles\.css)''',
 ]
