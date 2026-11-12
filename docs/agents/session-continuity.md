@@ -39,6 +39,9 @@ The statusline `ctx` meter turns full yellow with a solid fill at 200k tokens; t
 hand off and start fresh. When Claude Code reports the window size, the bar can also show a dim
 `╎` at 200k ahead of the fill and a white `┃` at `autoCompactWindow`; when each one draws is in
 `claude/statusline-command.sh`. If Claude Code reports neither the token count nor the window
-size, the meter shows a plain percentage with neither cue. Auto-compaction at 400k
-(`autoCompactWindow`; an existing install gets it from `helpers/migrate_claude_settings.py`) is
-only a backstop.
+size, the meter shows a plain percentage with neither cue. Auto-compaction is only a backstop:
+`autoCompactWindow` puts it at 600k, 60% of a 1M window (since 2026-11-11; it was 400k). Claude
+Code caps the value at the model's own window, so a model with a smaller window compacts at its
+usual point. `helpers/migrate_claude_settings.py` adds the key to an install that lacks it but
+leaves an existing value alone, so a machine set to 400k keeps it until the value is changed in
+its `~/.claude/settings.json`.
