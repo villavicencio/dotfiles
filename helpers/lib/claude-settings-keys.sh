@@ -16,7 +16,10 @@
 #   mcpServers   per-machine server definitions
 #   allowedTools LEGACY key — silently overrides permissions.allow. Never track
 #                it; capture drops it so a stale live file cannot reintroduce it.
-STRIP_KEYS="effortLevel modelSettings autoMode mcpServers allowedTools"
+#   model        the default-model pin, set per machine (tracked pin removed in PR 117)
+#   theme        may name a custom theme (e.g. "custom:orca") whose file under
+#                ~/.claude/themes/ exists only on that machine
+STRIP_KEYS="effortLevel modelSettings autoMode mcpServers allowedTools model theme"
 
 # Hooks an agent-integration installer writes into the live file and owns (VIL-431). A hook
 # whose command contains one of these is left out of capture

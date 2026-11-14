@@ -389,7 +389,8 @@ Verify with `ci/server-profile-checks.sh static`. The full write-up (layers, ove
   precedence trap PR #127 had removed: when both keys exist the legacy one WINS and
   `permissions.allow` is inert. `helpers/install_claude_settings.sh` seeds when absent and
   `--capture` records live changes back (dropping the machine-local keys `effortLevel`,
-  `modelSettings`, `autoMode`, `mcpServers`, `allowedTools`, and normalizing `$HOME` paths to `~/`).
+  `modelSettings`, `autoMode`, `mcpServers`, `model`, `theme`, `allowedTools`, and normalizing
+  `$HOME` paths to `~/`).
   `dot drift` compares capture-normalized forms and warns if `allowedTools` reappears.
   Agents cannot write this file — the auto-mode classifier blocks it by design; run
   `helpers/migrate_claude_settings.py` yourself on a machine that predates the scheme (on

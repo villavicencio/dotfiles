@@ -51,7 +51,8 @@ import time
 
 SETTINGS = os.path.expanduser("~/.claude/settings.json")
 # Never tracked. Must equal STRIP_KEYS in helpers/lib/claude-settings-keys.sh (`dot check`).
-MACHINE_LOCAL = {"effortLevel", "modelSettings", "autoMode", "mcpServers", "allowedTools"}
+MACHINE_LOCAL = {"effortLevel", "modelSettings", "autoMode", "mcpServers", "allowedTools",
+                 "model", "theme"}
 # Commands of retired hooks, matched as substrings. A machine can miss one migration and pull
 # several retirements at once, so entries stay. herdr: the agent host before Orca.
 # tmux-attention.sh: the tmux tab indicator, retired with tmux as the agent host.
