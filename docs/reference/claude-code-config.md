@@ -135,7 +135,7 @@ still has the old entry, it puts that entry back, and an edited hook would then 
 nothing of it to restore. It also removes retired hooks (`RETIRED_HOOKS`); `--capture` refuses while any remain, so it never writes one back.
 
 `--capture` regenerates rather than `cp`s: it drops the machine-local keys
-(`effortLevel`, `modelSettings`, `autoMode`, `mcpServers`, and `allowedTools` — which must never be tracked),
+(`effortLevel`, `modelSettings`, `autoMode`, `mcpServers`, `model`, `theme`, and `allowedTools` — which must never be tracked),
 re-prepends the tracked `"//"` header, and rewrites absolute `$HOME` paths back to `~/`
 (installers write literal `/Users/<you>/...`; Claude Code expands `~` in hook commands).
 It refuses when the live file lacks a key the tracked file has (since 2026-10-22). That gap
