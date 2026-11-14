@@ -32,17 +32,35 @@ project's vault only when asked.
 - **Synced vaults (Syncthing ↔ VPS): only `hermes`** (David+Atlas — personal/feeds/brain/
   TaskNotes) **and `axiom`** (work), both served by the single syncthing-hermes container.
   CC project vaults are Mac-local by design — do not add shares for them unless asked.
-- **Projects that live on hal** (as `david`: `skills`, `bryancola.com`, `hal-bench`) write memory on hal,
+- **Projects that live on hal** (as `david`: `skills`, `bryancola.com`) write memory on hal,
   at `/Users/david/.claude/projects/<slug>/memory/`, which is a real folder there (hal has no
   Obsidian). The LaunchAgent `com.dvillavicencio.hal-memory-pull` copies each one hourly into
-  `~/Obsidian/<vault>/memory/` on the personal Mac (`skills` → `skills`, `bryancola.com` →
-  `bryancola`, `hal-bench` → `hal-bench`). It's one-way: the vault is a read-only mirror, and an edit made there is
-  replaced on the next run, even if nothing changed on hal. The replaced folder moves to
-  `~/Obsidian/<vault>/.sync-backup/<UTC stamp>.<suffix>/memory/` rather than being
-  deleted. A project moved to hal gets a row in the table in `helpers/hal_memory_pull.sh`, then
-  `bash helpers/install_hal_memory_pull.sh` (personal Mac only, from the main checkout). The
-  installer creates the vault with the standard config and reloads the job. Log:
-  `~/Library/Logs/hal-memory-pull.log`. Not rsync: the Mac's `/usr/bin/rsync` is openrsync,
-  which exited 0 without updating a changed file when tested (2026-10-21).
+  a section of the one vault: `~/Obsidian/scriptorium/<section>/memory/` on the personal Mac
+  (`skills` → `skills`, `bryancola.com` → `bryancola`; VIL-721). It's one-way: the section's
+  `memory/` is a read-only mirror, and an edit made there is replaced on the next run, even if
+  nothing changed on hal. The replaced folder moves to
+  `~/.local/state/hal-memory-pull/backups/<section>/<UTC stamp>.<suffix>/memory/`, outside the
+  vault, rather than being deleted.
+  - The job writes only `<section>/memory`. It never creates the vault, a section or an
+    `.obsidian`: obsidian-scriptorium's `bin/migrate` makes each section, and refuses one it
+    didn't place. A section that doesn't exist yet is skipped and logged every run.
+  - **Cutover state.** Until VIL-723 runs the cutover, the copy installed on the Mac is an older
+    one that writes `~/Obsidian/<vault>/memory/` and keeps backups in
+    `~/Obsidian/<vault>/.sync-backup/`, and `bin/migrate` refuses a vault that has that folder.
+    The order is: stop the job, move `.sync-backup/` out of the old vault, `bin/migrate <vault>`,
+    then install the job from `master`. Installing it any earlier is safe but stops the old
+    vault's mirror. `bash helpers/install_hal_memory_pull.sh --check` reports each section and
+    writes nothing.
+  - A project moved to hal gets a row in the table in `helpers/hal_memory_pull.sh` and needs its
+    section in `scriptorium` first, then `bash helpers/install_hal_memory_pull.sh` (personal Mac
+    only, from the main checkout) reloads the job. `hal-bench` writes memory on hal but has no
+    section, so it has no row and isn't mirrored (it never was: its row was added in #247, but
+    the job was never reinstalled with it).
+  - Log: `~/Library/Logs/hal-memory-pull.log`; only changes and failures are logged. An
+    `Operation timed out` from ssh is the network (the Mac just woke, or hal or Tailscale was
+    unreachable), not the job; the next hourly run catches up. Tests:
+    `ci/hal-memory-pull-checks.sh` (temp folders, fake ssh, stub launchctl). Not rsync: the
+    Mac's `/usr/bin/rsync` is openrsync, which exited 0 without updating a changed file when
+    tested (2026-10-21).
 - **Repo-tracked docs** (docs/plans, docs/solutions, CLAUDE.md, HANDOFF.md) stay in
   their repos — vaults are for notes that aren't code-adjacent.

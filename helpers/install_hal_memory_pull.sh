@@ -1,24 +1,31 @@
 #!/usr/bin/env bash
 #
 # install_hal_memory_pull.sh — install the LaunchAgent that mirrors Claude Code memory
-# from hal into Obsidian vaults (helpers/hal_memory_pull.sh explains the job itself).
+# from hal into sections of the scriptorium vault (helpers/hal_memory_pull.sh explains the
+# job itself).
 #
 # Personal Mac only, run by hand; ./install doesn't call it, because the work Mac has no
 # `hal` alias. Re-run it after changing hal_memory_pull.sh: the job runs from a copy, so
 # a branch switch in this repo can't leave the LaunchAgent pointing at a missing file
 # (the hook trap in docs/reference/claude-code-config.md, "A hook symlinked into the repo is branch-fragile").
 #
+#   install_hal_memory_pull.sh           install (or reinstall) and load the job
+#   install_hal_memory_pull.sh --check   report the vault and each section, write nothing
+#
 # What it does, each step idempotent:
-#   1. Bootstraps each vault the job writes to: ~/Obsidian/<vault>/, with the standard
-#      config when it has no .obsidian yet. The standard config lives in the private
-#      obsidian-scriptorium repo (standard/.obsidian), not here; SCRIPTORIUM_DIR
-#      overrides where that clone is.
+#   1. Checks that ~/Obsidian/scriptorium is a vault (has .obsidian/) and reports, for each
+#      section the job writes, whether it exists yet. It creates no vault, section or
+#      .obsidian: obsidian-scriptorium's bin/migrate makes each section, and refuses one it
+#      didn't place. A missing section is only reported; the job skips it until it exists,
+#      and the old vault ~/Obsidian/<vault>/memory is no longer updated once this is loaded.
 #   2. Copies the job to ~/Library/Application Support/hal-memory-pull/.
 #   3. Writes ~/Library/LaunchAgents/com.dvillavicencio.hal-memory-pull.plist (hourly and
-#      at login, log in ~/Library/Logs/hal-memory-pull.log) and (re)loads it.
+#      at login, log in ~/Library/Logs/hal-memory-pull.log) and (re)loads it. Loading it
+#      replaces whatever copy of the job was loaded before (same label).
 #
 # Undo: launchctl bootout gui/$(id -u)/com.dvillavicencio.hal-memory-pull, then remove
-# the plist and the Application Support folder. The vaults and their backups stay.
+# the plist and the Application Support folder. The sections and the backups in
+# ~/.local/state/hal-memory-pull/ stay.
 set -uo pipefail
 
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
@@ -28,7 +35,10 @@ JOB_DIR="$HOME/Library/Application Support/hal-memory-pull"
 JOB="$JOB_DIR/hal-memory-pull.sh"
 PLIST="$HOME/Library/LaunchAgents/$LABEL.plist"
 LOG="$HOME/Library/Logs/hal-memory-pull.log"
-TEMPLATE="${SCRIPTORIUM_DIR:-$HOME/Projects/obsidian-scriptorium}/standard/.obsidian"
+VAULT="$HOME/Obsidian/scriptorium"
+SSH="${HAL_MEMORY_PULL_SSH:-/usr/bin/ssh}"   # override is for testing
+CHECK=0
+[ "${1:-}" = "--check" ] && CHECK=1
 
 if [ "${DOTFILES_DRY_RUN:-0}" = "1" ]; then
   echo "[dry-run] would install $LABEL (job copy at $JOB, plist at $PLIST)"
@@ -40,35 +50,29 @@ if [ "$(uname)" != "Darwin" ]; then
   exit 0
 fi
 
-if ! /usr/bin/ssh -o BatchMode=yes -o ConnectTimeout=10 hal true 2>/dev/null; then
+# Read-only from here to the ssh check: nothing is created under ~/Obsidian, ever.
+if [ -L "$VAULT" ] || [ ! -d "$VAULT/.obsidian" ]; then
+  echo "Error: no scriptorium vault at $VAULT (a real folder with .obsidian/); the job writes only into its sections" >&2
+  exit 1
+fi
+# Captured first: a process substitution would drop the exit status of --sections.
+sections="$(/bin/sh "$JOB_SRC" --sections)" && [ -n "$sections" ] ||
+  { echo "Error: $JOB_SRC --sections failed or listed nothing" >&2; exit 1; }
+while read -r section; do
+  [ -n "$section" ] || continue
+  dir="$VAULT/$section"
+  if [ -d "$dir" ] && [ ! -L "$dir" ]; then
+    echo "section $section: present ($dir/memory is mirrored from hal)"
+  else
+    echo "section $section: missing; the job skips it until bin/migrate creates $dir, and ~/Obsidian/$section/memory is no longer updated"
+  fi
+done < <(printf '%s\n' "$sections")
+[ "$CHECK" = 1 ] && exit 0
+
+if ! "$SSH" -o BatchMode=yes -o ConnectTimeout=10 hal true 2>/dev/null; then
   echo "Error: 'ssh hal' doesn't connect without a prompt; this job needs the hal alias (personal Mac only)" >&2
   exit 1
 fi
-
-# Captured first: a process substitution would drop the exit status of --vaults.
-vaults="$(/bin/sh "$JOB_SRC" --vaults)" && [ -n "$vaults" ] ||
-  { echo "Error: $JOB_SRC --vaults failed or listed nothing" >&2; exit 1; }
-while read -r vault; do
-  [ -n "$vault" ] || continue
-  dir="$HOME/Obsidian/$vault"
-  mkdir -p "$dir" || { echo "Error: cannot create $dir" >&2; exit 1; }
-  if [ ! -e "$dir/.obsidian" ]; then
-    # Checked only when a vault needs stamping, so a machine whose vaults all exist
-    # doesn't need the obsidian-scriptorium clone.
-    [ -f "$TEMPLATE/appearance.json" ] ||
-      { echo "Error: no standard vault config at $TEMPLATE; clone villavicencio/obsidian-scriptorium to ~/Projects/obsidian-scriptorium or set SCRIPTORIUM_DIR" >&2; exit 1; }
-    # Copy beside it, then rename, so a failed copy never leaves a half-filled .obsidian
-    # that the next run would take as already stamped.
-    tmp="$(mktemp -d "$dir/.obsidian.tmp.XXXXXX")" || exit 1
-    if cp -R "$TEMPLATE/." "$tmp/" && mv "$tmp" "$dir/.obsidian"; then
-      echo "vault $vault: created with the standard config"
-    else
-      rm -rf "$tmp"; echo "Error: cannot stamp $dir/.obsidian" >&2; exit 1
-    fi
-  else
-    echo "vault $vault: exists"
-  fi
-done < <(printf '%s\n' "$vaults")
 
 mkdir -p "$JOB_DIR" "$(dirname "$PLIST")" "$(dirname "$LOG")" || exit 1
 tmp="$(mktemp "$JOB_DIR/.job.XXXXXX")" || exit 1
