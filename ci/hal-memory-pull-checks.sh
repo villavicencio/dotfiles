@@ -167,16 +167,16 @@ ok "lock held: exit 0, skipped" '[ "$jrc" = 0 ] && grep -q "another run holds" "
 
 # Staging or backups on another volume (here: links into devfs) would make mv copy, not rename.
 echo four >"$REM/-Users-david-Projects-skills/memory/MEMORY.md"
-snap_sec=$(tree "$SCR/skills")
+snap_sec=$(tree "$SCR/skills"); mem_sec=$(cat "$SCR/skills/memory/MEMORY.md")
 mv "$ST/stage" "$T/stage-real"; ln -s /dev "$ST/stage"
 job
 ok "stage on another volume: exit 1, refused, section untouched" \
-  '[ "$jrc" = 1 ] && grep -q "stage is not on the same volume" "$OUT" && [ "$(tree "$SCR/skills")" = "$snap_sec" ]'
+  '[ "$jrc" = 1 ] && grep -q "stage is not on the same volume" "$OUT" && [ "$(tree "$SCR/skills")" = "$snap_sec" ] && [ "$(cat "$SCR/skills/memory/MEMORY.md")" = "$mem_sec" ] && [ "$mem_sec" = three ]'
 rm "$ST/stage"; mv "$T/stage-real" "$ST/stage"
 mv "$ST/backups" "$T/backups-real"; ln -s /dev "$ST/backups"
 job
 ok "backups on another volume: exit 1, refused, section untouched" \
-  '[ "$jrc" = 1 ] && grep -q "backups is not on the same volume" "$OUT" && [ "$(tree "$SCR/skills")" = "$snap_sec" ]'
+  '[ "$jrc" = 1 ] && grep -q "backups is not on the same volume" "$OUT" && [ "$(tree "$SCR/skills")" = "$snap_sec" ] && [ "$(cat "$SCR/skills/memory/MEMORY.md")" = "$mem_sec" ] && [ "$mem_sec" = three ]'
 rm "$ST/backups"; mv "$T/backups-real" "$ST/backups"
 
 # --- the installer ----------------------------------------------------------------------
@@ -199,7 +199,12 @@ mkdir -p "$H/.local"; ln -s /dev "$H/.local/state"
 inst --check
 ok "state dir on another volume: --check refuses, launchctl not called" \
   '[ "$irc" = 1 ] && grep -q "not on the same volume" "$OUT" && [ ! -e "$LAUNCHCTL_LOG" ]'
-rm "$H/.local/state"; rmdir "$H/.local"
+rm "$H/.local/state"
+mkdir -p "$H/.local/state/hal-memory-pull"; ln -s /dev "$H/.local/state/hal-memory-pull/backups"
+inst --check
+ok "backups/ linked to another volume: --check refuses" \
+  '[ "$irc" = 1 ] && grep -q "backups (checked at .*) is not on the same volume" "$OUT" && [ ! -e "$LAUNCHCTL_LOG" ]'
+rm -r "$H/.local"
 before=$(hsnap)
 inst --check
 ok "--check: exit 0, reports each section" \

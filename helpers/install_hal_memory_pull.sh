@@ -68,14 +68,18 @@ while read -r section; do
     echo "section $section: missing; the job skips it until bin/migrate creates $dir, and ~/Obsidian/$section/memory is no longer updated"
   fi
 done < <(printf '%s\n' "$sections")
-# The job renames folders between its state dir and the vault, so both must be on one
-# volume (it refuses otherwise). Checked on the nearest folder that exists, writing nothing.
-probe="$STATE"
-while [ ! -e "$probe" ]; do probe="$(dirname "$probe")"; done
-if [ "$(/usr/bin/stat -L -f %d "$probe")" != "$(/usr/bin/stat -L -f %d "$VAULT")" ]; then
-  echo "Error: $STATE (checked at $probe) is not on the same volume as $VAULT; the job would refuse every run" >&2
-  exit 1
-fi
+# The job renames folders between stage/ or backups/ in its state dir and the vault, so they
+# must be on the vault's volume (it refuses every run otherwise). Each is checked at its
+# nearest folder that exists, following symlinks, writing nothing.
+for want in "$STATE/stage" "$STATE/backups"; do
+  probe="$want"
+  while [ ! -e "$probe" ]; do probe="$(dirname "$probe")"; done
+  if [ "$(/usr/bin/stat -L -f %d "$probe")" != "$(/usr/bin/stat -L -f %d "$VAULT")" ]; then
+    echo "Error: $want (checked at $probe) is not on the same volume as $VAULT; the job would refuse every run" >&2
+    exit 1
+  fi
+done
+echo "state dir $STATE: on the vault's volume"
 [ "$CHECK" = 1 ] && exit 0
 
 if ! "$SSH" -o BatchMode=yes -o ConnectTimeout=10 hal true 2>/dev/null; then
