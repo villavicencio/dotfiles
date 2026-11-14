@@ -73,7 +73,14 @@ done < <(printf '%s\n' "$sections")
 # nearest folder that exists, following symlinks, writing nothing.
 for want in "$STATE/stage" "$STATE/backups"; do
   probe="$want"
-  while [ ! -e "$probe" ]; do probe="$(dirname "$probe")"; done
+  # Stop at the first path that is there, a dangling link included (-e alone skips one).
+  while [ ! -e "$probe" ] && [ ! -L "$probe" ]; do probe="$(dirname "$probe")"; done
+  # -d follows links: false for a file, a dangling link or a link to a file. The job's
+  # mkdir -p would fail on each of these every run.
+  if [ ! -d "$probe" ]; then
+    echo "Error: $probe is not a folder (a file or a dangling link); the job needs $want as a folder" >&2
+    exit 1
+  fi
   if [ "$(/usr/bin/stat -L -f %d "$probe")" != "$(/usr/bin/stat -L -f %d "$VAULT")" ]; then
     echo "Error: $want (checked at $probe) is not on the same volume as $VAULT; the job would refuse every run" >&2
     exit 1

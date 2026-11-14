@@ -205,6 +205,20 @@ inst --check
 ok "backups/ linked to another volume: --check refuses" \
   '[ "$irc" = 1 ] && grep -q "backups (checked at .*) is not on the same volume" "$OUT" && [ ! -e "$LAUNCHCTL_LOG" ]'
 rm -r "$H/.local"
+# A state path that exists but is not a folder: the job's mkdir -p would fail every run.
+mkdir -p "$H/.local/state/hal-memory-pull"; : >"$H/.local/state/hal-memory-pull/stage"
+inst --check
+ok "stage/ is a regular file: --check refuses" \
+  '[ "$irc" = 1 ] && grep -q "stage is not a folder" "$OUT" && [ ! -e "$LAUNCHCTL_LOG" ]'
+rm "$H/.local/state/hal-memory-pull/stage"; ln -s "$T/nowhere" "$H/.local/state/hal-memory-pull/backups"
+inst --check
+ok "backups/ is a dangling link: --check refuses" \
+  '[ "$irc" = 1 ] && grep -q "backups is not a folder" "$OUT" && [ ! -e "$LAUNCHCTL_LOG" ]'
+rm -r "$H/.local"; ln -s "$T/nowhere" "$H/.local"
+inst --check
+ok "an ancestor (.local) is a dangling link: --check refuses" \
+  '[ "$irc" = 1 ] && grep -q "/.local is not a folder" "$OUT" && [ ! -e "$LAUNCHCTL_LOG" ]'
+rm "$H/.local"
 before=$(hsnap)
 inst --check
 ok "--check: exit 0, reports each section" \
