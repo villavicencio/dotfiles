@@ -6,6 +6,9 @@ Standard rev. 2026-07-15; supersedes the one-day one-vault experiment.
 
 Every project/agent/harness owns a small, self-contained Obsidian vault at
 `~/Obsidian/<name>/`, managed by that agent as it sees fit. There is no shared monolith.
+The exception is the hal mirror projects (`skills`, `bryancola`): the mirror job writes into
+sections of the `scriptorium` vault, `~/Obsidian/scriptorium/<section>/`, not vaults of their
+own (see "Projects that live on hal" below).
 Cross-vault reads are fine when useful (plain filesystem paths); write to another
 project's vault only when asked.
 
@@ -59,8 +62,9 @@ project's vault only when asked.
   - Log: `~/Library/Logs/hal-memory-pull.log`. It gets a line for each change and each
     failure. Some lines repeat on every run while their cause lasts, though the run succeeds:
     a section that doesn't exist yet, a memory folder that is missing or empty on hal, and a
-    run skipped because another holds the lock. An unchanged mirror logs nothing. `~/.local/state/hal-memory-pull/` must be on the vault's volume (the job and the
-    installer refuse otherwise), so each swap is a rename. An
+    run skipped because another holds the lock. An unchanged mirror logs nothing. `~/.local/state/hal-memory-pull/` must be on the same volume as each section the job
+    writes and its `memory/` (the job checks before each swap and refuses otherwise; the
+    installer checks before loading the job), so each swap is a rename, never a copy. An
     `Operation timed out` from ssh is the network (the Mac just woke, or hal or Tailscale was
     unreachable), not the job; the next hourly run catches up. Tests:
     `ci/hal-memory-pull-checks.sh` (temp folders, fake ssh, stub launchctl). Not rsync: the

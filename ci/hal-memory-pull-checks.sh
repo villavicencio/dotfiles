@@ -242,6 +242,28 @@ perm_case "state dir 000" 'chmod 000 "$SD"' "hal-memory-pull (checked at .*) is 
 perm_case "backups/skills is a regular file" 'mkdir -p "$SD/backups"; : >"$SD/backups/skills"' "backups/skills is not a folder"
 perm_case "backups/skills links to /dev" 'mkdir -p "$SD/backups"; ln -s /dev "$SD/backups/skills"' "backups/skills (checked at .*) is not on the same volume"
 
+# A section that exists but that the job would refuse or fail on is not "missing": the
+# installer must refuse it rather than report ready (2c00379#2). skills is present here.
+SEC="$H/Obsidian/scriptorium/skills"
+sec_case() { # name, setup (eval'd), text the refusal must contain; restores skills afterwards
+  eval "$2"
+  inst --check
+  ok "$1: --check refuses" "[ \"\$irc\" = 1 ] && grep -q \"$3\" \"\$OUT\" && ! grep -q \"section skills: present\" \"\$OUT\" && [ ! -e \"\$LAUNCHCTL_LOG\" ]"
+  chflags -R nouchg "$SEC" 2>/dev/null; chmod -R u+rwx "$SEC" 2>/dev/null
+  rm -rf "$SEC" "$T/secreal"; mkdir "$SEC"
+}
+sec_case "section is a symlink" 'rmdir "$SEC"; mkdir "$T/secreal"; ln -s "$T/secreal" "$SEC"' "section skills: .* is a symlink"
+sec_case "section is a regular file" 'rmdir "$SEC"; : >"$SEC"' "section skills: .* is not a folder"
+sec_case "section 555" 'chmod 555 "$SEC"' "section skills: .* is not writable and searchable"
+sec_case "section 600" 'chmod 600 "$SEC"' "section skills: .* is not writable and searchable"
+sec_case "memory/ is a symlink" 'mkdir "$T/secreal"; ln -s "$T/secreal" "$SEC/memory"' "section skills: .*/memory is a symlink"
+sec_case "memory/ is a regular file" ': >"$SEC/memory"' "section skills: .*/memory is not a folder"
+sec_case "memory/ 555" 'mkdir "$SEC/memory"; chmod 555 "$SEC/memory"' "section skills: .*/memory is not readable, writable and searchable"
+mkdir "$SEC/memory"; inst --check
+ok "section with a usable memory/: still reported present, exit 0" \
+  '[ "$irc" = 0 ] && grep -q "section skills: present" "$OUT"'
+rmdir "$SEC/memory"
+
 # A full install in the first case must not replace or load anything.
 mkdir -p "$SD"; chmod 555 "$SD"
 inst

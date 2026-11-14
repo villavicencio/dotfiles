@@ -59,15 +59,35 @@ fi
 # Captured first: a process substitution would drop the exit status of --sections.
 sections="$(/bin/sh "$JOB_SRC" --sections)" && [ -n "$sections" ] ||
   { echo "Error: $JOB_SRC --sections failed or listed nothing" >&2; exit 1; }
+# A section that is absent is only reported: the job skips it until bin/migrate creates
+# it. One that exists must be one the job accepts and can update, or the job fails it every
+# run: a real folder (not a link), writable and searchable, with memory/ absent or a real
+# folder this account can read, write and enter (moving it aside needs write on it).
+targets=("$VAULT")   # folders the job renames into; each must share the state dir's volume
+bad=0
 while read -r section; do
   [ -n "$section" ] || continue
-  dir="$VAULT/$section"
-  if [ -d "$dir" ] && [ ! -L "$dir" ]; then
-    echo "section $section: present ($dir/memory is mirrored from hal)"
-  else
+  dir="$VAULT/$section" mem="$VAULT/$section/memory" why=
+  if [ -L "$dir" ]; then why="$dir is a symlink; the job refuses it"
+  elif [ ! -e "$dir" ]; then
     echo "section $section: missing; the job skips it until bin/migrate creates $dir, and ~/Obsidian/$section/memory is no longer updated"
+    continue
+  elif [ ! -d "$dir" ]; then why="$dir is not a folder"
+  elif [ ! -w "$dir" ] || [ ! -x "$dir" ]; then why="$dir is not writable and searchable by this account"
+  elif [ -L "$mem" ]; then why="$mem is a symlink; the job refuses it"
+  elif [ -e "$mem" ] && [ ! -d "$mem" ]; then why="$mem is not a folder"
+  elif [ -d "$mem" ] && { [ ! -r "$mem" ] || [ ! -w "$mem" ] || [ ! -x "$mem" ]; }; then
+    why="$mem is not readable, writable and searchable by this account"
   fi
+  if [ -n "$why" ]; then
+    echo "Error: section $section: $why; the job would fail it every run" >&2
+    bad=1; continue
+  fi
+  targets+=("$dir")
+  [ -d "$mem" ] && targets+=("$mem")
+  echo "section $section: present ($mem is mirrored from hal)"
 done < <(printf '%s\n' "$sections")
+[ "$bad" = 0 ] || exit 1
 # The job takes its lock in the state dir, stages in stage/, and keeps backups in
 # backups/<section>/, renaming folders between those and the vault. Each must be a folder
 # this account can write and enter (the job creates what is missing, so a missing one is
@@ -88,10 +108,13 @@ for want in "${paths[@]}"; do
     echo "Error: $probe is not a folder (a file or a dangling link); the job needs $want as a folder" >&2
     exit 1
   fi
-  if [ "$(/usr/bin/stat -L -f %d "$probe")" != "$(/usr/bin/stat -L -f %d "$VAULT")" ]; then
-    echo "Error: $want (checked at $probe) is not on the same volume as $VAULT; the job would refuse every run" >&2
-    exit 1
-  fi
+  # The vault root, and each present section and memory/ (any could be a mount point).
+  for t in "${targets[@]}"; do
+    if [ "$(/usr/bin/stat -L -f %d "$probe")" != "$(/usr/bin/stat -L -f %d "$t")" ]; then
+      echo "Error: $want (checked at $probe) is not on the same volume as $t; the job would refuse every run" >&2
+      exit 1
+    fi
+  done
   # -w is false for a read-only mode and for the immutable flag; -x for an unsearchable mode.
   if [ ! -w "$probe" ] || [ ! -x "$probe" ]; then
     echo "Error: $want (checked at $probe) is not writable and searchable by this account; the job would fail every run" >&2

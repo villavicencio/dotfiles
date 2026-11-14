@@ -61,8 +61,10 @@ if [ "${DOTFILES_DRY_RUN:-0}" = "1" ]; then
   exit 0
 fi
 
-# True when $1 (followed through symlinks) is on the vault's volume, so mv is a rename.
-same_volume() { [ "$(stat -L -f %d "$1")" = "$(stat -L -f %d "$VAULT")" ]; }
+# True when $1 and $2 (followed through symlinks) are on one volume, so mv between them is
+# a rename. same_volume compares with the vault root.
+same_dev() { [ "$(stat -L -f %d "$1")" = "$(stat -L -f %d "$2")" ]; }
+same_volume() { same_dev "$1" "$VAULT"; }
 
 rc=0
 pull_one() {
@@ -80,6 +82,15 @@ pull_one() {
     log "$section: $dest is a symlink; section left alone"
     rc=1; return
   fi
+  # A section (or its memory/) can be a mount point on another volume than the vault root:
+  # compare each with stage/ and backups/ before anything moves.
+  for d in "$sdir" "$dest"; do
+    [ -e "$d" ] || continue
+    if ! same_dev "$d" "$STATE/stage" || ! same_dev "$d" "$STATE/backups"; then
+      log "$section: $d is not on the same volume as $STATE; section left alone"
+      rc=1; return
+    fi
+  done
 
   stage=$(mktemp -d "$STATE/stage/$section.XXXXXX") || { log "$section: mktemp failed"; rc=1; return; }
   # Download to a file first: in a plain `ssh | tar` pipe only tar's status counts, so a
@@ -118,8 +129,8 @@ pull_one() {
     mkdir -p "$STATE/backups/$section" &&
       backup=$(mktemp -d "$STATE/backups/$section/$(date -u '+%Y%m%dT%H%M%SZ').XXXX") ||
       { log "$section: could not create a backup folder; section left alone"; rm -rf "$stage"; rc=1; return; }
-    if ! same_volume "$backup"; then
-      log "$section: $backup is not on the same volume as $VAULT; section left alone"
+    if ! same_dev "$backup" "$dest"; then
+      log "$section: $backup is not on the same volume as $dest; section left alone"
       rm -rf "$stage"; rmdir "$backup" 2>/dev/null; rc=1; return
     fi
     if ! mv "$dest" "$backup/memory"; then
