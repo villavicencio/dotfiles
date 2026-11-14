@@ -165,6 +165,20 @@ ok "lock lives in the state dir" '[ -e "$ST/run.flock" ] && [ ! -e "$OB/.hal-mem
 sleep 1; job; wait "$lp"
 ok "lock held: exit 0, skipped" '[ "$jrc" = 0 ] && grep -q "another run holds" "$OUT"'
 
+# Staging or backups on another volume (here: links into devfs) would make mv copy, not rename.
+echo four >"$REM/-Users-david-Projects-skills/memory/MEMORY.md"
+snap_sec=$(tree "$SCR/skills")
+mv "$ST/stage" "$T/stage-real"; ln -s /dev "$ST/stage"
+job
+ok "stage on another volume: exit 1, refused, section untouched" \
+  '[ "$jrc" = 1 ] && grep -q "stage is not on the same volume" "$OUT" && [ "$(tree "$SCR/skills")" = "$snap_sec" ]'
+rm "$ST/stage"; mv "$T/stage-real" "$ST/stage"
+mv "$ST/backups" "$T/backups-real"; ln -s /dev "$ST/backups"
+job
+ok "backups on another volume: exit 1, refused, section untouched" \
+  '[ "$jrc" = 1 ] && grep -q "backups is not on the same volume" "$OUT" && [ "$(tree "$SCR/skills")" = "$snap_sec" ]'
+rm "$ST/backups"; mv "$T/backups-real" "$ST/backups"
+
 # --- the installer ----------------------------------------------------------------------
 H="$T/home"; mkdir -p "$H"
 inst() { # runs the installer under the fake HOME; output in $OUT, status in $irc
@@ -181,6 +195,11 @@ ok "install, no scriptorium vault: refused, nothing written" \
   '[ "$irc" = 1 ] && grep -q "no scriptorium vault" "$OUT" && [ -z "$(ls -A "$H")" ] && [ ! -e "$LAUNCHCTL_LOG" ]'
 
 mkdir -p "$H/Obsidian/scriptorium/.obsidian" "$H/Obsidian/scriptorium/skills"
+mkdir -p "$H/.local"; ln -s /dev "$H/.local/state"
+inst --check
+ok "state dir on another volume: --check refuses, launchctl not called" \
+  '[ "$irc" = 1 ] && grep -q "not on the same volume" "$OUT" && [ ! -e "$LAUNCHCTL_LOG" ]'
+rm "$H/.local/state"; rmdir "$H/.local"
 before=$(hsnap)
 inst --check
 ok "--check: exit 0, reports each section" \

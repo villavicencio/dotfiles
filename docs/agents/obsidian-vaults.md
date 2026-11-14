@@ -56,7 +56,10 @@ project's vault only when asked.
     only, from the main checkout) reloads the job. `hal-bench` writes memory on hal but has no
     section, so it has no row and isn't mirrored (it never was: its row was added in #247, but
     the job was never reinstalled with it).
-  - Log: `~/Library/Logs/hal-memory-pull.log`; only changes and failures are logged. An
+  - Log: `~/Library/Logs/hal-memory-pull.log`. It gets a line for each change, each failure
+    and, on every run, each section that doesn't exist yet; a run with nothing to do logs
+    nothing. `~/.local/state/hal-memory-pull/` must be on the vault's volume (the job and the
+    installer refuse otherwise), so each swap is a rename. An
     `Operation timed out` from ssh is the network (the Mac just woke, or hal or Tailscale was
     unreachable), not the job; the next hourly run catches up. Tests:
     `ci/hal-memory-pull-checks.sh` (temp folders, fake ssh, stub launchctl). Not rsync: the

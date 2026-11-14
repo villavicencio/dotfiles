@@ -61,6 +61,9 @@ if [ "${DOTFILES_DRY_RUN:-0}" = "1" ]; then
   exit 0
 fi
 
+# True when $1 (followed through symlinks) is on the vault's volume, so mv is a rename.
+same_volume() { [ "$(stat -L -f %d "$1")" = "$(stat -L -f %d "$VAULT")" ]; }
+
 rc=0
 pull_one() {
   slug=$1 section=$2 backup=
@@ -115,6 +118,10 @@ pull_one() {
     mkdir -p "$STATE/backups/$section" &&
       backup=$(mktemp -d "$STATE/backups/$section/$(date -u '+%Y%m%dT%H%M%SZ').XXXX") ||
       { log "$section: could not create a backup folder; section left alone"; rm -rf "$stage"; rc=1; return; }
+    if ! same_volume "$backup"; then
+      log "$section: $backup is not on the same volume as $VAULT; section left alone"
+      rm -rf "$stage"; rmdir "$backup" 2>/dev/null; rc=1; return
+    fi
     if ! mv "$dest" "$backup/memory"; then
       log "$section: could not move the old memory aside; section left alone"
       rm -rf "$stage"; rmdir "$backup" 2>/dev/null; rc=1; return
@@ -158,11 +165,15 @@ if [ -L "$VAULT" ] || [ ! -d "$VAULT/.obsidian" ]; then
   exit 1
 fi
 # Staging and backups are renamed into and out of the vault, so they must be on its volume:
-# across volumes mv copies, and a half-copied memory/ could show up in the vault.
-if [ "$(stat -f %d "$STATE/stage")" != "$(stat -f %d "$VAULT")" ]; then
-  log "$STATE is not on the same volume as $VAULT; nothing pulled"
-  exit 1
-fi
+# across volumes mv copies, and a half-copied memory/ could show up in the vault. Each
+# backup folder is checked again where it is made (a link further down could point away).
+mkdir -p "$STATE/backups" || exit 1
+for d in "$STATE/stage" "$STATE/backups"; do
+  if ! same_volume "$d"; then
+    log "$d is not on the same volume as $VAULT; nothing pulled"
+    exit 1
+  fi
+done
 
 # Word-split the table in this shell (no pipe), so rc and log output survive the loop.
 set -f
