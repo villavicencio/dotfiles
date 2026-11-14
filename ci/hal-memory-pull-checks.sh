@@ -21,7 +21,7 @@ INSTALLER="$REPO/helpers/install_hal_memory_pull.sh"
 
 T="$(mktemp -d)" || { echo "mktemp -d failed" >&2; exit 1; }
 T="$(cd "$T" && pwd -P)"
-trap 'chmod -R u+w "$T" 2>/dev/null; rm -rf "$T"' EXIT
+trap 'chflags -R nouchg "$T" 2>/dev/null; chmod -R u+rwx "$T" 2>/dev/null; rm -rf "$T"' EXIT
 
 pass=0; fail=0
 ok() { if eval "$2"; then pass=$((pass+1)); else fail=$((fail+1)); echo "FAIL: $1"; fi; }
@@ -219,6 +219,35 @@ inst --check
 ok "an ancestor (.local) is a dangling link: --check refuses" \
   '[ "$irc" = 1 ] && grep -q "/.local is not a folder" "$OUT" && [ ! -e "$LAUNCHCTL_LOG" ]'
 rm "$H/.local"
+
+# Paths the job must create in or write to, but can't: wrong mode, immutable flag, an
+# unsearchable ancestor, or a bad backups/<section>. The job fails at run time on each (and
+# writes nothing in the vault), so the installer must refuse before it replaces a working job.
+SD="$H/.local/state/hal-memory-pull"
+perm_case() { # name, setup (eval'd), text the refusal must contain
+  mkdir -p "$SD"; eval "$2"
+  inst --check
+  ok "$1: --check refuses" "[ \"\$irc\" = 1 ] && grep -q \"$3\" \"\$OUT\" && [ ! -e \"\$LAUNCHCTL_LOG\" ]"
+  chflags -R nouchg "$H/.local"; chmod -R u+rwx "$H/.local"; rm -rf "$H/.local"
+}
+perm_case "state dir 555, stage/ and backups/ missing" 'chmod 555 "$SD"' "hal-memory-pull (checked at .*hal-memory-pull) is not writable"
+perm_case "state dir 555, stage/ and backups/ present (lock can't be made)" \
+  'mkdir "$SD/stage" "$SD/backups"; chmod 555 "$SD"' "hal-memory-pull (checked at .*) is not writable"
+perm_case "stage/ 555" 'mkdir "$SD/stage"; chmod 555 "$SD/stage"' "stage (checked at .*) is not writable"
+perm_case "backups/ 555" 'mkdir "$SD/stage" "$SD/backups"; chmod 555 "$SD/backups"' "backups (checked at .*) is not writable"
+perm_case "stage/ 600 (not searchable)" 'mkdir "$SD/stage"; chmod 600 "$SD/stage"' "stage (checked at .*) is not writable"
+perm_case "stage/ immutable (uchg)" 'mkdir "$SD/stage"; chflags uchg "$SD/stage"' "stage (checked at .*) is not writable"
+perm_case ".local/state 600 (ancestor not searchable)" 'chmod 600 "$H/.local/state"' "(checked at .*/.local/state) is not writable"
+perm_case "state dir 000" 'chmod 000 "$SD"' "hal-memory-pull (checked at .*) is not writable"
+perm_case "backups/skills is a regular file" 'mkdir -p "$SD/backups"; : >"$SD/backups/skills"' "backups/skills is not a folder"
+perm_case "backups/skills links to /dev" 'mkdir -p "$SD/backups"; ln -s /dev "$SD/backups/skills"' "backups/skills (checked at .*) is not on the same volume"
+
+# A full install in the first case must not replace or load anything.
+mkdir -p "$SD"; chmod 555 "$SD"
+inst
+ok "state dir 555: full install refuses, no job copy, launchctl not called" \
+  '[ "$irc" = 1 ] && [ ! -e "$H/Library" ] && [ ! -e "$LAUNCHCTL_LOG" ]'
+chmod -R u+rwx "$H/.local"; rm -rf "$H/.local" "$H/Library" "$LAUNCHCTL_LOG"   # so a failure here can't spill into later cases
 before=$(hsnap)
 inst --check
 ok "--check: exit 0, reports each section" \

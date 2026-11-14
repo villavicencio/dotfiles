@@ -68,15 +68,22 @@ while read -r section; do
     echo "section $section: missing; the job skips it until bin/migrate creates $dir, and ~/Obsidian/$section/memory is no longer updated"
   fi
 done < <(printf '%s\n' "$sections")
-# The job renames folders between stage/ or backups/ in its state dir and the vault, so they
-# must be on the vault's volume (it refuses every run otherwise). Each is checked at its
-# nearest folder that exists, following symlinks, writing nothing.
-for want in "$STATE/stage" "$STATE/backups"; do
+# The job takes its lock in the state dir, stages in stage/, and keeps backups in
+# backups/<section>/, renaming folders between those and the vault. Each must be a folder
+# this account can write and enter (the job creates what is missing, so a missing one is
+# checked at its nearest existing folder), on the vault's volume. Otherwise the job fails
+# every run, so refuse before replacing a working one. Writes nothing.
+paths=("$STATE" "$STATE/stage" "$STATE/backups")
+while read -r section; do
+  [ -n "$section" ] && paths+=("$STATE/backups/$section")
+done < <(printf '%s\n' "$sections")
+for want in "${paths[@]}"; do
   probe="$want"
   # Stop at the first path that is there, a dangling link included (-e alone skips one).
+  # Under an unsearchable folder both tests fail, so the walk stops at that folder, which
+  # then fails -x below.
   while [ ! -e "$probe" ] && [ ! -L "$probe" ]; do probe="$(dirname "$probe")"; done
-  # -d follows links: false for a file, a dangling link or a link to a file. The job's
-  # mkdir -p would fail on each of these every run.
+  # -d follows links: false for a file, a dangling link or a link to a file.
   if [ ! -d "$probe" ]; then
     echo "Error: $probe is not a folder (a file or a dangling link); the job needs $want as a folder" >&2
     exit 1
@@ -85,8 +92,13 @@ for want in "$STATE/stage" "$STATE/backups"; do
     echo "Error: $want (checked at $probe) is not on the same volume as $VAULT; the job would refuse every run" >&2
     exit 1
   fi
+  # -w is false for a read-only mode and for the immutable flag; -x for an unsearchable mode.
+  if [ ! -w "$probe" ] || [ ! -x "$probe" ]; then
+    echo "Error: $want (checked at $probe) is not writable and searchable by this account; the job would fail every run" >&2
+    exit 1
+  fi
 done
-echo "state dir $STATE: on the vault's volume"
+echo "state dir $STATE: usable (folders writable, on the vault's volume)"
 [ "$CHECK" = 1 ] && exit 0
 
 if ! "$SSH" -o BatchMode=yes -o ConnectTimeout=10 hal true 2>/dev/null; then
