@@ -91,6 +91,55 @@ How it differs from a desk Mac:
   authenticate over HTTPS with its own token. Keep HTTPS as the convention rather than adding
   GitHub's host key.
 
+### Reaching hal as `hal` (VIL-700)
+
+`hal` is the service account Atlas, Axiom, LM Studio and MergeWren run in. Treat it as
+production. From the personal Mac there are three ways in:
+
+| Alias | Logs in as | Key | Use |
+|---|---|---|---|
+| `hal-as-hal` | `hal` | the Mac's main key, `~/.ssh/id_ed25519` | Agents and David, for anything done as `hal` |
+| `hal-orca` | `hal` | `~/.ssh/hal-orca` | Orca's hal server only |
+| `hal-svc` | `david`, then `sudo -u hal -i` | the main key, then David's password | David by hand, as a fallback |
+
+Rules:
+
+- Agents act as `hal` only through `hal-as-hal`. Never `hal-orca`, which is Orca's key, and
+  never `hal-svc`, which needs David's password.
+- An agent session needs `Bash(ssh hal-as-hal:*)` in `~/.claude/settings.json`. Agents can't
+  write that file; David adds the rule.
+- `hal-as-hal` is a full shell as `hal`. Read before you write, and avoid installs and
+  service restarts during 01:30–05:00 PT, when the local models are busy.
+
+How it is set up:
+
+- sshd on hal lets `hal` in by public key only (`Match User hal` →
+  `AuthenticationMethods publickey` in `/etc/ssh/sshd_config.d/200-hal.conf`). There is no
+  `AllowUsers` line.
+- Each key on `hal`'s `~/.ssh/authorized_keys` line is pinned to the Mac's tailnet IPv4
+  address (`tailscale ip -4` on the Mac) with
+  `from="<that address>",no-agent-forwarding,no-X11-forwarding`. The main key's line copies the
+  `hal-orca` line's options.
+- The alias is machine-local, like every host alias in this repo: it lives in the Mac's
+  `~/.ssh/config`, above `Host *`, and is not tracked. The block:
+
+  ```
+  Host hal-as-hal
+      HostName <hal's tailnet name: the HostName of the Host hal block>
+      User hal
+      IdentityFile ~/.ssh/id_ed25519
+      IdentitiesOnly yes
+      ServerAliveInterval 30
+      ServerAliveCountMax 3
+  ```
+
+- Check it: `ssh -o BatchMode=yes hal-as-hal 'id -un'` prints `hal`.
+
+Each account still has its own dotfiles clone at `~/Projects/Personal/dotfiles`. Pull both:
+`ssh hal 'git -C ~/Projects/Personal/dotfiles pull --ff-only'` and
+`ssh hal-as-hal 'git -C ~/Projects/Personal/dotfiles pull --ff-only'`. VIL-700's second part
+plans to move `hal` onto `david`'s clone; until it lands, this paragraph is current.
+
 Verify with `ci/server-profile-checks.sh static` locally. CI's `macos-server` job runs the
 profile in a simulated hal home and checks the pre-existing files, the shell chain, git, and
 that no LaunchAgent was added. It also checks that a second run changes nothing.

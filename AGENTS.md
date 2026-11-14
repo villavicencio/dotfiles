@@ -343,6 +343,11 @@ previews it. In short:
 Verify with `ci/server-profile-checks.sh static`. The full write-up (layers, overlays,
 `~/.zshenv` backup, CI's `macos-server` job) is in `docs/reference/install-and-server.md`.
 
+Agents act as `hal` only through `ssh hal-as-hal` (the Mac's main key, `User hal`), never
+`hal-orca` (Orca's key) or `hal-svc` (sudo, needs a password). The alias is machine-local in
+the Mac's `~/.ssh/config`, not tracked (VIL-700; "Reaching hal as `hal`" in
+`docs/reference/install-and-server.md`).
+
 ## Invariants & gotchas (do not "fix" these)
 
 - **`atlas`, `axiom` and `syd` (`zsh/functions/`) decide when sourced whether to exist.** `syd`
