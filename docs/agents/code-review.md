@@ -26,7 +26,7 @@ the diff itself routes through one of the two tools above.
 
 - **`gh`'s `--jq`/`-q` takes one filter and nothing else**: no `--arg`, no `--argjson`, on
   `gh api`, `gh pr view` and the rest. Splice a value in with the shell (a double-quoted
-  filter, as in the status recipe below), or pipe plain JSON into real `jq --arg`. Passing
+  filter, as in the CodeRabbit check-run recipe below), or pipe plain JSON into real `jq --arg`. Passing
   `--arg` fails with `accepts at most 1 arg(s), received 4`.
 - **A wait loop must tell an error from "not yet".** Check `gh`'s exit status on every
   pass; on failure, print the error and stop. On dotfiles#259 (2026-11-02) a MergeWren wait
@@ -84,11 +84,12 @@ the diff itself routes through one of the two tools above.
   failing, and only one of them can mean a review ran. Since about 2026-10-24 (first seen on
   mergewren#89) CodeRabbit reports a **check run**, not a commit status, and
   `gh pr checks` lists it with an **empty description** and a state of `SUCCESS`, `NEUTRAL`,
-  `SKIPPED` or `CANCELLED`. Read the check run's title and result line:
+  `SKIPPED` or `CANCELLED`. Read the latest CodeRabbit check run's title and result line (asking
+  for it by name, so a head with many other checks can't push it off the first page):
 
   ```bash
-  gh api repos/<owner>/<repo>/commits/<head-sha>/check-runs \
-    -q '.check_runs[] | select(.name|test("CodeRabbit";"i")) | "\(.conclusion)\t\(.output.title)\t\(.output.summary|split("\n")[0])"'
+  gh api --paginate "repos/<owner>/<repo>/commits/<head-sha>/check-runs?check_name=CodeRabbit" \
+    -q '.check_runs[] | "\(.conclusion)\t\(.output.title)\t\(.output.summary|split("\n")[0])"'
   ```
 
   | Conclusion | Title | Result line | Review ran? |
@@ -124,26 +125,62 @@ the diff itself routes through one of the two tools above.
   stops at the first result it finds can read one left over from when the PR opened: on skills#43
   and browse-gateway#149 (2026-10-06) it reported `manual review required for this OSS
   repository` while CodeRabbit was already reviewing, and the real review then found 5 issues.
-  Record the time just before you post the request, then read the newest CodeRabbit check run
-  started after it (the statuses API this used to read has had no CodeRabbit entries since about
-  2026-10-24, so it would print `PENDING` forever):
+  Record the time just before you post the request, and stop if the request didn't post:
 
   ```bash
-  t=$(date -u +%Y-%m-%dT%H:%M:%SZ); gh pr comment <N> --body '@coderabbitai review'
-  gh api repos/<owner>/<repo>/commits/<head-sha>/check-runs -q "[.check_runs[]
-    | select(.name|test(\"CodeRabbit\";\"i\")) | select(.started_at > \"$t\")]
-    | sort_by(.started_at) | last
-    | if . == null then \"PENDING\" elif .status != \"completed\" then \"IN PROGRESS\"
-      else \"\(.conclusion)\t\(.output.title)\" end"
+  t=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+  gh pr comment <N> --body '@coderabbitai review' || echo "REQUEST NOT POSTED: stop"
   ```
 
-  `gh`'s `-q` has no `--arg` (see "Polling `gh`" above), so the time is spliced into a
-  double-quoted filter. The filter was checked against skills#55's finished run (2026-10-29: the
-  run started 25 s after the request), not yet on a live poll.
+  **CodeRabbit's reply decides, not the check run.** It answers every request with a PR comment
+  within about 20 s: `Action performed` (the review runs, and the comment is edited to `Review
+  finished` when it's done) or `Action not completed` with the reason, `Review rate limited.` or
+  `Already reviewed the last commit.` (35 such replies on the PRs surveyed, 2026-09 to 11). A
+  refused request may start **no check run at all**: on bryancola-backups PR 2 (2026-11-15) the
+  only check run is the one from opening the PR, and the request got `Already reviewed the last
+  commit`. A poll that waits only for a check run started after the request then waits forever.
+  Each pass, read both the first CodeRabbit reply since the request and the newest check run
+  started since it, all pages, counting the request's own second:
 
-  `PENDING` (no check run since the request) means CodeRabbit hasn't picked it up yet, not that
-  it finished. The table above says which result to trust; this says which check run to read it
-  from.
+  ```bash
+  reply=$(gh api --paginate "repos/<owner>/<repo>/issues/<N>/comments?since=$t" -q ".[]
+    | select(.user.login|test(\"coderabbit\")) | select(.created_at >= \"$t\")
+    | .body | select(test(\"Action (performed|not completed)\"))
+    | if test(\"Action not completed\") then \"REFUSED: \" + (if test(\"rate limited\") then \"rate limited\"
+        elif test(\"Already reviewed\") then \"already reviewed\" else \"read the reply\" end)
+      elif test(\"Review finished\") then \"FINISHED\" else \"ACCEPTED\" end") || echo "gh failed: stop"
+  run=$(gh api --paginate "repos/<owner>/<repo>/commits/<head-sha>/check-runs?check_name=CodeRabbit&filter=all&per_page=100" -q ".check_runs[]
+    | select(.started_at >= \"$t\")
+    | \"\(.started_at)\t\(.status)\t\(.conclusion)\t\(.output.title)\"") || echo "gh failed: stop"
+  reply=${reply%%$'\n'*}; run=$(printf '%s\n' "$run" | sort | tail -1)
+  printf 'reply: %s\nrun:   %s\n' "${reply:-none yet}" "${run:-none yet}"
+  ```
+
+  - `REFUSED: …`: this request produces no review. Stop. Rate limited: wait for the window
+    (see "Rate limits"). Already reviewed: `@coderabbitai full review` if the head needs one.
+  - `FINISHED` and a `completed` run: read the run's result with the table above.
+  - `ACCEPTED`, a run `in_progress`, or `none yet`: poll again in 30 s. No reply 5 minutes after
+    the request means CodeRabbit didn't pick it up: stop and report no review, don't wait on.
+
+  `gh`'s `-q` has no `--arg` (see "Polling `gh`" above), so the time is spliced into
+  double-quoted filters; a `gh` failure stops the poll ("A wait loop must tell an error from
+  'not yet'" above). `check_name=CodeRabbit` is the check run's exact name in every repo checked
+  (dotfiles, skills, mergewren, bryancola.com, hal-pilot), and `filter=all` keeps earlier runs
+  on the head, which the default (`latest`) hides. Each `gh` runs on its own, so its exit status
+  isn't lost in a pipe; `sort | tail -1` then picks the newest run across all pages, and
+  `${reply%%$'\n'*}` keeps the first reply. `>=` counts a run that starts in the same second as the request: the old
+  `>` missed it.
+
+  Replayed on 2026-11-15 against past requests, with the reply and runs cut off at the moment a
+  poll would have seen them: skills#55's three accepted requests (`FINISHED`, then `success
+  Finished`) and three rate-limited ones (`REFUSED: rate limited`, with a `neutral` run, where
+  the old filter printed `PENDING`); bryancola-backups PR 2 with the request time moved to
+  22:10:30, after the PR-open run and before the reply (`REFUSED: already reviewed`, no run; the
+  old filter printed `PENDING`); a request time equal to a run's start (the run found; the old
+  filter printed `PENDING`); and a failed `gh pr comment` (`REQUEST NOT POSTED`). Not yet tried
+  on a live request: the reply's wording between `Action performed` and `Review finished`, and
+  how long a run takes to appear after an accepted request. A replay can't show those, because
+  the reply comment is read as it is now, after its last edit.
 
   Poll the reviews API instead and it fires early or never: the bot posts as `coderabbitai` on
   some PRs and `coderabbitai[bot]` on others, and its replies to your thread replies register as
@@ -186,8 +223,9 @@ the diff itself routes through one of the two tools above.
 
   Answer each one in a PR comment, and record a decline in the PR body too. On skills#49, #51 and
   #53 (2026-10-24) every outside-diff finding was real; one was declined. The reverse case also
-  misleads: a clean re-review posts **no new review**, only a `Review completed` status on the
-  head commit (read it as shown under "After requesting a review"). A latest review sitting on an
+  misleads: a clean re-review posts **no new review**, only a `success` check run whose result
+  line reads `Review completed` on the head commit (a commit status before about 2026-10-24;
+  read it as shown under "After requesting a review"). A latest review sitting on an
   older commit doesn't mean the round was skipped.
 - **Triage every finding**: fix it on the branch, or decline it with the reason recorded both on
   the thread and in the PR body. A finding you disagree with is a standoff you document, not one
@@ -331,7 +369,13 @@ source <dotfiles clone>/bin/lib/cleanup-merged-branch.sh   # ~/Projects/Personal
 cleanup_merged_branch <pr> <default branch>
 ```
 
-Run it from any worktree of the repo, in bash or zsh. Right after a merge the main checkout
+Run it from the main checkout or any worktree of the repo other than one on the PR's branch,
+in bash or zsh. From inside a linked worktree on that branch it removes the shell's own
+directory, and every git call after that fails with "fatal: Unable to read current working
+directory": it then prints "local <branch> moved mid-run: keeping it" and a `RESTORE FAILED`
+line with a `git push` to recreate the origin branch, though nothing moved and the PR is
+merged (dotfiles PR 272, 2026-11-15). Don't run that push; `cd` to the main checkout and delete
+the local branch there, conditional on its OID (`git update-ref -d refs/heads/<branch> <oid>`). Right after a merge the main checkout
 may not be pulled yet, so from a worktree that has a newer copy, source that one. The function lives only in
 `bin/lib/cleanup-merged-branch.sh`; `wt done` (see `parallel-sessions.md`) sources the same file.
 
