@@ -134,14 +134,15 @@ the diff itself routes through one of the two tools above.
   commit`. A poll that waits only for a check run started after the request then waits forever.
   So every 30 s this reads both the first CodeRabbit reply since the request and the newest
   check run started since it, all pages, counting the request's own second, and it always
-  returns: on a refusal, on a finished run, on a `gh` failure, with no reply after 5 minutes,
-  or after 20 minutes in all. Record the time just before the request, and poll only if the
-  request posted:
+  returns, by elapsed time (`$SECONDS`), not by counting passes. Only status 0 can mean a
+  review: 1 `gh` failed, 2 the request was refused, 3 no reply 5 minutes after the call, 4 no
+  result 20 minutes after it, 5 the run failed or was cancelled. Record the time just before
+  the request, and poll only if the request posted:
 
   ```bash
   cr_wait() {  # cr_wait <owner/repo> <pr> <head-sha> <request time>: prints one final line
-    local R=$1 N=$2 sha=$3 t=$4 i reply run
-    for i in $(seq 1 40); do
+    local R=$1 N=$2 sha=$3 t=$4 start=$SECONDS tab=$'\t' reply run
+    while :; do
       reply=$(gh api --paginate "repos/$R/issues/$N/comments?since=$t" -q ".[]
         | select(.user.login|test(\"coderabbit\")) | select(.created_at >= \"$t\")
         | .body | select(test(\"Action (performed|not completed)\"))
@@ -153,23 +154,32 @@ the diff itself routes through one of the two tools above.
         | select(.started_at >= \"$t\") | \"\(.started_at)\t\(.status)\t\(.conclusion)\t\(.output.title)\"") \
         || { echo "gh failed (error above): stop"; return 1; }
       reply=${reply%%$'\n'*}; run=$(printf '%s\n' "$run" | sort | tail -1)
-      case $reply in
-        REFUSED*) echo "$reply"; return 0 ;;
-        FINISHED) case $run in *$'\t'completed$'\t'*) echo "FINISHED	$run"; return 0 ;; esac ;;
-        "") [ "$i" -lt 10 ] || { echo "NO REPLY after 5 min: no review"; return 0; } ;;
+      case $reply in REFUSED*) echo "$reply"; return 2 ;; esac
+      case $run in
+        *"${tab}completed${tab}success${tab}"*)
+          [ "$reply" != FINISHED ] || { echo "FINISHED$tab$run"; return 0; } ;;
+        *"${tab}completed${tab}failure${tab}"*|*"${tab}completed${tab}cancelled${tab}"*|*"${tab}completed${tab}timed_out${tab}"*)
+          echo "RUN ENDED$tab$run"; return 5 ;;
       esac
+      [ -n "$reply" ] || [ $((SECONDS - start)) -lt 300 ] || { echo "NO REPLY after 5 min: no review"; return 3; }
+      [ $((SECONDS - start)) -lt 1200 ] || { echo "TIMED OUT after 20 min: reply=${reply:-none} run=${run:-none}"; return 4; }
       sleep 30
     done
-    echo "TIMED OUT after 20 min: reply=${reply:-none} run=${run:-none}"
   }
   t=$(date -u +%Y-%m-%dT%H:%M:%SZ)
   gh pr comment <N> --body '@coderabbitai review' && cr_wait <owner>/<repo> <N> <head-sha> "$t"
   ```
 
-  - `REFUSED: …`: this request produces no review. Rate limited: wait for the window (see
+  - 0, `FINISHED`: a `success` run finished; read its result line with the table above (on a
+    private repo on Free it is a summary, not a review).
+  - 2, `REFUSED: …`: this request produces no review. Rate limited: wait for the window (see
     "Rate limits"). Already reviewed: `@coderabbitai full review` if the head needs one.
-  - `FINISHED` with a completed run: read the run's result with the table above.
-  - `NO REPLY` or `TIMED OUT`: report no review; don't wait on.
+  - 5, `RUN ENDED`: the run failed (a push mid-review, say) or was cancelled: no review.
+  - 3 or 4, `NO REPLY` or `TIMED OUT`: report no review; don't wait on.
+
+  A `skipped` or `neutral` run doesn't end the wait while the reply says the request was
+  accepted: the run CodeRabbit starts when a PR opens can begin after the request
+  (`Review skipped` on skills#55, 4 s after it) and is not this request's answer.
 
   `gh`'s `-q` has no `--arg` (see "Polling `gh`" above), so the time is spliced into
   double-quoted filters; a `gh` failure stops the poll ("A wait loop must tell an error from
@@ -186,8 +196,10 @@ the diff itself routes through one of the two tools above.
   limited`); bryancola-backups PR 2 at its real request time and with the time moved to
   22:10:30, after the PR-open run and before the reply (`REFUSED: already reviewed` both times;
   in the second there is no run after the request, and the old filter printed `PENDING`); a
-  request time with no reply (`NO REPLY after 5 min`); a repo that doesn't exist (`gh failed`,
-  return 1); and, with `gh` stubbed, a review that never finishes (`TIMED OUT` after 40 passes).
+  request time with no reply (`NO REPLY after 5 min`, 3); and a repo that doesn't exist (`gh
+  failed`, 1). With `gh` stubbed and `sleep` adding 30 to `$SECONDS`: an accepted review that
+  never finishes (`TIMED OUT`, 4), a run that is cancelled (`RUN ENDED`, 5), and a `skipped` run
+  while accepted (keeps waiting, then 4).
   An earlier replay that cut the reply and runs off at each moment also found `REFUSED: rate
   limited` for skills#55's other two throttled requests and a run whose start equals the request
   second (the old `>` printed `PENDING`). Not yet tried on a live request: the reply's wording
