@@ -26,7 +26,7 @@ the diff itself routes through one of the two tools above.
 
 - **`gh`'s `--jq`/`-q` takes one filter and nothing else**: no `--arg`, no `--argjson`, on
   `gh api`, `gh pr view` and the rest. Splice a value in with the shell (a double-quoted
-  filter, as in the status recipe below), or pipe plain JSON into real `jq --arg`. Passing
+  filter, as in the CodeRabbit check-run recipe below), or pipe plain JSON into real `jq --arg`. Passing
   `--arg` fails with `accepts at most 1 arg(s), received 4`.
 - **A wait loop must tell an error from "not yet".** Check `gh`'s exit status on every
   pass; on failure, print the error and stop. On dotfiles#259 (2026-11-02) a MergeWren wait
@@ -54,19 +54,61 @@ the diff itself routes through one of the two tools above.
   every edit first, *then* request the round. This matters most when addressing findings: batch
   the fixes, push once, then comment `@coderabbitai review`. (Observed on skills#36, in the very
   commit documenting the throttle rules.)
-- **Read the check DESCRIPTION, not its state** — this is the one that has bitten repeatedly.
-  Poll the check line rather than the reviews API (`gh pr checks <N> | grep -i '^CodeRabbit'`),
-  but **"not `pending`" is not a completion test**: three different descriptions sit on a
-  *passing* check, and only one of them means a review ran.
+- **On the Free plan a private repo gets a summary, never a review.** CodeRabbit's plans page
+  ([docs.coderabbit.ai/management/plans](https://docs.coderabbit.ai/management/plans), fetched
+  2026-11-15 22:28 UTC) says of Free: "PR summarization only; code reviews are available through
+  the VS Code extension and CLI." Public repos are on the OSS tier, which gets real reviews
+  ("Open-source projects receive Team features with no paid subscription required"; skills#55,
+  2026-10-29, got line-by-line findings). In a private repo the run posts a walkthrough and a note,
+  "Summarized by CodeRabbit Free … For a comprehensive line-by-line review, please upgrade your
+  subscription to CodeRabbit Essentials", and no review or thread, yet its check reads exactly
+  like a review's: `success`, `Finished`, `Result: Success - Review completed`. A summary-only
+  run is **not a review**, the same as rate limited or skipped, and it still spends the hourly
+  allowance (bryancola-backups PR 2, 2026-11-15: "This review used your included allowance …
+  0 remain after this review"). Of 155 private-repo PRs with a CodeRabbit comment, opened
+  2026-10-21 to 2026-11-15, none got a CodeRabbit review or inline comment, and every one carried
+  that note. So in a private repo not yet on MergeWren there is no PR reviewer: docs and config
+  may merge with "no line-by-line review" recorded in the PR body; anything else goes through
+  `dv:gauntlet` (`dv:gauntlet report` for a single round). A private repo also gets a run
+  automatically when the PR opens, with no request (mergewren#135, bryancola.com#50), and that run
+  draws on the same hourly allowance. Check for the note:
 
   ```bash
-  gh pr checks <N> --json name,state,description \
-    -q '.[] | select(.name|test("CodeRabbit";"i")) | "\(.state)\t\(.description)"'
+  gh api --paginate repos/<owner>/<repo>/issues/<N>/comments \
+    -q '.[]|select(.user.login|test("coderabbit"))|select(.body|test("Summarized by CodeRabbit Free"))|.html_url'
   ```
+
+  Any output means no line-by-line review ran on that PR.
+- **Read what the check says, not its state** — this is the one that has bitten repeatedly.
+  **"Not `pending`" is not a completion test**: several results sit on a check that isn't
+  failing, and only one of them can mean a review ran. Since about 2026-10-24 (first seen on
+  mergewren#89) CodeRabbit reports a **check run**, not a commit status, and
+  `gh pr checks` lists it with an **empty description** and a state of `SUCCESS`, `NEUTRAL`,
+  `SKIPPED` or `CANCELLED`. Read the latest CodeRabbit check run's title and result line (asking
+  for it by name, so a head with many other checks can't push it off the first page):
+
+  ```bash
+  gh api --paginate "repos/<owner>/<repo>/commits/<head-sha>/check-runs?check_name=CodeRabbit" \
+    -q '.check_runs[] | "\(.conclusion)\t\(.output.title)\t\(.output.summary|split("\n")[0])"'
+  ```
+
+  | Conclusion | Title | Result line | Review ran? |
+  |---|---|---|---|
+  | `success` | `Finished` | `Result: Success - Review completed` | **yes on a public repo; no on a private repo on Free** (summary only, above) |
+  | `success` | `Finished` | `Result: Success - Review completed with incomplete coverage` | **no** on Free in a private repo (mergewren#122); not seen on a public repo |
+  | `neutral` | `Review rate limited` | `Result: Rate limited - Review rate limited` | **no** — throttled |
+  | `skipped` | `Review skipped` or `Review skipped: manual review required for this OSS repository` | `Result: Skipped - …` (same text) | **no** — a public repo under 10 stars; the comment says "This repository does not receive automatic reviews because it has fewer than 10 stars". Request one |
+  | `skipped` | `Review skipped: draft pull request` | `Result: Skipped - Review skipped: draft pull request` | **no** |
+  | `cancelled` | `Review cancelled` | `Result: Cancelled - Pull request is closed` | **no** |
+
+  Seen on 142 PRs in David's repos, 2026-10-24 to 2026-11-15. A failed or in-progress check run
+  wasn't observed in that sample. Before about 2026-10-24 it was a commit status, whose description
+  `gh pr checks` showed; summary-only runs there also read `Review completed` (mergewren#69,
+  2026-10-22):
 
   | Description | State | Review ran? |
   |---|---|---|
-  | `Review completed` | pass | **yes** |
+  | `Review completed` | pass | **yes**, unless the PR carries the Free summary note |
   | `Review skipped: incremental reviews are disabled` | pass | **no** — request one with `@coderabbitai review` |
   | `Review skipped: manual review required for this OSS repository` | pass | **no** — posted when the PR opens on a repo under 10 stars; request one |
   | `Review rate limited` | pass | **no** — throttled |
@@ -79,26 +121,104 @@ the diff itself routes through one of the two tools above.
   2026-10-07). A plain `@coderabbitai review` is refused on a head CodeRabbit already reviewed;
   `@coderabbitai full review` reviews the current head again and uses the hourly slot. Whether
   the refused request also uses it hasn't been checked.
-- **After requesting a review, read only statuses posted after the request.** A watcher that
-  stops at the first status it finds can read one left over from when the PR opened: on skills#43
+- **After requesting a review, read only check runs started after the request.** A watcher that
+  stops at the first result it finds can read one left over from when the PR opened: on skills#43
   and browse-gateway#149 (2026-10-06) it reported `manual review required for this OSS
   repository` while CodeRabbit was already reviewing, and the real review then found 5 issues.
-  Record the time just before you post the request, then read the newest CodeRabbit status
-  created after it:
+  **CodeRabbit's reply decides, not the check run.** It answers every request with a PR comment
+  within about 20 s: `Action performed` (the review runs, and the comment is edited to `Review
+  finished` when it's done) or `Action not completed` with the reason, `Review rate limited.` or
+  `Already reviewed the last commit.` (35 such replies on the PRs surveyed, 2026-09 to 11). A
+  refused request may start **no check run at all**: on bryancola-backups PR 2 (2026-11-15) the
+  only check run is the one from opening the PR, and the request got `Already reviewed the last
+  commit`. A poll that waits only for a check run started after the request then waits forever.
+  **The request's own run starts after that reply.** On every request in the survey that had a
+  check run (bryancola-backups PR 1, hal-pilot#2, skills#55 and #56, 2026-10-29 to 11-03), the
+  run answering it started 5 to 14 s after CodeRabbit's reply (9 requests). Runs that started
+  between the request and the reply were someone else's: the `Review skipped` from opening the
+  PR (skills#55, 4 s after the request; skills#56, in the same second) or the run a push starts
+  on a private repo (hal-pilot#2, 8 s after it). So the poll
+  reads only runs that started at or after the reply.
+
+  Every 30 s this reads the first CodeRabbit reply since the request, and once there is one,
+  the newest check run (all pages) that started at or after it. It always returns, by elapsed
+  time (`$SECONDS`), not by counting passes. Only status 0 can mean a review: 1 `gh` failed, 2
+  the request was refused, 3 no reply 5 minutes after the call, 4 no result 20 minutes after
+  it, 5 the request's run failed, was cancelled or timed out. Record the time just before the
+  request, and poll only if the request posted:
 
   ```bash
-  t=$(date -u +%Y-%m-%dT%H:%M:%SZ); gh pr comment <N> --body '@coderabbitai review'
-  gh api repos/<owner>/<repo>/commits/<head-sha>/statuses -q "[.[]
-    | select(.context|test(\"CodeRabbit\";\"i\")) | select(.created_at > \"$t\")]
-    | sort_by(.created_at) | last | .description // \"PENDING\""
+  cr_wait() {  # cr_wait <owner/repo> <pr> <head-sha> <request time>: prints one final line
+    local R=$1 N=$2 sha=$3 t=$4 start=$SECONDS tab=$'\t' reply state run
+    while :; do
+      reply=$(gh api --paginate "repos/$R/issues/$N/comments?since=$t" -q ".[]
+        | select(.user.login|test(\"coderabbit\")) | select(.created_at >= \"$t\")
+        | select(.body|test(\"Action (performed|not completed)\"))
+        | \"\(.created_at)\t\" + (.body | if test(\"Action not completed\") then \"REFUSED: \"
+            + (if test(\"rate limited\") then \"rate limited\" elif test(\"Already reviewed\") then \"already reviewed\" else \"read the reply\" end)
+          elif test(\"Review finished\") then \"FINISHED\" else \"ACCEPTED\" end)") \
+        || { echo "gh failed (error above): stop"; return 1; }
+      reply=${reply%%$'\n'*}; state=${reply#*"$tab"}; run=
+      case $state in REFUSED*) echo "$state"; return 2 ;; esac
+      if [ -n "$reply" ]; then
+        run=$(gh api --paginate "repos/$R/commits/$sha/check-runs?check_name=CodeRabbit&filter=all&per_page=100" -q ".check_runs[]
+          | select(.started_at >= \"${reply%%"$tab"*}\") | \"\(.started_at)\t\(.status)\t\(.conclusion)\t\(.output.title)\"") \
+          || { echo "gh failed (error above): stop"; return 1; }
+        run=$(printf '%s\n' "$run" | sort | tail -1)
+        case $run in
+          *"${tab}completed${tab}success${tab}"*)
+            [ "$state" != FINISHED ] || { echo "FINISHED$tab$run"; return 0; } ;;
+          *"${tab}completed${tab}failure${tab}"*|*"${tab}completed${tab}cancelled${tab}"*|*"${tab}completed${tab}timed_out${tab}"*)
+            echo "RUN ENDED$tab$run"; return 5 ;;
+        esac
+      elif [ $((SECONDS - start)) -ge 300 ]; then echo "NO REPLY after 5 min: no review"; return 3
+      fi
+      [ $((SECONDS - start)) -lt 1200 ] || { echo "TIMED OUT after 20 min: ${state:-no reply}, run ${run:-none}"; return 4; }
+      sleep 30
+    done
+  }
+  t=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+  gh pr comment <N> --body '@coderabbitai review' && cr_wait <owner>/<repo> <N> <head-sha> "$t"
   ```
 
-  `gh`'s `-q` has no `--arg` (see "Polling `gh`" above), so the time is spliced into a
-  double-quoted filter.
+  - 0, `FINISHED`: the request's `success` run finished; read its result line with the table
+    above (on a private repo on Free it is a summary, not a review).
+  - 2, `REFUSED: …`: this request produces no review. Rate limited: wait for the window (see
+    "Rate limits"). Already reviewed: `@coderabbitai full review` if the head needs one.
+  - 5, `RUN ENDED`: the request's run failed (a push mid-review, say) or was cancelled: no
+    review.
+  - 3 or 4, `NO REPLY` or `TIMED OUT`: report no review; don't wait on.
 
-  `PENDING` (no status since the request) means CodeRabbit hasn't picked it up yet, not that it
-  finished. The table above says which description to trust; this says which status to read it
-  from.
+  A `skipped` or `neutral` run started after the reply doesn't end the wait while the reply
+  says the request was accepted; one that ends it without CodeRabbit editing the reply shows up
+  as `TIMED OUT` with the run named.
+
+  `gh`'s `-q` has no `--arg` (see "Polling `gh`" above), so the time is spliced into
+  double-quoted filters; a `gh` failure stops the poll ("A wait loop must tell an error from
+  'not yet'" above). `check_name=CodeRabbit` is the check run's exact name in every repo checked
+  (dotfiles, skills, mergewren, bryancola.com, hal-pilot), and `filter=all` keeps earlier runs
+  on the head, which the default (`latest`) hides. Each `gh` runs on its own, so its exit status
+  isn't lost in a pipe; `sort | tail -1` then picks the newest run across all pages, and
+  `${reply%%$'\n'*}` keeps the first reply. `>=` counts the reply's own second.
+
+  Checked on 2026-11-15, the function as written here, in bash and zsh, against past requests
+  (no review was requested): skills#55's accepted requests on `04a5cfd` and `5231a11`
+  (`FINISHED`, `success Finished`; on `04a5cfd` the PR-open `Review skipped` 4 s after the
+  request is ignored) and its rate-limited one on `f3ef8d8` (`REFUSED: rate limited`);
+  bryancola-backups PR 2 at its real request time and with the time moved to 22:10:30, after
+  the PR-open run and before the reply (`REFUSED: already reviewed` both times; in the second
+  there is no run after the request, and the old filter printed `PENDING`); a request time with
+  no reply (`NO REPLY after 5 min`, 3); and a repo that doesn't exist (`gh failed`, 1). With
+  `gh` stubbed (fixture JSON through the function's own filters, with real `jq`) and `sleep`
+  adding 30 to `$SECONDS`: an accepted review that never finishes
+  (`TIMED OUT`, 4); the request's run cancelled (`RUN ENDED`, 5); a run that failed before the
+  reply, as a PR-open run might (ignored; `TIMED OUT`, 4); and a `skipped` run while accepted
+  (keeps waiting, then 4).
+  An earlier replay that cut the reply and runs off at each moment also found `REFUSED: rate
+  limited` for skills#55's other two throttled requests and a run whose start equals the request
+  second (the old `>` printed `PENDING`). Not yet tried on a live request: the reply's wording
+  between `Action performed` and `Review finished`. A replay can't show it, because the reply
+  comment is read as it is now, after its last edit.
 
   Poll the reviews API instead and it fires early or never: the bot posts as `coderabbitai` on
   some PRs and `coderabbitai[bot]` on others, and its replies to your thread replies register as
@@ -141,8 +261,9 @@ the diff itself routes through one of the two tools above.
 
   Answer each one in a PR comment, and record a decline in the PR body too. On skills#49, #51 and
   #53 (2026-10-24) every outside-diff finding was real; one was declined. The reverse case also
-  misleads: a clean re-review posts **no new review**, only a `Review completed` status on the
-  head commit (read it as shown under "After requesting a review"). A latest review sitting on an
+  misleads: a clean re-review posts **no new review**, only a `success` check run whose result
+  line reads `Review completed` on the head commit (a commit status before about 2026-10-24;
+  read it as shown under "After requesting a review"). A latest review sitting on an
   older commit doesn't mean the round was skipped.
 - **Triage every finding**: fix it on the branch, or decline it with the reason recorded both on
   the thread and in the PR body. A finding you disagree with is a standoff you document, not one
@@ -214,9 +335,15 @@ draws from one shared pool: a quiet repo can hit the ceiling it never spent. Per
 optional usage-based add-on. **This account is on the free plan as of 2026-09-24 — 1 included
 review per hour** (David, 2026-09-24; CodeRabbit's review footer on dotfiles #186 the same day:
 "Your plan provides up to 1 included review per hour"). It was Pro+ at 10/hr before that (footer
-on dotfiles #171, 2026-08-24). **On the free plan a repo with fewer than 10 GitHub stars gets no
-automatic review** (David, 2026-09-24) — every round, including a PR's first, must be requested
-with `@coderabbitai review` (or the review checkbox in CodeRabbit's summary comment). Neither #186
+on dotfiles #171, 2026-08-24). The plans page
+([docs.coderabbit.ai/management/plans](https://docs.coderabbit.ai/management/plans), fetched
+2026-11-15 22:28 UTC) still lists Free at 1 PR review per developer per hour, and a summary-only
+run counts against it (see "On the Free plan a private repo gets a summary" above). **On the
+free plan a public repo with fewer than 10 GitHub stars gets no automatic review** (David,
+2026-09-24; the plans page: "For public repositories with less than 10 stars, CodeRabbit requires
+reviews to be triggered manually") — every round, including a PR's first, must be requested
+with `@coderabbitai review` (or the review checkbox in CodeRabbit's summary comment). A private
+repo gets a run automatically when a PR opens, which on Free is summary only. Neither #186
 nor #187 got an automatic first review; both were triggered by David ticking that checkbox. So after
 opening a PR here, request the review; don't wait for one that will never start. **To tell who
 triggered a review, check the summary comment's edit history** (GraphQL `userContentEdits`
@@ -239,10 +366,13 @@ Treat capacity as a budget: `@coderabbitai rate limit` reports real remaining ca
 and the review footer prints what is left after each run.
 
 **A throttled CodeRabbit is unavailable, not clean.** A throttled PR shows a *passing* check
-reading `Review rate limited` and no review runs — passing by design so it never blocks merging,
+reading `Review rate limited` (since about 2026-10-24, a `neutral` check run with that title) and
+no review runs — passing by design so it never blocks merging,
 which makes it easy to misread as approval. Merging anyway is allowed only when every other gate
 is green **and** the PR body records that CodeRabbit was throttled rather than silent. For
-anything beyond docs and config, wait for capacity.
+anything beyond docs and config, wait for capacity. A summary-only run on a private repo gets the
+same carve-out, recorded in the PR body as "no line-by-line review"; waiting for capacity doesn't
+help there, so anything beyond docs and config goes through `dv:gauntlet`.
 
 ## `.coderabbit.yaml` — every repo under review should have one
 
@@ -251,7 +381,7 @@ spending the shared per-developer allowance on intermediate commits; with it fal
 round is requested deliberately with an `@coderabbitai review` comment. This matches the
 fix → push → request → re-review loop above. On a paid plan the first *eligible* review is still
 automatic (`ignore_title_keywords` such as WIP / DO NOT MERGE, and drafts, are excluded). **On the
-current free plan a repo under 10 stars gets no automatic review at all, the first included** (see
+current free plan a public repo under 10 stars gets no automatic review at all, the first included** (see
 "Rate limits" above), so request every round.
 Repos carrying this config: `skills`, `dotfiles`. Repos still on push-triggered re-review:
 `borealis`.
@@ -277,9 +407,20 @@ source <dotfiles clone>/bin/lib/cleanup-merged-branch.sh   # ~/Projects/Personal
 cleanup_merged_branch <pr> <default branch>
 ```
 
-Run it from any worktree of the repo, in bash or zsh. Right after a merge the main checkout
-may not be pulled yet, so from a worktree that has a newer copy, source that one. The function lives only in
-`bin/lib/cleanup-merged-branch.sh`; `wt done` (see `parallel-sessions.md`) sources the same file.
+Run it from any worktree of the repo, in bash or zsh, with one exception: **not from inside a
+linked worktree on the PR's branch that has no initialized submodules** (a `wt` worktree, for
+one). The function removes that worktree, which is the shell's own directory, and every git
+call after that fails with "fatal: Unable to read current working directory": it then prints
+"local <branch> moved mid-run: keeping it" and a `RESTORE FAILED` line with a `git push` to
+recreate the origin branch, though nothing moved and the PR is merged (dotfiles PR 272,
+2026-11-15). Don't run that push; `cd` to the main checkout and delete the local branch there,
+conditional on its OID (`git update-ref -d refs/heads/<branch> <oid>`). `wt done` is safe: it
+runs the function from the main checkout. An Orca worktree with initialized submodules is only
+detached, not removed, so running from inside it works (`docs/reference/orca-worktrees.md`).
+Right after a merge the main checkout may not be pulled yet, so source the copy in a worktree
+that has a newer one (by its path; the shell can stay in the main checkout). The function lives
+only in `bin/lib/cleanup-merged-branch.sh`; `wt done` (see `parallel-sessions.md`) sources the
+same file.
 
 - **Stale local copy.** After `gh pr update-branch --rebase`, or any rewrite on GitHub, the
   local branch holds the pre-rebase commits. Those aren't the merged head, but they hold no
