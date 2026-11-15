@@ -125,13 +125,6 @@ the diff itself routes through one of the two tools above.
   stops at the first result it finds can read one left over from when the PR opened: on skills#43
   and browse-gateway#149 (2026-10-06) it reported `manual review required for this OSS
   repository` while CodeRabbit was already reviewing, and the real review then found 5 issues.
-  Record the time just before you post the request, and stop if the request didn't post:
-
-  ```bash
-  t=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-  gh pr comment <N> --body '@coderabbitai review' || echo "REQUEST NOT POSTED: stop"
-  ```
-
   **CodeRabbit's reply decides, not the check run.** It answers every request with a PR comment
   within about 20 s: `Action performed` (the review runs, and the comment is edited to `Review
   finished` when it's done) or `Action not completed` with the reason, `Review rate limited.` or
@@ -139,28 +132,44 @@ the diff itself routes through one of the two tools above.
   refused request may start **no check run at all**: on bryancola-backups PR 2 (2026-11-15) the
   only check run is the one from opening the PR, and the request got `Already reviewed the last
   commit`. A poll that waits only for a check run started after the request then waits forever.
-  Each pass, read both the first CodeRabbit reply since the request and the newest check run
-  started since it, all pages, counting the request's own second:
+  So every 30 s this reads both the first CodeRabbit reply since the request and the newest
+  check run started since it, all pages, counting the request's own second, and it always
+  returns: on a refusal, on a finished run, on a `gh` failure, with no reply after 5 minutes,
+  or after 20 minutes in all. Record the time just before the request, and poll only if the
+  request posted:
 
   ```bash
-  reply=$(gh api --paginate "repos/<owner>/<repo>/issues/<N>/comments?since=$t" -q ".[]
-    | select(.user.login|test(\"coderabbit\")) | select(.created_at >= \"$t\")
-    | .body | select(test(\"Action (performed|not completed)\"))
-    | if test(\"Action not completed\") then \"REFUSED: \" + (if test(\"rate limited\") then \"rate limited\"
-        elif test(\"Already reviewed\") then \"already reviewed\" else \"read the reply\" end)
-      elif test(\"Review finished\") then \"FINISHED\" else \"ACCEPTED\" end") || echo "gh failed: stop"
-  run=$(gh api --paginate "repos/<owner>/<repo>/commits/<head-sha>/check-runs?check_name=CodeRabbit&filter=all&per_page=100" -q ".check_runs[]
-    | select(.started_at >= \"$t\")
-    | \"\(.started_at)\t\(.status)\t\(.conclusion)\t\(.output.title)\"") || echo "gh failed: stop"
-  reply=${reply%%$'\n'*}; run=$(printf '%s\n' "$run" | sort | tail -1)
-  printf 'reply: %s\nrun:   %s\n' "${reply:-none yet}" "${run:-none yet}"
+  cr_wait() {  # cr_wait <owner/repo> <pr> <head-sha> <request time>: prints one final line
+    local R=$1 N=$2 sha=$3 t=$4 i reply run
+    for i in $(seq 1 40); do
+      reply=$(gh api --paginate "repos/$R/issues/$N/comments?since=$t" -q ".[]
+        | select(.user.login|test(\"coderabbit\")) | select(.created_at >= \"$t\")
+        | .body | select(test(\"Action (performed|not completed)\"))
+        | if test(\"Action not completed\") then \"REFUSED: \" + (if test(\"rate limited\") then \"rate limited\"
+            elif test(\"Already reviewed\") then \"already reviewed\" else \"read the reply\" end)
+          elif test(\"Review finished\") then \"FINISHED\" else \"ACCEPTED\" end") \
+        || { echo "gh failed (error above): stop"; return 1; }
+      run=$(gh api --paginate "repos/$R/commits/$sha/check-runs?check_name=CodeRabbit&filter=all&per_page=100" -q ".check_runs[]
+        | select(.started_at >= \"$t\") | \"\(.started_at)\t\(.status)\t\(.conclusion)\t\(.output.title)\"") \
+        || { echo "gh failed (error above): stop"; return 1; }
+      reply=${reply%%$'\n'*}; run=$(printf '%s\n' "$run" | sort | tail -1)
+      case $reply in
+        REFUSED*) echo "$reply"; return 0 ;;
+        FINISHED) case $run in *$'\t'completed$'\t'*) echo "FINISHED	$run"; return 0 ;; esac ;;
+        "") [ "$i" -lt 10 ] || { echo "NO REPLY after 5 min: no review"; return 0; } ;;
+      esac
+      sleep 30
+    done
+    echo "TIMED OUT after 20 min: reply=${reply:-none} run=${run:-none}"
+  }
+  t=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+  gh pr comment <N> --body '@coderabbitai review' && cr_wait <owner>/<repo> <N> <head-sha> "$t"
   ```
 
-  - `REFUSED: …`: this request produces no review. Stop. Rate limited: wait for the window
-    (see "Rate limits"). Already reviewed: `@coderabbitai full review` if the head needs one.
-  - `FINISHED` and a `completed` run: read the run's result with the table above.
-  - `ACCEPTED`, a run `in_progress`, or `none yet`: poll again in 30 s. No reply 5 minutes after
-    the request means CodeRabbit didn't pick it up: stop and report no review, don't wait on.
+  - `REFUSED: …`: this request produces no review. Rate limited: wait for the window (see
+    "Rate limits"). Already reviewed: `@coderabbitai full review` if the head needs one.
+  - `FINISHED` with a completed run: read the run's result with the table above.
+  - `NO REPLY` or `TIMED OUT`: report no review; don't wait on.
 
   `gh`'s `-q` has no `--arg` (see "Polling `gh`" above), so the time is spliced into
   double-quoted filters; a `gh` failure stops the poll ("A wait loop must tell an error from
@@ -168,19 +177,23 @@ the diff itself routes through one of the two tools above.
   (dotfiles, skills, mergewren, bryancola.com, hal-pilot), and `filter=all` keeps earlier runs
   on the head, which the default (`latest`) hides. Each `gh` runs on its own, so its exit status
   isn't lost in a pipe; `sort | tail -1` then picks the newest run across all pages, and
-  `${reply%%$'\n'*}` keeps the first reply. `>=` counts a run that starts in the same second as the request: the old
-  `>` missed it.
+  `${reply%%$'\n'*}` keeps the first reply. `>=` counts a run that starts in the same second as
+  the request: the old `>` missed it.
 
-  Replayed on 2026-11-15 against past requests, with the reply and runs cut off at the moment a
-  poll would have seen them: skills#55's three accepted requests (`FINISHED`, then `success
-  Finished`) and three rate-limited ones (`REFUSED: rate limited`, with a `neutral` run, where
-  the old filter printed `PENDING`); bryancola-backups PR 2 with the request time moved to
-  22:10:30, after the PR-open run and before the reply (`REFUSED: already reviewed`, no run; the
-  old filter printed `PENDING`); a request time equal to a run's start (the run found; the old
-  filter printed `PENDING`); and a failed `gh pr comment` (`REQUEST NOT POSTED`). Not yet tried
-  on a live request: the reply's wording between `Action performed` and `Review finished`, and
-  how long a run takes to appear after an accepted request. A replay can't show those, because
-  the reply comment is read as it is now, after its last edit.
+  Checked on 2026-11-15, the function as written here, in bash and zsh, against past requests
+  (no review was requested): skills#55's accepted requests on `04a5cfd` and `5231a11`
+  (`FINISHED`, `success Finished`) and its rate-limited one on `f3ef8d8` (`REFUSED: rate
+  limited`); bryancola-backups PR 2 at its real request time and with the time moved to
+  22:10:30, after the PR-open run and before the reply (`REFUSED: already reviewed` both times;
+  in the second there is no run after the request, and the old filter printed `PENDING`); a
+  request time with no reply (`NO REPLY after 5 min`); a repo that doesn't exist (`gh failed`,
+  return 1); and, with `gh` stubbed, a review that never finishes (`TIMED OUT` after 40 passes).
+  An earlier replay that cut the reply and runs off at each moment also found `REFUSED: rate
+  limited` for skills#55's other two throttled requests and a run whose start equals the request
+  second (the old `>` printed `PENDING`). Not yet tried on a live request: the reply's wording
+  between `Action performed` and `Review finished`, and how long a run takes to appear after an
+  accepted request. A replay can't show those, because the reply comment is read as it is now,
+  after its last edit.
 
   Poll the reviews API instead and it fires early or never: the bot posts as `coderabbitai` on
   some PRs and `coderabbitai[bot]` on others, and its replies to your thread replies register as
