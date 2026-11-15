@@ -369,15 +369,20 @@ source <dotfiles clone>/bin/lib/cleanup-merged-branch.sh   # ~/Projects/Personal
 cleanup_merged_branch <pr> <default branch>
 ```
 
-Run it from the main checkout or any worktree of the repo other than one on the PR's branch,
-in bash or zsh. From inside a linked worktree on that branch it removes the shell's own
-directory, and every git call after that fails with "fatal: Unable to read current working
-directory": it then prints "local <branch> moved mid-run: keeping it" and a `RESTORE FAILED`
-line with a `git push` to recreate the origin branch, though nothing moved and the PR is
-merged (dotfiles PR 272, 2026-11-15). Don't run that push; `cd` to the main checkout and delete
-the local branch there, conditional on its OID (`git update-ref -d refs/heads/<branch> <oid>`). Right after a merge the main checkout
-may not be pulled yet, so from a worktree that has a newer copy, source that one. The function lives only in
-`bin/lib/cleanup-merged-branch.sh`; `wt done` (see `parallel-sessions.md`) sources the same file.
+Run it from any worktree of the repo, in bash or zsh, with one exception: **not from inside a
+linked worktree on the PR's branch that has no initialized submodules** (a `wt` worktree, for
+one). The function removes that worktree, which is the shell's own directory, and every git
+call after that fails with "fatal: Unable to read current working directory": it then prints
+"local <branch> moved mid-run: keeping it" and a `RESTORE FAILED` line with a `git push` to
+recreate the origin branch, though nothing moved and the PR is merged (dotfiles PR 272,
+2026-11-15). Don't run that push; `cd` to the main checkout and delete the local branch there,
+conditional on its OID (`git update-ref -d refs/heads/<branch> <oid>`). `wt done` is safe: it
+runs the function from the main checkout. An Orca worktree with initialized submodules is only
+detached, not removed, so running from inside it works (`docs/reference/orca-worktrees.md`).
+Right after a merge the main checkout may not be pulled yet, so source the copy in a worktree
+that has a newer one (by its path; the shell can stay in the main checkout). The function lives
+only in `bin/lib/cleanup-merged-branch.sh`; `wt done` (see `parallel-sessions.md`) sources the
+same file.
 
 - **Stale local copy.** After `gh pr update-branch --rebase`, or any rewrite on GitHub, the
   local branch holds the pre-rebase commits. Those aren't the merged head, but they hold no
