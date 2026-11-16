@@ -98,14 +98,17 @@ production. From the personal Mac there are three ways in:
 
 | Alias | Logs in as | Key | Use |
 |---|---|---|---|
-| `hal-as-hal` | `hal` | the Mac's main key, `~/.ssh/id_ed25519` | Agents and David, for anything done as `hal` |
+| `hal-as-hal` | `hal` | the Mac's main key, `~/.ssh/id_ed25519` | Claude and Codex sessions that run their own SSH commands as `hal`; David too |
 | `hal-orca` | `hal` | `~/.ssh/hal-orca` | Orca's hal server only |
-| `hal-svc` | `david`, then `sudo -u hal -i` | the main key, then David's password | David by hand, as a fallback |
+| `hal-svc` | `david`, then `sudo -u hal -i` | the main key, then David's password | David by hand. David's `atlas` and `axiom` launchers take the same route through Orca's `hal-svc` environment |
 
 Rules:
 
-- Agents act as `hal` only through `hal-as-hal`. Never `hal-orca`, which is Orca's key, and
-  never `hal-svc`, which needs David's password.
+- A Claude or Codex session that runs its own SSH commands as `hal` uses `hal-as-hal`. Never
+  `hal-orca`, which is Orca's key, and never `hal-svc`, which needs David's password.
+- David's `atlas` and `axiom` launchers keep their path: an Orca tab on the `hal-svc`
+  environment, which logs in as `david`, then `sudo -u hal -i` (`zsh/functions/atlas.sh`,
+  `zsh/functions/axiom.sh`, `docs/reference/hermes-commands.md`). VIL-700 doesn't change them.
 - An agent session needs `Bash(ssh hal-as-hal:*)` in `~/.claude/settings.json`. Agents can't
   write that file; David adds the rule.
 - `hal-as-hal` is a full shell as `hal`. Read before you write, and avoid installs and

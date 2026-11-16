@@ -343,10 +343,7 @@ previews it. In short:
 Verify with `ci/server-profile-checks.sh static`. The full write-up (layers, overlays,
 `~/.zshenv` backup, CI's `macos-server` job) is in `docs/reference/install-and-server.md`.
 
-Agents act as `hal` only through `ssh hal-as-hal` (the Mac's main key, `User hal`), never
-`hal-orca` (Orca's key) or `hal-svc` (sudo, needs a password). The alias is machine-local in
-the Mac's `~/.ssh/config`, not tracked (VIL-700; "Reaching hal as `hal`" in
-`docs/reference/install-and-server.md`).
+A Claude or Codex session that runs its own SSH commands as `hal` uses `ssh hal-as-hal` (the Mac's main key, `User hal`), never `hal-orca` (Orca's key) or `hal-svc` (sudo, needs a password); David's `atlas` and `axiom` launchers keep their path (Orca's `hal-svc` environment, then `sudo -u hal -i`). The alias is machine-local in the Mac's `~/.ssh/config`, not tracked (VIL-700; "Reaching hal as `hal`" in `docs/reference/install-and-server.md`).
 
 ## Invariants & gotchas (do not "fix" these)
 
