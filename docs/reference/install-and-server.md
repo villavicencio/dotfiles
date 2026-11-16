@@ -94,3 +94,118 @@ How it differs from a desk Mac:
 Verify with `ci/server-profile-checks.sh static` locally. CI's `macos-server` job runs the
 profile in a simulated hal home and checks the pre-existing files, the shell chain, git, and
 that no LaunchAgent was added. It also checks that a second run changes nothing.
+
+### Reaching hal as `hal` (VIL-700)
+
+`hal` is the service account Atlas, Axiom, LM Studio and MergeWren run in. Treat it as
+production. These SSH aliases in the personal Mac's `~/.ssh/config` (machine-local, not
+tracked; `docs/reference/shell-and-path.md`) reach hal as `david` or `hal`:
+
+| Alias | Logs in as | Key | Use |
+|---|---|---|---|
+| `hal` | `david` | the Mac's main key, `~/.ssh/id_ed25519` | Anything done as `david`, including `david`'s dotfiles clone |
+| `hal-as-hal` (after the setup below) | `hal` | the Mac's main key | Claude and Codex sessions that run their own SSH commands as `hal`; David too |
+| `hal-orca` | `hal` | `~/.ssh/hal-orca` | Orca's `hal-orca` environment only (its server on hal runs as `hal`) |
+| `hal-svc` | `david`, then `sudo -u hal -i` | the main key, then David's password | David by hand |
+
+`hal-as-hal` exists only on a Mac where the setup below has been done. Until then the alias
+is missing, and the main key is not on `hal`'s `authorized_keys`.
+
+`hal-svc` is also the name of an Orca environment, which is a different thing: the one the
+`atlas` and `axiom` launchers open their tabs on (`docs/reference/hermes-commands.md`). Those
+tabs log in as `david` and run `sudo -u hal -i` (`zsh/functions/atlas.sh`).
+
+Rules:
+
+- A Claude or Codex session that runs its own SSH commands as `hal` uses `hal-as-hal`. Never
+  `hal-orca`, which is Orca's key, and never `hal-svc`, which needs David's password.
+- David's `atlas` and `axiom` launchers keep their path: an Orca tab on the `hal-svc`
+  environment, which logs in as `david`, then `sudo -u hal -i` (`zsh/functions/atlas.sh`,
+  `zsh/functions/axiom.sh`, `docs/reference/hermes-commands.md`). VIL-700 doesn't change them.
+- A Claude Code session also needs a permission rule for the alias (setup step 4).
+- `hal-as-hal` is a full shell as `hal`. Read before you write, and avoid installs and
+  service restarts while the overnight pilot uses the local models (the window is in
+  `docs/reference/hermes-commands.md`, "The 27B is shared").
+
+Setup, on the personal Mac only (the key is pinned to its tailnet address). Do the steps in
+order; nothing here exists until you do it. Before step 1, check on the Mac that
+`ssh -o BatchMode=yes hal-orca 'id -un'` prints `hal`, that `tailscale ip -4` prints an
+address, and that `~/.ssh/id_ed25519.pub` exists.
+
+1. **Add the Mac's main public key to `hal`'s `~/.ssh/authorized_keys`.** David runs this by
+   hand on the personal Mac, in a terminal, as his own account; an agent session doesn't. It
+   reaches hal as `hal` over `hal-orca`, because until this key is in, that is the only login
+   as `hal` that needs no password. This is the one use of `hal-orca` outside Orca. No
+   password is expected. If the ssh agent has dropped Orca's key, ssh asks for the `hal-orca`
+   key's passphrase, not a hal account password.
+
+   From the dotfiles checkout on the Mac, run `bash helpers/add_hal_as_hal_key.sh`. It sends
+   only the key's type and base64 body, never the private key, and pins the new line to the
+   Mac's tailnet IPv4 address, read from `tailscale ip -4` when it runs, with the same options
+   as the `hal-orca` line. It refuses anything that isn't an ed25519 public key or a
+   dotted-quad address. Only on a run that is about to append, it first makes a new backup
+   (never overwriting an older one) and makes sure the file ends in a newline.
+   After writing, it checks that the new line is the last line and that `ssh-keygen` reads it
+   as one more key, then prints the options it wrote and the fingerprints now on hal. The key's
+   comment becomes `mac-main-key hal-as-hal <date>`.
+
+   If the key is already on hal, the script changes nothing. With exactly the intended
+   options it exits 0. With any other options, or none, it prints that line's options next
+   to the intended ones and exits 3; changing or removing that line is David's decision.
+   Exit 1 means it refused, or a check failed before `authorized_keys` was changed. Exit 4
+   means the write or a check after it failed; it names the backup to restore.
+
+   Any other exit code means ssh or the shell on hal failed. The code doesn't tell you the
+   state of the file, and neither does whether a backup exists. Look at the file instead.
+   This lists its fingerprints and the options of any `mac-main-key hal-as-hal` line, without
+   the key itself:
+
+   ```bash
+   ssh hal-orca 'ssh-keygen -lf ~/.ssh/authorized_keys; awk "/mac-main-key hal-as-hal/ { i = index(\$0, \"ssh-ed25519 \"); print (i > 1 ? substr(\$0, 1, i - 2) : \"(no options)\") }" ~/.ssh/authorized_keys'
+   ```
+
+   If the run made a backup, compare the file with the newest
+   `~/.ssh/authorized_keys.bak-*`. Running the script again is safe: it adds the key only
+   when it's missing, and it refuses a line with other options. `DOTFILES_DRY_RUN=1` prints
+   what it would do and sends nothing. After changing the script, run
+   `ci/hal-as-hal-key-checks.sh`.
+
+2. **Add the alias to the Mac's `~/.ssh/config`**, above `Host *`. Edit the file on the Mac as
+   your own account; no password. Host aliases are machine-local in this repo, so the block
+   is not tracked:
+
+   ```
+   Host hal-as-hal
+       HostName <hal's tailnet name: the HostName of the Host hal block>
+       User hal
+       IdentityFile ~/.ssh/id_ed25519
+       IdentitiesOnly yes
+       ServerAliveInterval 30
+       ServerAliveCountMax 3
+   ```
+
+3. **Check it** on the Mac: `ssh -o BatchMode=yes hal-as-hal 'id -un'` prints `hal`. It logs
+   in as `hal` with the main key and never asks for a password; BatchMode makes it fail
+   instead. An authentication failure means step 1 is missing, or the connection didn't come
+   from the pinned tailnet IPv4 address (see below). "Could not resolve hostname hal-as-hal"
+   means step 2 is missing.
+
+4. **Claude Code only:** add `Bash(ssh hal-as-hal:*)` to `~/.claude/settings.json` on the Mac.
+   Agents can't write that file; David adds the rule. The file and the rule are Claude
+   Code's; a Codex session follows its own approval settings.
+
+What hal looks like after step 1:
+
+- sshd lets `hal` in by public key only (`Match User hal` → `AuthenticationMethods publickey`
+  in `/etc/ssh/sshd_config.d/200-hal.conf`). There is no `AllowUsers` line. This is already
+  so; step 1 doesn't change it.
+- `hal`'s `~/.ssh/authorized_keys` has one line per key, each pinned to the Mac's tailnet
+  IPv4 address with `from="<that address>",no-agent-forwarding,no-X11-forwarding`. The
+  `hal-orca` line is there already; step 1 adds the main key's line with the same options.
+- The pin is IPv4 only. If ssh ever reaches hal over the tailnet's IPv6 address, hal refuses
+  both keys.
+
+Each account still has its own dotfiles clone at `~/Projects/Personal/dotfiles`. Pull both:
+`ssh hal 'git -C ~/Projects/Personal/dotfiles pull --ff-only'` and
+`ssh hal-as-hal 'git -C ~/Projects/Personal/dotfiles pull --ff-only'`. VIL-700's second part
+plans to move `hal` onto `david`'s clone; until it lands, this paragraph is current.

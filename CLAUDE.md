@@ -49,6 +49,7 @@ Each line is a rule; the file in parentheses has the why, the history and the ex
 - Topgrade from an agent shell has no TTY, so a cask's sudo fails. Touch ID for sudo is a manual root step (`docs/reference/tooling.md`).
 - `topgrade/topgrade.toml` skips steps via `[misc] disable` with exact variant names; `vim` stays disabled.
 - Windows: adding or removing a link in `install.ps1` means updating CI's `EXPECTED_LINKS`; never run `python3` in a Windows install step (`docs/reference/windows.md`).
+- A Claude or Codex session that runs its own SSH commands as `hal` on hal uses `ssh hal-as-hal` (the Mac's main key, `User hal`), never `hal-orca` (Orca's key) or `hal-svc` (sudo, needs a password); David's `atlas` and `axiom` launchers keep their path (Orca's `hal-svc` environment, then `sudo -u hal -i`). The alias is machine-local in the Mac's `~/.ssh/config`, not tracked, and works only after the setup steps in `docs/reference/install-and-server.md`, "Reaching hal as `hal`" (VIL-700).
 - The hal overnight pilot runner (VIL-396) lives in the private repo `villavicencio/hal-pilot`, cloned on hal as `david` at `~/Projects/hal-pilot`, not here (VIL-515).
 - The `atlas`/`axiom`/`syd` functions and their Orca tabs: `docs/reference/hermes-commands.md`. hal's server profile: `docs/reference/install-and-server.md`. WSL and the Linux git overlay: `docs/reference/wsl-linux.md`. Work Mac setup: `docs/reference/work-mac.md`.
 
@@ -73,8 +74,8 @@ docs/           Compound-engineering pipeline artifacts:
                 (this repo's long write-ups, moved out of CLAUDE.md)
 ci/             CI assets (Dockerfile for install-matrix's linux leg, PSScriptAnalyzer settings for its windows leg,
                 server-profile-checks.sh for its macos-server leg; cleanup-merged-branch-checks.sh,
-                op-agent-checks.sh, desktop-commander-remote-log-checks.sh and
-                hal-memory-pull-checks.sh, run by hand, not in CI)
+                op-agent-checks.sh, desktop-commander-remote-log-checks.sh,
+                hal-memory-pull-checks.sh and hal-as-hal-key-checks.sh, run by hand, not in CI)
 git/            gitconfig, gitignore, gitattributes, gitconfig.linux (Linux overlay — see
                 docs/reference/wsl-linux.md)
 helpers/        Bash scripts called by the install pipeline

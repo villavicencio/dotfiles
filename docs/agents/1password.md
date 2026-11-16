@@ -87,15 +87,19 @@ After changing `bin/op-agent`, run `ci/op-agent-checks.sh` (a stub `op`; no acco
 
 **The token file on hal, for `hal` and for `david`.** The section above explains what `david`'s
 copy exposes. Run this from the personal Mac, in a terminal with `op signin` done. The token
-goes from your 1Password straight into the file over SSH and is never shown. `hal-orca` logs
-in as `hal`, and `hal` logs in as `david`; both use key auth.
+goes from your 1Password straight into the file over SSH and is never shown. `hal-as-hal` (once set
+up) logs in as `hal` and `hal` logs in as `david`, both with the Mac's main key. `hal-orca` (Orca's
+key) and `hal-svc` (sudo) are not for this; see "Reaching hal as `hal`" in
+`docs/reference/install-and-server.md`. Do that section's setup steps first: until the main key
+is on `hal`'s `authorized_keys` and the alias is in the Mac's `~/.ssh/config`, the loop's `hal-as-hal`
+pass fails.
 ```bash
 tok="$(op item get "hal-agents service account" --fields label=credential --reveal)"; st=$?
 if [ "$st" != 0 ] || [ "${tok#ops_}" = "$tok" ]; then
   echo "op item get failed or returned no service-account token; nothing sent" >&2; unset tok; false
 else
   rc=0
-  for host in hal-orca hal; do
+  for host in hal-as-hal hal; do
     printf '%s\n' "$tok" | ssh "$host" "n=$(( ${#tok} + 1 ));"' umask 077; d=~/.config/op-agent; mkdir -p "$d" && cat > "$d/token.new" && [ "$(head -c 4 "$d/token.new")" = ops_ ] && [ "$(wc -c < "$d/token.new" | tr -d " ")" = "$n" ] && mv -f "$d/token.new" "$d/token" && echo "written on hal as $(id -un), $n bytes" || { rm -f "$d/token.new"; echo "nothing written on hal as $(id -un); existing token kept" >&2; exit 1; }' || rc=1
   done
   unset tok

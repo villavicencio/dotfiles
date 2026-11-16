@@ -226,6 +226,7 @@ Run these before committing. `bin/dot` (`~/.local/bin/dot` once installed) wraps
 | `op-agent` guards (after changing `bin/op-agent`) | `ci/op-agent-checks.sh` | exit 0 (local only, stub `op`) |
 | Desktop Commander remote log rotation (after changing the job's logging in `helpers/desktop_commander_remote.sh`) | `ci/desktop-commander-remote-log-checks.sh` | exit 0 (local only, macOS, fake HOME; e2e needs Node) |
 | hal memory mirror (after changing `helpers/hal_memory_pull.sh` or its installer) | `ci/hal-memory-pull-checks.sh` | exit 0 (local only, macOS, temp folders, fake ssh, stub launchctl) |
+| hal-as-hal key (after changing `helpers/add_hal_as_hal_key.sh`) | `ci/hal-as-hal-key-checks.sh` | exit 0 (local only, temp folders, fake ssh and tailscale) |
 
 **Dry-run must never mutate config.** `./install --dry-run` previews Dotbot directives
 without applying them. The only thing the wrapper does regardless is init the vendored
@@ -342,6 +343,8 @@ previews it. In short:
 
 Verify with `ci/server-profile-checks.sh static`. The full write-up (layers, overlays,
 `~/.zshenv` backup, CI's `macos-server` job) is in `docs/reference/install-and-server.md`.
+
+A Claude or Codex session that runs its own SSH commands as `hal` uses `ssh hal-as-hal` (the Mac's main key, `User hal`), never `hal-orca` (Orca's key) or `hal-svc` (sudo, needs a password); David's `atlas` and `axiom` launchers keep their path (Orca's `hal-svc` environment, then `sudo -u hal -i`). The alias is machine-local in the Mac's `~/.ssh/config`, not tracked, and works only after the setup steps in "Reaching hal as `hal`" in `docs/reference/install-and-server.md` (VIL-700).
 
 ## Invariants & gotchas (do not "fix" these)
 
