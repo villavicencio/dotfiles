@@ -87,10 +87,12 @@ After changing `bin/op-agent`, run `ci/op-agent-checks.sh` (a stub `op`; no acco
 
 **The token file on hal, for `hal` and for `david`.** The section above explains what `david`'s
 copy exposes. Run this from the personal Mac, in a terminal with `op signin` done. The token
-goes from your 1Password straight into the file over SSH and is never shown. `hal-as-hal` logs
-in as `hal` and `hal` logs in as `david`, both with the Mac's main key. `hal-orca` (Orca's
+goes from your 1Password straight into the file over SSH and is never shown. `hal-as-hal` (once set
+up) logs in as `hal` and `hal` logs in as `david`, both with the Mac's main key. `hal-orca` (Orca's
 key) and `hal-svc` (sudo) are not for this; see "Reaching hal as `hal`" in
-`docs/reference/install-and-server.md`.
+`docs/reference/install-and-server.md`. Do that section's setup steps first: until the main key
+is on `hal`'s `authorized_keys` and the alias is in the Mac's `~/.ssh/config`, the loop's `hal-as-hal`
+pass fails.
 ```bash
 tok="$(op item get "hal-agents service account" --fields label=credential --reveal)"; st=$?
 if [ "$st" != 0 ] || [ "${tok#ops_}" = "$tok" ]; then
