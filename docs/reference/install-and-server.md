@@ -91,16 +91,26 @@ How it differs from a desk Mac:
   authenticate over HTTPS with its own token. Keep HTTPS as the convention rather than adding
   GitHub's host key.
 
+Verify with `ci/server-profile-checks.sh static` locally. CI's `macos-server` job runs the
+profile in a simulated hal home and checks the pre-existing files, the shell chain, git, and
+that no LaunchAgent was added. It also checks that a second run changes nothing.
+
 ### Reaching hal as `hal` (VIL-700)
 
 `hal` is the service account Atlas, Axiom, LM Studio and MergeWren run in. Treat it as
-production. From the personal Mac there are three ways in:
+production. These SSH aliases in the personal Mac's `~/.ssh/config` (machine-local, not
+tracked; `docs/reference/shell-and-path.md`) reach hal as `david` or `hal`:
 
 | Alias | Logs in as | Key | Use |
 |---|---|---|---|
-| `hal-as-hal` | `hal` | the Mac's main key, `~/.ssh/id_ed25519` | Claude and Codex sessions that run their own SSH commands as `hal`; David too |
-| `hal-orca` | `hal` | `~/.ssh/hal-orca` | Orca's hal server only |
-| `hal-svc` | `david`, then `sudo -u hal -i` | the main key, then David's password | David by hand. David's `atlas` and `axiom` launchers take the same route through Orca's `hal-svc` environment |
+| `hal` | `david` | the Mac's main key, `~/.ssh/id_ed25519` | Anything done as `david`, including `david`'s dotfiles clone |
+| `hal-as-hal` | `hal` | the Mac's main key | Claude and Codex sessions that run their own SSH commands as `hal`; David too |
+| `hal-orca` | `hal` | `~/.ssh/hal-orca` | Orca's `hal-orca` environment only (its server on hal runs as `hal`) |
+| `hal-svc` | `david`, then `sudo -u hal -i` | the main key, then David's password | David by hand |
+
+`hal-svc` is also the name of an Orca environment, which is a different thing: the one the
+`atlas` and `axiom` launchers open their tabs on (`docs/reference/hermes-commands.md`). Those
+tabs log in as `david` and run `sudo -u hal -i` (`zsh/functions/atlas.sh`).
 
 Rules:
 
@@ -113,7 +123,8 @@ Rules:
   can't write that file; David adds the rule. That file and rule are Claude Code's only; a
   Codex session follows its own approval settings.
 - `hal-as-hal` is a full shell as `hal`. Read before you write, and avoid installs and
-  service restarts during 01:30–05:00 PT, when the local models are busy.
+  service restarts while the overnight pilot uses the local models (the window is in
+  `docs/reference/hermes-commands.md`, "The 27B is shared").
 
 How it is set up:
 
@@ -143,7 +154,3 @@ Each account still has its own dotfiles clone at `~/Projects/Personal/dotfiles`.
 `ssh hal 'git -C ~/Projects/Personal/dotfiles pull --ff-only'` and
 `ssh hal-as-hal 'git -C ~/Projects/Personal/dotfiles pull --ff-only'`. VIL-700's second part
 plans to move `hal` onto `david`'s clone; until it lands, this paragraph is current.
-
-Verify with `ci/server-profile-checks.sh static` locally. CI's `macos-server` job runs the
-profile in a simulated hal home and checks the pre-existing files, the shell chain, git, and
-that no LaunchAgent was added. It also checks that a second run changes nothing.
