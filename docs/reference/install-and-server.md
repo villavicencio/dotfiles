@@ -151,9 +151,17 @@ address, and that `~/.ssh/id_ed25519.pub` exists.
    If the key is already on hal, the script changes nothing. With exactly the intended
    options it exits 0. With any other options, or none, it prints that line's options next
    to the intended ones and exits 3; changing or removing that line is David's decision.
-   Exit 1 means it refused or a check failed before writing, and 255 means ssh couldn't log
-   in; neither changes anything. Exit 4 means the write or a check after it failed; it names
-   the backup to restore. `DOTFILES_DRY_RUN=1` prints what it would do and sends nothing.
+   Exit 1 means it refused or a check failed before writing; nothing changed. Exit 4 means
+   the write or a check after it failed; it names the backup to restore. Each run makes a new
+   backup and never overwrites an older one. Any other code means ssh or the shell on hal
+   failed. If ssh couldn't log in (255 before any output from hal), nothing was sent. If the
+   connection dropped while the script ran on hal, the file's state is unknown. Check before
+   deciding:
+   `ssh hal-orca 'ssh-keygen -lf ~/.ssh/authorized_keys; ls -l ~/.ssh/authorized_keys.bak-*'`.
+   A `mac-main-key hal-as-hal` fingerprint means the key went in. A backup with this run's
+   timestamp means the script got as far as writing; compare the file with it. Running the
+   script again is safe either way: it adds the key only when it's missing, and it refuses a
+   line with other options. `DOTFILES_DRY_RUN=1` prints what it would do and sends nothing.
    After changing the script, run `ci/hal-as-hal-key-checks.sh`.
 
 2. **Add the alias to the Mac's `~/.ssh/config`**, above `Host *`. Edit the file on the Mac as

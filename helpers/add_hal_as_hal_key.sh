@@ -25,8 +25,13 @@
 #
 # Exit: 0 added, already correct, or DOTFILES_DRY_RUN=1 (nothing sent); 1 refused or a check
 # failed, nothing changed; 3 key present with other options, nothing changed; 4 the write or a
-# check after it failed (restore from the backup it names); any other code is ssh or the
-# remote shell failing (255: ssh couldn't log in), nothing changed.
+# check after it failed (restore from the backup it names). Any other code is ssh or the
+# remote shell failing. 255 before login means nothing was sent; a connection that dropped
+# while the hal side ran leaves its state unknown, so check hal before deciding (the setup
+# doc says how). Running it again is safe either way: it adds the key only when missing.
+#
+# Backups never overwrite: each run creates a new authorized_keys.bak-<time>[.<n>] with
+# noclobber, and nothing is written to authorized_keys unless that copy succeeded and matches.
 # Overrides, for ci/hal-as-hal-key-checks.sh: HAL_AS_HAL_SSH, HAL_AS_HAL_TAILSCALE,
 # HAL_AS_HAL_PUBKEY.
 set -uo pipefail
@@ -68,8 +73,19 @@ _hal_side() {
   fp=$(printf '%s %s\n' "$t" "$k" | ssh-keygen -lf - | awk '{print $2}') && [ -n "$fp" ] ||
     { echo "ssh-keygen can't read the new key; nothing changed" >&2; return 1; }
   before=$(ssh-keygen -lf "$f") || { echo "ssh-keygen can't read $f; nothing changed" >&2; return 1; }
-  bak="$f.bak-$(/bin/date +%Y%m%d-%H%M%S)"
-  /bin/cp -p "$f" "$bak" || { echo "backup failed; nothing changed" >&2; return 1; }
+  # A new backup file every run: noclobber makes '>' fail if the name exists (O_EXCL), so an
+  # earlier backup with the same second's timestamp is never overwritten.
+  local base n=0
+  base="$f.bak-$(/bin/date +%Y%m%d-%H%M%S)"
+  bak=$base
+  until ( set -o noclobber; cat "$f" > "$bak" ) 2>/dev/null; do
+    n=$((n + 1))
+    [ "$n" -le 20 ] || { echo "can't create a new backup next to $f; nothing changed" >&2; return 1; }
+    bak="$base.$n"
+  done
+  if ! { cmp -s "$f" "$bak" && /bin/chmod 600 "$bak" && touch -r "$f" "$bak"; }; then
+    echo "backup $bak doesn't match $f; nothing changed" >&2; return 1
+  fi
   line="$want $t $k mac-main-key hal-as-hal $(/bin/date +%F)"
   # $(tail -c 1) is empty when the file ends in a newline (or is empty).
   if [ -n "$(tail -c 1 "$f")" ]; then printf '\n' >> "$f" || { echo "write failed; restore with: cp -p $bak $f" >&2; return 4; }; fi

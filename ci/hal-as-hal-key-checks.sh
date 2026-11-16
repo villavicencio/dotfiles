@@ -17,7 +17,7 @@ REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
 HELPER="$REPO/helpers/add_hal_as_hal_key.sh"
 
 T="$(mktemp -d)" || { echo "mktemp -d failed" >&2; exit 1; }
-trap 'rm -rf "$T"' EXIT
+trap 'chmod -R u+rwx "$T" 2>/dev/null; rm -rf "$T"' EXIT
 mkdir -p "$T/stub" "$T/badkeygen" "$T/remote/.ssh"
 
 printf '%s\n' '#!/bin/sh' \
@@ -132,6 +132,22 @@ check "13 .pub without trailing newline" '[ $RC = 0 ] && [ "$(lines)" = 2 ]'
 # 14. clean add with macOS's /bin/bash 3.2 on the hal side
 reset_ak; FAKE_OLD_BASH=1 run bash "$HELPER"
 check "14 hal side in /bin/bash 3.2" '[ $RC = 0 ] && [ "$(lines)" = 2 ] && tail -n 1 "$AK" | grep -q "^$PIN ssh-ed25519 $BODY mac-main-key hal-as-hal "'
+
+# 15. backups with this run's name already exist (".1" too, for this second and the next two,
+# so the run collides whichever second it starts in): all kept as they were, a new one made.
+reset_ak; horig=$(shasum < "$AK"); olds=()
+for d in 0 1 2; do
+  ts=$(/bin/date -v+"$d"S +%Y%m%d-%H%M%S)
+  for x in "" .1; do echo "older backup $ts$x" > "$AK.bak-$ts$x"; olds+=("$AK.bak-$ts$x"); done
+done
+hold=$(cat "${olds[@]}" | shasum)
+run bash "$HELPER"
+check "15 backup name already taken" '[ $RC = 0 ] && [ "$(cat "${olds[@]}" | shasum)" = "$hold" ] && b=$(sed -n "s/^backup: //p" "$OUT") && [ -n "$b" ] && case "$b" in *.2) true ;; *) false ;; esac && [ "$(shasum < "$b")" = "$horig" ] && [ "$(lines)" = 2 ]'
+
+# 16. no backup can be made (the .ssh folder is read-only): refused, authorized_keys untouched
+reset_ak; h=$(shasum "$AK"); chmod 500 "$T/remote/.ssh"
+run bash "$HELPER"; chmod 700 "$T/remote/.ssh"
+check "16 no backup possible" '[ $RC = 1 ] && [ "$(shasum "$AK")" = "$h" ] && grep -q "can.t create a new backup" "$OUT"'
 
 echo "passed $pass, failed $fail"
 [ "$fail" = 0 ]
