@@ -74,8 +74,8 @@ docs/           Compound-engineering pipeline artifacts:
                 (this repo's long write-ups, moved out of CLAUDE.md)
 ci/             CI assets (Dockerfile for install-matrix's linux leg, PSScriptAnalyzer settings for its windows leg,
                 server-profile-checks.sh for its macos-server leg; cleanup-merged-branch-checks.sh,
-                op-agent-checks.sh, desktop-commander-remote-log-checks.sh and
-                hal-memory-pull-checks.sh, run by hand, not in CI)
+                op-agent-checks.sh, desktop-commander-remote-log-checks.sh,
+                hal-memory-pull-checks.sh and hal-as-hal-key-checks.sh, run by hand, not in CI)
 git/            gitconfig, gitignore, gitattributes, gitconfig.linux (Linux overlay — see
                 docs/reference/wsl-linux.md)
 helpers/        Bash scripts called by the install pipeline

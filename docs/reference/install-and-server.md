@@ -139,22 +139,22 @@ address, and that `~/.ssh/id_ed25519.pub` exists.
    password is expected. If the ssh agent has dropped Orca's key, ssh asks for the `hal-orca`
    key's passphrase, not a hal account password.
 
-   The command sends only the key's type and base64 body, never the private key. It pins the
-   new line to the Mac's tailnet IPv4 address, read from `tailscale ip -4` when it runs, with
-   the same options as the `hal-orca` line. It refuses anything that isn't an ed25519 public
-   key, adds nothing if the key is already there, backs the file up first, and replaces the
-   key's comment with `mac-main-key hal-as-hal <date>`.
+   From the dotfiles checkout on the Mac, run `bash helpers/add_hal_as_hal_key.sh`. It sends
+   only the key's type and base64 body, never the private key, and pins the new line to the
+   Mac's tailnet IPv4 address, read from `tailscale ip -4` when it runs, with the same options
+   as the `hal-orca` line. It refuses anything that isn't an ed25519 public key or a
+   dotted-quad address. Before writing, it backs the file up and makes sure the file ends in a newline.
+   After writing, it checks that the new line is the last line and that `ssh-keygen` reads it
+   as one more key, then prints the options it wrote and the fingerprints now on hal. The key's
+   comment becomes `mac-main-key hal-as-hal <date>`.
 
-   ```bash
-   a=$(tailscale ip -4 | head -n 1)
-   if [ -z "$a" ]; then
-     echo "no tailnet IPv4 from tailscale ip -4 (CLI missing or not connected); nothing sent" >&2; false
-   else
-     awk -v a="$a" 'NR==1{print a, $1, $2}' ~/.ssh/id_ed25519.pub | ssh hal-orca 'set -u; f=~/.ssh/authorized_keys; read -r a t k || exit 1; case "$a" in ""|*[!0-9.]*) echo "unexpected pin address; nothing changed" >&2; exit 1;; esac; case "$t" in ssh-ed25519) ;; *) echo "not an ed25519 public key; nothing changed" >&2; exit 1;; esac; case "$k" in ""|*[!A-Za-z0-9+/=]*) echo "unexpected key data; nothing changed" >&2; exit 1;; esac; if awk -v k="$k" "{for(i=1;i<=NF;i++) if(\$i==k) f=1} END{exit !f}" "$f"; then echo "key already present; nothing changed"; exit 0; fi; /bin/cp -p "$f" "$f.bak-$(/bin/date +%Y%m%d-%H%M%S)" && printf "from=\"%s\",no-agent-forwarding,no-X11-forwarding %s %s mac-main-key hal-as-hal %s\n" "$a" "$t" "$k" "$(/bin/date +%F)" >> "$f" && /bin/chmod 600 "$f" && echo "added; keys now on hal:" && ssh-keygen -lf "$f" | awk "{print \$2, \$3, \$4}"'
-   fi
-   ```
-
-   It prints the fingerprints now on `hal`'s `authorized_keys`, or says it changed nothing.
+   If the key is already on hal, the script changes nothing. With exactly the intended
+   options it exits 0. With any other options, or none, it prints that line's options next
+   to the intended ones and exits 3; changing or removing that line is David's decision.
+   Exit 1 means it refused or a check failed before writing, and 255 means ssh couldn't log
+   in; neither changes anything. Exit 4 means the write or a check after it failed; it names
+   the backup to restore. `DOTFILES_DRY_RUN=1` prints what it would do and sends nothing.
+   After changing the script, run `ci/hal-as-hal-key-checks.sh`.
 
 2. **Add the alias to the Mac's `~/.ssh/config`**, above `Host *`. Edit the file on the Mac as
    your own account; no password. Host aliases are machine-local in this repo, so the block

@@ -226,6 +226,7 @@ Run these before committing. `bin/dot` (`~/.local/bin/dot` once installed) wraps
 | `op-agent` guards (after changing `bin/op-agent`) | `ci/op-agent-checks.sh` | exit 0 (local only, stub `op`) |
 | Desktop Commander remote log rotation (after changing the job's logging in `helpers/desktop_commander_remote.sh`) | `ci/desktop-commander-remote-log-checks.sh` | exit 0 (local only, macOS, fake HOME; e2e needs Node) |
 | hal memory mirror (after changing `helpers/hal_memory_pull.sh` or its installer) | `ci/hal-memory-pull-checks.sh` | exit 0 (local only, macOS, temp folders, fake ssh, stub launchctl) |
+| hal-as-hal key (after changing `helpers/add_hal_as_hal_key.sh`) | `ci/hal-as-hal-key-checks.sh` | exit 0 (local only, temp folders, fake ssh and tailscale) |
 
 **Dry-run must never mutate config.** `./install --dry-run` previews Dotbot directives
 without applying them. The only thing the wrapper does regardless is init the vendored
