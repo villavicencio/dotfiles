@@ -109,8 +109,9 @@ Rules:
 - David's `atlas` and `axiom` launchers keep their path: an Orca tab on the `hal-svc`
   environment, which logs in as `david`, then `sudo -u hal -i` (`zsh/functions/atlas.sh`,
   `zsh/functions/axiom.sh`, `docs/reference/hermes-commands.md`). VIL-700 doesn't change them.
-- An agent session needs `Bash(ssh hal-as-hal:*)` in `~/.claude/settings.json`. Agents can't
-  write that file; David adds the rule.
+- A Claude Code session needs `Bash(ssh hal-as-hal:*)` in `~/.claude/settings.json`. Agents
+  can't write that file; David adds the rule. That file and rule are Claude Code's only; a
+  Codex session follows its own approval settings.
 - `hal-as-hal` is a full shell as `hal`. Read before you write, and avoid installs and
   service restarts during 01:30–05:00 PT, when the local models are busy.
 
