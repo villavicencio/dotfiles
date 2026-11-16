@@ -18,22 +18,22 @@
 #   - If the key is already on hal (matched as "<type> <body>", any spaces or tabs between):
 #     exit 0 when every line with it has exactly the intended options; otherwise print that line's options and the intended ones, change nothing, exit 3.
 #     It never rewrites or removes an existing line; that is David's call.
-#   - Otherwise: back up authorized_keys, make sure it ends in a newline, append one line
+#   - Otherwise: make a new backup of authorized_keys (only on a run that is about to append;
+#     it never overwrites an older backup, and a copy that doesn't match is removed), make
+#     sure the file ends in a newline, append one line
 #     (comment `mac-main-key hal-as-hal <date>`), then check that the new line is the last
 #     line, that ssh-keygen reads one more key than before, and that one of them is the new
 #     key. It prints the options it wrote and the fingerprints now on hal.
 #
 # Exit: 0 added, already correct, or DOTFILES_DRY_RUN=1 (nothing sent); 1 refused or a check
-# failed, nothing changed; 3 key present with other options, nothing changed; 4 the write or a
-# check after it failed (restore from the backup it names). Any other code is ssh or the
-# remote shell failing. 255 before login means nothing was sent; a connection that dropped
-# while the hal side ran leaves its state unknown, so check hal before deciding (the setup
-# doc says how). Running it again is safe either way: it adds the key only when missing.
+# failed before authorized_keys was changed; 3 key present with other options, nothing
+# changed; 4 the write or a check after it failed (restore from the backup it names). Any
+# other code: ssh or the shell on hal failed, and the exit code doesn't tell the state of the
+# file; look at it (the setup doc has the command). Running this again is safe: it adds the
+# key only when it's missing and refuses a line with other options.
 #
-# Backups never overwrite: each run creates a new authorized_keys.bak-<time>[.<n>] with
-# noclobber, and nothing is written to authorized_keys unless that copy succeeded and matches.
-# Overrides, for ci/hal-as-hal-key-checks.sh: HAL_AS_HAL_SSH, HAL_AS_HAL_TAILSCALE,
-# HAL_AS_HAL_PUBKEY.
+# Overrides, for ci/hal-as-hal-key-checks.sh only: HAL_AS_HAL_SSH, HAL_AS_HAL_TAILSCALE,
+# HAL_AS_HAL_PUBKEY, and HAL_AS_HAL_TEST_BACKUP_TIME (the backup name's timestamp).
 set -uo pipefail
 
 SSH="${HAL_AS_HAL_SSH:-ssh}"
@@ -73,18 +73,25 @@ _hal_side() {
   fp=$(printf '%s %s\n' "$t" "$k" | ssh-keygen -lf - | awk '{print $2}') && [ -n "$fp" ] ||
     { echo "ssh-keygen can't read the new key; nothing changed" >&2; return 1; }
   before=$(ssh-keygen -lf "$f") || { echo "ssh-keygen can't read $f; nothing changed" >&2; return 1; }
-  # A new backup file every run: noclobber makes '>' fail if the name exists (O_EXCL), so an
-  # earlier backup with the same second's timestamp is never overwritten.
+  # A new backup file on every run that is about to append. The name is claimed empty with
+  # noclobber (O_EXCL), so an older backup is never overwritten; a taken name moves on to the
+  # next suffix. Then the copy is filled and compared. A copy that fails or doesn't match is
+  # removed, so no incomplete backup is left or named. HAL_AS_HAL_TEST_BACKUP_TIME fixes the
+  # timestamp for ci/hal-as-hal-key-checks.sh only; ssh doesn't pass it to hal.
   local base n=0
-  base="$f.bak-$(/bin/date +%Y%m%d-%H%M%S)"
+  umask 077
+  base="$f.bak-${HAL_AS_HAL_TEST_BACKUP_TIME:-$(/bin/date +%Y%m%d-%H%M%S)}"
   bak=$base
-  until ( set -o noclobber; cat "$f" > "$bak" ) 2>/dev/null; do
+  until ( set -o noclobber; : > "$bak" ) 2>/dev/null; do
     n=$((n + 1))
-    [ "$n" -le 20 ] || { echo "can't create a new backup next to $f; nothing changed" >&2; return 1; }
+    if [ "$n" -gt 20 ] || ! { [ -e "$bak" ] || [ -L "$bak" ]; }; then
+      echo "can't create a new backup next to $f; nothing changed" >&2; return 1
+    fi
     bak="$base.$n"
   done
-  if ! { cmp -s "$f" "$bak" && /bin/chmod 600 "$bak" && touch -r "$f" "$bak"; }; then
-    echo "backup $bak doesn't match $f; nothing changed" >&2; return 1
+  if ! { cat "$f" > "$bak" && cmp -s "$f" "$bak" && touch -r "$f" "$bak"; }; then
+    rm -f "$bak"
+    echo "couldn't make a backup that matches $f; nothing changed" >&2; return 1
   fi
   line="$want $t $k mac-main-key hal-as-hal $(/bin/date +%F)"
   # $(tail -c 1) is empty when the file ends in a newline (or is empty).

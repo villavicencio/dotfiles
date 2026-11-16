@@ -9,7 +9,8 @@
 # under zsh, as hal's login shell does, in a temp "remote home" (FAKE_OLD_BASH=1 puts /bin first
 # on its PATH, so the hal side runs in macOS's bash 3.2), a fake tailscale (HAL_AS_HAL_TAILSCALE) and a throwaway
 # key (HAL_AS_HAL_PUBKEY). FAKE_SSHKEYGEN_FAIL=1 puts an ssh-keygen first on the fake remote's
-# PATH that runs the real one FAKE_SSHKEYGEN_OK_CALLS times (default 0), then fails.
+# PATH that runs the real one FAKE_SSHKEYGEN_OK_CALLS times (default 0), then fails;
+# FAKE_CMP_FAIL=1 does the same with a cmp that always fails.
 # Cases are eval'd strings, so shellcheck sees their variables as unused.
 # shellcheck disable=SC2016,SC2034
 set -uo pipefail
@@ -18,13 +19,14 @@ HELPER="$REPO/helpers/add_hal_as_hal_key.sh"
 
 T="$(mktemp -d)" || { echo "mktemp -d failed" >&2; exit 1; }
 trap 'chmod -R u+rwx "$T" 2>/dev/null; rm -rf "$T"' EXIT
-mkdir -p "$T/stub" "$T/badkeygen" "$T/remote/.ssh"
+mkdir -p "$T/stub" "$T/badkeygen" "$T/badcmp" "$T/remote/.ssh"
 
 printf '%s\n' '#!/bin/sh' \
   '# Fake ssh: take the host, run the command in $FAKE_REMOTE_HOME as if logged in there.' \
   '[ "$1" = hal-orca ] || { echo "fake ssh: unexpected host $1" >&2; exit 255; }' \
   'shift' \
   'if [ -n "${FAKE_SSHKEYGEN_FAIL:-}" ]; then PATH="$FAKE_BADKEYGEN:$PATH"; export PATH; fi' \
+  'if [ -n "${FAKE_CMP_FAIL:-}" ]; then PATH="$FAKE_BADCMP:$PATH"; export PATH; fi' \
   'cd "$FAKE_REMOTE_HOME" || exit 255' \
   'if [ -n "${FAKE_OLD_BASH:-}" ]; then PATH="/bin:$PATH"; export PATH; fi' \
   'HOME=$FAKE_REMOTE_HOME exec /bin/zsh -f -c "$*"' > "$T/stub/ssh"
@@ -34,8 +36,9 @@ printf '%s\n' '#!/bin/sh' \
   'n=$(cat "$FAKE_KG_COUNT" 2>/dev/null || echo 0); n=$((n + 1)); echo "$n" > "$FAKE_KG_COUNT"' \
   '[ "$n" -le "${FAKE_SSHKEYGEN_OK_CALLS:-0}" ] && exec /usr/bin/ssh-keygen "$@"' \
   'echo "ssh-keygen: simulated failure" >&2; exit 1' > "$T/badkeygen/ssh-keygen"
-chmod 755 "$T/stub/"* "$T/badkeygen/ssh-keygen"
-export FAKE_REMOTE_HOME="$T/remote" FAKE_BADKEYGEN="$T/badkeygen" FAKE_KG_COUNT="$T/kg.count"
+printf '%s\n' '#!/bin/sh' 'exit 1' > "$T/badcmp/cmp"
+chmod 755 "$T/stub/"* "$T/badkeygen/ssh-keygen" "$T/badcmp/cmp"
+export FAKE_REMOTE_HOME="$T/remote" FAKE_BADKEYGEN="$T/badkeygen" FAKE_BADCMP="$T/badcmp" FAKE_KG_COUNT="$T/kg.count"
 export HAL_AS_HAL_SSH="$T/stub/ssh" HAL_AS_HAL_TAILSCALE="$T/stub/tailscale"
 
 ssh-keygen -q -t ed25519 -N '' -C fake-orca -f "$T/orca" || exit 1
@@ -133,21 +136,22 @@ check "13 .pub without trailing newline" '[ $RC = 0 ] && [ "$(lines)" = 2 ]'
 reset_ak; FAKE_OLD_BASH=1 run bash "$HELPER"
 check "14 hal side in /bin/bash 3.2" '[ $RC = 0 ] && [ "$(lines)" = 2 ] && tail -n 1 "$AK" | grep -q "^$PIN ssh-ed25519 $BODY mac-main-key hal-as-hal "'
 
-# 15. backups with this run's name already exist (".1" too, for this second and the next two,
-# so the run collides whichever second it starts in): all kept as they were, a new one made.
-reset_ak; horig=$(shasum < "$AK"); olds=()
-for d in 0 1 2; do
-  ts=$(/bin/date -v+"$d"S +%Y%m%d-%H%M%S)
-  for x in "" .1; do echo "older backup $ts$x" > "$AK.bak-$ts$x"; olds+=("$AK.bak-$ts$x"); done
-done
-hold=$(cat "${olds[@]}" | shasum)
-run bash "$HELPER"
-check "15 backup name already taken" '[ $RC = 0 ] && [ "$(cat "${olds[@]}" | shasum)" = "$hold" ] && b=$(sed -n "s/^backup: //p" "$OUT") && [ -n "$b" ] && case "$b" in *.2) true ;; *) false ;; esac && [ "$(shasum < "$b")" = "$horig" ] && [ "$(lines)" = 2 ]'
+# 15. backup names already taken: the test fixes the helper's backup timestamp, pre-creates
+# that name and its ".1", and expects both kept as they were and a new ".2" made.
+reset_ak; horig=$(shasum < "$AK"); TS=20000101-000000
+for x in "" .1; do echo "older backup$x" > "$AK.bak-$TS$x"; done
+hold=$(cat "$AK.bak-$TS" "$AK.bak-$TS.1" | shasum)
+HAL_AS_HAL_TEST_BACKUP_TIME=$TS run bash "$HELPER"
+check "15 backup name already taken" '[ $RC = 0 ] && [ "$(cat "$AK.bak-$TS" "$AK.bak-$TS.1" | shasum)" = "$hold" ] && grep -qx "backup: $AK.bak-$TS.2" "$OUT" && [ "$(shasum < "$AK.bak-$TS.2")" = "$horig" ] && [ "$(lines)" = 2 ]'
 
 # 16. no backup can be made (the .ssh folder is read-only): refused, authorized_keys untouched
 reset_ak; h=$(shasum "$AK"); chmod 500 "$T/remote/.ssh"
 run bash "$HELPER"; chmod 700 "$T/remote/.ssh"
 check "16 no backup possible" '[ $RC = 1 ] && [ "$(shasum "$AK")" = "$h" ] && grep -q "can.t create a new backup" "$OUT"'
+
+# 17. the backup doesn't match (cmp fails): it is removed, authorized_keys untouched
+reset_ak; h=$(shasum "$AK"); FAKE_CMP_FAIL=1 run bash "$HELPER"
+check "17 backup doesn't match" '[ $RC = 1 ] && [ "$(shasum "$AK")" = "$h" ] && grep -q "couldn.t make a backup that matches" "$OUT" && ! ls "$AK".bak-* >/dev/null 2>&1'
 
 echo "passed $pass, failed $fail"
 [ "$fail" = 0 ]
