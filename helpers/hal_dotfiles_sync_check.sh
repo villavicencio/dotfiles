@@ -105,64 +105,69 @@ if [ "$head" != "$origin" ]; then
 fi
 base=$head; [ "$onmaster" = 1 ] || base=$origin
 
-# Tamper check: every entry of base's tree against the clone's file at that path.
-: > "$TMP/tracked"; : > "$TMP/paths"; : > "$TMP/want"; : > "$TMP/subs"; : > "$TMP/bad"; : > "$TMP/regular"; : > "$TMP/exec.want"
+# Tamper check: every entry of base's tree against the clone's file at that path. Each
+# command's own exit is checked, so a failed step can't read as "no difference" (the one
+# pipeline, for a link's target, fails toward "differs").
+WFAIL=0
+add() { { printf '%s\n' "$2" >> "$TMP/$1"; } 2>/dev/null || WFAIL=1; }
+for x in tracked paths want subs bad regular exec.want; do
+  { : > "$TMP/$x"; } 2>/dev/null || WFAIL=1
+done
 G ls-tree -r -z --full-tree "$base" > "$TMP/tree" || fail "can't list the tree of ${base:0:7}"
 while IFS= read -r -d '' rec; do
   meta=${rec%%$'\t'*} p=${rec#*$'\t'}
   mode=${meta%% *} sha=${meta##* }
   f=$CLONE/$p
   # A path with a newline would break the line-based files below: one line, the newline shown as ?.
-  case $p in *$'\n'*) p=${p//$'\n'/?}; printf '%s\n' "$p" >> "$TMP/tracked"; printf 'odd path\t%s\n' "$p" >> "$TMP/bad"; continue ;; esac
-  printf '%s\n' "$p" >> "$TMP/tracked"
+  case $p in *$'\n'*) p=${p//$'\n'/?}; add tracked "$p"; add bad "odd path"$'\t'"$p"; continue ;; esac
+  add tracked "$p"
   case $mode in
-    160000) printf '%s\n' "$p" >> "$TMP/subs" ;;
+    160000) add subs "$p" ;;
     120000)
       if [ ! -L "$f" ] || [ "$(printf '%s' "$(readlink "$f")" | G hash-object --stdin)" != "$sha" ]; then
-        printf 'differs\t%s\n' "$p" >> "$TMP/bad"
+        add bad "differs"$'\t'"$p"
       fi ;;
     *)
-      if [ -L "$f" ]; then printf 'is a link\t%s\n' "$p" >> "$TMP/bad"
-      elif [ ! -e "$f" ]; then printf 'missing\t%s\n' "$p" >> "$TMP/bad"
-      elif [ ! -f "$f" ] || [ ! -r "$f" ]; then printf 'unreadable\t%s\n' "$p" >> "$TMP/bad"
-      else printf '%s\n' "$f" >> "$TMP/paths"; printf '%s\t%s\n' "$sha" "$p" >> "$TMP/want"
-        printf '%s\n' "$p" >> "$TMP/regular"
-        [ "$mode" != 100755 ] || printf '%s\n' "$p" >> "$TMP/exec.want"
+      if [ -L "$f" ]; then add bad "is a link"$'\t'"$p"
+      elif [ ! -e "$f" ]; then add bad "missing"$'\t'"$p"
+      elif [ ! -f "$f" ] || [ ! -r "$f" ]; then add bad "unreadable"$'\t'"$p"
+      else add paths "$f"; add want "$sha"$'\t'"$p"; add regular "$p"
+        [ "$mode" != 100755 ] || add exec.want "$p"
       fi ;;
   esac
 done < "$TMP/tree"
-# Every tree entry must have been written down, or a failed write could hide a finding.
-n_tree=$(tr -cd '\0' < "$TMP/tree" | wc -c | tr -d ' ')
-[ "$(wc -l < "$TMP/tracked" | tr -d ' ')" = "$n_tree" ] || fail "couldn't write its temp files (disk full?)"
+[ "$WFAIL" = 0 ] || fail "couldn't write its temp files (disk full?)"
 if [ -s "$TMP/paths" ]; then
   G hash-object --no-filters --stdin-paths < "$TMP/paths" > "$TMP/got" || fail "can't hash the files in $CLONE"
-  n=$(wc -l < "$TMP/paths" | tr -d ' ')
-  [ "$(wc -l < "$TMP/got" | tr -d ' ')" = "$n" ] && [ "$(wc -l < "$TMP/want" | tr -d ' ')" = "$n" ] ||
-    fail "couldn't write its temp files (disk full?)"
-  paste "$TMP/got" "$TMP/want" | awk -F'\t' '$1 != $2 { print "differs\t" $3 }' >> "$TMP/bad" ||
-    fail "couldn't write its temp files (disk full?)"
+  { n=$(wc -l < "$TMP/paths") && g=$(wc -l < "$TMP/got") && w=$(wc -l < "$TMP/want") &&
+    [ "$g" -eq "$n" ] && [ "$w" -eq "$n" ]; } 2>/dev/null || fail "couldn't hash every file in $CLONE"
+  { paste "$TMP/got" "$TMP/want" > "$TMP/pairs" &&
+    awk -F'\t' '$1 != $2 { print "differs\t" $3 }' "$TMP/pairs" >> "$TMP/bad"; } ||
+    fail "couldn't compare the file hashes"
 fi
 
 # The executable bit, as git sees it (the owner's x): for each tracked file, it must match
 # the tree's mode, 100755 or 100644.
 (cd "$CLONE" && find . -path ./.git -prune -o -type f -perm -0100 -print) > "$TMP/exec.raw" 2> "$TMP/err" ||
   fail "can't list the executable files in $CLONE: $(head -n 1 "$TMP/err")"
-{ sed 's|^\./||' "$TMP/exec.raw" | sort > "$TMP/exec.have" &&
+{ sed 's|^\./||' "$TMP/exec.raw" > "$TMP/exec.rel" &&
+  sort "$TMP/exec.rel" > "$TMP/exec.have" &&
   sort "$TMP/regular" > "$TMP/regular.sorted" &&
   sort "$TMP/exec.want" > "$TMP/exec.want.sorted" &&
   comm -12 "$TMP/regular.sorted" "$TMP/exec.have" > "$TMP/exec.tracked" &&
-  comm -3 "$TMP/exec.want.sorted" "$TMP/exec.tracked" | sed 's/^\t//; s/^/mode\t/' >> "$TMP/bad"; } ||
-  fail "couldn't write its temp files (disk full?)"
+  comm -3 "$TMP/exec.want.sorted" "$TMP/exec.tracked" > "$TMP/exec.diff" &&
+  sed 's/^\t//; s/^/mode\t/' "$TMP/exec.diff" >> "$TMP/bad"; } ||
+  fail "couldn't compare the executable bits"
 
 # Files in the clone that base doesn't have. Submodule folders and .git are skipped. A folder
 # it can't read is "can't tell", so it stops rather than report nothing.
 (cd "$CLONE" && find . -path ./.git -prune -o \( -type f -o -type l \) -print) > "$TMP/found.raw" 2> "$TMP/err" ||
   fail "can't list every file in $CLONE: $(head -n 1 "$TMP/err")"
-{ sed 's|^\./||' "$TMP/found.raw" |
-    awk -v sf="$TMP/subs" 'BEGIN { while ((getline l < sf) > 0) s[l] = 1 } { for (d in s) if (index($0, d "/") == 1) next; print }' |
-    sort > "$TMP/found" &&
+{ sed 's|^\./||' "$TMP/found.raw" > "$TMP/found.rel" &&
+  awk -v sf="$TMP/subs" 'BEGIN { while ((getline l < sf) > 0) s[l] = 1 } { for (d in s) if (index($0, d "/") == 1) next; print }' "$TMP/found.rel" > "$TMP/found.nosub" &&
+  sort "$TMP/found.nosub" > "$TMP/found" &&
   sort "$TMP/tracked" > "$TMP/tracked.sorted" &&
-  comm -23 "$TMP/found" "$TMP/tracked.sorted" > "$TMP/extra"; } || fail "couldn't write its temp files (disk full?)"
+  comm -23 "$TMP/found" "$TMP/tracked.sorted" > "$TMP/extra"; } || fail "couldn't compare the clone's files with the tree"
 
 # Is this installed copy master's?
 self=${BASH_SOURCE[0]:-$0}
@@ -170,14 +175,11 @@ self_ok=1
 want_self=$(G rev-parse -q --verify "$origin:$SELF_PATH" 2>/dev/null)
 if [ -z "$want_self" ] || [ "$(G hash-object --no-filters -- "$self" 2>/dev/null)" != "$want_self" ]; then self_ok=0; fi
 
-# list <label> <file>: one bullet naming up to $MAX paths from the file's lines.
+# list <label> <file>: one bullet naming up to $MAX paths from the file's lines; fails when awk does.
 list() {
-  local n
-  n=$(wc -l < "$2" | tr -d ' ')
-  [ "$n" -gt 0 ] || return 0
-  printf '• %s (%s): %s' "$1" "$n" "$(head -n "$MAX" "$2" | sed 's/.*/`&`/' | paste -sd ',' - | sed 's/,/, /g')"
-  [ "$n" -le "$MAX" ] || printf ' and %s more' $((n - MAX))
-  printf '\n'
+  [ -s "$2" ] || return 0
+  awk -v label="$1" -v max="$MAX" '{ n++; if (n <= max) s = s (n > 1 ? ", " : "") "`" $0 "`" }
+    END { printf "• %s (%d): %s", label, n, s; if (n > max) printf " and %d more", n - max; printf "\n" }' "$2"
 }
 
 report() {
@@ -197,14 +199,14 @@ report() {
   fi
   local k at=${base:0:7}
   for k in differs mode missing unreadable 'is a link' 'odd path'; do
-    awk -F'\t' -v k="$k" '$1 == k { print $2 }' "$TMP/bad" > "$TMP/k"
+    awk -F'\t' -v k="$k" '$1 == k { print $2 }' "$TMP/bad" > "$TMP/k" || return 1
     case $k in
       differs) list "*differ from $at*" "$TMP/k" ;;
       mode) list "*executable bit differs from $at*" "$TMP/k" ;;
       *) list "*$k*" "$TMP/k" ;;
-    esac
+    esac || return 1
   done
-  list "*not in $at*" "$TMP/extra"
+  list "*not in $at*" "$TMP/extra" || return 1
   if [ -s "$TMP/bad" ] || [ -s "$TMP/extra" ]; then
     echo "    \`hal\` runs these files. Look before pulling, as \`${owner:-the clone owner}\`: \`git -C $CLONE status --short\`"
   fi
@@ -214,7 +216,7 @@ report() {
   if [ "$onmaster" = 1 ] && [ "$behind" -gt 0 ]; then
     echo "New on master:"
     G log --no-decorate --format='    • `%h` %s' "$head..$origin" > "$TMP/log" || return 1
-    head -n "$MAX" "$TMP/log"
+    head -n "$MAX" "$TMP/log" || return 1
   fi
 }
 
@@ -222,7 +224,7 @@ insync=0
 [ "$behind" = 0 ] && [ "$onmaster" = 1 ] && [ ! -s "$TMP/bad" ] && [ ! -s "$TMP/extra" ] && [ "$self_ok" = 1 ] && insync=1
 if [ "$DRY" = 1 ]; then
   echo "[dry-run] compared with the master already in $MIRROR (${origin:0:7}, not fetched); no state written:"
-  if [ "$insync" = 1 ]; then echo "in sync"; else report || fail "couldn't build its report (git log failed)"; fi
+  if [ "$insync" = 1 ]; then echo "in sync"; else report || fail "couldn't build its report"; fi
   exit 0
 fi
 # The state file decides what counts as already reported, so a write that fails is an error:
@@ -232,7 +234,7 @@ if [ "$insync" = 1 ]; then
     fail "in sync, but couldn't write $STATE, so a later report could be silenced"
   exit 0
 fi
-{ report > "$TMP/report" && [ -s "$TMP/report" ]; } || fail "couldn't build its report (git log failed, or the disk is full)"
+{ report > "$TMP/report" && [ -s "$TMP/report" ]; } || fail "couldn't build its report"
 key=$(shasum -a 256 < "$TMP/report" | cut -d' ' -f1)
 [[ $key =~ ^[0-9a-f]{64}$ ]] || fail "couldn't hash its report"
 [ "$key" = "$(cat "$STATE" 2>/dev/null)" ] && exit 0

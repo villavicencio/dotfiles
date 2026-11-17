@@ -149,6 +149,18 @@ git -C "$OLD" remote set-url origin "file://${ORIGIN%.git}"
 run /bin/bash "$SYNC"
 check "S7b origin without .git counts as the same URL" '[ $RC = 0 ] && [ "$(headof "$OLD")" = "$C3" ]'
 git -C "$OLD" remote set-url origin "file://$ORIGIN"
+echo edit >> "$OLD/README"; git -C "$OLD" update-index --assume-unchanged README
+run /bin/bash "$SYNC"
+check "S13 hal's clone has an edit git status can't see (assume-unchanged): refused" '[ $RC = 1 ] && has "flagged assume-unchanged or skip-worktree"'
+git -C "$OLD" update-index --no-assume-unchanged README; git -C "$OLD" checkout -q -- README
+echo edit >> "$NEW/zsh/zshrc"; git -C "$NEW" update-index --skip-worktree zsh/zshrc
+run /bin/bash "$SYNC"
+check "S13b david's clone has an edit under skip-worktree: refused" '[ $RC = 1 ] && has "flagged assume-unchanged or skip-worktree"'
+git -C "$NEW" update-index --no-skip-worktree zsh/zshrc; git -C "$NEW" checkout -q -- zsh/zshrc
+git -C "$OLD" config core.fileMode false; chmod +x "$OLD/README"
+run /bin/bash "$SYNC"
+check "S13c hal's clone has an executable bit changed under core.fileMode=false: refused" '[ $RC = 1 ] && has "edits to tracked files"'
+chmod -x "$OLD/README"; git -C "$OLD" config --unset core.fileMode
 
 echo local >> "$OLD/README"; git -C "$OLD" commit -qam local
 run /bin/bash "$SYNC"
@@ -453,6 +465,38 @@ check "K9 clone on a commit that isn't on master: compared with master" '[ $RC =
 git -C "$NEW" reset -q --hard origin/master
 run SC "$CK"
 check "K10 back in sync: silent" '[ $RC = 0 ] && quiet'
+# Failure injection: a copy of the check with fake tools first on its PATH. FAIL_TOOL names a
+# tool that fails when one of its arguments contains FAIL_ARG; FAKE_TMP_DIR=<name> has mktemp
+# leave a folder of that name in the temp folder, so the check's writes to that file fail.
+# Each case hides a difference that the failing command would otherwise have found.
+FB="$T/fakebin"; mkdir -p "$FB"
+printf '%s\n' '#!/bin/sh' 'n=${0##*/}' \
+  'if [ "$n" = "${FAIL_TOOL:-}" ]; then for a in "$@"; do case $a in *"${FAIL_ARG:-}"*) exit 1 ;; esac; done; fi' \
+  'if [ "$n" = mktemp ] && [ -n "${FAKE_TMP_DIR:-}" ]; then d=$(/usr/bin/mktemp "$@") || exit 1; mkdir "$d/$FAKE_TMP_DIR"; echo "$d"; exit 0; fi' \
+  'exec /usr/bin/$n "$@"' > "$FB/tool"
+chmod 755 "$FB/tool"; for t in paste awk sed comm mktemp; do ln -s tool "$FB/$t"; done
+sed "s|^PATH=/usr/bin|PATH=$FB:/usr/bin|" "$CK" > "$T/ck-fault.sh"
+failed_loud() { [ $RC = 1 ] && tail -n 1 "$OUT" | grep -q "^dotfiles-sync-check: "; }
+echo "evil" >> "$NEW/zsh/zshrc"
+FAIL_TOOL="paste" run SC "$T/ck-fault.sh"
+check "K24 paste fails while a file is tampered: exit 1, not a pass" 'failed_loud'
+git -C "$NEW" checkout -q -- zsh/zshrc
+echo "evil" > "$NEW/zsh/functions/evil.sh"
+FAIL_TOOL="awk" FAIL_ARG="getline" run SC "$T/ck-fault.sh"
+check "K25 the awk that drops submodule folders fails while an extra file is there: exit 1" 'failed_loud'
+rm "$NEW/zsh/functions/evil.sh"
+chmod +x "$NEW/zsh/zshrc"
+FAIL_TOOL="sed" FAIL_ARG='s|^' run SC "$T/ck-fault.sh"
+check "K26 the sed on the executable list fails while an exec bit changed: exit 1" 'failed_loud'
+FAIL_TOOL="comm" FAIL_ARG="-3" run SC "$T/ck-fault.sh"
+check "K27 comm -3 fails while an exec bit changed: exit 1" 'failed_loud'
+FAKE_TMP_DIR=regular run SC "$T/ck-fault.sh"
+check "K28 a temp file can't be written: exit 1, naming that" 'failed_loud && has "couldn'"'"'t write its temp files"'
+chmod -x "$NEW/zsh/zshrc"
+echo "evil" >> "$NEW/zsh/zshrc"
+FAIL_TOOL="awk" FAIL_ARG='$1 == k' run SC "$T/ck-fault.sh"
+check "K29 the report's awk fails while a file is tampered: exit 1, not a report without it" 'failed_loud && ! has "differ from"'
+git -C "$NEW" checkout -q -- zsh/zshrc
 chmod +x "$NEW/zsh/zshrc"
 run SC "$CK"
 check "K21 executable bit added to a tracked file" '[ $RC = 0 ] && has "executable bit differs from $(h7)* (1): \`zsh/zshrc\`"'

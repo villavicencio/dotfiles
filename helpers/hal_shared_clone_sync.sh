@@ -30,7 +30,7 @@ DRY=${DOTFILES_DRY_RUN:-0}
 # Runs on hal, sent over ssh as a function. Args: check|ff, the commit, the expected origin URL.
 # shellcheck disable=SC2329
 _clone_side() {
-  local act=$1 want=$2 url=$3 c=$HOME/Projects/Personal/dotfiles b h dirty o
+  local act=$1 want=$2 url=$3 c=$HOME/Projects/Personal/dotfiles b h dirty o flagged
   local who
   who=$(id -un)
   [ -d "$c/.git" ] || { echo "$who: no clone at $c"; return 1; }
@@ -42,11 +42,15 @@ _clone_side() {
   h=$(git rev-parse -q --verify HEAD) || { echo "$who: can't read HEAD in $c"; return 1; }
   echo "$who: $c on $b at ${h:0:7}"
   # A failed status is "can't tell", never "clean".
-  dirty=$(git --no-optional-locks status --porcelain --untracked-files=no --ignore-submodules=all) ||
+  dirty=$(git --no-optional-locks -c core.fileMode=true status --porcelain --untracked-files=no --ignore-submodules=all) ||
     { echo "$who: git status failed in $c, so it can't tell whether tracked files have edits"; return 1; }
-  dirty=$(printf '%s\n' "$dirty" | awk 'NF && NR <= 5')
+  # git status doesn't see edits to paths flagged assume-unchanged (lowercase tag) or
+  # skip-worktree (S), so those flags refuse too.
+  flagged=$(git ls-files -v) || { echo "$who: git ls-files failed in $c"; return 1; }
+  flagged=$(awk '$1 ~ /^([a-z]|S)$/ { n++ } END { print n + 0 }' <<< "$flagged")
   [ "$b" = master ] || { echo "$who: not on master"; return 1; }
-  [ -z "$dirty" ] || { echo "$who: edits to tracked files:"; printf '    %s\n' "$dirty"; return 1; }
+  [ -z "$dirty" ] || { echo "$who: edits to tracked files:"; printf '%s\n' "$dirty" | head -n 5 | sed 's/^/    /'; return 1; }
+  [ "$flagged" = 0 ] || { echo "$who: ${flagged:-?} path(s) flagged assume-unchanged or skip-worktree, whose edits git status can't see"; return 1; }
   if [ "$h" = "$want" ]; then echo "$who: already on ${want:0:7}"; return 0; fi
   if [ "$act" = check ]; then echo "$who: not on ${want:0:7}"; return 0; fi
   git fetch -q origin master || { echo "$who: fetch failed; the clone is unchanged"; return 1; }
