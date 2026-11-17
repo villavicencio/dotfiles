@@ -324,7 +324,10 @@ review. eagle-hover-save#2 changed 11 files against its base `feat/vil-748-upstr
 but MergeWren listed 633 applied paths, 617 of them the base branch's files under `upstream/`,
 marked many "not reviewed: over the per-run file limit", and posted `MergeWren: no verdict —
 review incomplete` (2026-11-17). Don't stack PRs in a MergeWren repo: open each PR against the
-default branch once its base has merged.
+default branch once its base has merged. A branch cut from the base still carries the base's
+commits, and a squash merge never makes them ancestors of the default branch, so first move
+only its own commits over (`git rebase --onto origin/<default> <old base tip> <branch>`) and
+check that `git diff --name-only origin/<default>...<branch>` lists only its files.
 
 Merge only on a `mergeable` verdict (or one whose every finding is fixed or declined with
 David) with the unresolved-threads check (above) empty. A `partial` or `failed` verdict, "The
