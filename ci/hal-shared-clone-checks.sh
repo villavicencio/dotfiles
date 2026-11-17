@@ -382,6 +382,11 @@ check "V9 zshrc has no setopt ...GLOB line: verify fails, not a probe without th
 printf '%s\n' 'setopt NO_CASE_GLOB && touch "$HOME/vil700-ran"' 'setopt EXTENDED_GLOB' > "$NEW/zsh/zshrc"
 run as_hal verify
 check "V10 a glob line with an appended command: only the option is used, the command doesn't run" '[ $RC = 0 ] && [ ! -e "$HH/vil700-ran" ]'
+printf '%s\n' 'setopt NO_CASE_GLOB*' 'setopt EXTENDED_GLOB' > "$NEW/zsh/zshrc"
+mkdir -p "$T/cwd"; touch "$T/cwd/NO_CASE_GLOB"
+in_cwd() { (cd "$T/cwd" && as_hal "$@"); }
+run in_cwd verify
+check "V11 a glob character in the option token, a matching file in the working folder: verify fails" '[ $RC = 1 ] && has "couldn'"'"'t read the glob options"'
 git -C "$NEW" checkout -q -- zsh/zshrc
 chmod 000 "$NEW/claude/CLAUDE.md"
 run as_hal verify

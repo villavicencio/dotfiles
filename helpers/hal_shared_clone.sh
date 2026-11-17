@@ -471,15 +471,21 @@ verify_checks() {
   # The clone's function loader, run as this account with zshrc's glob options, must define a
   # function from zsh/functions (zsh records each function's file in $functions_source). zsh -f
   # reads no startup files, so nothing is written. Only the option names are taken from zshrc.
-  local out n=0 opts o
-  opts=$(awk '/^setopt [A-Z_]*GLOB/ { print $2 }' "$NEW/zsh/zshrc") || opts=''
-  for o in $opts; do case $o in *[!A-Z_]*) opts='' ;; esac; done
-  if [ -z "$opts" ]; then
+  local out n=0 raw o ok=1
+  local -a opts=()
+  if raw=$(awk '/^setopt [A-Z_]*GLOB/ { print $2 }' "$NEW/zsh/zshrc"); then
+    while IFS= read -r o; do
+      [ -n "$o" ] || continue
+      case $o in *[!A-Z_]*) ok=0 ;; *) opts+=("$o") ;; esac
+    done <<< "$raw"
+  else
+    ok=0
+  fi
+  if [ "$ok" = 0 ] || [ "${#opts[@]}" = 0 ]; then
     problem "couldn't read the glob options (setopt ...GLOB lines) from $NEW/zsh/zshrc"
   else
-    # shellcheck disable=SC2086  # $opts: checked option names, one word each
     if out=$(DOTFILES=$NEW zsh -f -c 'setopt -- "$@" && source "$DOTFILES/zsh/functions.sh"
-        print -rl -- ${(v)functions_source}' zsh $opts < /dev/null 2> /dev/null); then
+        print -rl -- ${(v)functions_source}' zsh "${opts[@]}" < /dev/null 2> /dev/null); then
       n=$(grep -cF "$NEW/zsh/functions/" <<< "$out")
     fi
     [ "${n:-0}" -gt 0 ] || problem "zsh/functions.sh, run as $ME with zshrc's glob options, defined no function from $NEW/zsh/functions"
