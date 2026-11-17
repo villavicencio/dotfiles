@@ -62,7 +62,9 @@ this repo, not just ticket work. Avoid committing directly to `master`.
   full confirmation of <sha> queued`** isn't a result either. A second comment with the same
   head marker follows a few minutes later with the full review, and it can raise new
   findings: on #259, `d6c20dc`'s incremental round found nothing new, then its full
-  confirmation found 3. Wait for a verdict line that isn't `no verdict`. A **`partial`** verdict means a file wasn't
+  confirmation found 3. Wait for the verdict after that placeholder. Any other `no verdict`
+  line (`review incomplete`, say) is final: nothing follows it, and the function prints it and
+  returns 5. That head wasn't fully reviewed: read the comment, don't merge, tell David. A **`partial`** verdict means a file wasn't
   reviewed, not that the review passed. `policy-excluded-path` means a file under
   `coverage_expectation` was dropped, e.g. a `<base>.<suffix>` name such as
   `zsh/zprofile.server` whose suffix OCR doesn't recognise (#208, fixed in MergeWren by
