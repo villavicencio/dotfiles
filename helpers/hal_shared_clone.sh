@@ -468,11 +468,15 @@ verify_checks() {
   if ! stray_links; then problem "couldn't scan all of $HOME for links into $OLD"
   elif [ -n "$STRAY" ]; then problem "links still into $OLD: $STRAY"; fi
   installed_check_ok || problem "$CHECK isn't an executable copy of $CHECK_SRC with the original kept as $CHECK_KEEP (run the sync-check step)"
-  # An interactive zsh as this account must define functions from the clone's zsh/functions
-  # (zsh records each function's file in $functions_source).
-  local n
-  n=$(zsh -i -c 'print -rl -- ${(v)functions_source}' < /dev/null 2> /dev/null | grep -cF "$NEW/zsh/functions/")
-  [ "${n:-0}" -gt 0 ] || problem "an interactive zsh as $ME defined no function from $NEW/zsh/functions"
+  # The clone's function loader, run as this account with zshrc's glob options, must define a
+  # function from zsh/functions (zsh records each function's file in $functions_source). zsh -f
+  # reads no startup files, so nothing is written.
+  local out n=0
+  if out=$(DOTFILES=$NEW zsh -f -c 'eval "$(grep -E "^setopt [A-Z_]*GLOB" "$DOTFILES/zsh/zshrc")"
+      source "$DOTFILES/zsh/functions.sh"; print -rl -- ${(v)functions_source}' < /dev/null 2> /dev/null); then
+    n=$(grep -cF "$NEW/zsh/functions/" <<< "$out")
+  fi
+  [ "${n:-0}" -gt 0 ] || problem "zsh/functions.sh, run as $ME with zshrc's glob options, defined no function from $NEW/zsh/functions"
 }
 
 step_verify() {
@@ -480,7 +484,7 @@ step_verify() {
   echo "verify: check that $HAL_USER's links point into $NEW"
   verify_checks
   [ -z "$PROBLEMS" ] || die "not as expected; see the lines marked !"
-  echo "ok: the 24 links and ~/.claude/CLAUDE.md point into $NEW, the scan found no other symlink to $OLD or a path inside it, the new sync-check is installed, and an interactive zsh loads the clone's functions"
+  echo "ok: the 24 links and ~/.claude/CLAUDE.md point into $NEW, the scan found no other symlink to $OLD or a path inside it, the new sync-check is installed, and the clone's function loader works for $ME"
 }
 
 # ---------------------------------------------------------------------------------------
