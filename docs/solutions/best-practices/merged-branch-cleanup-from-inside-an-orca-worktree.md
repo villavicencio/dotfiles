@@ -62,7 +62,8 @@ cleanup_merged_branch <pr> master
 
 A copy from before VIL-414 refuses the worktree instead of detaching it. The function detaches
 the worktree and deletes the branch, and then David Force deletes the worktree, the same
-cleanup-before-Force order as CLAUDE.md's Orca section. No session dies mid-procedure.
+cleanup-before-Force order as `docs/reference/orca-worktrees.md`, "After a merge, run the
+cleanup before Force delete". No session dies mid-procedure.
 
 **When the worktree session merged its own PR** (David asked it to), it cleans up from inside the
 worktree, before the worktree is deleted:
@@ -96,7 +97,8 @@ Before VIL-414 the function refused here (`<worktree> has initialized submodules
 `git push --force-with-lease=refs/heads/<b>:<oid> origin --delete <b>`, `git switch --detach`,
 then `git update-ref -d refs/heads/<b> <oid>`.
 
-Before telling David it's safe, run the CLAUDE.md pre-Force checks against the worktree:
+Before telling David it's safe, run the pre-Force checks against the worktree
+(`docs/reference/orca-worktrees.md`, "Removing an Orca worktree takes Force delete"):
 `git -C "$W" status --porcelain --ignored --untracked-files=all` (only the copied
 `.claude/settings.local.json` is expected; `cmp` it against the main checkout's copy), and the
 dotbot check. A clean `git -C "$W/dotbot" status` doesn't show stash entries, tags or unpushed
