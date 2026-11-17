@@ -124,7 +124,14 @@ allows() {
 }
 # closed <path> <mode>: only the owner gets in: not a link, mode <mode>, no ACL entry allowing anything.
 closed() { [ ! -L "$1" ] && [ "$(mode_of "$1" 2>/dev/null)" = "$2" ] && ! allows "$1"; }
-recorded_mode() { [ -f "$MODES" ] && awk -v p="$1" '$1 == p { print $2; exit }' "$MODES"; }
+# recorded_mode <path under home>: its mode in $MODES, empty if none; fails when $MODES can't be read.
+recorded_mode() { [ ! -e "$MODES" ] || awk -v p="$1" '$1 == p { print $2; exit }' "$MODES"; }
+# mode_state <path>: its mode, or "missing" when it doesn't exist; fails when stat can't tell.
+mode_state() {
+  local out
+  if out=$(stat -f %Lp "$1" 2>&1); then echo "$out"; return 0; fi
+  case $out in *"No such file or directory"*) echo missing ;; *) return 1 ;; esac
+}
 # acl_done: each of the four paths that exists is closed, and hal's only entry on $HOME is $ACE.
 acl_done() {
   local p want e
@@ -183,10 +190,11 @@ step_acl() {
   dry_stop
   # Record each earlier mode before changing it (a record already there is kept: it's the
   # mode from before the first run). If any path isn't closed, the entry isn't added.
-  local failed=''
+  local failed='' rec
   while read -r p want cur; do
     [ -n "$p" ] || continue
-    if [ -z "$(recorded_mode "$p")" ] && ! ( umask 077; printf '%s %s\n' "$p" "$cur" >> "$MODES" ); then
+    if ! rec=$(recorded_mode "$p"); then failed="$failed ~/$p (can't read $MODES)"; continue; fi
+    if [ -z "$rec" ] && ! ( umask 077; printf '%s %s\n' "$p" "$cur" >> "$MODES" ); then
       failed="$failed ~/$p (its mode couldn't be recorded, so it wasn't changed)"; continue
     fi
     if /bin/chmod "$want" "$HOME/$p" && closed "$HOME/$p" "$want"; then say "~/$p: closed to $want"; else failed="$failed ~/$p"; fi
@@ -207,16 +215,18 @@ step_acl_rollback() {
   need_user david
   echo "acl-rollback: take \"$ACE\" off $HOME, then reopen the paths the acl step closed"
   say "run it only after relink-rollback: while $HAL_USER's links point into $NEW, removing the entry breaks $HAL_USER's shell and git"
-  local entries p want rec x todo='' failed=''
+  local entries p want rec x cur todo='' failed=''
   entries=$(acl_entries) || problem "couldn't read the ACL of $HOME"
   [ -z "$entries" ] || [ "$entries" = "$ACE" ] || problem "$HOME has another entry for $HAL_USER: $entries"
-  [ -f "$MODES" ] || say "no $MODES, so no recorded mode to put back; the four paths stay as they are"
+  [ -e "$MODES" ] || say "no $MODES, so no recorded mode to put back; the four paths stay as they are"
   while read -r p want; do
     x=$HOME/$p
-    rec=$(recorded_mode "$p")
+    rec=$(recorded_mode "$p") || { problem "can't read $MODES"; break; }
     [ -n "$rec" ] || continue
-    if [ -L "$x" ] || [ ! -e "$x" ]; then say "~/$p is missing or a link; left as it is"
-    elif [ "$(mode_of "$x")" = "$want" ]; then todo="$todo$p $rec"$'\n'; say "will reopen ~/$p: $want -> $rec"
+    if [ -L "$x" ]; then say "~/$p is a link; left as it is"
+    elif ! cur=$(mode_state "$x"); then problem "can't read the mode of ~/$p"
+    elif [ "$cur" = missing ]; then say "~/$p doesn't exist; skipped"
+    elif [ "$cur" = "$want" ]; then todo="$todo$p $rec"$'\n'; say "will reopen ~/$p: $want -> $rec"
     else say "~/$p isn't at the closed $want; left as it is"
     fi
   done <<< "$CLOSE"
@@ -283,13 +293,14 @@ step_sync_check() {
 step_sync_check_rollback() {
   need_user "$HAL_USER"
   echo "sync-check-rollback: put $CHECK_KEEP back as $CHECK"
-  original_active && done_already "$CHECK is the original check"
-  keep_is_original || problem "no $CHECK_KEEP holding the original check"
   # The original runs git in the clone the zshrc link points at, which only works in hal's own.
   case $(readlink "$HOME/.config/zsh/.zshrc" 2>/dev/null) in
     "$OLD"/*) ;;
     *) problem "~/.config/zsh/.zshrc doesn't point into $OLD, where the original check works; run relink-rollback first" ;;
   esac
+  refuse_if_problems
+  original_active && done_already "$CHECK is the original check, and ~/.config/zsh/.zshrc points into $OLD"
+  keep_is_original || problem "no $CHECK_KEEP holding the original check"
   refuse_if_problems
   say "will copy $CHECK_KEEP over $CHECK ($CHECK_KEEP stays)"
   dry_stop

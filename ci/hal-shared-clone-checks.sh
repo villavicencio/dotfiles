@@ -11,7 +11,9 @@
 # folders stand in for `david`'s and `hal`'s homes, each with a clone of it. The Mac-side
 # script gets a fake ssh (HAL_SHARED_SSH) that runs the command under zsh in the home its
 # alias names (hal: david's, hal-as-hal: hal's; FAKE_SSH_DOWN=<alias> fails that one;
-# FAKE_SSH_SAME=1 sends hal-as-hal to david's home too). The
+# FAKE_SSH_SAME=1 sends hal-as-hal to david's home too). On that side, fake `id -un` answers
+# david or hal by alias (FAKE_SSH_WRONG_USER=<alias>: nobody), and fake `ioreg` gives another
+# hardware UUID for FAKE_SSH_OTHER_HOST=<alias>. The
 # on-hal steps run as this account, told who to be by HAL_SHARED_TEST_USER; the acl step names
 # the real `nobody` account, because chmod +a needs one that exists. Every script runs under
 # macOS's /bin/bash 3.2, as hal may run it.
@@ -49,9 +51,14 @@ printf '%s\n' '#!/bin/sh' \
   'case $host in hal) h=$FAKE_DAVID_HOME ;; hal-as-hal) h=$FAKE_HAL_HOME; [ -z "${FAKE_SSH_SAME:-}" ] || h=$FAKE_DAVID_HOME ;; *) echo "fake ssh: unexpected host $host" >&2; exit 255 ;; esac' \
   '[ "${FAKE_SSH_DOWN:-}" = "$host" ] && { echo "ssh: connect to host $host: Operation timed out" >&2; exit 255; }' \
   'cd "$h" || exit 255' \
-  'PATH=/bin:$PATH; export PATH' \
+  'case $host in hal) FAKE_ID=david ;; *) FAKE_ID=hal ;; esac; [ "${FAKE_SSH_WRONG_USER:-}" != "$host" ] || FAKE_ID=nobody' \
+  'FAKE_UUID=; [ "${FAKE_SSH_OTHER_HOST:-}" != "$host" ] || FAKE_UUID=00000000-0000-0000-0000-000000000000' \
+  "PATH=$STUB/remote:/bin:\$PATH; export PATH FAKE_ID FAKE_UUID" \
   'HOME=$h exec /bin/zsh -f -c "$*"' > "$STUB/ssh"
-chmod 755 "$STUB/ssh"
+mkdir -p "$STUB/remote"
+printf '%s\n' '#!/bin/sh' '[ "$1" = -un ] && { echo "$FAKE_ID"; exit 0; }; exec /usr/bin/id "$@"' > "$STUB/remote/id"
+printf '%s\n' '#!/bin/sh' '[ -n "$FAKE_UUID" ] && { echo "  \"IOPlatformUUID\" = \"$FAKE_UUID\""; exit 0; }; exec /usr/sbin/ioreg "$@"' > "$STUB/remote/ioreg"
+chmod 755 "$STUB/ssh" "$STUB/remote/id" "$STUB/remote/ioreg"
 export HAL_SHARED_SSH="$STUB/ssh"
 
 ORIGIN="$T/origin.git"; SEED="$T/seed"
@@ -149,6 +156,10 @@ git -C "$OLD" remote set-url origin "file://${ORIGIN%.git}"
 run /bin/bash "$SYNC"
 check "S7b origin without .git counts as the same URL" '[ $RC = 0 ] && [ "$(headof "$OLD")" = "$C3" ]'
 git -C "$OLD" remote set-url origin "file://$ORIGIN"
+FAKE_SSH_WRONG_USER=hal-as-hal run /bin/bash "$SYNC"
+check "S14 ssh hal-as-hal reaches another account: refused" '[ $RC = 1 ] && has "reached account nobody, not hal" && has "Stopped before changing anything"'
+FAKE_SSH_OTHER_HOST=hal-as-hal run /bin/bash "$SYNC"
+check "S15 the aliases reach different machines: refused" '[ $RC = 1 ] && has "reach different machines"'
 echo edit >> "$OLD/README"; git -C "$OLD" update-index --assume-unchanged README
 run /bin/bash "$SYNC"
 check "S13 hal's clone has an edit git status can't see (assume-unchanged): refused" '[ $RC = 1 ] && has "flagged assume-unchanged or skip-worktree"'
@@ -213,6 +224,13 @@ chmod 755 "$DH/scratch"; chflags uchg "$DH/scratch"
 run as_david acl
 check "A12 the entry is set, a reopened path can't be closed: exit 1, says the entry is still there" '[ $RC = 1 ] && has "still has \"user:nobody allow search\" from an earlier run" && ! has "was not set" && ! has "wasn'"'"'t added" && [ "$(acl_of "$DH")" = "user:nobody allow search" ]'
 chflags nouchg "$DH/scratch"; run as_david acl
+chmod 000 "$MODES"
+run as_david acl-rollback
+check "AR8 the modes record can't be read: refused, entry kept" '[ $RC = 1 ] && has "can'"'"'t read" && [ -n "$(acl_of "$DH")" ] && [ "$(modes4)" = "700 700 700 600" ]'
+chmod 600 "$MODES"; chmod 600 "$DH/.claude"
+run as_david acl-rollback
+check "AR9 a path's mode can't be read: refused, entry kept" '[ $RC = 1 ] && has "can'"'"'t read the mode of ~/.claude/file-history" && [ -n "$(acl_of "$DH")" ]'
+chmod 755 "$DH/.claude"
 DOTFILES_DRY_RUN=1 run as_david acl-rollback
 check "AR0 acl-rollback dry run" '[ $RC = 0 ] && [ "$(modes4)" = "700 700 700 600" ] && [ -n "$(acl_of "$DH")" ] && has "will reopen ~/env.sh: 600 -> 644"'
 run as_david acl-rollback
@@ -356,6 +374,10 @@ rm "$HH/.config/stray"
 
 run as_hal sync-check-rollback
 check "C5 sync-check-rollback while linked to the shared clone: refused" '[ $RC = 1 ] && cmp -s "$CHECK_SRC" "$CK"'
+cp "$CK" "$T/ck.new"; cp "$CK.pre-vil700" "$CK"
+run as_hal sync-check-rollback
+check "C16 the original check active while linked to the shared clone: refused, not done already" '[ $RC = 1 ] && ! has "done already" && has "doesn'"'"'t point into"'
+cp "$T/ck.new" "$CK"
 run as_hal relink-rollback
 check "B1 relink-rollback" '[ $RC = 0 ] && all_into "$OLD" && [ ! -L "$HH/.claude/CLAUDE.md" ] && grep -q "own CLAUDE.md" "$HH/.claude/CLAUDE.md" && [ ! -e "$HH/.claude/CLAUDE.md.pre-vil700" ]'
 run as_hal relink-rollback
@@ -537,6 +559,11 @@ printf 'x\n' > "$SEED/a
 b"; git -C "$SEED" add -A && git -C "$SEED" commit -qm newline && git -C "$SEED" push -q "$ORIGIN" master; git -C "$NEW" pull -q --ff-only
 run SC "$CK"
 check "K23 a tracked path with a newline: reported as an odd path, not a failure" '[ $RC = 0 ] && has "*odd path* (1): \`a?b\`"'
+ln -s target "$SEED/lnk"; git -C "$SEED" add lnk && git -C "$SEED" commit -qm lnk && git -C "$SEED" push -q "$ORIGIN" master; git -C "$NEW" pull -q --ff-only
+rm "$NEW/lnk"; ln -s $'target\n' "$NEW/lnk"
+run SC "$CK"
+check "K30 a tracked link's target gains a trailing newline: reported" '[ $RC = 0 ] && grep -q "differ from.*\`lnk\`" "$OUT"'
+rm "$NEW/lnk"; ln -s target "$NEW/lnk"
 DOTFILES_DRY_RUN=1 DOTFILES_SYNC_MIRROR="$T/no-mirror.git" run SC "$CK"
 check "K17 dry run without a mirror: creates nothing" '[ $RC = 0 ] && has "Would create" && [ ! -e "$T/no-mirror.git" ]'
 

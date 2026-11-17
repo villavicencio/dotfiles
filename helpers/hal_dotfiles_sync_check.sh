@@ -124,7 +124,8 @@ while IFS= read -r -d '' rec; do
   case $mode in
     160000) add subs "$p" ;;
     120000)
-      if [ ! -L "$f" ] || [ "$(printf '%s' "$(readlink "$f")" | G hash-object --stdin)" != "$sha" ]; then
+      # readlink -n gives the target's exact bytes (no command substitution to strip newlines).
+      if [ ! -L "$f" ] || [ "$(readlink -n "$f" | G hash-object --stdin)" != "$sha" ]; then
         add bad "differs"$'\t'"$p"
       fi ;;
     *)

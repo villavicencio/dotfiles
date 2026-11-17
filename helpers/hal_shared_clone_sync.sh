@@ -10,9 +10,11 @@
 #
 # It reaches `david` with `ssh hal` and `hal` with `ssh hal-as-hal` (set up by "Reaching hal as
 # `hal`"). First it reads master's commit from GitHub and checks both clones without changing
-# them: the two aliases must reach two different clones, each on `master` with no edits to
-# tracked files (submodules aside), and with GitHub's URL as `origin` (with or without .git). Only when both pass does it fast-forward each clone to
-# that commit (`git fetch`, then `git merge --ff-only <commit>`), then read both again.
+# them: `ssh hal` must reach account `david` and `ssh hal-as-hal` account `hal`, on one machine
+# (the hardware UUID each reads on hal), and two different clones, each on `master` with no
+# edits to tracked files (submodules aside), and with GitHub's URL as `origin` (with or without
+# .git). Only when both pass does it fast-forward each clone to that commit (`git fetch`, then
+# `git merge --ff-only <commit>`), then read both again.
 #
 # Exit 0: both clones read back on the commit (DOTFILES_DRY_RUN=1: both checks passed; it
 # changes nothing, and a real run can still fail where the checks don't look, e.g. a clone
@@ -33,6 +35,7 @@ _clone_side() {
   local act=$1 want=$2 url=$3 c=$HOME/Projects/Personal/dotfiles b h dirty o flagged
   local who
   who=$(id -un)
+  echo "$who: host $(ioreg -rd1 -c IOPlatformExpertDevice | awk -F'"' '/IOPlatformUUID/ { print $4; exit }')"
   [ -d "$c/.git" ] || { echo "$who: no clone at $c"; return 1; }
   cd "$c" || return 1
   # With or without the trailing .git: hal's own clone was made without it.
@@ -70,13 +73,20 @@ want=$(git ls-remote "$REMOTE" refs/heads/master 2>/dev/null | cut -f1)
 [[ $want =~ ^[0-9a-f]{40}$ ]] || { echo "couldn't read master from $REMOTE; nothing changed" >&2; exit 1; }
 echo "GitHub's master: $want"
 
-rc=0 seen=''
+rc=0 seen='' host=''
 for a in hal hal-as-hal; do
   out=$(remote "$a" check); r=$?
   printf '%s\n' "$out"
   [ "$r" = 0 ] || { echo "check over ssh $a failed (exit $r)" >&2; rc=1; }
+  # "<account>: host <uuid>": each alias reaches its account, both on one machine.
+  case $a in hal) u=david ;; *) u=hal ;; esac
+  ident=$(awk '$2 == "host" { print $1, $3; exit }' <<< "$out")
+  [ "${ident%% *}" = "$u:" ] || { echo "ssh $a reached account ${ident%%:*}, not $u" >&2; rc=1; }
+  [ -n "${ident#* }" ] && [ "${ident#* }" != "$ident" ] || { echo "ssh $a: couldn't read the machine's hardware UUID" >&2; rc=1; }
+  [ -z "$host" ] || [ "$host" = "${ident#* }" ] || { echo "ssh hal and ssh hal-as-hal reach different machines" >&2; rc=1; }
+  host=${ident#* }
   # "<account>: <clone> on ...": the two aliases must not reach the same clone.
-  c=$(printf '%s\n' "$out" | awk '$3 == "on" { print $1, $2; exit }')
+  c=$(awk '$3 == "on" { print $2; exit }' <<< "$out")
   [ -z "$c" ] || [ "$c" != "$seen" ] || { echo "ssh hal and ssh hal-as-hal reach the same clone ($c); check the aliases" >&2; rc=1; }
   seen=$c
 done
