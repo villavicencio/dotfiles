@@ -107,8 +107,10 @@ then carries it, and the statusline shows it as a link to the issue.
   `git submodule update --init --recursive`. After that, `wt done` refuses the worktree, and
   `cleanup_merged_branch` detaches it instead of removing it; remove it the way `code-review.md`
   describes under "Worktrees with submodules are detached, not removed", after checking it,
-  rather than deleting its `modules` dir by hand. On hal, `wt` isn't on `david`'s PATH. The bare
-  substitute for `wt new` fetches and branches from origin's default branch, as `wt new` does:
+  rather than deleting its `modules` dir by hand. On hal, `wt` is on `david`'s PATH
+  (`/Users/david/.local/bin/wt`, linked into `david`'s clone; checked 2026-11-17). Where `wt`
+  isn't available, the bare substitute for `wt new` fetches and branches from origin's default
+  branch, as `wt new` does:
   `git -C <main checkout> fetch origin && git -C <main checkout> worktree add -b <branch> .claude/worktrees/<topic> origin/master`.
   It skips `wt new`'s copied local files (2026-11-03).
 - **It needs `gh` to check.** If `gh` isn't installed or the lookup fails, `wt done` stops and

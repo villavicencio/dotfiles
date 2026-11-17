@@ -318,6 +318,14 @@ one-line poll):
 - **A failed GitHub call is an error, not `PENDING`.** The old poll printed `PENDING` when `gh`
   failed, which looks like waiting.
 
+**It reviews the diff against the repository's default branch, not the PR's base.** A stacked
+PR (one based on another unmerged branch) gets its base branch's changes too, and no real
+review. eagle-hover-save#2 changed 11 files against its base `feat/vil-748-upstream-baseline`,
+but MergeWren listed 633 applied paths, 617 of them the base branch's files under `upstream/`,
+marked many "not reviewed: over the per-run file limit", and posted `MergeWren: no verdict —
+review incomplete` (2026-11-17). Don't stack PRs in a MergeWren repo: open each PR against the
+default branch once its base has merged.
+
 Merge only on a `mergeable` verdict (or one whose every finding is fixed or declined with
 David) with the unresolved-threads check (above) empty. A `partial` or `failed` verdict, "The
 review did not complete", or exit 4 (no verdict line) means the head wasn't fully reviewed:
