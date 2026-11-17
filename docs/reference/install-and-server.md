@@ -55,8 +55,10 @@ How it differs from a desk Mac:
     Claude Code is installed separately on hal.
   - The Claude settings seed and the `~/.claude` links. `~/.claude` arrives from the VPS with
     regular files in those places. One exception, made by hand on 2026-10-23 (#244):
-    `hal`'s `~/.claude/statusline-command.sh` is a link into its clone, so a pull updates it.
-    The July copy it replaced is `~/.claude/statusline-command.sh.pre-link-20261023`.
+    `hal`'s `~/.claude/statusline-command.sh` is a link into the clone `hal` runs from, so a
+    pull updates it. The July copy it replaced is
+    `~/.claude/statusline-command.sh.pre-link-20261023`. VIL-700's move (below, "One dotfiles
+    clone on hal") makes `hal`'s `~/.claude/CLAUDE.md` a link too.
     `hal` and `david` on hal also have `autoCompactWindow`, which places the statusline's
     compaction marker. The server profile skips the settings seed, and the migration leaves an
     existing value alone, so set it by hand to match `claude/settings.json` (600000 since
@@ -205,7 +207,117 @@ What hal looks like after step 1:
 - The pin is IPv4 only. If ssh ever reaches hal over the tailnet's IPv6 address, hal refuses
   both keys.
 
-Each account still has its own dotfiles clone at `~/Projects/Personal/dotfiles`. Pull both:
+### One dotfiles clone on hal (VIL-700)
+
+`david` and `hal` each have a dotfiles clone at `~/Projects/Personal/dotfiles`, and the two
+drift apart. VIL-700's second part moves `hal` onto `david`'s clone, so one pull as `david`
+updates both accounts. The steps below make the move; nothing changes on hal until they are
+run, in order. To see which clone `hal` runs from:
+`ssh hal-as-hal 'readlink ~/.config/zsh/.zshrc'` prints a path in `hal`'s home before the move
+and one in `david`'s after it. Step 5 (`verify`) checks the whole move; it can only run once
+step 2 is done, and it also fails when the installed sync-check is older than the clone's
+copy (run step 3 again to fix that).
+
+Until the move, pull both clones:
 `ssh hal 'git -C ~/Projects/Personal/dotfiles pull --ff-only'` and
-`ssh hal-as-hal 'git -C ~/Projects/Personal/dotfiles pull --ff-only'`. VIL-700's second part
-plans to move `hal` onto `david`'s clone; until it lands, this paragraph is current.
+`ssh hal-as-hal 'git -C ~/Projects/Personal/dotfiles pull --ff-only'`.
+
+After the move:
+
+- `david` owns the one clone. `hal`'s 24 dotfiles links point into it (the list is `LINKS` in
+  `helpers/hal_shared_clone.sh`; `~/.config/herdr/config.toml` is among them and stays dead,
+  since `herdr/` is gone from the repo), and so does `hal`'s `~/.claude/CLAUDE.md`. The file
+  that link replaced is `~/.claude/CLAUDE.md.pre-vil700`.
+- Pull as `david` only: `ssh hal 'git -C ~/Projects/Personal/dotfiles pull --ff-only'`. `hal`
+  never runs git in that clone and never gets a `safe.directory` entry for it.
+- `hal` gets into `david`'s home through one ACL entry on that folder alone,
+  `user:hal allow search`. It reads the clone through the clone's own "other" permissions, and
+  can read anything else in `david`'s home that other accounts can read. Step 2 lists the top
+  level of that before it changes anything.
+- Anything that runs as `david`, the overnight pilot included, can change files `hal` runs.
+  David chose this layout knowing that. Atlas's hourly check (below) is the alarm for it.
+- `DOTFILES_PROFILE=server ./install` as `hal` from a clone `david` owns is expected to fail
+  at the steps that write into the repo. Fixing that is VIL-736; until it lands, don't run it
+  there.
+- `hal`'s old clone is moved to `~/Projects/Personal/dotfiles.pre-vil700` after one night
+  (step 7). Nothing deletes it.
+
+**Atlas's hourly check.** Hermes cron job `637debb93470` runs
+`~/.hermes/scripts/dotfiles-sync-check.sh` as `hal` and sends what it prints to David's Slack
+DM; empty output sends nothing, and a non-zero exit sends an error alert. From step 3 on, that
+file is a copy of `helpers/hal_dotfiles_sync_check.sh`. It's a copy because Hermes refuses a
+script that resolves outside `~/.hermes/scripts`, and a link would point into the clone it
+watches. The original is kept beside it as `dotfiles-sync-check.sh.pre-vil700`. The job's
+schedule and prompt don't change.
+
+The check watches the clone `hal`'s `~/.config/zsh/.zshrc` link points into. It never runs git
+in it: it reads the clone's `.git/HEAD` and refs as files, and keeps its own copy of GitHub's
+master in `~/.cache/dotfiles-sync-check/master.git` in `hal`'s home. Git runs only there, with
+no global or system config, because `hal`'s `~/.gitconfig` is one of the watched files. It
+sends one report per state when:
+
+- the clone is behind master, or on a commit that isn't on master;
+- a tracked file in the clone differs from GitHub's copy at the commit the clone is on (at
+  master, if that commit isn't on it), or is missing, unreadable, a link where the repo has a
+  file, or a link that points somewhere other than the repo's link does. This is the tamper
+  alarm. It covers every tracked file, because `hal` runs more
+  than its links point at: `zsh/zshrc` sources `zsh/functions/*.sh`, `bin/dot` runs `bin/lib/`
+  and `helpers/`, and the starship and topgrade configs can run commands;
+- the clone has files that commit doesn't (`.git` and submodules aside);
+- the installed copy isn't master's `helpers/hal_dotfiles_sync_check.sh`. After a change to it
+  merges, pull as `david`, then run step 3 again.
+
+When it can't check (the clone is unreadable, or GitHub can't be reached), it exits 1 with a
+one-line reason. `DOTFILES_DRY_RUN=1` fetches nothing and writes no state.
+
+**The move.** Each step names the account it runs as, checks the state it expects, and stops
+with nothing changed when the state is anything else. Running a step again is safe: a step
+that is done says so and exits 0. `DOTFILES_DRY_RUN=1` runs a step's checks, prints what it
+would change, changes nothing, and exits with the code the real run would stop with. For step
+1 it goes in front of the command; for the others it goes inside the quotes, so it reaches hal:
+`ssh hal-as-hal 'DOTFILES_DRY_RUN=1 bash ~david/Projects/Personal/dotfiles/helpers/hal_shared_clone.sh relink'`. Avoid the overnight pilot's window for steps 1 to 4 (`docs/reference/hermes-commands.md`,
+"The 27B is shared").
+
+| # | Runs as | Command, from the dotfiles checkout on the personal Mac | Changes |
+|---|---|---|---|
+| 1 | David, on the Mac | `bash helpers/hal_shared_clone_sync.sh` | fast-forwards both clones to GitHub's master and checks they're on one commit |
+| 2 | `david` | `ssh hal 'bash ~/Projects/Personal/dotfiles/helpers/hal_shared_clone.sh acl'` | adds `user:hal allow search` to `david`'s home |
+| 3 | `hal` | `ssh hal-as-hal 'bash ~david/Projects/Personal/dotfiles/helpers/hal_shared_clone.sh sync-check'` | installs the new check; the old one stays as `.pre-vil700` |
+| 4 | `hal` | the same, with `relink` | points the 24 links into `david`'s clone and links `~/.claude/CLAUDE.md` |
+| 5 | `hal` | the same, with `verify` | nothing |
+| 6 | | one night of Atlas's check running | |
+| 7 | `hal` | the same, with `retire-old-clone` | moves `hal`'s clone to `~/Projects/Personal/dotfiles.pre-vil700` |
+
+Step 1 refuses unless both clones are on `master`, have no edits to tracked files, and have
+GitHub's `origin`. Step 2 refuses if other accounts can't search `~/Projects` and
+`~/Projects/Personal`, or can't read something in the clone (outside `.git/objects`), or if
+`david`'s home has any other ACL entry for `hal`. Step 3 refuses if the installed check isn't
+the one it was written against. Step 4 refuses unless the clones are on one commit, every
+linked file is the same in both, step 3 is done, and each link points where the list says.
+Step 7 refuses unless step 5 passes. It first prints the old clone's state: edits, commits on
+no remote-tracking branch, and stashes. Moving the clone keeps all of them.
+
+Exit codes, for every step: 0 done, already done, or a dry run that found nothing in the way.
+1 refused, with nothing changed (for `verify`: something isn't as expected). 2 a step name
+`helpers/hal_shared_clone.sh` doesn't know. 4 something was changed and then a later part
+failed; the message says what changed and which step to run next. Any other code means ssh
+or the shell on hal failed partway; the code says nothing about the state, so run `verify`, or
+the step again with `DOTFILES_DRY_RUN=1`, to see it. Step 1 is the exception: it reports an
+ssh failure itself, as 1 when it happens during the checks (nothing changed yet) and as 4 when
+it happens after, and its last lines show where each clone is.
+
+Undoing, newest step first (each is a step of `helpers/hal_shared_clone.sh`, run as `hal` like
+step 3, with the same exit codes):
+
+- Step 7: `restore-old-clone` moves the old clone back.
+- Step 4: `relink-rollback` points the links back into `hal`'s clone and puts
+  `CLAUDE.md.pre-vil700` back as `~/.claude/CLAUDE.md`. It needs the old clone in place, so
+  after step 7, run `restore-old-clone` first.
+- Step 3: `sync-check-rollback` puts the original check back (and keeps the `.pre-vil700`
+  copy). Only after `relink-rollback`: the original runs git in the clone the links point
+  into, which fails in `david`'s. The new check works either way, so this is optional.
+- Step 2: `ssh hal '/bin/chmod -a "user:hal allow search" ~'`, only after `relink-rollback`;
+  with the links still in `david`'s clone, it breaks `hal`'s shell and git.
+- Step 1: nothing to undo; it's an ordinary fast-forward of both clones.
+
+After changing any of the three scripts, run `ci/hal-shared-clone-checks.sh`.
