@@ -10,7 +10,8 @@
 # on its PATH, so the hal side runs in macOS's bash 3.2), a fake tailscale (HAL_AS_HAL_TAILSCALE) and a throwaway
 # key (HAL_AS_HAL_PUBKEY). FAKE_SSHKEYGEN_FAIL=1 puts an ssh-keygen first on the fake remote's
 # PATH that runs the real one FAKE_SSHKEYGEN_OK_CALLS times (default 0), then fails;
-# FAKE_CMP_FAIL=1 does the same with a cmp that always fails.
+# FAKE_CMP_FAIL=1 does the same with a cmp that always fails, and FAKE_RM_FAIL=1 with an rm
+# that always fails.
 # Cases are eval'd strings, so shellcheck sees their variables as unused.
 # shellcheck disable=SC2016,SC2034
 set -uo pipefail
@@ -19,7 +20,7 @@ HELPER="$REPO/helpers/add_hal_as_hal_key.sh"
 
 T="$(mktemp -d)" || { echo "mktemp -d failed" >&2; exit 1; }
 trap 'chmod -R u+rwx "$T" 2>/dev/null; rm -rf "$T"' EXIT
-mkdir -p "$T/stub" "$T/badkeygen" "$T/badcmp" "$T/remote/.ssh"
+mkdir -p "$T/stub" "$T/badkeygen" "$T/badcmp" "$T/badrm" "$T/remote/.ssh"
 
 printf '%s\n' '#!/bin/sh' \
   '# Fake ssh: take the host, run the command in $FAKE_REMOTE_HOME as if logged in there.' \
@@ -27,6 +28,7 @@ printf '%s\n' '#!/bin/sh' \
   'shift' \
   'if [ -n "${FAKE_SSHKEYGEN_FAIL:-}" ]; then PATH="$FAKE_BADKEYGEN:$PATH"; export PATH; fi' \
   'if [ -n "${FAKE_CMP_FAIL:-}" ]; then PATH="$FAKE_BADCMP:$PATH"; export PATH; fi' \
+  'if [ -n "${FAKE_RM_FAIL:-}" ]; then PATH="$FAKE_BADRM:$PATH"; export PATH; fi' \
   'cd "$FAKE_REMOTE_HOME" || exit 255' \
   'if [ -n "${FAKE_OLD_BASH:-}" ]; then PATH="/bin:$PATH"; export PATH; fi' \
   'HOME=$FAKE_REMOTE_HOME exec /bin/zsh -f -c "$*"' > "$T/stub/ssh"
@@ -37,8 +39,9 @@ printf '%s\n' '#!/bin/sh' \
   '[ "$n" -le "${FAKE_SSHKEYGEN_OK_CALLS:-0}" ] && exec /usr/bin/ssh-keygen "$@"' \
   'echo "ssh-keygen: simulated failure" >&2; exit 1' > "$T/badkeygen/ssh-keygen"
 printf '%s\n' '#!/bin/sh' 'exit 1' > "$T/badcmp/cmp"
-chmod 755 "$T/stub/"* "$T/badkeygen/ssh-keygen" "$T/badcmp/cmp"
-export FAKE_REMOTE_HOME="$T/remote" FAKE_BADKEYGEN="$T/badkeygen" FAKE_BADCMP="$T/badcmp" FAKE_KG_COUNT="$T/kg.count"
+printf '%s\n' '#!/bin/sh' 'echo "rm: simulated failure" >&2; exit 1' > "$T/badrm/rm"
+chmod 755 "$T/stub/"* "$T/badkeygen/ssh-keygen" "$T/badcmp/cmp" "$T/badrm/rm"
+export FAKE_REMOTE_HOME="$T/remote" FAKE_BADKEYGEN="$T/badkeygen" FAKE_BADCMP="$T/badcmp" FAKE_BADRM="$T/badrm" FAKE_KG_COUNT="$T/kg.count"
 export HAL_AS_HAL_SSH="$T/stub/ssh" HAL_AS_HAL_TAILSCALE="$T/stub/tailscale"
 
 ssh-keygen -q -t ed25519 -N '' -C fake-orca -f "$T/orca" || exit 1
@@ -152,6 +155,12 @@ check "16 no backup possible" '[ $RC = 1 ] && [ "$(shasum "$AK")" = "$h" ] && gr
 # 17. the backup doesn't match (cmp fails): it is removed, authorized_keys untouched
 reset_ak; h=$(shasum "$AK"); FAKE_CMP_FAIL=1 run bash "$HELPER"
 check "17 backup doesn't match" '[ $RC = 1 ] && [ "$(shasum "$AK")" = "$h" ] && grep -q "couldn.t make a backup that matches" "$OUT" && ! ls "$AK".bak-* >/dev/null 2>&1'
+
+# 18. the backup doesn't match and removing it fails too: refused, authorized_keys untouched,
+# and the leftover file is named as one to remove by hand (MergeWren finding 564cb09#1 on PR 270)
+reset_ak; h=$(shasum "$AK"); FAKE_CMP_FAIL=1 FAKE_RM_FAIL=1 run bash "$HELPER"
+left=$(find "$T/remote/.ssh" -name "authorized_keys.bak-*" | head -n 1)
+check "18 leftover backup named" '[ $RC = 1 ] && [ "$(shasum "$AK")" = "$h" ] && [ -n "$left" ] && grep -qF "remove the incomplete copy $left" "$OUT" && grep -q "remove it by hand" "$OUT" && ! grep -q "nothing changed" "$OUT"'
 
 echo "passed $pass, failed $fail"
 [ "$fail" = 0 ]

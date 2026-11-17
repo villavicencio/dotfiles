@@ -74,14 +74,18 @@ itself (seen 2026-10-22). The sign-in lasts for that terminal only, until about 
    a note.
 4. Add a test item to Agents, e.g. `op-agent-test` with a password field.
 
-**On hal, as `hal`** (Homebrew at `$BREW_PREFIX` belongs to `hal`): in `hal`'s dotfiles
-clone, `git pull && DOTFILES_PROFILE=server ./install`. That installs the cask and links
-`~/.local/bin/op-agent`.
+**On hal, as `hal`** (Homebrew at `$BREW_PREFIX` belongs to `hal`): the server install
+(`DOTFILES_PROFILE=server ./install`) installs the cask and links `~/.local/bin/op-agent` into
+the clone `hal` runs from. After VIL-700's move ("One dotfiles clone on hal" in
+`docs/reference/install-and-server.md`), that link points into `david`'s clone, a pull as
+`david` updates the wrapper for both accounts, and the server install as `hal` waits on
+VIL-736. Until VIL-736 lands, the cask alone installs as `hal` with
+`brew install --cask 1password-cli`.
 
-**On hal, as `david`:** `david` isn't set up by the Dotbot install; it has a clone and a
-hand-made `~/.local/bin/dot` link. Do the same for this wrapper:
-`git -C ~/Projects/Personal/dotfiles pull && ln -sfn ~/Projects/Personal/dotfiles/bin/op-agent ~/.local/bin/op-agent`.
-`op` itself comes from `hal`'s Homebrew, which `david` can run.
+**On hal, as `david`:** `~/.local/bin/op-agent` is a link into `david`'s clone (seen
+2026-11-16). If it's missing:
+`ln -s ~/Projects/Personal/dotfiles/bin/op-agent ~/.local/bin/op-agent`. `op` itself comes
+from `hal`'s Homebrew, which `david` can run.
 
 After changing `bin/op-agent`, run `ci/op-agent-checks.sh` (a stub `op`; no account needed).
 

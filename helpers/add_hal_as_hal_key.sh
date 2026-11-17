@@ -19,7 +19,8 @@
 #     exit 0 when every line with it has exactly the intended options; otherwise print that line's options and the intended ones, change nothing, exit 3.
 #     It never rewrites or removes an existing line; that is David's call.
 #   - Otherwise: make a new backup of authorized_keys (only on a run that is about to append;
-#     it never overwrites an older backup, and a copy that doesn't match is removed), make
+#     it never overwrites an older backup, and a copy that doesn't match is removed, or named
+#     as one to remove by hand if removing it fails), make
 #     sure the file ends in a newline, append one line
 #     (comment `mac-main-key hal-as-hal <date>`), then check that the new line is the last
 #     line, that ssh-keygen reads one more key than before, and that one of them is the new
@@ -76,7 +77,8 @@ _hal_side() {
   # A new backup file on every run that is about to append. The name is claimed empty with
   # noclobber (O_EXCL), so an older backup is never overwritten; a taken name moves on to the
   # next suffix. Then the copy is filled and compared. A copy that fails or doesn't match is
-  # removed, so no incomplete backup is left or named. HAL_AS_HAL_TEST_BACKUP_TIME fixes the
+  # removed, so no incomplete backup is left; if removing it fails too, the message names it
+  # as one to remove by hand, never as a backup to restore. HAL_AS_HAL_TEST_BACKUP_TIME fixes the
   # timestamp for ci/hal-as-hal-key-checks.sh only; ssh doesn't pass it to hal.
   local base n=0
   umask 077
@@ -90,8 +92,13 @@ _hal_side() {
     bak="$base.$n"
   done
   if ! { cat "$f" > "$bak" && cmp -s "$f" "$bak" && touch -r "$f" "$bak"; }; then
-    rm -f "$bak"
-    echo "couldn't make a backup that matches $f; nothing changed" >&2; return 1
+    if rm -f "$bak" && ! { [ -e "$bak" ] || [ -L "$bak" ]; }; then
+      echo "couldn't make a backup that matches $f; nothing changed" >&2
+    else
+      echo "couldn't make a backup that matches $f, and couldn't remove the incomplete copy $bak." >&2
+      echo "  $f is unchanged. $bak is not a good backup; remove it by hand." >&2
+    fi
+    return 1
   fi
   line="$want $t $k mac-main-key hal-as-hal $(/bin/date +%F)"
   # $(tail -c 1) is empty when the file ends in a newline (or is empty).
