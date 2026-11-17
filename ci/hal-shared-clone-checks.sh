@@ -388,6 +388,10 @@ in_cwd() { (cd "$T/cwd" && as_hal "$@"); }
 run in_cwd verify
 check "V11 a glob character in the option token, a matching file in the working folder: verify fails" '[ $RC = 1 ] && has "couldn'"'"'t read the glob options"'
 git -C "$NEW" checkout -q -- zsh/zshrc
+printf '%s\n' 'print -r -- "$DOTFILES/zsh/functions/f.sh"' > "$NEW/zsh/functions/f.sh"
+run as_hal verify
+check "V12 a function file prints a path under zsh/functions but defines nothing: verify fails" '[ $RC = 1 ] && has "defined no function from"'
+git -C "$NEW" checkout -q -- zsh/functions/f.sh
 chmod 000 "$NEW/claude/CLAUDE.md"
 run as_hal verify
 check "V6 CLAUDE.md's target is unreadable: verify fails" '[ $RC = 1 ] && has "claude/CLAUDE.md is missing or unreadable"'
@@ -472,6 +476,15 @@ git -C "$NEW" reset -q --hard HEAD~2; cp "$CHECK_SRC" "$CK"
 
 run as_hal nonsense
 check "U1 unknown step" '[ $RC = 2 ]'
+
+# --- zsh/functions.sh itself, under zshrc's glob options ------------------------------------
+LZ() { zsh -f -c 'setopt NO_CASE_GLOB EXTENDED_GLOB GLOB_DOTS; DOTFILES=$1; reply=("$2"); source "$1/zsh/functions.sh"
+  whence -w hh; print -r -- "vars: ${+function} ${+f} ${(j: :)reply}"' zsh "$@"; }
+run LZ "$REPO" keep
+check "Z1 functions defined inside the loader are global; it leaves no variable and leaves reply alone" 'has "hh: function" && has "vars: 0 0 keep"'
+mkdir -p "$T/nofns/zsh/functions"; cp "$REPO/zsh/functions.sh" "$T/nofns/zsh/"; echo 'print STALE-SOURCED' > "$T/stale.sh"
+run LZ "$T/nofns" "$T/stale.sh"
+check "Z2 no function file: nothing sourced, no error, a stale reply isn't used" '[ $RC = 0 ] && ! has "STALE-SOURCED" && ! has "no matches"'
 
 # --- the sync-check itself, as hal, watching the clone hal's links point into -----------------
 # State is now: links into $NEW, both clones on c1, the new check installed.

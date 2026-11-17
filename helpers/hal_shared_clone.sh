@@ -484,10 +484,14 @@ verify_checks() {
   if [ "$ok" = 0 ] || [ "${#opts[@]}" = 0 ]; then
     problem "couldn't read the glob options (setopt ...GLOB lines) from $NEW/zsh/zshrc"
   else
-    if out=$(DOTFILES=$NEW zsh -f -c 'setopt -- "$@" && source "$DOTFILES/zsh/functions.sh"
-        print -rl -- ${(v)functions_source}' zsh "${opts[@]}" < /dev/null 2> /dev/null); then
-      n=$(grep -cF "$NEW/zsh/functions/" <<< "$out")
-    fi
+    # zsh counts the functions itself; the loader's own output goes nowhere, and only the one
+    # line "vil700-functions: <count>" is accepted.
+    out=$(DOTFILES=$NEW zsh -f -c 'setopt -- "$@" || exit 1
+        source "$DOTFILES/zsh/functions.sh" > /dev/null 2>&1
+        m=(${(M)${(v)functions_source}:#${(b)DOTFILES}/zsh/functions/*})
+        print -r -- "vil700-functions: ${#m}"' zsh "${opts[@]}" < /dev/null 2> /dev/null)
+    case $out in "vil700-functions: "*) n=${out#vil700-functions: } ;; esac
+    case $n in ''|*[!0-9]*) n=0 ;; esac
     [ "${n:-0}" -gt 0 ] || problem "zsh/functions.sh, run as $ME with zshrc's glob options, defined no function from $NEW/zsh/functions"
   fi
 }

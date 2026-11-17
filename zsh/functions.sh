@@ -16,6 +16,9 @@ function tre() {
 # List the files with case-sensitive globbing, whatever the interactive options say: with
 # NO_CASE_GLOB (zshrc) zsh reads every directory on the path to match it, and `hal` on hal can
 # only search, not read, the home `david`'s clone sits in (VIL-700).
-() { setopt localoptions case_glob; reply=("$DOTFILES/zsh/functions"/*.sh) }
-for function in "${reply[@]}"; do . "${function}"; done
-unset function reply
+# Everything stays local to this anonymous function; the functions the files define are global.
+() {
+  setopt localoptions case_glob
+  local f
+  for f in "$DOTFILES/zsh/functions"/*.sh(N); do . "$f"; done
+}
