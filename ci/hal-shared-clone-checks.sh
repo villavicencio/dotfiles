@@ -78,7 +78,12 @@ mk_origin() {
   done <<< "$LINKS"
   mkdir -p "$SEED/helpers" "$SEED/claude" "$SEED/zsh/functions"
   echo "shared CLAUDE.md" > "$SEED/claude/CLAUDE.md"
-  echo "a function" > "$SEED/zsh/functions/f.sh"
+  # verify runs the clone's zsh/functions.sh with the glob options from its zshrc: the real
+  # loader, the real zshrc's setopt lines, and one function.
+  awk '/^setopt [A-Z_]*GLOB/ && $2 ~ /^[A-Z_]+$/ { print "setopt " $2 }' "$REPO/zsh/zshrc" > "$SEED/zsh/zshrc"
+  grep -qx 'setopt NO_CASE_GLOB' "$SEED/zsh/zshrc" || { echo "zsh/zshrc no longer sets NO_CASE_GLOB; V7 needs it" >&2; exit 1; }
+  cp "$REPO/zsh/functions.sh" "$SEED/zsh/"
+  echo "f() { :; }" > "$SEED/zsh/functions/f.sh"
   cp "$CHECK_SRC" "$STEPS" "$SEED/helpers/"
   git -C "$SEED" add -A && git -C "$SEED" commit -qm c1 && git -C "$SEED" push -q "$ORIGIN" master
 }
@@ -361,6 +366,32 @@ mv "$NEW/btop/btop.conf" "$T/btop.saved"
 run as_hal verify
 check "V4 a linked file is missing from the clone: verify fails" '[ $RC = 1 ] && has "btop/btop.conf is missing"'
 mv "$T/btop.saved" "$NEW/btop/btop.conf"
+# david's home searchable but not readable, as on hal: the old loader's absolute glob fails
+# under NO_CASE_GLOB, and verify must say so; the repo's loader works.
+printf '%s\n' 'for function in "$DOTFILES/zsh/functions"/*.sh; do . "${function}"; done' > "$NEW/zsh/functions.sh"
+chmod 311 "$DH"
+run as_hal verify
+check "V7 david's home search-only, a loader that globs through it: verify fails" '[ $RC = 1 ] && has "defined no function from"'
+git -C "$NEW" checkout -q -- zsh/functions.sh
+run as_hal verify
+check "V8 the same home with the repo's loader: verify passes" '[ $RC = 0 ] && has "function loader works"'
+chmod 755 "$DH"
+printf '# no glob options here\n' > "$NEW/zsh/zshrc"
+run as_hal verify
+check "V9 zshrc has no setopt ...GLOB line: verify fails, not a probe without the options" '[ $RC = 1 ] && has "couldn'"'"'t read the glob options"'
+printf '%s\n' 'setopt NO_CASE_GLOB && touch "$HOME/vil700-ran"' 'setopt EXTENDED_GLOB' > "$NEW/zsh/zshrc"
+run as_hal verify
+check "V10 a glob line with an appended command: only the option is used, the command doesn't run" '[ $RC = 0 ] && [ ! -e "$HH/vil700-ran" ]'
+printf '%s\n' 'setopt NO_CASE_GLOB*' 'setopt EXTENDED_GLOB' > "$NEW/zsh/zshrc"
+mkdir -p "$T/cwd"; touch "$T/cwd/NO_CASE_GLOB"
+in_cwd() { (cd "$T/cwd" && as_hal "$@"); }
+run in_cwd verify
+check "V11 a glob character in the option token, a matching file in the working folder: verify fails" '[ $RC = 1 ] && has "couldn'"'"'t read the glob options"'
+git -C "$NEW" checkout -q -- zsh/zshrc
+printf '%s\n' 'print -r -- "$DOTFILES/zsh/functions/f.sh"' > "$NEW/zsh/functions/f.sh"
+run as_hal verify
+check "V12 a function file prints a path under zsh/functions but defines nothing: verify fails" '[ $RC = 1 ] && has "defined no function from"'
+git -C "$NEW" checkout -q -- zsh/functions/f.sh
 chmod 000 "$NEW/claude/CLAUDE.md"
 run as_hal verify
 check "V6 CLAUDE.md's target is unreadable: verify fails" '[ $RC = 1 ] && has "claude/CLAUDE.md is missing or unreadable"'
@@ -445,6 +476,15 @@ git -C "$NEW" reset -q --hard HEAD~2; cp "$CHECK_SRC" "$CK"
 
 run as_hal nonsense
 check "U1 unknown step" '[ $RC = 2 ]'
+
+# --- zsh/functions.sh itself, under zshrc's glob options ------------------------------------
+LZ() { zsh -f -c 'setopt NO_CASE_GLOB EXTENDED_GLOB GLOB_DOTS; DOTFILES=$1; reply=("$2"); source "$1/zsh/functions.sh"
+  whence -w hh; print -r -- "vars: ${+function} ${+f} ${(j: :)reply}"' zsh "$@"; }
+run LZ "$REPO" keep
+check "Z1 functions defined inside the loader are global; it leaves no variable and leaves reply alone" 'has "hh: function" && has "vars: 0 0 keep"'
+mkdir -p "$T/nofns/zsh/functions"; cp "$REPO/zsh/functions.sh" "$T/nofns/zsh/"; echo 'print STALE-SOURCED' > "$T/stale.sh"
+run LZ "$T/nofns" "$T/stale.sh"
+check "Z2 no function file: nothing sourced, no error, a stale reply isn't used" '[ $RC = 0 ] && ! has "STALE-SOURCED" && ! has "no matches"'
 
 # --- the sync-check itself, as hal, watching the clone hal's links point into -----------------
 # State is now: links into $NEW, both clones on c1, the new check installed.

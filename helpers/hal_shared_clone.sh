@@ -468,6 +468,32 @@ verify_checks() {
   if ! stray_links; then problem "couldn't scan all of $HOME for links into $OLD"
   elif [ -n "$STRAY" ]; then problem "links still into $OLD: $STRAY"; fi
   installed_check_ok || problem "$CHECK isn't an executable copy of $CHECK_SRC with the original kept as $CHECK_KEEP (run the sync-check step)"
+  # The clone's function loader, run as this account with zshrc's glob options, must define a
+  # function from zsh/functions (zsh records each function's file in $functions_source). zsh -f
+  # reads no startup files, so nothing is written. Only the option names are taken from zshrc.
+  local out n=0 raw o ok=1
+  local -a opts=()
+  if raw=$(awk '/^setopt [A-Z_]*GLOB/ { print $2 }' "$NEW/zsh/zshrc"); then
+    while IFS= read -r o; do
+      [ -n "$o" ] || continue
+      case $o in *[!A-Z_]*) ok=0 ;; *) opts+=("$o") ;; esac
+    done <<< "$raw"
+  else
+    ok=0
+  fi
+  if [ "$ok" = 0 ] || [ "${#opts[@]}" = 0 ]; then
+    problem "couldn't read the glob options (setopt ...GLOB lines) from $NEW/zsh/zshrc"
+  else
+    # zsh counts the functions itself; the loader's own output goes nowhere, and only the one
+    # line "vil700-functions: <count>" is accepted.
+    out=$(DOTFILES=$NEW zsh -f -c 'setopt -- "$@" || exit 1
+        source "$DOTFILES/zsh/functions.sh" > /dev/null 2>&1
+        m=(${(M)${(v)functions_source}:#${(b)DOTFILES}/zsh/functions/*})
+        print -r -- "vil700-functions: ${#m}"' zsh "${opts[@]}" < /dev/null 2> /dev/null)
+    case $out in "vil700-functions: "*) n=${out#vil700-functions: } ;; esac
+    case $n in ''|*[!0-9]*) n=0 ;; esac
+    [ "${n:-0}" -gt 0 ] || problem "zsh/functions.sh, run as $ME with zshrc's glob options, defined no function from $NEW/zsh/functions"
+  fi
 }
 
 step_verify() {
@@ -475,7 +501,7 @@ step_verify() {
   echo "verify: check that $HAL_USER's links point into $NEW"
   verify_checks
   [ -z "$PROBLEMS" ] || die "not as expected; see the lines marked !"
-  echo "ok: the 24 links and ~/.claude/CLAUDE.md point into $NEW, the scan found no other symlink to $OLD or a path inside it, and the new sync-check is installed"
+  echo "ok: the 24 links and ~/.claude/CLAUDE.md point into $NEW, the scan found no other symlink to $OLD or a path inside it, the new sync-check is installed, and the clone's function loader works for $ME"
 }
 
 # ---------------------------------------------------------------------------------------

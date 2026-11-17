@@ -13,5 +13,12 @@ function tre() {
 	tree -aC -I '.git|node_modules|bower_components' --dirsfirst "$@" | less -FRNX;
 }
 
-for function in "$DOTFILES/zsh/functions"/*.sh; do . "${function}"; done
-unset function
+# List the files with case-sensitive globbing, whatever the interactive options say: with
+# NO_CASE_GLOB (zshrc) zsh reads every directory on the path to match it, and `hal` on hal can
+# only search, not read, the home `david`'s clone sits in (VIL-700).
+# Everything stays local to this anonymous function; the functions the files define are global.
+() {
+  setopt localoptions case_glob
+  local f
+  for f in "$DOTFILES/zsh/functions"/*.sh(N); do . "$f"; done
+}
