@@ -10,7 +10,9 @@
 # head each time, so a push while waiting moves it to the new head. Returns 0 and prints the
 # review comment once one with a verdict exists for the current head; 1 on a GitHub error;
 # 2 when none arrived in time (PENDING); 3 for a draft, which MergeWren never reviews; 4, with
-# the comment printed, when the latest review comment has no "MergeWren: " verdict line.
+# the comment printed, when the latest review comment has no "MergeWren: " verdict line; 5, with
+# the comment printed, when its verdict line is a final "MergeWren: no verdict — …" (the review
+# didn't complete, e.g. "review incomplete"): nothing follows it, and it isn't a pass.
 mergewren_review() {
   local N=${1:-} R=${2:-} poll=${MERGEWREN_POLL_S:-60} wait=${MERGEWREN_WAIT_S:-1200} info h draft ids id body verdict now
   # $SECONDS (bash and zsh) rather than summing sleeps, so a 0 s poll still times out.
@@ -34,13 +36,16 @@ mergewren_review() {
     if [ -n "$id" ]; then
       body=$(gh api "repos/$R/issues/comments/$id" --jq .body) \
         || { echo "ERROR: reading comment $id failed" >&2; return 1; }
-      # An incremental round posts "MergeWren: no verdict — … full confirmation of <sha> queued"
-      # and the full review of the same head follows, about a minute later on hal-pilot#4.
-      # Only the verdict line is checked: a finding may quote that text. `|| true`: grep finding
-      # no line exits 1, which would end a caller running under `set -e` before exit 4.
+      # An incremental round posts "MergeWren: no verdict — incremental round; full confirmation
+      # of `<sha>` queued" and the full review of the same head follows, about a minute later on
+      # hal-pilot#4: only that placeholder is waited past. Every other "no verdict" line ("review
+      # incomplete", a secret scan that didn't finish, an incremental round with no confirmation
+      # queued) is final (eagle-hover-save#2, 2026-11-17). Only the verdict line is checked: a
+      # finding may quote that text. `|| true`: grep finding no line exits 1, which would end a
+      # caller running under `set -e` before exit 4.
       verdict=$(printf '%s\n' "$body" | grep -m 1 '^MergeWren: ' || true)
       case $verdict in
-        "MergeWren: no verdict"*) ;;
+        "MergeWren: no verdict"*"; full confirmation of "*" queued"*) ;;
         *)
           # A push during the lookup makes this the old head's review: start over on the new one.
           now=$(gh pr view "$N" -R "$R" --json headRefOid -q .headRefOid) \
@@ -48,6 +53,11 @@ mergewren_review() {
           if [ "$now" = "$h" ]; then
             printf '%s\n' "$body"
             [ -n "$verdict" ] || { echo "NO VERDICT LINE: MergeWren's comment has none; read it" >&2; return 4; }
+            case $verdict in
+              "MergeWren: no verdict"*)
+                echo "NO VERDICT: the review of $h didn't complete and isn't a pass; read the comment" >&2
+                return 5 ;;
+            esac
             return 0
           fi
           continue ;;

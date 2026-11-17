@@ -223,6 +223,7 @@ Run these before committing. `bin/dot` (`~/.local/bin/dot` once installed) wraps
 | Homebrew | `brew bundle check --file=brew/Brewfile` | satisfied |
 | Server profile | `ci/server-profile-checks.sh static` | exit 0 |
 | Merged-branch cleanup (after changing `bin/lib/cleanup-merged-branch.sh` or `wt done`) | `ci/cleanup-merged-branch-checks.sh` | exit 0, both shells (local only, not in CI) |
+| MergeWren wait (after changing `bin/lib/mergewren-review.sh`) | `ci/mergewren-review-checks.sh` | exit 0, both shells (local only, stub `gh`) |
 | `op-agent` guards (after changing `bin/op-agent`) | `ci/op-agent-checks.sh` | exit 0 (local only, stub `op`) |
 | Desktop Commander remote log rotation (after changing the job's logging in `helpers/desktop_commander_remote.sh`) | `ci/desktop-commander-remote-log-checks.sh` | exit 0 (local only, macOS, fake HOME; e2e needs Node) |
 | hal memory mirror (after changing `helpers/hal_memory_pull.sh` or its installer) | `ci/hal-memory-pull-checks.sh` | exit 0 (local only, macOS, temp folders, fake ssh, stub launchctl) |

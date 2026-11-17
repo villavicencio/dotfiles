@@ -296,7 +296,8 @@ verdict:
 ```bash
 source <dotfiles clone>/bin/lib/mergewren-review.sh   # ~/Projects/Personal/dotfiles on the desk Macs
 mergewren_review <pr> [owner/repo]   # 0 verdict + the comment; 1 GitHub error; 2 PENDING after 20 min;
-                                     # 3 draft; 4 a review comment with no verdict line (printed: read it)
+                                     # 3 draft; 4 a review comment with no verdict line (printed: read it);
+                                     # 5 a final `no verdict` (printed): the review didn't complete, not a pass
 ```
 
 Why it reads comments this way (hal-pilot#4, 2026-11-02, where MergeWren flagged the old
@@ -309,7 +310,12 @@ one-line poll):
   round; full confirmation of <sha> queued`, then the full review of the same head about a
   minute later. A poll that stops at the first comment for the head reads no verdict as done.
   The function checks only the `MergeWren:` verdict line, skips the placeholder and keeps
-  waiting.
+  waiting. It skips only a `no verdict` line that names a full confirmation as `queued`. Any
+  other `no verdict` line is final, and nothing follows it: `review incomplete`, a secret scan
+  that didn't finish, or an incremental round with no confirmation queued (eagle-hover-save#2,
+  2026-11-17; before this the function waited out its 20 min on one and returned `PENDING`).
+  The function prints that comment and returns 5. The head wasn't fully reviewed and it isn't a pass: read the comment,
+  don't merge, tell David.
 - **Only a comment from David's account whose body starts with the marker counts.** The old
   poll matched any comment that contained `review-stack:head=<sha>`, so a reply quoting it would
   pass as the review.
