@@ -33,10 +33,12 @@ on #234 (before VIL-414):
 ```
 
 (It was `bin/lib/cleanup-merged-branch.sh:46` then.) The documented way to remove such a worktree is
-Orca's Force delete, a human step (CLAUDE.md, "Removing an Orca worktree takes Force
-delete"). Orca also deletes the branch only when it can prove it's merged (CLAUDE.md,
-"The branch's commits aren't at risk"), and this repo squash-merges, so the branch's commit
-is never an ancestor of master.
+Orca's Force delete, a human step (`docs/reference/orca-worktrees.md`, "Removing an Orca
+worktree takes Force delete"). Orca doesn't delete the branch either: in Orca 1.4.257 `orca worktree rm` keeps the
+local branch by default, `--force` included, and `--delete-branch` deletes it only when Orca
+can prove it's merged (`orca worktree rm --help`, checked 2026-11-17;
+`docs/reference/orca-worktrees.md`). This repo squash-merges, so the branch's commit is never
+an ancestor of master and Orca can never prove it merged.
 
 On dotfiles #234 the session that opened the PR ran inside its Orca worktree and merged
 the PR there. The agent hit the refusal and told David to Force delete the worktree and then
@@ -141,7 +143,7 @@ What went wrong on #234, and the fix:
 
 ## Related
 
-- CLAUDE.md, "Orca worktrees — `orca.yaml` setup script": Force delete, the pre-Force checks,
-  and why there's no `scripts.archive`.
+- `docs/reference/orca-worktrees.md`, "Orca worktrees — `orca.yaml` setup script": Force
+  delete, the pre-Force checks, and why there's no `scripts.archive`.
 - `docs/agents/code-review.md`, "After the merge": `cleanup_merged_branch` and its refusals.
 - `docs/agents/parallel-sessions.md`, "Roles": the home session owns merges.
