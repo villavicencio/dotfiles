@@ -25,7 +25,7 @@ REL=Projects/Personal/dotfiles
 
 T="$(mktemp -d)" || { echo "mktemp -d failed" >&2; exit 1; }
 T="$(cd "$T" && pwd -P)"
-trap 'chmod -R u+rwx "$T" 2>/dev/null; rm -rf "$T"' EXIT
+trap 'chflags -R nouchg,nouappnd "$T" 2>/dev/null; chmod -R u+rwx "$T" 2>/dev/null; rm -rf "$T"' EXIT
 export GIT_CONFIG_GLOBAL="$T/gitconfig" GIT_CONFIG_NOSYSTEM=1
 printf '[user]\n\tname = t\n\temail = t@example.invalid\n[init]\n\tdefaultBranch = master\n' > "$GIT_CONFIG_GLOBAL"
 
@@ -80,6 +80,10 @@ mk_homes() {
   chmod -R u+rwx "$DH" "$HH" 2>/dev/null; rm -rf "$DH" "$HH"
   mkdir -p "$DH/Projects/Personal" "$HH/Projects/Personal" "$HH/.claude" "$HH/.hermes/scripts"
   chmod 755 "$DH/Projects" "$DH/Projects/Personal"
+  # The four paths the acl step closes, at the modes they had on hal (2026-11-16).
+  mkdir -p "$DH/.claude/file-history" "$DH/.claude/shell-snapshots" "$DH/scratch"
+  chmod 755 "$DH/.claude/file-history" "$DH/.claude/shell-snapshots" "$DH/scratch"
+  echo "X=1" > "$DH/env.sh"; chmod 644 "$DH/env.sh"
   git clone -q "file://$ORIGIN" "$NEW"; git clone -q "file://$ORIGIN" "$OLD"
   local l r
   while read -r l r; do mkdir -p "$HH/$(dirname "$l")"; ln -s "$OLD/$r" "$HH/$l"; done <<< "$LINKS"
@@ -100,6 +104,9 @@ links_snapshot() {
   if [ -L "$HH/.claude/CLAUDE.md" ]; then readlink "$HH/.claude/CLAUDE.md"; else cat "$HH/.claude/CLAUDE.md"; fi
 }
 all_into() { links_snapshot | awk -v p="$1/" 'NR <= 24 && index($2, p) != 1 { bad = 1 } END { exit bad }'; }
+md() { /usr/bin/stat -f %Lp "$DH/$1"; }
+modes4() { echo "$(md .claude/file-history) $(md .claude/shell-snapshots) $(md scratch) $(md env.sh)"; }
+MODES="$DH/.vil-700-modes-before-acl"
 acl_of() { /bin/ls -led "$1" | awk '$2 ~ /^user:/ { $1 = ""; sub(/^ /, ""); print }'; }
 
 # --- Mac side: hal_shared_clone_sync.sh -----------------------------------------------------
@@ -154,12 +161,39 @@ mk_origin; mk_homes; OSHA=$(OLDSHA)
 
 run as_hal acl
 check "A0 acl as the wrong account" '[ $RC = 1 ] && has "run this step as \`david\`"'
+run as_david acl-rollback
+check "AR5 acl-rollback before any acl run: done already" '[ $RC = 0 ] && has "done already" && [ "$(modes4)" = "755 755 755 644" ]'
 DOTFILES_DRY_RUN=1 run as_david acl
-check "A1 acl dry run" '[ $RC = 0 ] && [ -z "$(acl_of "$DH")" ] && has "will run: /bin/chmod +a \"user:nobody allow search\"" && has "~/Projects"'
+check "A1 acl dry run" '[ $RC = 0 ] && [ -z "$(acl_of "$DH")" ] && [ "$(modes4)" = "755 755 755 644" ] && [ ! -e "$MODES" ] && has "will close ~/scratch: 755 -> 700" && has "will close ~/env.sh: 644 -> 600" && has "will run: /bin/chmod +a \"user:nobody allow search\"" && has "~/Projects" && ! has "    ~/scratch"'
 run as_david acl
-check "A2 acl" '[ $RC = 0 ] && [ "$(acl_of "$DH")" = "user:nobody allow search" ]'
+check "A2 acl closes the four paths, records their modes, sets the entry" '[ $RC = 0 ] && [ "$(acl_of "$DH")" = "user:nobody allow search" ] && [ "$(modes4)" = "700 700 700 600" ] && [ "$(wc -l < "$MODES" | tr -d " ")" = 4 ] && grep -qx "env.sh 644" "$MODES" && [ "$(/usr/bin/stat -f %Lp "$MODES")" = 600 ]'
 run as_david acl
-check "A3 acl again" '[ $RC = 0 ] && has "done already" && [ "$(acl_of "$DH" | wc -l | tr -d " ")" = 1 ]'
+check "A3 acl again" '[ $RC = 0 ] && has "done already" && [ "$(acl_of "$DH" | wc -l | tr -d " ")" = 1 ] && [ "$(wc -l < "$MODES" | tr -d " ")" = 4 ]'
+chmod 755 "$DH/scratch"
+run as_david acl
+check "A3b a path reopened since: closed again, its first mode kept" '[ $RC = 0 ] && ! has "done already" && [ "$(md scratch)" = 700 ] && [ "$(grep -c "^scratch " "$MODES")" = 1 ] && grep -qx "scratch 755" "$MODES"'
+DOTFILES_DRY_RUN=1 run as_david acl-rollback
+check "AR0 acl-rollback dry run" '[ $RC = 0 ] && [ "$(modes4)" = "700 700 700 600" ] && [ -n "$(acl_of "$DH")" ] && has "will reopen ~/env.sh: 600 -> 644"'
+run as_david acl-rollback
+check "AR1 acl-rollback after the full step" '[ $RC = 0 ] && [ -z "$(acl_of "$DH")" ] && [ "$(modes4)" = "755 755 755 644" ]'
+run as_david acl-rollback
+check "AR2 acl-rollback again" '[ $RC = 0 ] && has "done already"'
+chflags uchg "$DH/env.sh"
+run as_david acl
+check "A7 a path can't be closed: exit 4, entry not set" '[ $RC = 4 ] && [ -z "$(acl_of "$DH")" ] && has "the ACL was not set" && [ "$(modes4)" = "700 700 700 644" ]'
+chflags nouchg "$DH/env.sh"
+run as_david acl-rollback
+check "AR3 acl-rollback after a step that stopped partway" '[ $RC = 0 ] && [ -z "$(acl_of "$DH")" ] && [ "$(modes4)" = "755 755 755 644" ]'
+mv "$DH/scratch" "$T/scratch.saved"
+run as_david acl
+check "A8 a path doesn't exist: skipped, the rest closed, entry set" '[ $RC = 0 ] && has "~/scratch doesn'"'"'t exist; skipped" && [ "$(md env.sh)" = 600 ] && [ -n "$(acl_of "$DH")" ]'
+run as_david acl-rollback
+mv "$T/scratch.saved" "$DH/scratch"
+check "AR4 acl-rollback with that path back" '[ $RC = 0 ] && [ -z "$(acl_of "$DH")" ] && [ "$(md env.sh)" = 644 ]'
+mv "$DH/env.sh" "$T/env.saved"; ln -s "$T/env.saved" "$DH/env.sh"
+run as_david acl
+check "A9 a path is a link: refused, nothing closed" '[ $RC = 1 ] && [ -z "$(acl_of "$DH")" ] && [ "$(md scratch)" = 755 ] && has "is a link"'
+rm "$DH/env.sh"; mv "$T/env.saved" "$DH/env.sh"
 /bin/chmod -a "user:nobody allow search" "$DH"; /bin/chmod +a "user:nobody allow list" "$DH"
 run as_david acl
 check "A4 another entry for the account: refused" '[ $RC = 1 ] && [ "$(acl_of "$DH")" = "user:nobody allow list" ] && has "already has another entry"'
@@ -209,11 +243,19 @@ mv "$CK" "$T/ck.real"; ln -s "$CHECK_SRC" "$CK"
 run as_hal sync-check
 check "C10 the installed check is a link to the source: not done already" '[ $RC = 1 ] && ! has "done already"'
 rm "$CK"; mv "$T/ck.real" "$CK"
+echo "# an older copy" >> "$CK"
+run as_hal relink
+check "R8 relink with a check that only carries the marker: refused" '[ $RC = 1 ] && all_into "$OLD" && has "isn'"'"'t step 3'"'"'s"'
+cp "$CHECK_SRC" "$CK"
 
 echo drift >> "$OLD/zsh/zshrc"
 run as_hal relink
 check "R1 a linked file differs between the clones: refused" '[ $RC = 1 ] && all_into "$OLD" && has "zsh/zshrc differs"'
 git -C "$OLD" checkout -q -- zsh/zshrc
+rm "$OLD/btop/btop.conf"
+run as_hal relink
+check "R1b a linked file is missing only in hal's clone: refused" '[ $RC = 1 ] && all_into "$OLD" && has "btop/btop.conf is missing, but"'
+git -C "$OLD" checkout -q -- btop/btop.conf
 echo x > "$NEW/x"; git -C "$NEW" add x; git -C "$NEW" commit -qm x
 run as_hal relink
 check "R2 clones on different commits: refused" '[ $RC = 1 ] && all_into "$OLD" && has "aren'"'"'t on one commit"'
@@ -225,10 +267,22 @@ chmod 555 "$HH"
 run as_hal relink
 check "R3b relink fails at the first link: exit 1, nothing changed" '[ $RC = 1 ] && all_into "$OLD" && has "Nothing changed on this run"'
 chmod 755 "$HH"
+chflags uappnd "$HH"
+run as_hal relink
+check "R3c first link fails and its temp link can't be removed: exit 4, named" '[ $RC = 4 ] && has "remove it by hand" && all_into "$OLD"'
+chflags nouappnd "$HH"; rm -f "$HH"/.gitconfig.vil700-tmp.*
 chmod 555 "$HH/.config/tmux/scripts"
 run as_hal relink
 check "R4 relink fails partway: exit 4" '[ $RC = 4 ] && has "link(s) moved on this run, then one failed" && has "Run relink again to finish"'
 chmod 755 "$HH/.config/tmux/scripts"
+echo drift >> "$NEW/git/gitconfig"
+run as_hal relink
+check "R4b resumed relink, an already moved link's file changed: refused" '[ $RC = 1 ] && has "git/gitconfig differs"'
+git -C "$NEW" checkout -q -- git/gitconfig
+echo pulled >> "$NEW/zsh/zshrc"; git -C "$NEW" commit -qam pulled
+run as_hal relink-rollback
+check "B0 relink-rollback from a partial relink, after a pull" '[ $RC = 0 ] && all_into "$OLD" && [ ! -L "$HH/.claude/CLAUDE.md" ]'
+git -C "$NEW" reset -q --hard HEAD~1
 run as_hal relink
 check "R5 relink finishes" '[ $RC = 0 ] && all_into "$NEW" && [ "$(readlink "$HH/.claude/CLAUDE.md")" = "$NEW/claude/CLAUDE.md" ] && grep -q "own CLAUDE.md" "$HH/.claude/CLAUDE.md.pre-vil700"'
 run as_hal relink
@@ -256,12 +310,26 @@ run as_hal relink-rollback
 check "B1 relink-rollback" '[ $RC = 0 ] && all_into "$OLD" && [ ! -L "$HH/.claude/CLAUDE.md" ] && grep -q "own CLAUDE.md" "$HH/.claude/CLAUDE.md" && [ ! -e "$HH/.claude/CLAUDE.md.pre-vil700" ]'
 run as_hal relink-rollback
 check "B2 relink-rollback again" '[ $RC = 0 ] && has "done already"'
+ln "$HH/.claude/CLAUDE.md" "$HH/.claude/CLAUDE.md.pre-vil700"
+run as_hal relink-rollback
+check "B6 relink-rollback, CLAUDE.md kept but not yet linked: done" '[ $RC = 0 ] && has "second name" && all_into "$OLD"'
+chflags uappnd "$HH/.hermes/scripts"
+run as_hal sync-check-rollback
+check "C13 rollback fails and its temp copy can't be removed: named" '[ $RC = 4 ] && has "remove it by hand" && cmp -s "$CHECK_SRC" "$CK"'
+chflags nouappnd "$HH/.hermes/scripts"; rm -f "$CK".vil700-rb.*
 run as_hal sync-check-rollback
 check "C6 sync-check-rollback" '[ $RC = 0 ] && grep -q "echo old" "$CK" && [ -f "$CK.pre-vil700" ]'
+rm "$CK.pre-vil700"; ln "$CK" "$CK.pre-vil700"
+run as_hal sync-check-rollback
+check "C11 sync-check-rollback after a sync-check that stopped after keeping the original" '[ $RC = 0 ] && has "done already" && grep -q "echo old" "$CK"'
+chflags uappnd "$HH/.hermes/scripts"
+run as_hal sync-check
+check "C12 install fails and its temp copy can't be removed: named" '[ $RC = 4 ] && has "remove it by hand" && grep -q "echo old" "$CK"'
+chflags nouappnd "$HH/.hermes/scripts"; rm -f "$CK".vil700-new.*
 run as_hal sync-check
 check "C7 sync-check after its rollback" '[ $RC = 0 ] && cmp -s "$CHECK_SRC" "$CK"'
 run as_hal relink
-check "R7 relink after the rollback" '[ $RC = 0 ] && all_into "$NEW"'
+check "R7 relink after the rollback (CLAUDE.md already kept)" '[ $RC = 0 ] && all_into "$NEW" && [ "$(readlink "$HH/.claude/CLAUDE.md")" = "$NEW/claude/CLAUDE.md" ]'
 
 DOTFILES_DRY_RUN=1 run as_hal retire-old-clone
 check "T1 retire dry run" '[ $RC = 0 ] && [ -d "$OLD/.git" ] && has "will run: /bin/mv"'
@@ -285,6 +353,36 @@ printf 'not an index' > "$OLD/.git/index"
 run as_hal retire-old-clone
 check "T6 git can't read the old clone: refused, not moved" '[ $RC = 1 ] && [ -d "$OLD/.git" ] && [ ! -e "$OLD.pre-vil700" ] && has "couldn'"'"'t read the old clone'"'"'s state"'
 rm -f "$OLD/.git/index"; git -C "$OLD" reset -q
+echo pulled >> "$NEW/zsh/zshrc"; git -C "$NEW" commit -qam pulled
+run as_hal relink-rollback
+check "B4 relink-rollback after a pull as david" '[ $RC = 0 ] && all_into "$OLD" && grep -q "own CLAUDE.md" "$HH/.claude/CLAUDE.md"'
+git -C "$NEW" reset -q --hard HEAD~1
+run as_hal relink
+rm "$HH/.claude/CLAUDE.md"; mv "$HH/.claude/CLAUDE.md.pre-vil700" "$HH/.claude/CLAUDE.md"; ln "$HH/.claude/CLAUDE.md" "$HH/.claude/CLAUDE.md.pre-vil700"
+run as_hal relink-rollback
+check "B7 relink-rollback, all links moved but CLAUDE.md only kept, not linked" '[ $RC = 0 ] && all_into "$OLD" && [ ! -L "$HH/.claude/CLAUDE.md" ] && has "second name"'
+run as_hal relink
+run as_hal retire-old-clone
+echo pulled >> "$NEW/zsh/zshrc"; git -C "$NEW" commit -qam pulled
+run as_hal restore-old-clone
+run as_hal relink-rollback
+check "B5 retired, pulled, restored, then relink-rollback" '[ $RC = 0 ] && all_into "$OLD"'
+git -C "$NEW" reset -q --hard HEAD~1
+run as_hal relink
+check "R10 relink again after that" '[ $RC = 0 ] && all_into "$NEW"'
+echo pulled >> "$NEW/zsh/zshrc"; git -C "$NEW" commit -qam pulled
+run as_hal relink
+check "R11 relink after a pull as david: done already" '[ $RC = 0 ] && has "done already"'
+git -C "$NEW" reset -q --hard HEAD~1
+run as_hal retire-old-clone
+echo pulled >> "$NEW/zsh/zshrc"; git -C "$NEW" commit -qam pulled
+echo "# changed on master" >> "$NEW/helpers/hal_dotfiles_sync_check.sh"; git -C "$NEW" commit -qam "check changed"
+run as_hal retire-old-clone
+check "T7 retired, then a pull changed the check: still done already" '[ $RC = 0 ] && has "done already"'
+run as_hal verify
+check "V5 the same state: verify names the stale check" '[ $RC = 1 ] && has "isn'"'"'t step 3'"'"'s"'
+run as_hal restore-old-clone
+git -C "$NEW" reset -q --hard HEAD~2
 
 run as_hal nonsense
 check "U1 unknown step" '[ $RC = 2 ]'
@@ -324,6 +422,12 @@ check "K9 clone on a commit that isn't on master" '[ $RC = 0 ] && has "isn'"'"'t
 git -C "$NEW" reset -q --hard origin/master
 run SC "$CK"
 check "K10 back in sync: silent" '[ $RC = 0 ] && quiet'
+chmod +x "$NEW/zsh/zshrc"
+run SC "$CK"
+check "K21 executable bit added to a tracked file" '[ $RC = 0 ] && has "executable bit differs from master* (1): \`zsh/zshrc\`"'
+chmod -x "$NEW/zsh/zshrc"
+run SC "$CK"
+check "K21b back: silent" '[ $RC = 0 ] && quiet'
 # A hostile url.insteadOf in the watched clone's gitconfig can't redirect the check's fetch.
 git init -q --bare "$T/evil.git"; git -C "$SEED" push -q "$T/evil.git" HEAD~1:refs/heads/master
 mkdir -p "$T/evilhome"; printf '[url "file://%s"]\n\tinsteadOf = file://%s\n' "$T/evil.git" "$ORIGIN" > "$T/evilhome/.gitconfig"
@@ -346,7 +450,7 @@ check "K15 install files changed" '[ $RC = 0 ] && has "Install files changed"'
 
 chmod 000 "$NEW/zsh/functions"
 run SC "$CK"
-check "K18 a folder in the clone is unreadable: exit 1" '[ $RC = 1 ] && has "can'"'"'t list every file"'
+check "K18 a folder in the clone is unreadable: exit 1" '[ $RC = 1 ] && has "can'"'"'t list"'
 chmod 755 "$NEW/zsh/functions"
 git -C "$NEW" pull -q --ff-only; chmod 444 "$T/state"
 run SC "$CK"

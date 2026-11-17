@@ -16,13 +16,14 @@
 # GitHub's master in `hal`'s home, and runs git only there, with no global or system git
 # config (`hal`'s ~/.gitconfig is a link into the clone it watches). It prints a report when:
 #   - the clone is behind GitHub's master, or on a commit that isn't on master;
-#   - a tracked file in the clone differs from GitHub's copy of it at the commit the clone is
-#     on (or at master, when that commit isn't on master), is missing, is unreadable, or is a
-#     link where the repo has a file. This is the tamper alarm: `hal` runs these files, and
+#   - a tracked file in the clone (submodules aside) differs from GitHub's copy of it at the commit the clone is
+#     on (or at master, when that commit isn't on master) in content or executable bit, is
+#     missing, is unreadable, or is a link where the repo has a file. This is the tamper alarm: `hal` runs these files, and
 #     `david`, or anything running as `david`, can change them;
 #   - the clone holds files that commit doesn't (outside .git and submodules);
 #   - this installed copy differs from master's helpers/hal_dotfiles_sync_check.sh.
-# Each report is sent once; the next merge, pull or change to the clone sends a new one.
+# It doesn't send the report it sent last again while nothing changes; the next merge, pull or
+# change to the clone makes a new report, which it sends.
 #
 # Exit 0, with or without a report. Exit 1 with one line saying why when it can't check
 # (clone not found, a folder in it unreadable, GitHub unreachable) or can't write its state
@@ -113,7 +114,7 @@ fi
 base=$head; [ "$onmaster" = 1 ] || base=$origin
 
 # Tamper check: every entry of base's tree against the clone's file at that path.
-: > "$TMP/tracked"; : > "$TMP/paths"; : > "$TMP/want"; : > "$TMP/subs"; : > "$TMP/bad"
+: > "$TMP/tracked"; : > "$TMP/paths"; : > "$TMP/want"; : > "$TMP/subs"; : > "$TMP/bad"; : > "$TMP/regular"; : > "$TMP/exec.want"
 G ls-tree -r -z --full-tree "$base" > "$TMP/tree" || fail "can't list the tree of ${base:0:7}"
 while IFS= read -r -d '' rec; do
   meta=${rec%%$'\t'*} p=${rec#*$'\t'}
@@ -132,6 +133,8 @@ while IFS= read -r -d '' rec; do
       elif [ ! -e "$f" ]; then printf 'missing\t%s\n' "$p" >> "$TMP/bad"
       elif [ ! -f "$f" ] || [ ! -r "$f" ]; then printf 'unreadable\t%s\n' "$p" >> "$TMP/bad"
       else printf '%s\n' "$f" >> "$TMP/paths"; printf '%s\t%s\n' "$sha" "$p" >> "$TMP/want"
+        printf '%s\n' "$p" >> "$TMP/regular"
+        [ "$mode" != 100755 ] || printf '%s\n' "$p" >> "$TMP/exec.want"
       fi ;;
   esac
 done < "$TMP/tree"
@@ -146,6 +149,17 @@ if [ -s "$TMP/paths" ]; then
   paste "$TMP/got" "$TMP/want" | awk -F'\t' '$1 != $2 { print "differs\t" $3 }' >> "$TMP/bad" ||
     fail "couldn't write its temp files (disk full?)"
 fi
+
+# The executable bit, as git sees it (the owner's x): for each tracked file, it must match
+# the tree's mode, 100755 or 100644.
+(cd "$CLONE" && find . -path ./.git -prune -o -type f -perm -0100 -print) > "$TMP/exec.raw" 2> "$TMP/err" ||
+  fail "can't list the executable files in $CLONE: $(head -n 1 "$TMP/err")"
+{ sed 's|^\./||' "$TMP/exec.raw" | sort > "$TMP/exec.have" &&
+  sort "$TMP/regular" > "$TMP/regular.sorted" &&
+  sort "$TMP/exec.want" > "$TMP/exec.want.sorted" &&
+  comm -12 "$TMP/regular.sorted" "$TMP/exec.have" > "$TMP/exec.tracked" &&
+  comm -3 "$TMP/exec.want.sorted" "$TMP/exec.tracked" | sed 's/^\t//; s/^/mode\t/' >> "$TMP/bad"; } ||
+  fail "couldn't write its temp files (disk full?)"
 
 # Files in the clone that base doesn't have. Submodule folders and .git are skipped. A folder
 # it can't read is "can't tell", so it stops rather than report nothing.
@@ -189,10 +203,11 @@ report() {
     echo "• $behind commit(s) behind; from the Mac: \`$pull\`"
   fi
   local k
-  for k in differs missing unreadable 'is a link' 'odd path'; do
+  for k in differs mode missing unreadable 'is a link' 'odd path'; do
     awk -F'\t' -v k="$k" '$1 == k { print $2 }' "$TMP/bad" > "$TMP/k"
     case $k in
       differs) list "*differ from master*" "$TMP/k" ;;
+      mode) list "*executable bit differs from master*" "$TMP/k" ;;
       *) list "*$k*" "$TMP/k" ;;
     esac
   done
