@@ -1,46 +1,60 @@
 ---
-created_at: "2026-11-12T16:48:34-08:00"
+created_at: "2026-11-16T16:39:58-08:00"
 branch: "master"
-head: "4445447"
+head: "0ce43ba"
 worktree: "/Users/dvillavicencio/Projects/Personal/dotfiles"
 ---
-# HANDOFF — 2026-11-12, late afternoon (PT)
+# HANDOFF — 2026-11-16, afternoon (PT)
 
-This session picked up the 2026-11-10 handoff on the evening of 11-11, found most of its mergewren list already done by the MergeWren session, and then went somewhere else: David pasted an old prompt for a new Obsidian theming project, and the session built it. A side request checked what Seaglass holds before David cancels it. The carried items from 11-10 (Garmin, Hermes on hal, the stopgap watcher) were not touched.
+A long session from 2026-11-13 to 11-16. It started as housekeeping (MCP sign-ins, a plugin, the Linear backlog, both dotfiles clones on hal), then David made Manager Mode the standing way of working in this repo, and the rest was VIL-700 run that way: the main session as manager, Opus leads doing the engineering. Part 1 of VIL-700 is merged. Part 2 waits on four steps only David can do, and on his go.
 
 ## What We Built
-- **`villavicencio/obsidian-scriptorium`** (private, `main`, cloned at `~/Projects/obsidian-scriptorium` on the personal Mac). The agent is called Scribe. Its `CLAUDE.md` holds the rules; `standard/.obsidian/` is the old dotfiles template, compared file by file and identical. `overrides/`, `templates/` and `bin/` are empty: no apply, diff or snapshot script exists yet.
-- **PR #266** (`4445447`): `obsidian/vault-template/` left this repo. `helpers/install_hal_memory_pull.sh` now stamps new mirror vaults from the Scriptorium clone (`SCRIPTORIUM_DIR` overrides the path) and fails with a clear message only when a vault needs stamping and the clone is missing. `docs/agents/obsidian-vaults.md` points at the new owner. The apply and seed procedures moved to Scriptorium's `CLAUDE.md`.
-- **Orca project** `obsidian-scriptorium` registered (`orca repo add`); its name and icon are set in the app, by David.
-- **Vault** `~/Obsidian/scriptorium/` with the standard config, and the Claude Code memory link for the project slug `-Users-dvillavicencio-Projects-obsidian-scriptorium`.
-- **Linear:** project Scriptorium (P-VIL-14, scroll icon) and VIL-703, the MergeWren onboarding ticket, modeled on VIL-537. VIL-703 is in Backlog.
-- **Seaglass export** at `~/Documents/seaglass-export-2026-11-11/` on the personal Mac: the household money plan snapshot and the three other memories, verbatim. Seaglass held 3 pages, 1 document and 11 memories in total.
+- **PR #270** (`0ce43ba`), part 1 of VIL-700: `helpers/add_hal_as_hal_key.sh` adds the Mac's main public key to the `hal` account on hal, and `ci/hal-as-hal-key-checks.sh` checks it by hand (21 checks, pass from the main checkout). The helper has never run against hal; David's run is the first. Setup steps, exit codes and recovery are in `docs/reference/install-and-server.md`, "Reaching hal as `hal`".
+- **PR #269** (`25ed90c`): `model` and `theme` are machine-local settings. The list lives in two places that must match, `STRIP_KEYS` in `helpers/lib/claude-settings-keys.sh` and `MACHINE_LOCAL` in `helpers/migrate_claude_settings.py`; `dot check` fails if they differ.
+- **PR #267** (`b4ce800`): the synced `product-management` plugin is off in `claude/settings.json` and `windows/claude-settings.json`. David never used its skills.
+- **Linear, Dotfiles backlog groomed:** VIL-273 (now "hal: monitoring, phone alerts and backups", High, rewritten as an ordered plan), VIL-426, VIL-539, VIL-581 retitled or updated. VIL-736 filed: the server profile should skip install steps an account can't do.
+- **Memory:** `feedback_manager_mode_sop.md` holds David's Manager Mode text and four notes learned in use. Its index line in `MEMORY.md` says to read it at session start.
+- **hal:** both dotfiles clones (`david`'s and `hal`'s) were pulled and installed at `b4ce800` on 2026-11-14. `master` has moved four commits since; neither clone was pulled again.
 
 ## Decisions Made
-- **Name:** `obsidian-scriptorium`, agent Scribe (David's pick, option 6 of 10).
-- **The template moved out of public dotfiles** into the private repo (David). The old copies stay in this repo's public git history; no token was found in them. The `.gitleaks.toml` allowlist entry stays so a history scan still passes.
-- **The `syd` vault is out of Scribe's scope** (David). It has its own git repo and config.
-- **Scriptorium stays on the personal Mac** (David, 11-12). He asked to move it to hal as `david`; hal has no `~/Obsidian` and cannot SSH to the Mac, so Scribe there could edit the repo but not read or change a vault. Offered: edit on hal and apply on the Mac, or give hal SSH into the Mac. He chose no move.
-- **Seaglass is being cut** (David: not worth paying for). Everything in it also exists elsewhere: the export, the MergeWren session's own memory file on hal (account `hal`, `fix-rounds-regression-based.md` in the review-stack project memory), and the Scriptorium repo. This session stopped writing to it after one memory.
-- **`orca.yaml` for Scriptorium was skipped.** The repo has no dependencies and no gitignored local files, so there is nothing for a setup script to do yet. Scribe's first session can add it with `dv:orca-setup`.
-- **David will ask the MergeWren session to work on VIL-703 himself.** This session did not send it.
+- **Manager Mode is standing procedure in dotfiles** (David, 2026-11-14, until he says otherwise). The main session never edits code, tests, config, repo docs or scripts. One Opus lead at high effort per unit of work; it may use Sonnet sub-agents. The manager still does memory, Linear, PR bodies, and existing commands (git, gh, tests, merge, `mergewren_review`, `wt`).
+- **VIL-700 design, all David's picks:**
+  - David runs the key helper himself; agents do not add keys.
+  - `david` owns the one shared dotfiles clone on hal, and `hal`'s links point into it. He chose this against the security recommendation (that `hal` own it). Recorded on the ticket; not to be reopened.
+  - Replace Atlas's dotfiles sync-check job rather than patch it, and add a tamper alarm to the replacement.
+  - `hal`'s `~/.claude/CLAUDE.md` becomes a link; the current regular file is kept beside it as `.pre-vil700`.
+  - Installer changes for the shared clone go to VIL-736, not VIL-700.
+  - `hal` never gets a lasting `safe.directory` entry for the shared clone.
+- **After setup, agents act as `hal` only through `ssh hal-as-hal`**, never `hal-orca` or `hal-svc` (rule in `CLAUDE.md` and `AGENTS.md`). The read-only use of `hal-orca` David approved for the phase 1 lead ended with phase 1.
+- **One MergeWren finding on #270 was declined** (medium, `564cb09#1`): when making the backup fails and removing the failed backup also fails, the helper does not name the leftover file. `authorized_keys` is untouched in that case. Reason is on the thread and in the PR body. The two-line warning is owed in the part 2 PR.
 
 ## What Didn't Work
-- **The search for an earlier "Obsidian agent" conversation found nothing** in this project's memory, handoffs, Linear, Seaglass or 45 days of Claude Code transcripts on the Mac. The origin turned out to be a side-question answer David had kept on his clipboard. Side questions are not in the transcripts.
-- **The first macos-server CI run on #266 failed** in `helpers/install_tmux.sh`: the TPM clone got "could not read Username for https://github.com" on the runner. A re-run of the failed job passed. Not caused by the change.
+- **A long shell command in a doc.** The first version of the key step was a pasted command. MergeWren found a new hole in it every round (matching the key body only, a missing final newline, a hidden `ssh-keygen` failure). It became a tracked helper with a check script, and the findings stopped. #270 took seven fix rounds; four were doc wording.
+- **A fact from a handoff, passed to a lead unchecked.** The last handoff said hal's pilot window ends 05:00 PT. The repo says 06:00 (`docs/reference/hermes-commands.md`). The wrong time went into a doc and cost a review round.
+- **`wt done` on a lead's worktree.** A lead that runs `dot check` initializes the `dotbot` submodule, and `wt done` then refuses. The path that works is in the memory file and in `docs/agents/code-review.md`.
+- **`claude mcp remove` on a claude.ai connector.** It can't; connectors are removed at claude.ai settings. David removed Strava there.
+- **`./install` as `david` on hal** exits 1 at `brew bundle`, because `hal` owns Homebrew. Expected; this is VIL-736.
 
 ## What's Next
-1. **VIL-703: MergeWren onboards obsidian-scriptorium.** David is asking the MergeWren session. No Scriptorium PR opens before it lands; until then only docs go straight to `main` there.
-2. **Seaglass cutover:** David removed the claude.ai connector on 2026-11-12 (his word; a session started before the removal may still list its tools). Left for him: cancel the plan at the Seaglass site, and delete the account if he wants the data gone from their side. Not confirmed done.
-3. **Scribe's first session** (in `~/Projects/obsidian-scriptorium`): write the snapshot, diff and apply scripts in `bin/`; read the `.stignore` of `hermes` and `axiom` to learn whether `.obsidian/` syncs; decide on `orca.yaml`.
-4. **`~/Obsidian/hal-bench` does not exist**, and since VIL-721 the job no longer lists it (it has no scriptorium section). Don't run `bash helpers/install_hal_memory_pull.sh` to fix it: on `master` the installer now installs the section version of the job, which stops the mirror into `~/Obsidian/skills` and `~/Obsidian/bryancola` until the cutover. The cutover order is in `docs/agents/obsidian-vaults.md`.
-5. **Carried from 11-10, untouched:** re-measure the Garmin 502s (was due 11-11); Hermes on hal looked down; unload the stopgap watcher before `hal` next logs in at the Mac mini's desktop (`ssh hal-orca 'launchctl bootout user/503/com.mergewren.watch; launchctl bootout user/503/com.mergewren.console'`); the `compinit` fix command for this Mac; the optional Mac items.
-6. **Unverified mergewren leftovers:** PRs 116, 122, 123 and 124 and VIL-679 were not in the last 25 rows of the dispatch log on 11-11; nobody read further back. VIL-411 is reopened to Todo and VIL-601 waits on David's activation decision.
+1. **David's four steps for VIL-700**, on the personal Mac, in iTerm2, from the main checkout. They are listed in the last comment on VIL-700 and in the doc section named above:
+   1. `bash helpers/add_hal_as_hal_key.sh` (`DOTFILES_DRY_RUN=1` first to preview). Exit 3 means the key is already there with other options; it changes nothing and that case is David's call.
+   2. Paste the `Host hal-as-hal` block into `~/.ssh/config`, above `Host *`.
+   3. `ssh -o BatchMode=yes hal-as-hal 'id -un'` prints `hal`.
+   4. Add `Bash(ssh hal-as-hal:*)` to `permissions.allow` in `~/.claude/settings.json`.
+2. **VIL-700 part 2, after those steps and David's go.** Dispatch a fresh Opus lead with a full brief. The runbook: pull both clones to one commit; let `hal` pass through `david`'s home directory; replace the Atlas sync-check job, with the tamper alarm; re-point `hal`'s 23 links; link `hal`'s `CLAUDE.md`; verify; leave it one night; then move the old clone aside. The old clone is moved, never deleted. Keep clear of 01:30 to 06:00 PT and 18:00 PT. The PR also owes: the declined warning above, the shared-clone docs, and the setup lines in `docs/agents/1password.md` that are now stale. Branch `<type>/vil-700-<slug>`; the merge will close VIL-700 again, so reopen it if work remains.
+3. **VIL-736** (Todo, Low), after part 2.
+4. **Carried since 2026-11-10, still untouched and unticketed:** the Garmin 502s; whether Hermes on hal is up; the MergeWren stopgap watcher after hal's reboot on 2026-11-11; the `compinit` fix for this Mac. Either ticket them or drop them.
 
 ## Gotchas & Watch-outs
-- **The installer no longer reads Scriptorium's `standard/.obsidian/`** (VIL-721): it creates no vault, so the dependency on the private clone's path is gone. Scriptorium's `CLAUDE.md` still says it exists.
-- **`docs/agents/obsidian-vaults.md` says the synced vaults sync "to the VPS".** `hermes`, `axiom` and `syd` carry Syncthing markers, but where the far end is now was not checked. Don't rely on that line.
-- **A `/login` drops the local `linear` MCP.** The claude.ai Linear connector (`mcp__claude_ai_Linear__*`) still works in the meantime; `/mcp` signs the local one back in.
-- **PR #265 (auto-compact at 600k) merged from another session** during this one. The memory note that says "hand off at 200k, auto-compact at 400k" is now out of date on the second number.
-- **The MergeWren watcher works:** it reviewed #265 and #266 within about two minutes of each push. It is still the stopgap in the `user/503` launchd domain, which a reboot of hal removes.
-- **Carried over:** nothing else may use hal's local models from 01:30 to 05:00 PT; never run `npx … remote` by hand while the Desktop Commander agent is loaded; a mergewren merge closes its VIL ticket within seconds, so re-check a multi-part one.
+- **Phase 1 findings the part 2 lead needs** (full report is in the VIL-700 comments):
+  - `hal` cannot enter `david`'s home directory (mode 700). The fix is one ACL entry, run as `david`.
+  - Atlas's cron job `637debb93470` runs `git fetch` in `hal`'s own clone. It must be replaced before that clone moves.
+  - The `hal-orca` key is pinned to the Mac's one tailnet IPv4 address. The helper pins the new key the same way, so a connection over IPv6 would be refused.
+  - `./install` as `hal` from a clone `david` owns is predicted to fail at steps that write into the repo. Not tested.
+- **The lead's draft scripts for part 2 are not in the repo.** Copies are in the untracked handoff store, `.git/handoffs/vil-700-phase2-scratch/` in the main checkout: the replacement sync-check (`04`), the relink (`05`) and its rollback (`06`). They are drafts no reviewer has seen. `01-add-key.sh` there is stale (it calls into a removed worktree); use the helper.
+- **A lead's report reaches the manager with `<`, `>` and `&` HTML-escaped.** Never copy a command for David out of a report. Have the lead write commands to files.
+- **Another session owns `.claude/worktrees/vil-721-hal-memory-sections`** (detached HEAD). Leave it. That session also asked that nobody run `bash helpers/install_hal_memory_pull.sh`; the hal-bench vault is superseded by VIL-733, VIL-721 and VIL-723. David said to wait on the vault.
+- **macOS CI runners:** GitHub twice failed to assign an arm64 macOS runner to #270 and cancelled the leg. A re-run passed. Not caused by the change.
+- **`browse-gateway` (Obscura) did not connect** in this session (connection refused). Check its tunnel job before relying on it.
+- **hal's swap was 14.3 of 15.4 GB on 2026-11-14.** Not looked at since. VIL-273 covers monitoring; its runbook path is missing on the Mac.
+- **Carried over:** never `./install` from a worktree; never run `npx … remote` by hand while the Desktop Commander agent is loaded; a merge closes any VIL ticket its branch or PR names, so re-check a multi-part one.
