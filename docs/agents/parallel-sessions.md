@@ -108,10 +108,12 @@ then carries it, and the statusline shows it as a link to the issue.
   `cleanup_merged_branch` detaches it instead of removing it; remove it the way `code-review.md`
   describes under "Worktrees with submodules are detached, not removed", after checking it,
   rather than deleting its `modules` dir by hand. On hal, `wt` is on `david`'s PATH
-  (`~/.local/bin/wt`, linked into `david`'s clone; checked 2026-11-17). Where `wt`
+  (`$HOME/.local/bin/wt`, linked into `david`'s clone; checked 2026-11-17). Where `wt`
   isn't available, the bare substitute for `wt new` fetches and branches from origin's default
   branch, as `wt new` does:
-  `git -C <main checkout> fetch origin && git -C <main checkout> worktree add -b <branch> .claude/worktrees/<topic> origin/master`.
+  `git -C <main checkout> fetch origin +refs/heads/<default>:refs/remotes/origin/<default> && git -C <main checkout> worktree add -b <branch> .claude/worktrees/<topic> origin/<default>`,
+  where `<default>` is the branch `git -C <main checkout> ls-remote --symref origin HEAD` names
+  (the lookup `wt` uses).
   It skips `wt new`'s copied local files (2026-11-03).
 - **It needs `gh` to check.** If `gh` isn't installed or the lookup fails, `wt done` stops and
   says so rather than treat the branch as unmerged; `--keep-branch` doesn't need `gh`.
