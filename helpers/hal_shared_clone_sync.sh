@@ -41,15 +41,18 @@ _clone_side() {
   [ "${o%.git}" = "${url%.git}" ] || { echo "$who: origin of $c is ${o:-unset}, not $url"; return 1; }
   b=$(git symbolic-ref -q --short HEAD) || b=detached
   h=$(git rev-parse -q --verify HEAD) || { echo "$who: can't read HEAD in $c"; return 1; }
-  dirty=$(git --no-optional-locks status --porcelain --untracked-files=no | head -n 5)
   echo "$who: $c on $b at ${h:0:7}"
+  # A failed status is "can't tell", never "clean".
+  dirty=$(git --no-optional-locks status --porcelain --untracked-files=no) ||
+    { echo "$who: git status failed in $c, so it can't tell whether tracked files have edits"; return 1; }
+  dirty=$(printf '%s\n' "$dirty" | awk 'NF && NR <= 5')
   [ "$b" = master ] || { echo "$who: not on master"; return 1; }
   [ -z "$dirty" ] || { echo "$who: edits to tracked files:"; printf '    %s\n' "$dirty"; return 1; }
   if [ "$h" = "$want" ]; then echo "$who: already on ${want:0:7}"; return 0; fi
   if [ "$act" = check ]; then echo "$who: not on ${want:0:7}"; return 0; fi
   git fetch -q origin master || { echo "$who: fetch failed; the clone is unchanged"; return 4; }
   git merge -q --ff-only "$want" || { echo "$who: fast-forward to ${want:0:7} failed"; return 4; }
-  h=$(git rev-parse HEAD)
+  h=$(git rev-parse HEAD) || h=unknown
   [ "$h" = "$want" ] || { echo "$who: ended on ${h:0:7}, not ${want:0:7} (local commits?)"; return 4; }
   echo "$who: now on ${want:0:7}"
 }

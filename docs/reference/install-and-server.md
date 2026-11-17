@@ -226,7 +226,8 @@ After the move:
 
 - `david` owns the one clone. `hal`'s 24 dotfiles links point into it (the list is `LINKS` in
   `helpers/hal_shared_clone.sh`; `~/.config/herdr/config.toml` is among them and stays dead,
-  since `herdr/` is gone from the repo), and so does `hal`'s `~/.claude/CLAUDE.md`. The file
+  since `herdr/` is gone from the repo; any other missing target fails step 5), and so does
+  `hal`'s `~/.claude/CLAUDE.md`. The file
   that link replaced is `~/.claude/CLAUDE.md.pre-vil700`.
 - Pull as `david` only: `ssh hal 'git -C ~/Projects/Personal/dotfiles pull --ff-only'`. `hal`
   never runs git in that clone and never gets a `safe.directory` entry for it.
@@ -254,7 +255,8 @@ The check watches the clone `hal`'s `~/.config/zsh/.zshrc` link points into. It 
 in it: it reads the clone's `.git/HEAD` and refs as files, and keeps its own copy of GitHub's
 master in `~/.cache/dotfiles-sync-check/master.git` in `hal`'s home. Git runs only there, with
 no global or system config, because `hal`'s `~/.gitconfig` is one of the watched files. It
-sends one report per state when:
+remembers the last report it sent in `~/.hermes/scripts/.dotfiles-sync-check.state` and sends
+each report once. It reports when:
 
 - the clone is behind master, or on a commit that isn't on master;
 - a tracked file in the clone differs from GitHub's copy at the commit the clone is on (at
@@ -267,8 +269,9 @@ sends one report per state when:
 - the installed copy isn't master's `helpers/hal_dotfiles_sync_check.sh`. After a change to it
   merges, pull as `david`, then run step 3 again.
 
-When it can't check (the clone is unreadable, or GitHub can't be reached), it exits 1 with a
-one-line reason. `DOTFILES_DRY_RUN=1` fetches nothing and writes no state.
+It exits 1 with a one-line reason, which Hermes sends as an error alert, when it can't check
+(the clone or a folder in it is unreadable, GitHub can't be reached, git fails in its copy)
+or can't write its state file. `DOTFILES_DRY_RUN=1` fetches nothing and writes no state.
 
 **The move.** Each step names the account it runs as, checks the state it expects, and stops
 with nothing changed when the state is anything else. Running a step again is safe: a step
@@ -288,14 +291,21 @@ would change, changes nothing, and exits with the code the real run would stop w
 | 6 | | one night of Atlas's check running | |
 | 7 | `hal` | the same, with `retire-old-clone` | moves `hal`'s clone to `~/Projects/Personal/dotfiles.pre-vil700` |
 
-Step 1 refuses unless both clones are on `master`, have no edits to tracked files, and have
-GitHub's `origin`. Step 2 refuses if other accounts can't search `~/Projects` and
+Step 1 refuses unless, in both clones, `git status` runs and shows no edits to tracked files,
+the branch is `master`, and `origin` is GitHub's URL. Step 2 refuses if other accounts can't search `~/Projects` and
 `~/Projects/Personal`, or can't read something in the clone (outside `.git/objects`), or if
 `david`'s home has any other ACL entry for `hal`. Step 3 refuses if the installed check isn't
-the one it was written against. Step 4 refuses unless the clones are on one commit, every
+the one it was written against, and says it's done only when the installed check is an
+executable copy of the clone's and `dotfiles-sync-check.sh.pre-vil700` is the original. Step 4
+refuses unless the clones are on one commit, every
 linked file is the same in both, step 3 is done, and each link points where the list says.
-Step 7 refuses unless step 5 passes. It first prints the old clone's state: edits, commits on
-no remote-tracking branch, and stashes. Moving the clone keeps all of them.
+Step 7 runs step 5's checks first and refuses unless they pass; it says it's done only when
+they pass and the old clone is at `dotfiles.pre-vil700`. Before moving, it reads the old
+clone's edits, commits on no remote-tracking branch, and stashes with git, prints them, and
+refuses if any of those reads fails. Moving the clone keeps all of them. Steps 4, 5 and 7 scan
+`hal`'s home for other links into the old clone, skipping `Library`, `Desktop`, `Documents`,
+`Downloads`, `Movies`, `Music` and `Pictures`, which macOS closes to ssh sessions; if the scan
+can't read the rest, steps 5 and 7 fail.
 
 Exit codes, for every step: 0 done, already done, or a dry run that found nothing in the way.
 1 refused, with nothing changed (for `verify`: something isn't as expected). 2 a step name

@@ -63,7 +63,8 @@ CLAUDE_KEEP=$CLAUDE_MD.pre-vil700
 
 # hal's links into its clone, as "<link under $HOME> <path in the repo>" (read on hal
 # 2026-11-16; `david` has the same 24 plus ~/.claude/CLAUDE.md). herdr/ is gone from the repo,
-# so that link is dead in both clones.
+# so that link is dead in both clones; DEAD_OK names the repo paths allowed to be missing.
+DEAD_OK=' herdr/config.toml '
 LINKS='.gitconfig git/gitconfig
 .config/git/gitattributes git/gitattributes
 .config/git/gitconfig.platform git/gitconfig.server
@@ -120,14 +121,38 @@ head_of() {
   esac
 }
 
-# Links in $HOME, outside the expected list, that point into hal's own clone.
+# stray_links: sets STRAY to the links in $HOME, outside the expected list, that point into
+# hal's own clone. Returns 1 when the scan couldn't read everything it walks (the caller
+# treats that as "can't tell", never as "none"). macOS keeps other accounts' and ssh
+# sessions' hands off Library, Desktop, Documents, Downloads, Movies, Music and Pictures
+# ("Operation not permitted"), so those aren't scanned.
+STRAY=''
 stray_links() {
-  local l
-  find "$HOME" -xdev \( -path "$HOME/Library" -o -path "$HOME/.Trash" -o -path "$OLD" -o -path "$OLD_ASIDE" \) -prune \
-    -o -type l \( -lname "$OLD" -o -lname "$OLD/*" \) -print 2>/dev/null |
+  local l found h=$HOME
+  STRAY=''
+  found=$(find "$h" -xdev \( -path "$h/Library" -o -path "$h/.Trash" -o -path "$h/Desktop" -o -path "$h/Documents" \
+    -o -path "$h/Downloads" -o -path "$h/Movies" -o -path "$h/Music" -o -path "$h/Pictures" \
+    -o -path "$OLD" -o -path "$OLD_ASIDE" \) -prune -o -type l \( -lname "$OLD" -o -lname "$OLD/*" \) -print) || return 1
   while IFS= read -r l; do
-    printf '%s\n' "$LINKS" | awk -v p="${l#"$HOME"/}" '$1 == p { f = 1 } END { exit f }' && printf '%s\n' "$l"
-  done
+    [ -n "$l" ] || continue
+    printf '%s\n' "$LINKS" | awk -v p="${l#"$HOME"/}" '$1 == p { f = 1 } END { exit f }' && STRAY="$STRAY$l "
+  done <<< "$found"
+  return 0
+}
+
+# acl_entries: the ACL entries of $HOME that name the account, one per line; fails when ls does.
+acl_entries() {
+  local out
+  out=$(/bin/ls -led "$HOME") || return 1
+  printf '%s\n' "$out" | awk -v u="user:$HAL_USER" '$2 == u { $1 = ""; sub(/^ /, ""); print }'
+}
+
+# keep_is_original: $CHECK_KEEP is a regular file with the original check's sha256.
+keep_is_original() {
+  local sum
+  [ -f "$CHECK_KEEP" ] && [ ! -L "$CHECK_KEEP" ] || return 1
+  sum=$(shasum -a 256 < "$CHECK_KEEP") || return 1
+  [ "${sum%% *}" = "$CHECK_OLD_SHA" ]
 }
 
 # Is the installed sync-check one this repo wrote (any version)?
@@ -148,14 +173,22 @@ step_acl() {
     [ -n "$(find "$x" -maxdepth 0 -perm -001 2>/dev/null)" ] || problem "$x isn't searchable by other accounts"
   done
   if [ -d "$NEW/.git" ]; then
-    bad=$(find "$NEW" -path "$NEW/.git/objects" -prune -o \( -type d ! -perm -005 -o -type f ! -perm -004 \) -print 2>/dev/null | head -n 10)
-    [ -z "$bad" ] || problem "other accounts can't read these in the clone (first 10): ${bad//$'\n'/ }"
+    if bad=$(find "$NEW" -path "$NEW/.git/objects" -prune -o \( -type d ! -perm -005 -o -type f ! -perm -004 \) -print); then
+      bad=$(printf '%s\n' "$bad" | awk 'NF && NR <= 10')
+      [ -z "$bad" ] || problem "other accounts can't read these in the clone (first 10): ${bad//$'\n'/ }"
+    else
+      problem "couldn't check every file in $NEW (find failed)"
+    fi
   fi
   # Existing entries that name the account.
-  local entries
-  entries=$(/bin/ls -led "$HOME" | awk -v u="user:$HAL_USER" '$2 == u { $1 = ""; sub(/^ /, ""); print }')
-  say "the ACL also lets $HAL_USER into what other accounts can already read here:"
-  find "$HOME" -mindepth 1 -maxdepth 1 \( -perm -001 -o -perm -004 \) 2>/dev/null | sed "s|^$HOME/|    ~/|" | sort
+  local entries open
+  entries=$(acl_entries) || problem "couldn't read the ACL of $HOME"
+  if open=$(find "$HOME" -mindepth 1 -maxdepth 1 \( -perm -001 -o -perm -004 \)); then
+    say "the ACL also lets $HAL_USER into what other accounts can already read here:"
+    printf '%s\n' "$open" | sed "s|^$HOME/|    ~/|" | sort
+  else
+    problem "couldn't list what other accounts can read in $HOME"
+  fi
   if [ "$entries" = "$ACE" ]; then
     refuse_if_problems
     echo "done already: $HOME has \"$ACE\"; nothing changed"; exit 0
@@ -165,7 +198,7 @@ step_acl() {
   say "will run: /bin/chmod +a \"$ACE\" $HOME"
   dry_stop
   /bin/chmod +a "$ACE" "$HOME" || die "chmod +a failed; nothing changed"
-  entries=$(/bin/ls -led "$HOME" | awk -v u="user:$HAL_USER" '$2 == u { $1 = ""; sub(/^ /, ""); print }')
+  entries=$(acl_entries) || entries="(couldn't read it)"
   [ "$entries" = "$ACE" ] || die "added, but ls -le shows \"$entries\" for $HAL_USER. Undo with /bin/chmod -a \"$ACE\" ~, look at ls -led ~, then run the acl step again." 4
   echo "done: $HOME has \"$ACE\". Next, as $HAL_USER: the sync-check step."
 }
@@ -177,10 +210,10 @@ step_sync_check() {
   [ -f "$CHECK_SRC" ] || problem "no $CHECK_SRC"
   [ -r "$NEW/.git/HEAD" ] || problem "can't read $NEW as $ME (run the acl step as david first)"
   [ -d "$SCRIPTS" ] || problem "no $SCRIPTS"
-  if [ -f "$CHECK" ] && [ -f "$CHECK_SRC" ] && cmp -s "$CHECK_SRC" "$CHECK"; then
+  if [ -f "$CHECK" ] && [ ! -L "$CHECK" ] && [ -x "$CHECK" ] && [ -f "$CHECK_SRC" ] && cmp -s "$CHECK_SRC" "$CHECK"; then
+    keep_is_original || problem "$CHECK is installed, but $CHECK_KEEP is missing or isn't the original check; restoring it is David's call"
     refuse_if_problems
-    if [ -f "$CHECK_KEEP" ]; then echo "done already: $CHECK matches $CHECK_SRC; the old one is $CHECK_KEEP"
-    else echo "done already: $CHECK matches $CHECK_SRC (no $CHECK_KEEP)"; fi
+    echo "done already: $CHECK matches $CHECK_SRC, and the original is $CHECK_KEEP"
     exit 0
   fi
   local keep=0
@@ -188,11 +221,13 @@ step_sync_check() {
     problem "$CHECK is missing or not a regular file"
   elif check_is_ours; then
     say "$CHECK is an older copy of this repo's check; it will be replaced (the original stays in $CHECK_KEEP)"
-    [ -f "$CHECK_KEEP" ] || problem "$CHECK_KEEP is missing, though $CHECK was installed by this step before"
+    keep_is_original || problem "$CHECK_KEEP is missing or isn't the original check, though $CHECK was installed by this step before"
   elif [ -e "$CHECK_KEEP" ] || [ -L "$CHECK_KEEP" ]; then
     # Only after sync-check-rollback: the active script is the kept original.
-    cmp -s "$CHECK" "$CHECK_KEEP" || problem "$CHECK_KEEP exists and $CHECK is neither it nor this repo's check"
-  elif [ "$(shasum -a 256 < "$CHECK" | cut -d' ' -f1)" != "$CHECK_OLD_SHA" ]; then
+    if ! keep_is_original || ! cmp -s "$CHECK" "$CHECK_KEEP"; then
+      problem "$CHECK_KEEP exists, and either it isn't the original check or $CHECK is neither it nor this repo's check"
+    fi
+  elif [ "$(shasum -a 256 < "$CHECK" | cut -d' ' -f1)" != "$CHECK_OLD_SHA" ]; then  # unreadable reads as different
     problem "$CHECK isn't the script this step was written against (sha256 differs); compare it with $CHECK_SRC by hand"
   else
     keep=1
@@ -222,10 +257,11 @@ step_sync_check_rollback() {
   if [ ! -e "$CHECK_KEEP" ] && [ -f "$CHECK" ] && [ "$(shasum -a 256 < "$CHECK" | cut -d' ' -f1)" = "$CHECK_OLD_SHA" ]; then
     echo "nothing to roll back: $CHECK is the original, and the sync-check step never ran"; exit 0
   fi
-  [ -f "$CHECK_KEEP" ] && [ ! -L "$CHECK_KEEP" ] || problem "no $CHECK_KEEP to restore"
+  keep_is_original || problem "no $CHECK_KEEP holding the original check to restore"
   # The original runs git in the clone the zshrc link points at, which only works in hal's own.
   case $(readlink "$HOME/.config/zsh/.zshrc" 2>/dev/null) in
-    "$NEW"/*) problem "hal's links point into $NEW, where the original check fails; run relink-rollback first" ;;
+    "$OLD"/*) ;;
+    *) problem "~/.config/zsh/.zshrc doesn't point into $OLD, where the original check works; run relink-rollback first" ;;
   esac
   if [ -f "$CHECK_KEEP" ] && [ -f "$CHECK" ] && cmp -s "$CHECK_KEEP" "$CHECK"; then
     refuse_if_problems; echo "done already: $CHECK is the original"; exit 0
@@ -238,6 +274,7 @@ step_sync_check_rollback() {
     /bin/rm -f "$tmp"
     die "couldn't restore $CHECK; the active script is unchanged"
   fi
+  cmp -s "$CHECK_KEEP" "$CHECK" || die "restored, but $CHECK doesn't match $CHECK_KEEP; look at both, then run sync-check-rollback again" 4
   echo "done: $CHECK is the original again"
 }
 
@@ -260,7 +297,10 @@ plan_links() {
     elif [ -e "$from/$r" ]; then
       problem "$to/$r is missing (or unreadable as $ME), but $from/$r exists"; continue
     else
-      say "~/$l is dead in both clones ($r); it moves anyway, and stays dead"
+      case $DEAD_OK in
+        *" $r "*) say "~/$l is dead in both clones ($r); it moves anyway, and stays dead" ;;
+        *) problem "$r is missing (or unreadable as $ME) in both clones"; continue ;;
+      esac
     fi
     TODO="$TODO$l $to/$r"$'\n'
   done <<< "$LINKS"
@@ -274,12 +314,15 @@ move_links() {
   while read -r l t; do
     [ -n "$l" ] || continue
     tmp=$HOME/$l.vil700-tmp.$$
-    if ! { /bin/ln -s "$t" "$tmp" && /bin/mv -fh "$tmp" "$HOME/$l" && [ "$(readlink "$HOME/$l")" = "$t" ]; }; then
-      /bin/rm -f "$tmp"
+    if ! { /bin/ln -s "$t" "$tmp" && /bin/mv -fh "$tmp" "$HOME/$l"; }; then
+      /bin/rm -f "$tmp" || echo "couldn't remove the temporary link $tmp; remove it by hand" >&2
       echo "failed at ~/$l after moving $MOVED link(s) on this run" >&2
       return 1
     fi
-    MOVED=$((MOVED + 1)); say "~/$l -> $t"
+    # The rename happened, so it counts as a change even if the read-back below fails.
+    MOVED=$((MOVED + 1))
+    [ "$(readlink "$HOME/$l")" = "$t" ] || { echo "~/$l was renamed, but doesn't read back as $t" >&2; return 1; }
+    say "~/$l -> $t"
   done <<< "$TODO"
 }
 # changed_code: 4 when this run changed something, 1 when it didn't.
@@ -314,9 +357,8 @@ step_relink() {
   else
     problem "~/.claude/CLAUDE.md is missing"
   fi
-  local stray
-  stray=$(stray_links)
-  [ -z "$stray" ] || say "not in this step's list, left pointing into $OLD (retire-old-clone stops on them): ${stray//$'\n'/ }"
+  if ! stray_links; then say "couldn't scan all of $HOME for other links into $OLD (retire-old-clone stops on that)"
+  elif [ -n "$STRAY" ]; then say "not in this step's list, left pointing into $OLD (retire-old-clone stops on them): $STRAY"; fi
   refuse_if_problems
   local todo_n
   todo_n=$(printf '%s' "$TODO" | grep -c .)
@@ -335,7 +377,8 @@ step_relink() {
         die "couldn't keep ~/.claude/CLAUDE.md as $CLAUDE_KEEP, so it is unchanged ($MOVED link(s) moved on this run). Run relink again, or relink-rollback." "$(changed_code)"
       kept=1
     fi
-    if ! { /bin/ln -s "$NEW/claude/CLAUDE.md" "$tmp" && /bin/mv -f "$tmp" "$CLAUDE_MD"; }; then
+    if ! { /bin/ln -s "$NEW/claude/CLAUDE.md" "$tmp" && /bin/mv -f "$tmp" "$CLAUDE_MD" &&
+           [ "$(readlink "$CLAUDE_MD")" = "$NEW/claude/CLAUDE.md" ]; }; then
       /bin/rm -f "$tmp"
       die "~/.claude/CLAUDE.md is unchanged, and $CLAUDE_KEEP is a second name for it ($MOVED link(s) moved on this run). Run relink again to finish, or relink-rollback to undo." "$(changed_code "$kept")"
     fi
@@ -372,7 +415,7 @@ step_relink_rollback() {
     die "$MOVED link(s) moved back on this run, then one failed. Run relink-rollback again to finish." 4
   fi
   if [ "$claude" = 1 ]; then
-    /bin/mv -f "$CLAUDE_KEEP" "$CLAUDE_MD" ||
+    { /bin/mv -f "$CLAUDE_KEEP" "$CLAUDE_MD" && [ -f "$CLAUDE_MD" ] && [ ! -L "$CLAUDE_MD" ]; } ||
       die "~/.claude/CLAUDE.md is still the link, and $CLAUDE_KEEP holds the file ($MOVED link(s) moved back on this run). Run relink-rollback again." "$(changed_code)"
     say "~/.claude/CLAUDE.md is the file again"
   fi
@@ -386,17 +429,20 @@ verify_checks() {
   while read -r l r; do
     t=$(readlink "$HOME/$l" 2>/dev/null)
     [ "$t" = "$NEW/$r" ] || { problem "~/$l -> ${t:-(not a link)}, not $NEW/$r"; continue; }
-    if [ ! -e "$t" ]; then say "~/$l is dead: $r isn't in the clone"
+    if [ ! -e "$t" ]; then
+      case $DEAD_OK in
+        *" $r "*) say "~/$l is dead: $r isn't in the clone" ;;
+        *) problem "$t is missing (or unreadable as $ME)" ;;
+      esac
     elif [ ! -r "$t" ]; then problem "$t isn't readable as $ME"; fi
   done <<< "$LINKS"
   [ "$(readlink "$CLAUDE_MD" 2>/dev/null)" = "$NEW/claude/CLAUDE.md" ] || problem "~/.claude/CLAUDE.md isn't a link to $NEW/claude/CLAUDE.md"
-  [ -f "$CLAUDE_KEEP" ] || problem "no $CLAUDE_KEEP"
-  if [ -f "$NEW/helpers/hal_dotfiles_sync_check.sh" ] && cmp -s "$NEW/helpers/hal_dotfiles_sync_check.sh" "$CHECK"; then :
-  else problem "$CHECK isn't $NEW/helpers/hal_dotfiles_sync_check.sh (run the sync-check step)"; fi
-  [ -f "$CHECK_KEEP" ] || problem "no $CHECK_KEEP"
-  local stray
-  stray=$(stray_links)
-  [ -z "$stray" ] || problem "links still into $OLD: ${stray//$'\n'/ }"
+  [ -f "$CLAUDE_KEEP" ] && [ ! -L "$CLAUDE_KEEP" ] || problem "no $CLAUDE_KEEP file"
+  if [ ! -L "$CHECK" ] && [ -x "$CHECK" ] && [ -f "$NEW/helpers/hal_dotfiles_sync_check.sh" ] && cmp -s "$NEW/helpers/hal_dotfiles_sync_check.sh" "$CHECK"; then :
+  else problem "$CHECK isn't an executable copy of $NEW/helpers/hal_dotfiles_sync_check.sh (run the sync-check step)"; fi
+  keep_is_original || problem "$CHECK_KEEP is missing or isn't the original check"
+  if ! stray_links; then problem "couldn't scan all of $HOME for links into $OLD"
+  elif [ -n "$STRAY" ]; then problem "links still into $OLD: $STRAY"; fi
 }
 
 step_verify() {
@@ -413,21 +459,31 @@ step_verify() {
 step_retire_old_clone() {
   need_user "$HAL_USER"
   echo "retire-old-clone: move $OLD aside to $OLD_ASIDE (nothing is deleted)"
-  if [ ! -e "$OLD" ] && [ -d "$OLD_ASIDE" ]; then echo "done already: the old clone is at $OLD_ASIDE"; exit 0; fi
+  verify_checks
+  if [ ! -e "$OLD" ] && [ ! -L "$OLD" ] && [ -d "$OLD_ASIDE/.git" ]; then
+    refuse_if_problems
+    echo "done already: the old clone is at $OLD_ASIDE, and the verify checks pass"; exit 0
+  fi
   [ -d "$OLD/.git" ] || problem "no clone at $OLD"
   [ ! -e "$OLD_ASIDE" ] && [ ! -L "$OLD_ASIDE" ] || problem "$OLD_ASIDE already exists"
-  verify_checks
-  local since
+  local since st un sl
   if [ "$(readlink "$HOME/.config/zsh/.zshrc" 2>/dev/null)" = "$NEW/zsh/zshrc" ]; then
     since=$(stat -f %Sm -t '%Y-%m-%d %H:%M %Z' "$HOME/.config/zsh/.zshrc" 2>/dev/null)
     say "the links were moved at ${since:-?} (the zshrc link's time)"
   fi
   if [ -d "$OLD/.git" ]; then
-    # What the old clone holds that GitHub may not; moving it keeps all of it.
-    say "in the old clone (kept as it is):"
-    git -C "$OLD" --no-optional-locks status --short --branch 2>&1 | head -n 10 | sed 's/^/    /'
-    git -C "$OLD" log --oneline --branches --not --remotes 2>/dev/null | head -n 10 | sed 's/^/    not on any remote: /'
-    git -C "$OLD" stash list 2>/dev/null | head -n 5 | sed 's/^/    /'
+    # What the old clone holds that GitHub may not; moving it keeps all of it. Each read must
+    # work, so the list printed is the whole of it.
+    if st=$(git -C "$OLD" --no-optional-locks status --short --branch) &&
+       un=$(git -C "$OLD" log --oneline --branches --not --remotes) &&
+       sl=$(git -C "$OLD" stash list); then
+      say "in the old clone (kept as it is):"
+      printf '%s\n' "$st" | sed 's/^/    /'
+      [ -z "$un" ] || printf '%s\n' "$un" | sed 's/^/    not on any remote: /'
+      [ -z "$sl" ] || printf '%s\n' "$sl" | sed 's/^/    stash: /'
+    else
+      problem "couldn't read the old clone's state (git status, log or stash list failed)"
+    fi
   fi
   refuse_if_problems
   say "will run: /bin/mv $OLD $OLD_ASIDE"
@@ -440,13 +496,14 @@ step_retire_old_clone() {
 step_restore_old_clone() {
   need_user "$HAL_USER"
   echo "restore-old-clone: move $OLD_ASIDE back to $OLD"
-  if [ -d "$OLD/.git" ] && [ ! -e "$OLD_ASIDE" ]; then echo "done already: the old clone is at $OLD"; exit 0; fi
+  if [ -d "$OLD/.git" ] && [ ! -e "$OLD_ASIDE" ] && [ ! -L "$OLD_ASIDE" ]; then echo "done already: the old clone is at $OLD"; exit 0; fi
   [ -d "$OLD_ASIDE/.git" ] || problem "no clone at $OLD_ASIDE"
   [ ! -e "$OLD" ] && [ ! -L "$OLD" ] || problem "$OLD already exists"
   refuse_if_problems
   say "will run: /bin/mv $OLD_ASIDE $OLD"
   dry_stop
   /bin/mv "$OLD_ASIDE" "$OLD" || die "mv failed; check that $OLD_ASIDE is still there"
+  [ -d "$OLD/.git" ] && [ ! -e "$OLD_ASIDE" ] || die "after the mv, $OLD or $OLD_ASIDE isn't as expected; look at both" 4
   echo "done: the old clone is at $OLD again"
 }
 

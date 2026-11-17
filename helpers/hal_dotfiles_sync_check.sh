@@ -25,7 +25,8 @@
 # Each report is sent once; the next merge, pull or change to the clone sends a new one.
 #
 # Exit 0, with or without a report. Exit 1 with one line saying why when it can't check
-# (clone not found or unreadable, GitHub unreachable).
+# (clone not found, a folder in it unreadable, GitHub unreachable) or can't write its state
+# file; Hermes then sends an error alert that includes whatever was printed.
 #
 # DOTFILES_DRY_RUN=1 fetches nothing and writes no state. It reads which commit the clone is on;
 # if the bare copy already exists, it also prints the report against the master in it (or "in
@@ -95,12 +96,18 @@ fi
 origin=$(G rev-parse -q --verify "refs/heads/master^{commit}") || fail "no master in $MIRROR after the fetch"
 
 # Where the clone stands. A commit that isn't in the mirror isn't on GitHub's master.
+# merge-base exits 1 for "not an ancestor"; anything else is a failure, not an answer.
 behind=0 onmaster=1
 if [ "$head" != "$origin" ]; then
-  if G merge-base --is-ancestor "$head" "$origin" 2>/dev/null; then
-    behind=$(G rev-list --count "$head..$origin")
-  else
+  if ! G cat-file -e "$head^{commit}" 2>/dev/null; then
     onmaster=0
+  else
+    G merge-base --is-ancestor "$head" "$origin"; rc=$?
+    case $rc in
+      0) behind=$(G rev-list --count "$head..$origin") || fail "can't count the commits between ${head:0:7} and ${origin:0:7}" ;;
+      1) onmaster=0 ;;
+      *) fail "git merge-base failed in $MIRROR (exit $rc)" ;;
+    esac
   fi
 fi
 base=$head; [ "$onmaster" = 1 ] || base=$origin
@@ -128,18 +135,27 @@ while IFS= read -r -d '' rec; do
       fi ;;
   esac
 done < "$TMP/tree"
+# Every tree entry must have been written down, or a failed write could hide a finding.
+n_tree=$(tr -cd '\0' < "$TMP/tree" | wc -c | tr -d ' ')
+[ "$(wc -l < "$TMP/tracked" | tr -d ' ')" = "$n_tree" ] || fail "couldn't write its temp files (disk full?)"
 if [ -s "$TMP/paths" ]; then
   G hash-object --no-filters --stdin-paths < "$TMP/paths" > "$TMP/got" || fail "can't hash the files in $CLONE"
-  paste "$TMP/got" "$TMP/want" | awk -F'\t' '$1 != $2 { print "differs\t" $3 }' >> "$TMP/bad"
+  n=$(wc -l < "$TMP/paths" | tr -d ' ')
+  [ "$(wc -l < "$TMP/got" | tr -d ' ')" = "$n" ] && [ "$(wc -l < "$TMP/want" | tr -d ' ')" = "$n" ] ||
+    fail "couldn't write its temp files (disk full?)"
+  paste "$TMP/got" "$TMP/want" | awk -F'\t' '$1 != $2 { print "differs\t" $3 }' >> "$TMP/bad" ||
+    fail "couldn't write its temp files (disk full?)"
 fi
 
-# Files in the clone that base doesn't have. Submodule folders and .git are skipped.
-(cd "$CLONE" && find . -path ./.git -prune -o \( -type f -o -type l \) -print) 2>/dev/null |
-  sed 's|^\./||' |
-  awk -v sf="$TMP/subs" 'BEGIN { while ((getline l < sf) > 0) s[l] = 1 } { for (d in s) if (index($0, d "/") == 1) next; print }' |
-  sort > "$TMP/found"
-sort "$TMP/tracked" > "$TMP/tracked.sorted"
-comm -23 "$TMP/found" "$TMP/tracked.sorted" > "$TMP/extra"
+# Files in the clone that base doesn't have. Submodule folders and .git are skipped. A folder
+# it can't read is "can't tell", so it stops rather than report nothing.
+(cd "$CLONE" && find . -path ./.git -prune -o \( -type f -o -type l \) -print) > "$TMP/found.raw" 2> "$TMP/err" ||
+  fail "can't list every file in $CLONE: $(head -n 1 "$TMP/err")"
+{ sed 's|^\./||' "$TMP/found.raw" |
+    awk -v sf="$TMP/subs" 'BEGIN { while ((getline l < sf) > 0) s[l] = 1 } { for (d in s) if (index($0, d "/") == 1) next; print }' |
+    sort > "$TMP/found" &&
+  sort "$TMP/tracked" > "$TMP/tracked.sorted" &&
+  comm -23 "$TMP/found" "$TMP/tracked.sorted" > "$TMP/extra"; } || fail "couldn't write its temp files (disk full?)"
 
 # Is this installed copy master's?
 self=${BASH_SOURCE[0]:-$0}
@@ -159,7 +175,7 @@ list() {
 
 report() {
   local owner pull
-  owner=$(stat -f %Su "$CLONE" 2>/dev/null)
+  owner=$(stat -f %Su "$CLONE" 2>/dev/null) || owner=''
   if [ "$owner" = "$(id -un)" ]; then
     pull="ssh hal-as-hal 'git -C ~/Projects/Personal/dotfiles pull --ff-only'"
   else
@@ -182,15 +198,17 @@ report() {
   done
   list "*not on master*" "$TMP/extra"
   if [ -s "$TMP/bad" ] || [ -s "$TMP/extra" ]; then
-    echo "    \`hal\` runs these files. Look before pulling, as \`$owner\`: \`git -C $CLONE status --short\`"
+    echo "    \`hal\` runs these files. Look before pulling, as \`${owner:-the clone owner}\`: \`git -C $CLONE status --short\`"
   fi
   if [ "$self_ok" = 0 ]; then
     echo "• this check isn't master's \`$SELF_PATH\`: after the pull, run \`helpers/hal_shared_clone.sh sync-check\` as \`hal\`"
   fi
   if [ "$onmaster" = 1 ] && [ "$behind" -gt 0 ]; then
     echo "New on master:"
-    G log --no-decorate --format='    • `%h` %s' "$head..$origin" | head -n "$MAX"
-    if G diff --name-only "$head" "$origin" | grep -qE '^(dotbot-conf/|brew/|helpers/|install$)'; then
+    G log --no-decorate --format='    • `%h` %s' "$head..$origin" > "$TMP/log" || return 1
+    head -n "$MAX" "$TMP/log"
+    G diff --name-only "$head" "$origin" > "$TMP/diff" || return 1
+    if grep -qE '^(dotbot-conf/|brew/|helpers/|install$)' "$TMP/diff"; then
       echo "Install files changed. \`hal\`'s server install from a clone \`david\` owns is VIL-736; see \"One dotfiles clone on hal\" in docs/reference/install-and-server.md."
     fi
   fi
@@ -200,16 +218,23 @@ insync=0
 [ "$behind" = 0 ] && [ "$onmaster" = 1 ] && [ ! -s "$TMP/bad" ] && [ ! -s "$TMP/extra" ] && [ "$self_ok" = 1 ] && insync=1
 if [ "$DRY" = 1 ]; then
   echo "[dry-run] compared with the master already in $MIRROR (${origin:0:7}, not fetched); no state written:"
-  if [ "$insync" = 1 ]; then echo "in sync"; else report; fi
+  if [ "$insync" = 1 ]; then echo "in sync"; else report || fail "couldn't build its report (git log or diff failed)"; fi
   exit 0
 fi
+# The state file decides what counts as already reported, so a write that fails is an error:
+# a stale state could otherwise silence the next report.
 if [ "$insync" = 1 ]; then
-  printf 'in sync %s\n' "$origin" > "$STATE" 2>/dev/null
+  printf 'in sync %s\n' "$origin" > "$STATE" 2>/dev/null ||
+    fail "in sync, but couldn't write $STATE, so a later report could be silenced"
   exit 0
 fi
-report > "$TMP/report"
+{ report > "$TMP/report" && [ -s "$TMP/report" ]; } || fail "couldn't build its report (git log or diff failed, or the disk is full)"
 key=$(shasum -a 256 < "$TMP/report" | cut -d' ' -f1)
+[[ $key =~ ^[0-9a-f]{64}$ ]] || fail "couldn't hash its report"
 [ "$key" = "$(cat "$STATE" 2>/dev/null)" ] && exit 0
-cat "$TMP/report"
-printf '%s\n' "$key" > "$STATE" 2>/dev/null || echo "(couldn't write $STATE, so this report may repeat)"
+cat "$TMP/report" || fail "couldn't print its report"
+if ! printf '%s\n' "$key" > "$STATE" 2>/dev/null; then
+  echo "dotfiles-sync-check: couldn't write $STATE, so this report will repeat"
+  exit 1
+fi
 exit 0

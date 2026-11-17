@@ -117,6 +117,10 @@ run /bin/bash "$SYNC"
 check "S3 second run changes nothing" '[ $RC = 0 ] && [ "$(headof "$NEW")" = "$C2" ] && has "already on"'
 
 push_commit README c3; C3=$(git -C "$SEED" rev-parse HEAD)
+printf 'not an index' > "$OLD/.git/index"
+run /bin/bash "$SYNC"
+check "S10 git status fails in hal's clone: refused, neither moved" '[ $RC = 1 ] && [ "$(headof "$NEW")" = "$C2" ] && [ "$(headof "$OLD")" = "$C2" ] && has "git status failed"'
+rm -f "$OLD/.git/index"; git -C "$OLD" reset -q
 echo edit >> "$OLD/README"
 run /bin/bash "$SYNC"
 check "S4 hal's clone has edits: refused, neither moved" '[ $RC = 1 ] && [ "$(headof "$NEW")" = "$C2" ] && [ "$(headof "$OLD")" = "$C2" ] && has "edits to tracked files" && has "Stopped before changing anything"'
@@ -190,6 +194,21 @@ run as_hal sync-check
 check "C3 sync-check" '[ $RC = 0 ] && cmp -s "$CHECK_SRC" "$CK" && grep -q "echo old" "$CK.pre-vil700" && [ "$(/usr/bin/stat -f %Lp "$CK")" = 755 ]'
 run as_hal sync-check
 check "C4 sync-check again" '[ $RC = 0 ] && has "done already"'
+mv "$CK.pre-vil700" "$T/keep.saved"
+run as_hal sync-check
+check "C8 installed but the original isn't kept: refused" '[ $RC = 1 ] && has "isn'"'"'t the original check" && ! has "done already"'
+cp "$T/keep.saved" "$CK.pre-vil700"; echo "# edited" >> "$CK.pre-vil700"
+run as_hal sync-check
+check "C8b installed, kept copy isn't the original: refused" '[ $RC = 1 ] && ! has "done already"'
+mv "$T/keep.saved" "$CK.pre-vil700"
+mv "$HH/.config/zsh/.zshrc" "$T/zshrc.link"
+run as_hal sync-check-rollback
+check "C9 sync-check-rollback with no zshrc link: refused" '[ $RC = 1 ] && cmp -s "$CHECK_SRC" "$CK" && has "doesn'"'"'t point into"'
+mv "$T/zshrc.link" "$HH/.config/zsh/.zshrc"
+mv "$CK" "$T/ck.real"; ln -s "$CHECK_SRC" "$CK"
+run as_hal sync-check
+check "C10 the installed check is a link to the source: not done already" '[ $RC = 1 ] && ! has "done already"'
+rm "$CK"; mv "$T/ck.real" "$CK"
 
 echo drift >> "$OLD/zsh/zshrc"
 run as_hal relink
@@ -216,6 +235,14 @@ run as_hal relink
 check "R6 relink again" '[ $RC = 0 ] && has "done already"'
 run as_hal verify
 check "V1 verify" '[ $RC = 0 ] && has "ok:"'
+mkdir "$HH/.closed"; chmod 000 "$HH/.closed"
+run as_hal verify
+check "V3 part of the home can't be scanned: verify fails" '[ $RC = 1 ] && has "couldn'"'"'t scan all of"'
+chmod 755 "$HH/.closed"; rmdir "$HH/.closed"
+mv "$NEW/btop/btop.conf" "$T/btop.saved"
+run as_hal verify
+check "V4 a linked file is missing from the clone: verify fails" '[ $RC = 1 ] && has "btop/btop.conf is missing"'
+mv "$T/btop.saved" "$NEW/btop/btop.conf"
 ln -s "$OLD/README" "$HH/.config/stray"
 run as_hal verify
 check "V2 a stray link into the old clone" '[ $RC = 1 ] && has "links still into"'
@@ -242,10 +269,22 @@ run as_hal retire-old-clone
 check "T2 retire" '[ $RC = 0 ] && [ ! -e "$OLD" ] && [ -d "$OLD.pre-vil700/.git" ]'
 run as_hal retire-old-clone
 check "T3 retire again" '[ $RC = 0 ] && has "done already"'
+ln -s "$OLD/README" "$HH/.config/stray"
+run as_hal retire-old-clone
+check "T5 retired, but verify fails: not done already" '[ $RC = 1 ] && ! has "done already" && has "links still into"'
+rm "$HH/.config/stray"
+mv "$OLD.pre-vil700" "$T/aside.saved"; mkdir "$OLD.pre-vil700"
+run as_hal retire-old-clone
+check "T5b no clone at the old path, a non-clone folder aside: refused" '[ $RC = 1 ] && ! has "done already"'
+rmdir "$OLD.pre-vil700"; mv "$T/aside.saved" "$OLD.pre-vil700"
 run as_hal relink-rollback
 check "B3 relink-rollback after retire: refused" '[ $RC = 1 ] && all_into "$NEW" && has "restore-old-clone first"'
 run as_hal restore-old-clone
 check "T4 restore-old-clone" '[ $RC = 0 ] && [ -d "$OLD/.git" ] && [ ! -e "$OLD.pre-vil700" ]'
+printf 'not an index' > "$OLD/.git/index"
+run as_hal retire-old-clone
+check "T6 git can't read the old clone: refused, not moved" '[ $RC = 1 ] && [ -d "$OLD/.git" ] && [ ! -e "$OLD.pre-vil700" ] && has "couldn'"'"'t read the old clone'"'"'s state"'
+rm -f "$OLD/.git/index"; git -C "$OLD" reset -q
 
 run as_hal nonsense
 check "U1 unknown step" '[ $RC = 2 ]'
@@ -305,6 +344,17 @@ git -C "$NEW" fetch -q
 run SC "$CK"
 check "K15 install files changed" '[ $RC = 0 ] && has "Install files changed"'
 
+chmod 000 "$NEW/zsh/functions"
+run SC "$CK"
+check "K18 a folder in the clone is unreadable: exit 1" '[ $RC = 1 ] && has "can'"'"'t list every file"'
+chmod 755 "$NEW/zsh/functions"
+git -C "$NEW" pull -q --ff-only; chmod 444 "$T/state"
+run SC "$CK"
+check "K19 in sync, state can't be written: exit 1, not silent" '[ $RC = 1 ] && has "couldn'"'"'t write"'
+push_commit README "c-k20"
+run SC "$CK"
+check "K20 report, state can't be written: report and exit 1" '[ $RC = 1 ] && has "c-k20" && has "will repeat"'
+chmod 644 "$T/state"
 st=$(cat "$T/state"); git -C "$NEW" pull -q --ff-only
 DOTFILES_DRY_RUN=1 run SC "$CK"
 check "K16 dry run with a mirror: reports, writes no state" '[ $RC = 0 ] && has "[dry-run] compared with" && has "in sync" && [ "$(cat "$T/state")" = "$st" ]'
