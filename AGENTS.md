@@ -347,7 +347,7 @@ Verify with `ci/server-profile-checks.sh static`. The full write-up (layers, ove
 
 A Claude or Codex session that runs its own SSH commands as `hal` uses `ssh hal-as-hal` (the Mac's main key, `User hal`), never `hal-orca` (Orca's key) or `hal-svc` (sudo, needs a password); David's `atlas` and `axiom` launchers keep their path (Orca's `hal-svc` environment, then `sudo -u hal -i`). The alias is machine-local in the Mac's `~/.ssh/config`, not tracked, and works only after the setup steps in "Reaching hal as `hal`" in `docs/reference/install-and-server.md` (VIL-700).
 
-Once VIL-700's move is complete on hal (`helpers/hal_shared_clone.sh verify` as `hal` exits 0), `hal`'s dotfiles links point into `david`'s clone. Pull it as `david` (`ssh hal`); `hal` never runs git in it and never gets a `safe.directory` entry for it; don't run `./install` as `hal` from it until VIL-736. The steps, Atlas's hourly check and recovery are in "One dotfiles clone on hal" in `docs/reference/install-and-server.md`.
+Once VIL-700's move is complete on hal (its `relink` step, run as `hal` with `DOTFILES_DRY_RUN=1`, says `done already`), `hal`'s dotfiles links point into `david`'s clone. Pull it as `david` (`ssh hal`); don't run git in it as `hal`, and don't give `hal` a `safe.directory` entry for it; don't run `./install` as `hal` from it until VIL-736. The steps, Atlas's hourly check and recovery are in "One dotfiles clone on hal" in `docs/reference/install-and-server.md`.
 
 ## Invariants & gotchas (do not "fix" these)
 

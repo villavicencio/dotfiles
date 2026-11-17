@@ -209,155 +209,108 @@ What hal looks like after step 1:
 
 ### One dotfiles clone on hal (VIL-700)
 
-`david` and `hal` each have a dotfiles clone at `~/Projects/Personal/dotfiles`, and the two
-drift apart. VIL-700's second part moves `hal` onto `david`'s clone, so one pull as `david`
-updates both accounts. The steps below make the move; nothing changes on hal until they are
-run, in order. Step 5 (`verify`) exits 0 only when the move is complete and the installed
-sync-check matches the shared clone's copy; it can only run once step 2 is done. To see which
-clone `hal`'s zsh starts from at any time: `ssh hal-as-hal 'readlink ~/.config/zsh/.zshrc'`.
-
-Until the move, pull both clones:
+`david` and `hal` each have a dotfiles clone at `~/Projects/Personal/dotfiles`. VIL-700's
+second part moves `hal` onto `david`'s clone, so one pull as `david` updates both accounts.
+Nothing changes on hal until the steps below are run. Until then, pull both clones:
 `ssh hal 'git -C ~/Projects/Personal/dotfiles pull --ff-only'` and
 `ssh hal-as-hal 'git -C ~/Projects/Personal/dotfiles pull --ff-only'`.
 
 After the move:
 
-- `david` owns the one clone. `hal`'s 24 dotfiles links point into it (the list is `LINKS` in
-  `helpers/hal_shared_clone.sh`; `~/.config/herdr/config.toml` is among them and stays dead,
-  since `herdr/` is gone from the repo; any other missing target fails step 5), and so does
-  `hal`'s `~/.claude/CLAUDE.md`. The file
-  that link replaced is `~/.claude/CLAUDE.md.pre-vil700`.
-- Pull as `david` only: `ssh hal 'git -C ~/Projects/Personal/dotfiles pull --ff-only'`. `hal`
-  never runs git in that clone and never gets a `safe.directory` entry for it.
-- `hal` gets into `david`'s home through one ACL entry on that folder alone,
-  `user:hal allow search`. It reads the clone through the clone's own "other" permissions, and
-  can read anything else in `david`'s home that other accounts can read. Before setting the
-  entry, step 2 closes four paths David chose (2026-11-16): `~/.claude/file-history`,
-  `~/.claude/shell-snapshots` and `~/scratch` to 700, `~/env.sh` to 600. For each path it
-  changes, it first records the earlier mode in `~/.vil-700-modes-before-acl`, a file it
-  creates with mode 600. Everything else stays as it is
-  (`~/.cache`, `~/.local`, `~/.agents` included, by David's choice), and step 2 lists the top
-  level of what other accounts can still read.
+- `david` owns the one clone. `hal`'s 24 dotfiles links (`LINKS` in
+  `helpers/hal_shared_clone.sh`) and `hal`'s `~/.claude/CLAUDE.md` point into it; the file
+  CLAUDE.md replaced is `~/.claude/CLAUDE.md.pre-vil700`. One link,
+  `~/.config/herdr/config.toml`, stays dead: `herdr/` is gone from the repo.
+- Pull as `david` only: `ssh hal 'git -C ~/Projects/Personal/dotfiles pull --ff-only'`. Don't
+  run git in that clone as `hal`, and don't give `hal` a `safe.directory` entry for it.
+- `hal` gets into `david`'s home through one ACL entry on that folder, `user:hal allow search`,
+  and reads the clone through its group and other permissions (`hal` is in `david`'s group,
+  `staff`). It can also read whatever else in `david`'s home is open to that group or to all
+  accounts. Before adding the entry, step 2 closes four paths
+  David chose (2026-11-16): `~/.claude/file-history`, `~/.claude/shell-snapshots` and
+  `~/scratch` to mode 700, `~/env.sh` to 600. The mode each had before step 2 first changed
+  it goes to `~/.vil-700-modes-before-acl`. Nothing else is closed (`~/.cache`, `~/.local` and
+  `~/.agents` stay as they are, by David's choice); step 2 prints the top level of what stays
+  open to `hal`, judged by group and other mode bits alone.
 - Anything that runs as `david`, the overnight pilot included, can change files `hal` runs.
-  David chose this layout knowing that. Atlas's hourly check (below) is the alarm for it.
-- `DOTFILES_PROFILE=server ./install` as `hal` from a clone `david` owns is expected to fail
-  at the steps that write into the repo. Fixing that is VIL-736; until it lands, don't run it
-  there.
-- `hal`'s old clone is moved to `~/Projects/Personal/dotfiles.pre-vil700` after one night
+  David chose this layout knowing that; Atlas's hourly check is the alarm for it.
+- Don't run `DOTFILES_PROFILE=server ./install` as `hal` from `david`'s clone until VIL-736:
+  it writes into the repo.
+- `hal`'s old clone moves to `~/Projects/Personal/dotfiles.pre-vil700` after one night
   (step 7). Nothing deletes it.
 
 **Atlas's hourly check.** Hermes cron job `637debb93470` runs
 `~/.hermes/scripts/dotfiles-sync-check.sh` as `hal` and sends what it prints to David's Slack
-DM; empty output sends nothing, and a non-zero exit sends an error alert. From step 3 on, that
-file is a copy of `helpers/hal_dotfiles_sync_check.sh`. It's a copy because Hermes refuses a
-script that resolves outside `~/.hermes/scripts`, and a link would point into the clone it
-watches. The original is kept beside it as `dotfiles-sync-check.sh.pre-vil700`. The job's
-schedule and prompt don't change.
+DM; empty output sends nothing, and a non-zero exit sends an error alert. Step 3 makes that
+file a copy of `helpers/hal_dotfiles_sync_check.sh` (Hermes refuses a script that resolves
+outside `~/.hermes/scripts`) and keeps the original beside it as
+`dotfiles-sync-check.sh.pre-vil700`; the job itself doesn't change. The check watches the
+clone `hal`'s `~/.config/zsh/.zshrc` link points into, without running git in it, and reports
+when:
 
-The check watches the clone `hal`'s `~/.config/zsh/.zshrc` link points into. It never runs git
-in it: it reads the clone's `.git/HEAD` and refs as files, and keeps its own copy of GitHub's
-master in `~/.cache/dotfiles-sync-check/master.git` in `hal`'s home. Git runs only there, with
-no global or system config, because `hal`'s `~/.gitconfig` is one of the watched files. It
-remembers the last report it sent in `~/.hermes/scripts/.dotfiles-sync-check.state` and
-doesn't send that report again while nothing changes. It reports when:
+- the clone is behind GitHub's master, or on a commit that isn't on master;
+- a tracked file outside submodules differs from the repo at the commit the clone is on (at
+  master, if that commit isn't on master), in content or executable bit, or is missing, unreadable, or a link where the repo has a file.
+  This is the tamper alarm: `hal` runs these files, and anything running as `david` can change
+  them;
+- the clone has files, outside `.git` and submodules, that commit doesn't;
+- the installed check isn't master's copy; the report gives the command (step 3 again, once
+  `david`'s clone is on master).
 
-- the clone is behind master, or on a commit that isn't on master;
-- a tracked file in the clone differs from GitHub's copy at the commit the clone is on (at
-  master, if that commit isn't on it), or is missing, unreadable, a link where the repo has a
-  file, or a link that points somewhere other than the repo's link does, or has an executable
-  bit that differs from the repo's mode. This is the tamper alarm. It looks at every tracked
-  file outside submodules (the `dotbot` submodule, which `hal` doesn't run, is skipped), because `hal` runs more than its links point at: `zsh/zshrc` sources `zsh/functions/*.sh`, `bin/dot` runs `bin/lib/`
-  and `helpers/`, and the starship and topgrade configs can run commands;
-- the clone has files that commit doesn't (`.git` and submodules aside);
-- the installed copy isn't master's `helpers/hal_dotfiles_sync_check.sh`. After a change to it
-  merges, pull as `david`, then run step 3 again.
+It doesn't print a report identical to the last one it recorded. It exits 1 when it can't
+check or can't write its state file; its last line says why. `DOTFILES_DRY_RUN=1` fetches
+nothing and writes no state.
 
-It exits 1 with a one-line reason, which Hermes sends as an error alert, when it can't check
-(the clone or a folder in it is unreadable, GitHub can't be reached, git fails in its copy)
-or can't write its state file. `DOTFILES_DRY_RUN=1` fetches nothing and writes no state.
+**The move.** Run the steps in order, from the dotfiles checkout on the personal Mac. Avoid
+the overnight pilot's window for steps 1 to 4 (`docs/reference/hermes-commands.md`, "The 27B
+is shared").
 
-**The move.** Each step names the account it runs as, checks the state it expects, and stops
-with nothing changed when the state is anything else. Running a step again is safe: a step
-whose work is complete says `done already` and exits 0. `DOTFILES_DRY_RUN=1` runs a step's
-checks, prints what it would change, changes nothing, and exits 1 when the checks would stop
-the real run, 0 otherwise. For step
-1 it goes in front of the command; for the others it goes inside the quotes, so it reaches hal:
-`ssh hal-as-hal 'DOTFILES_DRY_RUN=1 bash ~david/Projects/Personal/dotfiles/helpers/hal_shared_clone.sh relink'`. Avoid the overnight pilot's window for steps 1 to 4 (`docs/reference/hermes-commands.md`,
-"The 27B is shared").
-
-| # | Runs as | Command, from the dotfiles checkout on the personal Mac | Changes |
+| # | Runs as | Command | Exit 0 means |
 |---|---|---|---|
-| 1 | David, on the Mac | `bash helpers/hal_shared_clone_sync.sh` | fast-forwards both clones to GitHub's master and checks they're on one commit |
-| 2 | `david` | `ssh hal 'bash ~/Projects/Personal/dotfiles/helpers/hal_shared_clone.sh acl'` | closes the four paths, then adds `user:hal allow search` to `david`'s home |
-| 3 | `hal` | `ssh hal-as-hal 'bash ~david/Projects/Personal/dotfiles/helpers/hal_shared_clone.sh sync-check'` | installs the new check; the old one stays as `.pre-vil700` |
-| 4 | `hal` | the same, with `relink` | points the 24 links into `david`'s clone and links `~/.claude/CLAUDE.md` |
-| 5 | `hal` | the same, with `verify` | nothing |
-| 6 | | one night of Atlas's check running | |
-| 7 | `hal` | the same, with `retire-old-clone` | moves `hal`'s clone to `~/Projects/Personal/dotfiles.pre-vil700` |
+| 1 | David, on the Mac | `bash helpers/hal_shared_clone_sync.sh` | both clones are on the commit GitHub's master had when it started |
+| 2 | `david` | `ssh hal 'bash ~/Projects/Personal/dotfiles/helpers/hal_shared_clone.sh acl'` | each of the four paths is missing or closed (its mode 700 or 600, and no ACL entry on it that allows anything), and `user:hal allow search` is the only entry for `hal` on `david`'s home |
+| 3 | `hal` | `ssh hal-as-hal 'bash ~david/Projects/Personal/dotfiles/helpers/hal_shared_clone.sh sync-check'` | the installed check is an executable copy of the shared clone's, and the original is kept as `dotfiles-sync-check.sh.pre-vil700` |
+| 4 | `hal` | the same, with `relink` | the 24 links and `~/.claude/CLAUDE.md` point into `david`'s clone, and `CLAUDE.md.pre-vil700` is a file |
+| 5 | `hal` | the same, with `verify` | step 4's state; step 3's, for the clone as it is now; each linked file is readable (the herdr link aside); and the scan of `hal`'s home finds no other symlink to the old clone or a path inside it |
+| 6 | | one night of Atlas's check | |
+| 7 | `hal` | the same, with `retire-old-clone` | `hal`'s clone is at `~/Projects/Personal/dotfiles.pre-vil700` |
 
-What each step checks:
+Step 2 refuses, changing nothing, if one of the four paths is a link or has an ACL entry that
+allows access: it doesn't remove entries it didn't add. The scan in step 5 (and in step 7,
+which runs step 5's checks before moving anything) skips `Library`, `Desktop`, `Documents`,
+`Downloads`, `Movies`, `Music` and `Pictures`, which macOS closes to ssh sessions, and
+`.Trash`. It stays on the home's own disk, matches a symlink only when its target, as written, is
+the old clone's full path or a path inside it (a relative link isn't caught), and doesn't look inside files.
 
-- Step 1 refuses unless, in both clones, `git status` runs and shows no edits to tracked
-  files, the branch is `master`, and `origin` is GitHub's URL.
-- Step 2 refuses if other accounts can't search `~/Projects` and `~/Projects/Personal`, or
-  can't read something in the clone (outside `.git/objects`); if `david`'s home has any other
-  ACL entry for `hal`; or if one of the four paths is a link. A path that doesn't exist is
-  skipped. If one of the others can't be closed, the entry isn't set; the exit is then 4 when
-  that run closed or recorded something, and `acl-rollback` reopens what it closed. It says
-  `done already` only when each of the four paths that exists has its closed mode and the
-  entry is in place.
-- Step 3 installs the shared clone's `helpers/hal_dotfiles_sync_check.sh`. It refuses if the
-  installed check is none of: the original (by sha256), an earlier copy of this repo's check,
-  or the original that `sync-check-rollback` put back. It says `done already` only when the
-  installed check is an executable copy of the shared clone's and
-  `dotfiles-sync-check.sh.pre-vil700` is the original.
-- Step 4 says `done already` when every link and `~/.claude/CLAUDE.md` already point into
-  `david`'s clone, before its other checks, so a pull since doesn't make it refuse. Otherwise
-  it refuses unless the clones are on one commit; the installed check is step 3's (an
-  executable copy of the shared clone's, with the original kept); each of the 24 links points
-  into `hal`'s clone or, from an earlier run, already into `david`'s; and each linked file
-  exists in both clones and is the same in both, the links already moved included.
-- Step 5 fails unless every link and `~/.claude/CLAUDE.md` point into `david`'s clone, the file
-  CLAUDE.md replaced is kept, the installed check is step 3's for the shared clone as it is
-  now, and no other link points into the old clone.
-- Step 7 says `done already` when the old clone is at `dotfiles.pre-vil700`, every link and
-  `~/.claude/CLAUDE.md` point into `david`'s clone, and no other link points into the old one.
-  A check that a pull has since made stale is step 5's to report. Otherwise it refuses unless
-  step 5's checks pass. Before moving, it reads the old clone's edits, commits on no
-  remote-tracking branch, and stashes with git, prints them, and refuses if any of those reads
-  fails. Moving the clone keeps all of them.
-- The scan in steps 4, 5 and 7 looks in `hal`'s home for links whose target starts with the
-  old clone's path. It skips `Library`, `Desktop`, `Documents`, `Downloads`, `Movies`, `Music`
-  and `Pictures`, which macOS closes to ssh sessions; if it can't read the rest, steps 5 and 7
-  fail.
+Exit codes, for every step: 0 as in the table (each step of `helpers/hal_shared_clone.sh`
+but `verify` says `done already` when it was in that state before the run). 1: not in that
+state; the step either refused, changing nothing, or failed partway, and its messages say what it changed. Running it again is safe, or undo it as below.
+2: a step name the script doesn't know. Any other code means ssh or the shell failed; to see
+where things stand, run `verify` or the step with `DOTFILES_DRY_RUN=1`. That runs a step's
+checks, changes nothing, and exits 0 when the step is done or its checks pass, 1 when they
+don't (a real run can still fail where the checks don't look: a write, or for step 1 a clone that
+can't be fast-forwarded). For step 1 it goes in front of the command; for the others, inside the quotes:
+`ssh hal-as-hal 'DOTFILES_DRY_RUN=1 bash ~david/Projects/Personal/dotfiles/helpers/hal_shared_clone.sh relink'`.
 
-Exit codes, for every step: 0 done, already done, or a dry run that found nothing in the way.
-1 refused, with nothing changed (for `verify`: something isn't as expected). 2 a step name
-`helpers/hal_shared_clone.sh` doesn't know. 4 something was changed and then a later part
-failed; the message says what changed and which step to run next. Any other code means ssh
-or the shell on hal failed partway; the code says nothing about the state, so run `verify`, or
-the step again with `DOTFILES_DRY_RUN=1`, to see it. Step 1 is the exception: it reports an
-ssh failure itself, as 1 when it happens during the checks (nothing changed yet) and as 4 when
-it happens after, and its last lines show where each clone is.
+Undoing, newest step first. Each is a step of `helpers/hal_shared_clone.sh`, run as `hal` like
+step 3 unless it says `david`. None compares the two clones, so a pull as `david` since the
+move doesn't stop one.
 
-Undoing, newest step first. Each is a step of `helpers/hal_shared_clone.sh` with the same exit
-codes, run as `hal` like step 3 unless it says `david`. None of them compares the two clones,
-so a pull as `david` since the move doesn't stop one. Each accepts what a full or a stopped
-run of its forward step leaves; what else it needs is in its bullet:
-
-- Step 7: `restore-old-clone` moves the old clone back.
-- Step 4: `relink-rollback` points each link that's in `david`'s clone back into `hal`'s, and
-  puts `CLAUDE.md.pre-vil700` back as `~/.claude/CLAUDE.md`. It needs `hal`'s clone in place,
-  so after step 7, run `restore-old-clone` first.
-- Step 3: `sync-check-rollback` puts the original check back (and keeps the `.pre-vil700`
-  copy). It refuses while `hal`'s `.zshrc` link points anywhere but `hal`'s own clone, because
-  the original runs git in the clone the links point into. The new check works either way, so
-  this is optional.
-- Step 2: `acl-rollback`, as `david` (`ssh hal 'bash ~/Projects/Personal/dotfiles/helpers/hal_shared_clone.sh acl-rollback'`),
-  takes the entry off `david`'s home, then puts each path whose mode is still the closed one
-  back to its recorded mode. Run it only after `relink-rollback`: with `hal`'s links still in
-  `david`'s clone, removing the entry breaks `hal`'s shell and git, and as `david` the step
-  can't see `hal`'s links to check.
-- Step 1: nothing to undo; it's an ordinary fast-forward of both clones.
+- Step 7: `restore-old-clone`. Exit 0: `hal`'s clone is back at `~/Projects/Personal/dotfiles`.
+- Step 4: `relink-rollback` (after `restore-old-clone`, if step 7 ran) points the links back
+  and puts `CLAUDE.md.pre-vil700` back. Exit 0: the 24 links point into `hal`'s clone, and
+  `~/.claude/CLAUDE.md` is a file.
+- Step 3: `sync-check-rollback`, optional, since the new check works with either clone. It
+  refuses while `hal`'s `.zshrc` link points anywhere but `hal`'s own clone, because the
+  original check runs git in the clone the links point into. Exit 0: the installed check is
+  the original.
+- Step 2: `acl-rollback`, as `david`
+  (`ssh hal 'bash ~/Projects/Personal/dotfiles/helpers/hal_shared_clone.sh acl-rollback'`),
+  only after `relink-rollback`: removing the entry while `hal`'s links point into `david`'s
+  clone breaks `hal`'s shell and git, and as `david` the step can't see those links. Exit 0:
+  `david`'s home has no entry for `hal`, and each path step 2 changed that was still at its
+  closed mode is back at its recorded mode (a path without a record, such as one step 2
+  found already closed, stays as it is).
+- Step 1: nothing to undo.
 
 After changing any of the three scripts, run `ci/hal-shared-clone-checks.sh`.

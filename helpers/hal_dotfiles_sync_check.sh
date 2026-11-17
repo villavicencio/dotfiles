@@ -10,28 +10,20 @@
 # 3.2), delivers its stdout to David as it is, stays silent on empty stdout, and sends an
 # error alert on a non-zero exit.
 #
-# It watches the clone that `hal`'s ~/.config/zsh/.zshrc link points into: `david`'s clone once
-# `hal`'s links have been moved there, `hal`'s own before that. It never runs git in that
-# clone. It reads the clone's .git/HEAD and refs as plain files, keeps its own bare copy of
-# GitHub's master in `hal`'s home, and runs git only there, with no global or system git
-# config (`hal`'s ~/.gitconfig is a link into the clone it watches). It prints a report when:
+# It watches the clone that `hal`'s ~/.config/zsh/.zshrc link points into, and never runs git
+# in it: it reads the clone's .git/HEAD and refs as files, keeps its own bare copy of GitHub's
+# master in `hal`'s home, and runs git only there, with no global or system git config
+# (`hal`'s ~/.gitconfig is a link into the clone it watches). It prints a report when:
 #   - the clone is behind GitHub's master, or on a commit that isn't on master;
-#   - a tracked file in the clone (submodules aside) differs from GitHub's copy of it at the commit the clone is
-#     on (or at master, when that commit isn't on master) in content or executable bit, is
-#     missing, is unreadable, or is a link where the repo has a file. This is the tamper alarm: `hal` runs these files, and
-#     `david`, or anything running as `david`, can change them;
-#   - the clone holds files that commit doesn't (outside .git and submodules);
+#   - a tracked file outside submodules differs from the repo at the commit the clone is on
+#     (at master, when that commit isn't on master), in content or executable bit, or is
+#     missing, unreadable, or a link where the repo has a file (the tamper alarm);
+#   - the clone holds files outside .git and submodules that that commit doesn't;
 #   - this installed copy differs from master's helpers/hal_dotfiles_sync_check.sh.
-# It doesn't send the report it sent last again while nothing changes; the next merge, pull or
-# change to the clone makes a new report, which it sends.
+# It doesn't print a report identical to the last one it recorded in its state file.
 #
-# Exit 0, with or without a report. Exit 1 with one line saying why when it can't check
-# (clone not found, a folder in it unreadable, GitHub unreachable) or can't write its state
-# file; Hermes then sends an error alert that includes whatever was printed.
-#
-# DOTFILES_DRY_RUN=1 fetches nothing and writes no state. It reads which commit the clone is on;
-# if the bare copy already exists, it also prints the report against the master in it (or "in
-# sync"). It creates nothing on hal except a temp folder it removes.
+# Exit 0, with or without a report. Exit 1 when it can't check or can't write its state file;
+# its last line says why. DOTFILES_DRY_RUN=1 fetches nothing and writes no state.
 #
 # Overrides, for ci/hal-shared-clone-checks.sh and by-hand runs: DOTFILES_CLONE (the clone to
 # watch), DOTFILES_SYNC_REMOTE (GitHub's URL), DOTFILES_SYNC_MIRROR (the bare copy),
@@ -120,8 +112,9 @@ while IFS= read -r -d '' rec; do
   meta=${rec%%$'\t'*} p=${rec#*$'\t'}
   mode=${meta%% *} sha=${meta##* }
   f=$CLONE/$p
+  # A path with a newline would break the line-based files below: one line, the newline shown as ?.
+  case $p in *$'\n'*) p=${p//$'\n'/?}; printf '%s\n' "$p" >> "$TMP/tracked"; printf 'odd path\t%s\n' "$p" >> "$TMP/bad"; continue ;; esac
   printf '%s\n' "$p" >> "$TMP/tracked"
-  case $p in *$'\n'*) printf 'odd path\t%s\n' "$p" >> "$TMP/bad"; continue ;; esac
   case $mode in
     160000) printf '%s\n' "$p" >> "$TMP/subs" ;;
     120000)
@@ -202,30 +195,26 @@ report() {
   elif [ "$behind" -gt 0 ]; then
     echo "• $behind commit(s) behind; from the Mac: \`$pull\`"
   fi
-  local k
+  local k at=${base:0:7}
   for k in differs mode missing unreadable 'is a link' 'odd path'; do
     awk -F'\t' -v k="$k" '$1 == k { print $2 }' "$TMP/bad" > "$TMP/k"
     case $k in
-      differs) list "*differ from master*" "$TMP/k" ;;
-      mode) list "*executable bit differs from master*" "$TMP/k" ;;
+      differs) list "*differ from $at*" "$TMP/k" ;;
+      mode) list "*executable bit differs from $at*" "$TMP/k" ;;
       *) list "*$k*" "$TMP/k" ;;
     esac
   done
-  list "*not on master*" "$TMP/extra"
+  list "*not in $at*" "$TMP/extra"
   if [ -s "$TMP/bad" ] || [ -s "$TMP/extra" ]; then
     echo "    \`hal\` runs these files. Look before pulling, as \`${owner:-the clone owner}\`: \`git -C $CLONE status --short\`"
   fi
   if [ "$self_ok" = 0 ]; then
-    echo "• this check isn't master's \`$SELF_PATH\`: after the pull, run \`helpers/hal_shared_clone.sh sync-check\` as \`hal\`"
+    echo "• this check isn't master's \`$SELF_PATH\`: once \`david\`'s clone is on master, from the Mac: \`ssh hal-as-hal 'bash ~david/Projects/Personal/dotfiles/helpers/hal_shared_clone.sh sync-check'\`"
   fi
   if [ "$onmaster" = 1 ] && [ "$behind" -gt 0 ]; then
     echo "New on master:"
     G log --no-decorate --format='    • `%h` %s' "$head..$origin" > "$TMP/log" || return 1
     head -n "$MAX" "$TMP/log"
-    G diff --name-only "$head" "$origin" > "$TMP/diff" || return 1
-    if grep -qE '^(dotbot-conf/|brew/|helpers/|install$)' "$TMP/diff"; then
-      echo "Install files changed. \`hal\`'s server install from a clone \`david\` owns is VIL-736; see \"One dotfiles clone on hal\" in docs/reference/install-and-server.md."
-    fi
   fi
 }
 
@@ -233,22 +222,22 @@ insync=0
 [ "$behind" = 0 ] && [ "$onmaster" = 1 ] && [ ! -s "$TMP/bad" ] && [ ! -s "$TMP/extra" ] && [ "$self_ok" = 1 ] && insync=1
 if [ "$DRY" = 1 ]; then
   echo "[dry-run] compared with the master already in $MIRROR (${origin:0:7}, not fetched); no state written:"
-  if [ "$insync" = 1 ]; then echo "in sync"; else report || fail "couldn't build its report (git log or diff failed)"; fi
+  if [ "$insync" = 1 ]; then echo "in sync"; else report || fail "couldn't build its report (git log failed)"; fi
   exit 0
 fi
 # The state file decides what counts as already reported, so a write that fails is an error:
 # a stale state could otherwise silence the next report.
 if [ "$insync" = 1 ]; then
-  printf 'in sync %s\n' "$origin" > "$STATE" 2>/dev/null ||
+  { printf 'in sync %s\n' "$origin" > "$STATE"; } 2>/dev/null ||
     fail "in sync, but couldn't write $STATE, so a later report could be silenced"
   exit 0
 fi
-{ report > "$TMP/report" && [ -s "$TMP/report" ]; } || fail "couldn't build its report (git log or diff failed, or the disk is full)"
+{ report > "$TMP/report" && [ -s "$TMP/report" ]; } || fail "couldn't build its report (git log failed, or the disk is full)"
 key=$(shasum -a 256 < "$TMP/report" | cut -d' ' -f1)
 [[ $key =~ ^[0-9a-f]{64}$ ]] || fail "couldn't hash its report"
 [ "$key" = "$(cat "$STATE" 2>/dev/null)" ] && exit 0
 cat "$TMP/report" || fail "couldn't print its report"
-if ! printf '%s\n' "$key" > "$STATE" 2>/dev/null; then
+if ! { printf '%s\n' "$key" > "$STATE"; } 2>/dev/null; then
   echo "dotfiles-sync-check: couldn't write $STATE, so this report will repeat"
   exit 1
 fi
