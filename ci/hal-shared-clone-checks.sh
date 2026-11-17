@@ -30,6 +30,7 @@ T="$(mktemp -d)" || { echo "mktemp -d failed" >&2; exit 1; }
 T="$(cd "$T" && pwd -P)"
 trap 'chflags -R nouchg,nouappnd "$T" 2>/dev/null; chmod -R u+rwx "$T" 2>/dev/null; rm -rf "$T"' EXIT
 export GIT_CONFIG_GLOBAL="$T/gitconfig" GIT_CONFIG_NOSYSTEM=1
+unset ZDOTDIR  # verify starts an interactive zsh; it must read the fixture home's startup files
 printf '[user]\n\tname = t\n\temail = t@example.invalid\n[init]\n\tdefaultBranch = master\n' > "$GIT_CONFIG_GLOBAL"
 
 pass=0; fail=0; OUT="$T/out"; RC=0
@@ -78,7 +79,11 @@ mk_origin() {
   done <<< "$LINKS"
   mkdir -p "$SEED/helpers" "$SEED/claude" "$SEED/zsh/functions"
   echo "shared CLAUDE.md" > "$SEED/claude/CLAUDE.md"
-  echo "a function" > "$SEED/zsh/functions/f.sh"
+  # verify starts `zsh -i` as hal: a zshrc with the real options and loader, and one function.
+  printf '%s\n' 'setopt NO_CASE_GLOB EXTENDED_GLOB' 'DOTFILES=${${:-$ZDOTDIR/.zshrc}:A:h:h}' \
+    'source "$DOTFILES/zsh/functions.sh"' > "$SEED/zsh/zshrc"
+  cp "$REPO/zsh/functions.sh" "$SEED/zsh/"
+  echo "f() { :; }" > "$SEED/zsh/functions/f.sh"
   cp "$CHECK_SRC" "$STEPS" "$SEED/helpers/"
   git -C "$SEED" add -A && git -C "$SEED" commit -qm c1 && git -C "$SEED" push -q "$ORIGIN" master
 }
@@ -96,6 +101,7 @@ mk_homes() {
   local l r
   while read -r l r; do mkdir -p "$HH/$(dirname "$l")"; ln -s "$OLD/$r" "$HH/$l"; done <<< "$LINKS"
   echo "hal's own CLAUDE.md" > "$HH/.claude/CLAUDE.md"
+  echo 'export ZDOTDIR=$HOME/.config/zsh' > "$HH/.zshenv"
   printf '#!/usr/bin/env bash\n# the original sync-check\necho old\n' > "$HH/.hermes/scripts/dotfiles-sync-check.sh"
   chmod 755 "$HH/.hermes/scripts/dotfiles-sync-check.sh"
 }
@@ -361,6 +367,16 @@ mv "$NEW/btop/btop.conf" "$T/btop.saved"
 run as_hal verify
 check "V4 a linked file is missing from the clone: verify fails" '[ $RC = 1 ] && has "btop/btop.conf is missing"'
 mv "$T/btop.saved" "$NEW/btop/btop.conf"
+# david's home searchable but not readable, as on hal: the old loader's absolute glob fails
+# under NO_CASE_GLOB, and verify must say so; the repo's loader works.
+printf '%s\n' 'for function in "$DOTFILES/zsh/functions"/*.sh; do . "${function}"; done' > "$NEW/zsh/functions.sh"
+chmod 311 "$DH"
+run as_hal verify
+check "V7 david's home search-only, a loader that globs through it: verify fails" '[ $RC = 1 ] && has "defined no function from"'
+git -C "$NEW" checkout -q -- zsh/functions.sh
+run as_hal verify
+check "V8 the same home with the repo's loader: verify passes" '[ $RC = 0 ] && has "loads the clone'"'"'s functions"'
+chmod 755 "$DH"
 chmod 000 "$NEW/claude/CLAUDE.md"
 run as_hal verify
 check "V6 CLAUDE.md's target is unreadable: verify fails" '[ $RC = 1 ] && has "claude/CLAUDE.md is missing or unreadable"'

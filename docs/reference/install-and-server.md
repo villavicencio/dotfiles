@@ -232,6 +232,10 @@ After the move:
   it goes to `~/.vil-700-modes-before-acl`. Nothing else is closed (`~/.cache`, `~/.local` and
   `~/.agents` stay as they are, by David's choice); step 2 prints the top level of what stays
   open to `hal`, judged by group and other mode bits alone.
+- `hal` can search `david`'s home but not list it. Under `NO_CASE_GLOB` (set in `zsh/zshrc`)
+  zsh lists every directory on a pattern's path, so an absolute glob through `david`'s home
+  finds nothing for `hal` ("no matches found"). `zsh/functions.sh` turns `CASE_GLOB` back on
+  while it lists its files, and step 5 checks that an interactive zsh as `hal` defines functions from that folder.
 - Anything that runs as `david`, the overnight pilot included, can change files `hal` runs.
   David chose this layout knowing that; Atlas's hourly check is the alarm for it.
 - Don't run `DOTFILES_PROFILE=server ./install` as `hal` from `david`'s clone until VIL-736:
@@ -271,7 +275,7 @@ is shared").
 | 2 | `david` | `ssh hal 'bash ~/Projects/Personal/dotfiles/helpers/hal_shared_clone.sh acl'` | each of the four paths is missing or closed (its mode 700 or 600, and no ACL entry on it that allows anything), and `user:hal allow search` is the only entry for `hal` on `david`'s home |
 | 3 | `hal` | `ssh hal-as-hal 'bash ~david/Projects/Personal/dotfiles/helpers/hal_shared_clone.sh sync-check'` | the installed check is an executable copy of the shared clone's, and the original is kept as `dotfiles-sync-check.sh.pre-vil700` |
 | 4 | `hal` | the same, with `relink` | the 24 links and `~/.claude/CLAUDE.md` point into `david`'s clone, and `CLAUDE.md.pre-vil700` is a file |
-| 5 | `hal` | the same, with `verify` | step 4's state; step 3's, for the clone as it is now; each linked file is readable (the herdr link aside); and the scan of `hal`'s home finds no other symlink to the old clone or a path inside it |
+| 5 | `hal` | the same, with `verify` | step 4's state; step 3's, for the clone as it is now; each linked file is readable (the herdr link aside); the scan of `hal`'s home finds no other symlink to the old clone or a path inside it; and an interactive zsh as `hal` defines functions from the clone's `zsh/functions` |
 | 6 | | one night of Atlas's check | |
 | 7 | `hal` | the same, with `retire-old-clone` | `hal`'s clone is at `~/Projects/Personal/dotfiles.pre-vil700` |
 
