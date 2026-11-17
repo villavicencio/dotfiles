@@ -470,13 +470,20 @@ verify_checks() {
   installed_check_ok || problem "$CHECK isn't an executable copy of $CHECK_SRC with the original kept as $CHECK_KEEP (run the sync-check step)"
   # The clone's function loader, run as this account with zshrc's glob options, must define a
   # function from zsh/functions (zsh records each function's file in $functions_source). zsh -f
-  # reads no startup files, so nothing is written.
-  local out n=0
-  if out=$(DOTFILES=$NEW zsh -f -c 'eval "$(grep -E "^setopt [A-Z_]*GLOB" "$DOTFILES/zsh/zshrc")"
-      source "$DOTFILES/zsh/functions.sh"; print -rl -- ${(v)functions_source}' < /dev/null 2> /dev/null); then
-    n=$(grep -cF "$NEW/zsh/functions/" <<< "$out")
+  # reads no startup files, so nothing is written. Only the option names are taken from zshrc.
+  local out n=0 opts o
+  opts=$(awk '/^setopt [A-Z_]*GLOB/ { print $2 }' "$NEW/zsh/zshrc") || opts=''
+  for o in $opts; do case $o in *[!A-Z_]*) opts='' ;; esac; done
+  if [ -z "$opts" ]; then
+    problem "couldn't read the glob options (setopt ...GLOB lines) from $NEW/zsh/zshrc"
+  else
+    # shellcheck disable=SC2086  # $opts: checked option names, one word each
+    if out=$(DOTFILES=$NEW zsh -f -c 'setopt -- "$@" && source "$DOTFILES/zsh/functions.sh"
+        print -rl -- ${(v)functions_source}' zsh $opts < /dev/null 2> /dev/null); then
+      n=$(grep -cF "$NEW/zsh/functions/" <<< "$out")
+    fi
+    [ "${n:-0}" -gt 0 ] || problem "zsh/functions.sh, run as $ME with zshrc's glob options, defined no function from $NEW/zsh/functions"
   fi
-  [ "${n:-0}" -gt 0 ] || problem "zsh/functions.sh, run as $ME with zshrc's glob options, defined no function from $NEW/zsh/functions"
 }
 
 step_verify() {

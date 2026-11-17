@@ -80,7 +80,8 @@ mk_origin() {
   echo "shared CLAUDE.md" > "$SEED/claude/CLAUDE.md"
   # verify runs the clone's zsh/functions.sh with the glob options from its zshrc: the real
   # loader, the real zshrc's setopt lines, and one function.
-  grep -E '^setopt [A-Z_]*GLOB' "$REPO/zsh/zshrc" > "$SEED/zsh/zshrc"
+  awk '/^setopt [A-Z_]*GLOB/ && $2 ~ /^[A-Z_]+$/ { print "setopt " $2 }' "$REPO/zsh/zshrc" > "$SEED/zsh/zshrc"
+  grep -qx 'setopt NO_CASE_GLOB' "$SEED/zsh/zshrc" || { echo "zsh/zshrc no longer sets NO_CASE_GLOB; V7 needs it" >&2; exit 1; }
   cp "$REPO/zsh/functions.sh" "$SEED/zsh/"
   echo "f() { :; }" > "$SEED/zsh/functions/f.sh"
   cp "$CHECK_SRC" "$STEPS" "$SEED/helpers/"
@@ -375,6 +376,13 @@ git -C "$NEW" checkout -q -- zsh/functions.sh
 run as_hal verify
 check "V8 the same home with the repo's loader: verify passes" '[ $RC = 0 ] && has "function loader works"'
 chmod 755 "$DH"
+printf '# no glob options here\n' > "$NEW/zsh/zshrc"
+run as_hal verify
+check "V9 zshrc has no setopt ...GLOB line: verify fails, not a probe without the options" '[ $RC = 1 ] && has "couldn'"'"'t read the glob options"'
+printf '%s\n' 'setopt NO_CASE_GLOB && touch "$HOME/vil700-ran"' 'setopt EXTENDED_GLOB' > "$NEW/zsh/zshrc"
+run as_hal verify
+check "V10 a glob line with an appended command: only the option is used, the command doesn't run" '[ $RC = 0 ] && [ ! -e "$HH/vil700-ran" ]'
+git -C "$NEW" checkout -q -- zsh/zshrc
 chmod 000 "$NEW/claude/CLAUDE.md"
 run as_hal verify
 check "V6 CLAUDE.md's target is unreadable: verify fails" '[ $RC = 1 ] && has "claude/CLAUDE.md is missing or unreadable"'
