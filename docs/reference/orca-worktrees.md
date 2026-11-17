@@ -15,6 +15,13 @@ on the main checkout's branch). Today that
 is `.claude/settings.local.json`; without it a session falls back to the tracked allowlist.
 The pre-commit hook needs nothing: hooks live in the shared `.git/hooks`.
 
+How Orca 1.4.257 runs the script on macOS (2026-11-17, adding `orca.yaml` to eagle-hover-save,
+and in the app bundle): it writes it to `.git/worktrees/<name>/orca/setup-runner.sh` and
+types `bash <that path>` into an interactive shell in a terminal tab titled "Setup". So the
+script runs under bash, not `sh`, and gets the interactive shell's PATH (nvm's `node`, say).
+To try a branch's script before pushing it, `orca worktree create --base-branch <branch>`
+takes a local branch that isn't on origin (same day).
+
 **Never run `./install` from a worktree, in the setup script or by hand.** Dotbot points the
 live `~/.config`, `~/.claude` and `~/.local/bin` links at whichever checkout ran it, and they
 dangle once the worktree is removed. Don't launch nvim there either (first launch rewrites
@@ -26,8 +33,8 @@ removed"), and Orca's plain delete doesn't pass `--force`. The CLI then reports 
 removing: true` while the worktree stays, stuck in Orca's "removing" state. Use Force delete
 (CLI: `orca worktree rm --force`). It deletes the whole worktree directory, gitignored files
 included, and the worktree's dotbot clone with its own branches, tags and stash. It also
-removes the worktree's git registration and Orca's entry for it, and deletes the worktree's
-branch when Orca can prove it's merged (see the last point below). The main checkout's files
+removes the worktree's git registration and Orca's entry for it. It keeps the worktree's
+branch (see the last point below). The main checkout's files
 are left alone. No status command proves that's safe, so before Force, check **the
 worktree you're removing**, not the main checkout. Set `W` to its path first, using the name
 Orca shows for it:
@@ -47,9 +54,11 @@ W=$(orca worktree show --worktree "name:<display name>" --json | jq -r .result.w
 - If you changed anything inside `$W/dotbot/`, push it or copy it out first. A clean
   `git -C "$W/dotbot" status` doesn't show commits, tags or stash entries that exist only in
   that clone.
-- The branch's commits aren't at risk: Orca deletes the branch only when it can prove it's
-  already merged, and keeps it otherwise (`orca worktree rm --help`). If you want the branch
-  name kept even when merged, note it first: `git -C "$W" branch --show-current`.
+- The branch's commits aren't at risk. In Orca 1.4.257 (checked 2026-11-17) `orca worktree rm`
+  keeps the local branch by default, `--force` included. `--delete-branch` attempts a safe
+  delete: it deletes the branch only when Orca can prove it's already merged, and keeps it
+  otherwise (`orca worktree rm --help`). Older hosts keep their old policy, which deleted a
+  branch Orca could prove merged without the flag.
 
 **After a merge, run the cleanup before Force delete.** This repo squash-merges, so Orca can
 never prove the branch merged, and Force delete leaves it locally and on origin.
@@ -75,7 +84,10 @@ does the next `./install`.
 
 Orca's file parser isn't full YAML: keys under `scripts:` take two spaces and script lines
 four, as in Orca's own template. Orca worktrees live under `~/orca/workspaces/`, not
-`.claude/worktrees/`, so `wt done` doesn't manage them; remove them from Orca.
+`.claude/worktrees/`, so `wt done` doesn't manage them; remove them from Orca. The other way
+round, `orca worktree list` leaves out worktrees under `.claude/worktrees/` when the repo's
+`externalWorktreeVisibility` is `hide` (`orca repo show --repo <selector> --json`; Orca
+1.4.257, 2026-11-17).
 
 ## What survives an Orca restart or update, and a reboot
 
