@@ -4,23 +4,24 @@
 
 **MergeWren (review-stack) is the default reviewer since 2026-11-03.** It reviews bryancola.com, browse-gateway, dissolution, dotfiles (since 2026-09-24), hal-bench, hal-pilot, mergewren and skills (since 2026-11-03); the adoption records are in mergewren `docs/adoption/`. atlas-tools is adopted review-only, with no remote, so it never has PRs. How to wait for a verdict is under "Merging on a MergeWren review" below. A new repo is onboarded before its first PR, with a ticket in the MergeWren Linear project modeled on VIL-537 (adoption record, OCR rule, posting allowlist, pin test). A repo whose `CLAUDE.md`/`AGENTS.md` names its own reviewer as the gate follows that. The CodeRabbit sections below apply only to a repo not yet onboarded. In MergeWren repos, don't request or wait for CodeRabbit (`@coderabbitai review` spends the per-developer quota for nothing); a CodeRabbit check that appears there on its own is informational, not a gate.
 
-**On a repo not yet onboarded, PR review runs through CodeRabbit; `dv:gauntlet` is the escalation, not the default**
-(reconciled across dotfiles / borealis / skills, 2026-08-24). Before this, the global rule named
-gauntlet as the blanket default while two repos had already overridden it per-project — this
-file is the single source of truth, and per-repo `AGENTS.md` files should point here rather
-than restate it.
+**On a repo not yet onboarded, PR review runs through CodeRabbit** (reconciled across dotfiles /
+borealis / skills, 2026-08-24). This file is the single source of truth, and per-repo
+`AGENTS.md` files should point here rather than restate it.
 
-**Reach for CodeRabbit** for review of a PR diff. **Reach for `dv:gauntlet`** when the diff is
-large or risky enough to warrant a convergent find→refute→fix loop, when CodeRabbit is throttled
-and the review genuinely cannot wait, or when reviewing something that is not a PR. Bare
-`dv:gauntlet` is the full autonomous loop (it fixes and commits); `dv:gauntlet report` is a single
-report-only round and is the right rate-limit fallback. The skill owns its own procedure — rounds,
-budgets, the fingerprint ledger, stop rules — so don't re-derive it per project.
+**There is no stand-in for MergeWren** (since 2026-11-17, VIL-799):
 
-Either way, **don't hand-roll a review**: no `codex exec review`, no Claude↔Codex loops, no
-"fan out reviewers" or "spin up a skeptic panel," including under `/effort ultracode` or workflow
-orchestration. Custom workflows may supply research or critique *lenses* upstream; the review of
-the diff itself routes through one of the two tools above.
+- A large or risky diff gets MergeWren alone.
+- If MergeWren is down or throttled and the review can't wait, wait or bring it to David.
+- For review of something that isn't a PR, open a PR for it.
+- A private repo not yet on MergeWren, for a change beyond docs and config: onboard the repo
+  to MergeWren first (see the top of this file).
+
+**Reach for CodeRabbit** for review of a PR diff in a repo not yet onboarded.
+
+**Don't hand-roll a review**: no `codex exec review`, no Claude↔Codex loops, no "fan out
+reviewers" or "spin up a skeptic panel," including under `/effort ultracode` or workflow
+orchestration. Custom workflows may supply research or critique *lenses* upstream; the review
+of the diff itself routes through the repo's reviewer.
 
 ## Polling `gh` (any reviewer, any repo)
 
@@ -68,8 +69,8 @@ the diff itself routes through one of the two tools above.
   0 remain after this review"). Of 155 private-repo PRs with a CodeRabbit comment, opened
   2026-10-21 to 2026-11-15, none got a CodeRabbit review or inline comment, and every one carried
   that note. So in a private repo not yet on MergeWren there is no PR reviewer: docs and config
-  may merge with "no line-by-line review" recorded in the PR body; anything else goes through
-  `dv:gauntlet` (`dv:gauntlet report` for a single round). A private repo also gets a run
+  may merge with "no line-by-line review" recorded in the PR body; for anything else, onboard
+  the repo to MergeWren first. A private repo also gets a run
   automatically when the PR opens, with no request (mergewren#135, bryancola.com#50), and that run
   draws on the same hourly allowance. Check for the note:
 
@@ -391,7 +392,7 @@ which makes it easy to misread as approval. Merging anyway is allowed only when 
 is green **and** the PR body records that CodeRabbit was throttled rather than silent. For
 anything beyond docs and config, wait for capacity. A summary-only run on a private repo gets the
 same carve-out, recorded in the PR body as "no line-by-line review"; waiting for capacity doesn't
-help there, so anything beyond docs and config goes through `dv:gauntlet`.
+help there, so for anything beyond docs and config, onboard the repo to MergeWren first.
 
 ## `.coderabbit.yaml` — every repo under review should have one
 
@@ -416,8 +417,7 @@ that means no review ran.
 ## Fix rounds
 
 Any session, any repo. These came out of five review rounds on one PR. The rules about fix
-rounds (the first three) are for a PR under its reviewer. `dv:gauntlet`'s own loop keeps its own
-rounds, budgets and stop rules (top of this file); the two-round stop doesn't cut it short.
+rounds (the first three) are for a PR under its reviewer.
 
 - **Keep a fix round to what the findings ask.** A large fix can push MergeWren from an
   incremental round (see "Merging on a MergeWren review") to a full re-review, which samples
@@ -430,7 +430,7 @@ rounds, budgets and stop rules (top of this file); the two-round stop doesn't cu
   absolute claims ("always", "never", "every") you haven't tested. Both draw findings.
 - **A reviewer panel before review doesn't replace the review.** The ban on hand-rolled
   reviews at the top of this file stands: the review of the diff still goes through the repo's
-  reviewer or `dv:gauntlet`.
+  reviewer.
 
 ## After the merge: delete the branch
 

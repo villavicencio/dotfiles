@@ -144,8 +144,7 @@ brew "util-linux"
 brew "xmlto"
 
 # --- Casks ---
-cask "coderabbit"           # CodeRabbit CLI — AI PR review, trial alongside the standing
-                            # dv:gauntlet rule; app-side review rides the GitHub app
+cask "coderabbit"           # CodeRabbit CLI
 cask "corelocationcli"      # CLI to read macOS CoreLocation (location-based tooling)
 cask "docker-desktop"
 cask "font-fira-code-nerd-font"      # Nerd Font (replaces manual fonts/ + install_fonts.sh)
