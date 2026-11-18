@@ -1,0 +1,186 @@
+# Writing Linear tickets
+
+One format for every Linear ticket in every project (VIL-797, decided with David 2026-11-17). This file is the source. The global `claude/CLAUDE.md` and `codex/AGENTS.md` point here under "Linear", and so will the `dv:ticket` skill (see the end of this file).
+
+A ticket is often worked days later by an agent that knows only what the ticket says. A missing reason or a vague "done" costs a round of questions or a wrong result. The format exists to prevent those two failures.
+
+## The format
+
+One core format. Leave out a section that has nothing to say, so a typo ticket is Why plus Done means.
+
+| Section | When | Rule |
+|---|---|---|
+| Why | Always | One or two sentences: the problem and who it costs. This carries the "so that" of a user story. |
+| Scope | When there is more than one step | Numbered list of what changes. |
+| Out of scope | When something nearby is deliberately left alone | One line each. |
+| Done means | Always | A checklist. Each line is a result that a command or an observation can prove, not an activity ("the check exits 0", not "update the check"). |
+| Decisions | When any were made | The decision, who made it, the date. |
+| Size | When groomed | Small, medium or large, with the count of repos and PRs. |
+| Agent notes | When there is detail | Collapsed: paths, findings, what was checked and what was not. |
+
+Rules beside the table:
+
+- **Title.** Starts with a verb and names the outcome: "Fix the backup script exiting 0 when the archive step fails", not "Backup script bug".
+- **Done means lines are results, not activities.** "`grep -n "tickets.md" claude/CLAUDE.md` prints one line" can be checked. "Update CLAUDE.md" cannot. If a line can't name a command or an observation, the ticket isn't ready.
+- **Given/When/Then** is allowed inside Done means for behavior with a clear trigger (a hook, a CLI command, a review verdict). It is not required.
+- **The user-story sentence** ("As a [role], I want [thing], so that [reason]") is optional and never required. It suits a feature with a distinct user. Most tickets here are infrastructure, agent procedure or docs, where the user is David or an agent and the sentence comes out forced. Why already carries the reason.
+- **Length.** Ask "is someone going to read what I'm writing?" (magical.pm's Linear issue templates, read 2026-11-17). Write what that reader needs to start and to know when to stop, and cut the rest. Detail that only an agent needs goes under Agent notes.
+- **Same term for the same thing.** If the Scope says "the check", Done means says "the check".
+- **Checklists.** Write Done means as `- [ ]` lines. Linear rendering them as a checklist in the app is not confirmed; they stay readable as plain text either way.
+
+## Type blocks
+
+The core format covers every ticket. A ticket of one of three types adds a block of sections, placed after Why. There is no separate template per type.
+
+| Type | Adds | What each holds |
+|---|---|---|
+| Bug | Reproduction, Expected, Actual | The steps or command that show it; what should happen; what happens, with the output. |
+| Research | Question, Output expected | The one question to answer; the form of the answer (a recommendation, a comparison table, a prototype, a decision for David). |
+| Automation | Trigger, Systems touched, Safety | What starts it; which machines, accounts and services it reads or writes; what it must never do and how a failure is contained. |
+
+A bug's Done means still follows the rule above: usually the Reproduction now gives the Expected result.
+
+## Pull condition
+
+A planned ticket left in Backlog has one line stating the exact condition that makes it ready (a `someday` ticket is the exception, below): "Pull when the VIL-N review lands" or "Pull when David picks a date for the migration". A condition names an event or a decision someone can observe, not "later" or "when there's time".
+
+This is different from the `someday` label (`claude/CLAUDE.md`, Linear). A `someday` ticket is a parked idea that is worth keeping and isn't planned. It has no pull condition, and nobody suggests it as next work. A ticket with a pull condition is planned and is waiting on something named. If a ticket's pull condition can't be written, it is probably a `someday` ticket. Adding or removing the label stays David's call.
+
+## Linking a PR to a ticket without closing it
+
+A PR that only partly finishes a ticket says `Refs VIL-N` in its description. The PR that finishes the ticket says `Fixes VIL-N`. Put the line in the PR description only, not the title: the page says "Magic words in PR comments won't create links."
+
+What Linear's documentation says (https://linear.app/docs/github, fetched 2026-11-17 PT):
+
+- "The closing magic words are: close, closes, closed, closing, fix, fixes, fixed, fixing, resolve, resolves, resolved, resolving, complete, completes, completed, completing, implement, implements, implemented, implementing, linear issue."
+- "The non-closing magic words are: ref, refs, references, part of, contributes to, toward, towards."
+- "The relation magic words are: relates to, related to." A relation word marks the PR as related, "with no status changes".
+- On a non-closing word: "the linked PR or commit will still move the issue through other statuses per your workflow settings, but it will not apply the On PR or commit merge status when the PR or commit merges." So a `Refs` PR can still move the ticket to In Progress when it opens. It won't move it to Done when it merges.
+- On several PRs: "The Linear issue status will be updated when the final linked PR moves to the required state from your workflow." With two PRs linked to one ticket, both must merge before the status changes.
+- On the branch name: "If your branch name includes a Linear issue ID, Linear will automatically link the pull request to that issue."
+- To prevent linking: `skip` or `ignore` before the issue ID in the PR description, for example `Ignore ENG-123`, "will fully unlink the PR and prevent status automation, even if the branch name still includes the issue ID."
+
+What the page doesn't say: whether a branch-name link is a closing or a non-closing relationship, or which one wins when the branch name has the id and the description says `Refs`. Don't assume `Refs` is enough. Our own observation says a bare mention in a PR title or body, or a branch named after a ticket, has closed a ticket when the PR merged (`claude/CLAUDE.md`, Linear; mergewren#62, 2026-10-22). So:
+
+- On a PR that only partly finishes a ticket, write `Refs VIL-N` in the description only. Keep the id out of the title, and don't use any closing word with it, in the PR or its commits: close, fix, resolve, complete or implement, in any form (the closing list above).
+- After the merge, read the ticket's state. If it moved to Done and isn't finished, reopen it. This is the existing rule in `claude/CLAUDE.md`; it stays in force because the branch-name case is not settled by the docs.
+- If a PR must not touch the ticket at all, the docs say to put `Ignore VIL-N` in the description. That is untested here.
+- Keep the `<type>/vil-N-slug` branch name that the global rules ask for. It links the PR to the ticket, which is wanted; the reopen step above covers the case where the link closes it.
+
+## Agent notes
+
+Put detail that only an agent needs in a collapsed section at the end of the description. When writing through the Linear MCP, open it with `+++ Agent notes` and close it with `+++` on its own line (the MCP's own guidance). Linear stores it and returns it on read as `>>> Agent notes … >>>` (observed 2026-11-17), so a script or an agent that edits a ticket should expect `>>>` on the way back and write `+++` on the way in.
+
+```
++++ Agent notes
+
+* Paths, findings, what was checked, what was not.
+
++++
+```
+
+## Existing tickets
+
+No bulk rewrite. A ticket is brought to the format when it is groomed: someone reads it for work, finds a gap, and fixes the gap. A ticket nobody grooms stays as written.
+
+## Linear issue template
+
+We keep one issue template in Linear's app, so a ticket filed by hand starts from the same sections. This file is the source; the template in Linear is a copy. When the format here changes, update the template to match.
+
+The body is the section headings, each with a one-line hint, and nothing more. Type blocks and Agent notes are not in it; add them by hand when the ticket needs them.
+
+```
+## Why
+One or two sentences: the problem and who it costs.
+
+## Scope
+Numbered list of what changes. Leave out for a one-step ticket.
+
+## Out of scope
+Things nearby that this ticket deliberately leaves alone. One line each.
+
+## Done means
+- [ ] Each line is a result a command or an observation can prove, not an activity.
+
+## Decisions
+What was decided, by whom, on what date.
+
+## Size
+Small, medium or large, with the count of repos and PRs. Fill in when groomed.
+```
+
+## Worked example 1: a small bug
+
+Title: Fix the backup script exiting 0 when the archive step fails
+
+```
+## Why
+`backup.sh` prints "done" and exits 0 even when `tar` fails, so the nightly job reports success with no archive. Whoever restores from it finds nothing.
+
+## Reproduction
+1. Make the target directory read-only: `chmod a-w ~/backups`.
+2. Run `./backup.sh; echo "exit=$?"`.
+
+## Expected
+`tar`'s error is printed and the script exits non-zero.
+
+## Actual
+`tar: Cannot open: Permission denied` is printed, then `done`, then `exit=0`.
+
+## Done means
+- [ ] With `~/backups` read-only, `./backup.sh; echo "exit=$?"` prints `exit=1` and does not print "done".
+- [ ] With `~/backups` writable, `./backup.sh; echo "exit=$?"` prints `exit=0` and the archive exists.
+
+## Size
+Small: one repo, one PR.
+```
+
+The bug adds Reproduction, Expected and Actual after Why. It has no Scope (one step), no Out of scope and no Decisions (nothing was decided), so it leaves those out.
+
+## Worked example 2: a multi-repo ticket
+
+Title: Show sync errors in the notes CLI by having the sync service report them
+
+```
+## Why
+When the sync service fails to push a note, the `notes` CLI still prints "synced". Users find out days later that a note never left their machine.
+
+## Scope
+1. `notes-sync` (service): add an `errors` field to the `/status` response listing each failed note and its error.
+2. `notes-cli`: read that field after every sync and print each error, exiting non-zero if there are any.
+
+## Out of scope
+- Retrying failed pushes. Tracked separately.
+- A UI for the errors in the web app.
+
+## Done means
+- [ ] `curl -s localhost:8080/status | jq .errors` against a service holding a failed note prints a non-empty list.
+- [ ] `notes sync; echo "exit=$?"` against that service prints the failed note's name and `exit=1`.
+- [ ] `notes sync; echo "exit=$?"` with no failed notes prints `synced` and `exit=0`.
+- [ ] With a released `notes-sync` (not a local build) running, the `notes sync` check above still prints `exit=1` for a failed note.
+
+## Decisions
+* The service reports errors in `/status`; the CLI doesn't read the service's log file. David, 2026-11-17.
+* `notes-sync` merges and releases first, because the CLI needs the new field. David, 2026-11-17.
+
+## Size
+Medium: two repos, two PRs.
+
++++ Agent notes
+
+* `/status` is built in `notes-sync/src/status.py`; failed pushes are already collected in `PushQueue.failed`, so the change is exposing them, not detecting them.
+* Checked: the CLI ignores unknown fields in `/status`, so the service can ship first. Not checked: the web app's use of `/status`.
+
++++
+```
+
+Order of the PRs, with the keyword each uses:
+
+- The `notes-sync` PR finishes only part of the ticket: its description says `Refs VIL-N`.
+- The `notes-cli` PR finishes the ticket: its description says `Fixes VIL-N`.
+
+In another repo's PR the id is the same; only the keyword changes. After the first merge, read the ticket and reopen it if it moved to Done.
+
+## Filing and grooming
+
+Filing a ticket and grooming one will be done with the `dv:ticket` skill, which comes with VIL-797 (the second of its two PRs, in the skills repo). It doesn't exist yet. Until it does, write tickets by this file. `.claude/commands/ticket.md` in dotfiles still files them, and its Step 2 points here; it is retired when the skill exists.
