@@ -41,7 +41,29 @@ cells() {
   printf '%s' "${line:0:20}"
 }
 
+# fillcolor <window> <tokens> <shell> -> the color escape of the ctx bar's first cell (the fill).
+fillcolor() {
+  local esc json
+  esc=$'\033'
+  json=$(printf '{"model":{"display_name":"M"},"context_window":{"total_input_tokens":%s,"context_window_size":%s}}' "$2" "$1")
+  printf '%s' "$json" | HOME="$T/home" CLAUDE_CONFIG_DIR="$T/cfg" "$3" "$SCRIPT" 2>/dev/null |
+    grep 'ctx ' | head -n 1 | sed -n "s/.*ctx ${esc}\\[0m\\(${esc}\\[[0-9;]*m\\).*/\\1/p"
+}
+# The expected colors come from the script's own ramp(), not hand-typed escapes.
+eval "$(sed -n '/^ramp() {/,/^}/p' "$SCRIPT")"
+type ramp >/dev/null 2>&1 || { echo "could not load ramp() from $SCRIPT" >&2; exit 1; }
+
 fail=0
+# check_color <name> <actual escape> <expected escape> <same|differ>
+check_color() {
+  local name="$1" got="$2" want="$3" mode="$4" shown ok=0
+  shown=${got//$'\033'/ESC}
+  if [ -n "$got" ]; then
+    if [ "$mode" = same ]; then [ "$got" = "$want" ] && ok=1; else [ "$got" != "$want" ] && ok=1; fi
+  fi
+  if [ "$ok" = 1 ]; then printf 'ok      %s  [%s]\n' "$name" "$shown"
+  else printf 'FAIL    %s  [%s]  (%s %s)\n' "$name" "$shown" "$mode" "${want//$'\033'/ESC}"; fail=1; fi
+}
 # check <name> <cells> <solid|notsolid> ...: pass when the cells match the predicates given as
 # further arguments: solid, notsolid, tick=N, mark=N, notick, nomark, play=N (0-based cells).
 check() {
@@ -93,6 +115,15 @@ for sh_ in "${SHELLS[@]}"; do
   check "600k window, 500,000 tokens: fill is solid" "$(cells 600000 500000 "$sh_")" solid
   check "1M window, autoCompactWindow 500000: mark in cell 10, tick steps to cell 9 (both show)" \
     "$(cells 1000000 100000 "$sh_" "$T/cfg-collide")" notsolid tick=9 mark=10
+  # Colors on a 200k window (cue 160k): full yellow is ramp 1000 (permille of the cue). At
+  # 100,000 tokens the fill is 625 permille of the cue, so it must be ramp 625 and not full
+  # yellow; a ramp still keyed to 500k would give 200 permille there and 320 at 160,000.
+  check_color "200k window, 160,000 tokens: fill color is full yellow (ramp 1000)" \
+    "$(fillcolor 200000 160000 "$sh_")" "$(ramp 1000)" same
+  check_color "200k window, 100,000 tokens: fill color is ramp 625, not full yellow" \
+    "$(fillcolor 200000 100000 "$sh_")" "$(ramp 625)" same
+  check_color "200k window, 100,000 tokens: fill color differs from full yellow" \
+    "$(fillcolor 200000 100000 "$sh_")" "$(ramp 1000)" differ
   check "no window, 100,000 tokens: no tick, no compaction mark" \
     "$(cells none 100000 "$sh_")" notsolid notick nomark
   check "no window, 500,000 tokens: solid fill, still no tick or mark" \
