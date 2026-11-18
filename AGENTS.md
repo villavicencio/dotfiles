@@ -12,6 +12,12 @@ conventions every change must follow, and how to verify a change before committi
 
 ---
 
+## Operating mode
+
+Manager Mode is standing in this project since 2026-11-14, until David says otherwise. At the start of every session, invoke `dv:manager-mode`. The mode's text lives in that skill, not in this file. An agent that cannot invoke the skill reads `plugins/dv/skills/manager-mode/SKILL.md` in the GitHub repo `villavicencio/skills` and follows it.
+
+---
+
 ## What this repo is
 
 Personal dotfiles — the single source of truth for two Macs and a headless Mac mini server,
