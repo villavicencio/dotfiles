@@ -74,6 +74,7 @@ Full ladder: `docs/agents/web-research.md`.
 
 ## Subagents
 - Only when I ask, or when an invoked skill's procedure requires them. Invoking the skill is the request. Its subagents exist for independence (`dv:gauntlet`'s fresh-context validators, `dv:critique`'s three lenses), so never simulate them in-context; the output looks the same and is worthless.
+- Invoking `dv:manager-mode`, or a line in a project's `CLAUDE.md`/`AGENTS.md` that makes that mode standing, is the ask this rule requires. The skill is in the `dv` plugin (repo `villavicencio/skills`, `plugins/dv/skills/manager-mode/SKILL.md`).
 - Announce a fan-out of more than about 3 agents, or an unbounded batch, in one line before spawning.
 
 ## Mac setup (personal Mac)
