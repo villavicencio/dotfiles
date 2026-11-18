@@ -48,7 +48,7 @@ This is different from the `someday` label (`claude/CLAUDE.md`, Linear). A `some
 
 ## Linking a PR to a ticket without closing it
 
-A PR that only partly finishes a ticket says `Refs VIL-N` in its description. The PR that finishes the ticket says `Fixes VIL-N`. Put the line in the PR description or title: the page says "Magic words in PR comments won't create links."
+A PR that only partly finishes a ticket says `Refs VIL-N` in its description. The PR that finishes the ticket says `Fixes VIL-N`. Put the line in the PR description only, not the title: the page says "Magic words in PR comments won't create links."
 
 What Linear's documentation says (https://linear.app/docs/github, fetched 2026-11-17 PT):
 
@@ -62,7 +62,7 @@ What Linear's documentation says (https://linear.app/docs/github, fetched 2026-1
 
 What the page doesn't say: whether a branch-name link is a closing or a non-closing relationship, or which one wins when the branch name has the id and the description says `Refs`. Don't assume `Refs` is enough. Our own observation says a bare mention in a PR title or body, or a branch named after a ticket, has closed a ticket when the PR merged (`claude/CLAUDE.md`, Linear; mergewren#62, 2026-10-22). So:
 
-- On a PR that only partly finishes a ticket, write `Refs VIL-N` in the description, keep the id out of the title, and don't write `Fixes`, `Closes` or `Resolves` anywhere in the PR or its commits.
+- On a PR that only partly finishes a ticket, write `Refs VIL-N` in the description only. Keep the id out of the title, and don't use any closing word with it, in the PR or its commits: close, fix, resolve, complete or implement, in any form (the closing list above).
 - After the merge, read the ticket's state. If it moved to Done and isn't finished, reopen it. This is the existing rule in `claude/CLAUDE.md`; it stays in force because the branch-name case is not settled by the docs.
 - If a PR must not touch the ticket at all, the docs say to put `Ignore VIL-N` in the description. That is untested here.
 - Keep the `<type>/vil-N-slug` branch name that the global rules ask for. It links the PR to the ticket, which is wanted; the reopen step above covers the case where the link closes it.
@@ -85,7 +85,7 @@ No bulk rewrite. A ticket is brought to the format when it is groomed: someone r
 
 ## Linear issue template
 
-Linear's app can hold one issue template, so a ticket filed by hand starts from the same sections. This file is the source; the template in Linear is a copy. When the format here changes, update the template to match.
+We keep one issue template in Linear's app, so a ticket filed by hand starts from the same sections. This file is the source; the template in Linear is a copy. When the format here changes, update the template to match.
 
 The body is the section headings, each with a one-line hint, and nothing more. Type blocks and Agent notes are not in it; add them by hand when the ticket needs them.
 
@@ -183,4 +183,4 @@ In another repo's PR the id is the same; only the keyword changes. After the fir
 
 ## Filing and grooming
 
-Filing a ticket and grooming one will be done with the `dv:ticket` skill, which comes with VIL-797 (the second of its two PRs, in the skills repo). It doesn't exist yet. Until it does, write tickets by this file, and `.claude/commands/ticket.md` in dotfiles stays as it is.
+Filing a ticket and grooming one will be done with the `dv:ticket` skill, which comes with VIL-797 (the second of its two PRs, in the skills repo). It doesn't exist yet. Until it does, write tickets by this file. `.claude/commands/ticket.md` in dotfiles still files them, and its Step 2 points here; it is retired when the skill exists.

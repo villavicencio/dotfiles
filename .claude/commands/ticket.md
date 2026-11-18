@@ -44,24 +44,7 @@ Read the user's description carefully. Identify:
 - Whether it affects one or both machines (personal/work)
 
 ### Step 2 — Compose the issue
-Write a well-structured issue with:
-
-```
-Title: [Short, action-oriented. Start with a verb. E.g. "Fix duplicate PATH entries in zshenv"]
-
-Description:
-## Context
-[What prompted this. Reference the specific file, line, or shell behavior.]
-
-## Affected Files
-[List the config files involved, e.g. `zsh/zshenv`, `zsh/zshrc`]
-
-## Task
-[Numbered steps. Be specific. Reference file paths, line numbers, variable names, and shell behavior.]
-
-## Acceptance
-[Clear, testable done criteria. What does "correct" look like? E.g. "Running `echo $PATH | tr ':' '\n' | sort | uniq -d` produces no output."]
-```
+Write the ticket in the format in `docs/agents/tickets.md` (read it first): a title that starts with a verb and names the outcome, then the sections it defines (Why and Done means always; the others when they apply), the type block for a bug, research or automation ticket, and, for a ticket left in Backlog, one pull-condition line. Done means lines must be provable by a command or an observation.
 
 ### Step 3 — Pick labels
 Choose 1-3 labels from the table above. When in doubt: `zsh` for shell config,
@@ -72,7 +55,7 @@ Call `mcp__linear__save_issue` (no `id` — that would be an update):
 
 - `team`: `"Villavicencio"`
 - `project`: `"Dotfiles"`
-- `state`: `"Todo"` (actionable now) or `"Backlog"` (needs a decision; add the `someday` label for a parked idea)
+- `state`: `"Todo"` (actionable now) or `"Backlog"` (needs a decision, with its pull condition in the description; add the `someday` label instead for a parked idea)
 - `title` / `description`: from Step 2 — pass real newlines in markdown, not `\n` escapes
 - `labels`: from Step 3, e.g. `["Bug", "zsh"]`
 
