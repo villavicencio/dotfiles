@@ -21,7 +21,7 @@ Managed by [Dotbot](https://github.com/anishathalye/dotbot). Run `./install` to 
 
 ## Operating mode
 
-Manager Mode is standing in this project since 2026-11-14, until David says otherwise. At the start of every session, invoke `dv:manager-mode`. The mode's text lives in that skill, not here.
+Manager Mode is standing in this project since 2026-11-14, until David says otherwise. At the start of every session, invoke `dv:manager-mode`. Do it before your first reply, whatever the first message asks; don't ask first. The mode's text lives in that skill, not here.
 
 ---
 
