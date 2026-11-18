@@ -55,7 +55,7 @@ Call `mcp__linear__save_issue` (no `id` — that would be an update):
 
 - `team`: `"Villavicencio"`
 - `project`: `"Dotfiles"`
-- `state`: `"Todo"` (actionable now) or `"Backlog"` (needs a decision, with its pull condition in the description; add the `someday` label instead for a parked idea)
+- `state`: `"Todo"` for work that is actionable now; `"Backlog"` with a one-line pull condition in the description for planned work waiting on something named; `"Backlog"` with the `someday` label (not in the table above; add it to `labels`) and no pull condition for a parked idea
 - `title` / `description`: from Step 2 — pass real newlines in markdown, not `\n` escapes
 - `labels`: from Step 3, e.g. `["Bug", "zsh"]`
 
