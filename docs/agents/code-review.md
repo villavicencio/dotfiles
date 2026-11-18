@@ -432,15 +432,14 @@ rounds (the first three) are for a PR under its reviewer.
 - **A reviewer panel before review doesn't replace the review.** The ban on hand-rolled
   reviews at the top of this file stands: the review of the diff still goes through the repo's
   reviewer.
-- **On a PR under review, an engineer (a hired agent) waits for the reviewer in the
-  foreground.** Run the wait with a long command timeout (the limit is 10 minutes) and run it
-  again if it times out; don't start it as a background shell. On a MergeWren PR the wait is
-  `mergewren_review <pr>`; on a CodeRabbit PR it is the poll under "Merging on a CodeRabbit
-  review". A repo with no remote PR has no reviewer wait to run, so this rule doesn't apply
-  there. Stop any background shell you started before your final report. A background wait
-  notifies the manager on every review round, and a shell that outlives the agent's last turn
-  likely leaves a finished agent listed as waiting. If one is still listed after it reported
-  and its PR merged, stop it.
+- **On a PR under review, an engineer (a hired agent) runs the reviewer wait in the
+  foreground, not as a background shell.** If the wait ends without a verdict (pending, timed
+  out, or the command is cut off), the engineer reports that to the manager and doesn't start
+  it again on its own. A repo with no remote PR has no reviewer wait, so this rule doesn't
+  apply there. The engineer stops any background shell it started before its final report. A
+  background wait notifies the manager on every review round, and a shell that outlives the
+  agent's last turn likely leaves a finished agent listed as waiting. If one is still listed
+  after it reported and its PR merged, stop it.
 
 ## After the merge: delete the branch
 
