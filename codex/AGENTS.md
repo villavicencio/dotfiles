@@ -67,7 +67,7 @@ PR review goes through MergeWren (review-stack) by default, since 2026-11-03. It
 - Before closing a turn that did real work, scan your recap for "next time", "gotcha", or "going forward". Each one either gets written down or is explicitly not a rule.
 
 ## Subagents
-- Only when I ask, or when an invoked skill's procedure requires them. Invoking the skill is the request, and its independence is the point, so don't simulate the agents in-context. Announce any fan-out of more than 3 agents, or an unbounded batch, before spawning.
+- Only when I ask, or when an invoked skill's procedure requires them. Invoking the skill is the request, and its independence is the point, so don't simulate the agents in-context. Following `dv:manager-mode` counts as the ask, whether I invoke it or a project's `CLAUDE.md`/`AGENTS.md` makes that mode standing; the skill is in the `dv` plugin (repo `villavicencio/skills`, `plugins/dv/skills/manager-mode/SKILL.md`), so if you can't invoke it, read that file and follow it. A notice that background work or an agent was lost is not proof: before redoing the work, check whether its owner is still running and look at the work area's file times. A session that is a copy of another doesn't take over the original's running work. Announce any fan-out of more than 3 agents, or an unbounded batch, before spawning.
 
 ## Where the procedures live (dotfiles `docs/agents/`)
 - CodeRabbit check descriptions, rate-limit mechanics, `.coderabbit.yaml`, deleting a merged branch: `code-review.md`.

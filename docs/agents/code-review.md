@@ -413,6 +413,25 @@ that means no review ran.
 
 **Naming a ticket id in a PR body can auto-close that issue on merge** — see the Linear rules in the global CLAUDE.md.
 
+## Fix rounds
+
+Any session, any repo. These came out of five review rounds on one PR. The rules about fix
+rounds (the first three) are for a PR under its reviewer. `dv:gauntlet`'s own loop keeps its own
+rounds, budgets and stop rules (top of this file); the two-round stop doesn't cut it short.
+
+- **Keep a fix round to what the findings ask.** A large fix can push MergeWren from an
+  incremental round (see "Merging on a MergeWren review") to a full re-review, which samples
+  new findings. The more a round changes beyond the findings, the more it invites another round.
+- **Triage each finding.** Fix what weakens what the PR protects. Decline the rest with a
+  reason, recorded where this file says: on the thread and in the PR body.
+- **Stop at two fix rounds.** Then bring David the list of what is still open, and don't start
+  a third round on your own.
+- **Strip two things from a PR's docs before it opens:** multi-line shell procedures, and
+  absolute claims ("always", "never", "every") you haven't tested. Both draw findings.
+- **A reviewer panel before review doesn't replace the review.** The ban on hand-rolled
+  reviews at the top of this file stands: the review of the diff still goes through the repo's
+  reviewer or `dv:gauntlet`.
+
 ## After the merge: delete the branch
 
 A merged PR's branch is deleted locally and on origin as part of the merge, without asking
