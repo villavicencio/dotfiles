@@ -415,7 +415,9 @@ that means no review ran.
 
 ## Fix rounds
 
-Any session, any repo. These came out of five review rounds on one PR.
+Any session, any repo. These came out of five review rounds on one PR. The rules about fix
+rounds (the first three) are for a PR under its reviewer. `dv:gauntlet`'s own loop keeps its own
+rounds, budgets and stop rules (top of this file); the two-round stop doesn't cut it short.
 
 - **Keep a fix round to what the findings ask.** A large fix can push MergeWren from an
   incremental round (see "Merging on a MergeWren review") to a full re-review, which samples
