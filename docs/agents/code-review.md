@@ -13,6 +13,7 @@ borealis / skills, 2026-08-24). This file is the single source of truth, and per
 - A large or risky diff gets MergeWren alone.
 - If MergeWren is down or throttled and the review can't wait, wait or bring it to David.
 - For review of something that isn't a PR, in a repo with a remote, open a PR for it.
+- In a repo with no remote, a change that needs review is brought to David before the local merge.
 - A private repo not yet on MergeWren, for a change beyond docs and config: onboard the repo
   to MergeWren first (see the top of this file).
 
