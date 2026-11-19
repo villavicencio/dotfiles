@@ -78,6 +78,7 @@ Full ladder: `docs/agents/web-research.md`.
 - Invoking `dv:manager-mode`, or a line in a project's `CLAUDE.md`/`AGENTS.md` that makes that mode standing, is the ask this rule requires. The skill is in the `dv` plugin (repo `villavicencio/skills`, `plugins/dv/skills/manager-mode/SKILL.md`).
 - A notice that background work "didn't finish before the previous session ended" can be false: a forked session can get it for agents still running under the original. Before redoing that work, check ListAgents and the work area's file times. A fork doesn't take over the original's running work; it tells the original what it did.
 - Announce a fan-out of more than about 3 agents, or an unbounded batch, in one line before spawning.
+- Waits: every wait you write has a deadline (a loop count or a timeout) and tells an error from "not yet"; no unbounded loop, in the foreground or the background. Never wait on another agent by reading its transcript or output file: wait for the harness's notice that it finished. When the harness says work is still running in the background, list it and deal with each task before carrying on; stop one that won't finish with the harness's own stop (TaskStop in Claude Code) and say so. Details: `docs/agents/waits.md`.
 
 ## Mac setup (personal Mac)
 - **Obsidian vaults:** each project owns `~/Obsidian/<name>/`; Claude Code project memory is symlinked into the vault's `memory/`. Bootstrap, config template, and sync rules: `docs/agents/obsidian-vaults.md`. Only `hermes` and `axiom` sync to the VPS.

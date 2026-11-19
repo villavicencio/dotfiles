@@ -33,7 +33,8 @@ of the diff itself routes through the repo's reviewer.
 - **A wait loop must tell an error from "not yet".** Check `gh`'s exit status on every
   pass; on failure, print the error and stop. On dotfiles#259 (2026-11-02) a MergeWren wait
   loop passed `--arg` to `--jq`. Every pass failed, the empty output read as "still pending",
-  and it spun silently for about 20 minutes until David asked. Shape:
+  and it spun silently for about 20 minutes until David asked.
+  This is one case of the general rule in `docs/agents/waits.md`. Shape:
 
   ```bash
   for i in $(seq 1 20); do
