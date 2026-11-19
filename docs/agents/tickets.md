@@ -1,6 +1,6 @@
 # Writing Linear tickets
 
-One format for every Linear ticket in every project (VIL-797, decided with David 2026-11-17). This file is the source. The global `claude/CLAUDE.md` and `codex/AGENTS.md` point here under "Linear", and the `dv:ticket` skill reads it (see the end of this file).
+One format for every Linear ticket in every project (VIL-797, decided with David 2026-11-17). This file is the source. The global `claude/CLAUDE.md` and `codex/AGENTS.md` point here under "Linear", and the `dv:ticket` and `dv:groom` skills read it (see the end of this file).
 
 A ticket is often worked days later by an agent that knows only what the ticket says. A missing reason or a vague "done" costs a round of questions or a wrong result. The format exists to prevent those two failures.
 
@@ -183,6 +183,28 @@ In another repo's PR the id is the same; only the keyword changes. After the fir
 
 ## Filing and grooming
 
-The `dv:ticket` skill, from the `dv` plugin (repo `villavicencio/skills`), files and grooms tickets in this format. `dv:ticket <request>` drafts a ticket, finds the Linear project and labels that fit, and creates it only after you confirm. `dv:ticket groom VIL-N` checks an existing ticket against this format and checks the facts it states, and proposes edits; it does not start the work.
+Two skills from the `dv` plugin (repo `villavicencio/skills`) work in this format. Neither starts the work on a ticket; starting is a separate request.
 
-A ticket written by hand, in the Linear UI or by an agent without the skill, follows this file.
+`dv:ticket <request>` files a ticket. It drafts the ticket, checks the facts the draft states, finds the Linear project and labels that fit, and creates it only after you confirm.
+
+`dv:groom VIL-N` grooms one existing ticket before anyone works it. `dv:ticket groom VIL-N` still works and hands the ticket to `dv:groom`. A run:
+
+1. Reads the ticket, its comments and its neighbors: related, blocking and blocked tickets, the parent and children, and each PR it names. It also searches the team for work that is already done or planned elsewhere.
+2. Checks the ticket against this format and lists the gaps.
+3. Checks every fact that a Scope step or a Done means line depends on, against the repo commit or the system the fact is about, and samples the rest. It closes a conditional step ("check whether X; if so, do Y") when one or two read-only commands settle it, and turns each prerequisite into a blocked-by relation when it maps to one ticket.
+4. Proposes a size, with the count of repos and PRs, and decides whether to split the ticket.
+5. Looks once past the ticket's text for small improvements that belong in it, spin-off tickets (at most three) and process problems, such as a branch name that breaks a repo's rule.
+6. Asks every open decision as a multiple-choice interview, at most four questions a round. A numeric target is always David's to set.
+7. Applies only the numbered edits David approves, and files only the children and spin-offs David approved. A yes to a split or a spin-off in the interview approves filing it as shown.
+
+**Splits.** A ticket is split when its parts can merge on their own in different repos, when it mixes a mechanical change with a design choice, when part of it is blocked, when it is large, or when one part is risky. It is not split when the parts must land together. The parent either becomes the first child or stays as the parent with the children under it, in which case its description is replaced by one whose Scope names the children. Linear can't create tickets and edit another in one step, so the children are filed first and the parent is changed last. A failure part way leaves the work in two places, never in none. Groom stops on a create error or when the parent changed since the split was approved, and lists what exists for David to settle.
+
+**Spin-offs.** Work the ticket suggests but should not carry, filed as its own ticket related to the groomed one, after a duplicate search.
+
+**Agent notes.** Groom opens the ticket's Agent notes with a grooming line, `Groomed <date> <time> <zone> against <repo> <commit>`, and adds up to three lists, each only when it has something in it:
+
+- **Checked and current:** each fact it checked, with how.
+- **For the engineer:** the repo rules that bite on this ticket, the branch name to use, what not to touch.
+- **After the merge:** follow-ups that are not the worker's, such as notes to update or a ticket to comment on.
+
+A ticket written by hand, in the Linear UI or by an agent without these skills, follows this file.
