@@ -77,7 +77,8 @@ changes no files: the function then finds no worktree on the branch and deletes 
 (skills, VIL-843 closeout, 2026-11-19).
 
 **`gh pr close --delete-branch` while a worktree has the branch checked out closes the PR and
-leaves the branch on origin.** Delete it only while it still points at the PR's head:
+leaves the branch on origin.** For a PR from a branch in this repo (not a fork), delete it only
+while it still points at the PR's head:
 `git push --force-with-lease=refs/heads/<branch>:<head> origin :refs/heads/<branch>`, with
 `<head>` from `gh pr view <N> --json headRefOid -q .headRefOid`. A branch that moved since is
 refused; check with `git ls-remote origin refs/heads/<branch>` (skills PR 72, 2026-11-19).
