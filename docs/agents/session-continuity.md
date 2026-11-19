@@ -33,12 +33,18 @@ same-session, say so explicitly instead of pretending it's been hours.
 
 # The context meter
 
-<!-- Moved out of claude/CLAUDE.md on 2026-10-28: David reads the meter; agents only need the 200k cue, which CLAUDE.md keeps. -->
+<!-- Moved out of claude/CLAUDE.md on 2026-10-28: David reads the meter; agents only need the 500k cue, which CLAUDE.md keeps. -->
 
-The statusline `ctx` meter turns full yellow with a solid fill at 200k tokens; that's the cue to
-hand off and start fresh. When Claude Code reports the window size, the bar can also show a dim
-`╎` at 200k ahead of the fill and a white `┃` at `autoCompactWindow`; when each one draws is in
-`claude/statusline-command.sh`. If Claude Code reports neither the token count nor the window
+The statusline `ctx` meter turns full yellow with a solid fill at 500k tokens; that's the cue to
+hand off and start fresh. On a window of 500k or less the cue is 80% of the window instead
+(160k on a 200k window). When Claude Code reports the window size, the bar can also show a dim
+`╎` at the cue ahead of the fill and a white `┃` at `autoCompactWindow` (600k); when each one
+draws is in `claude/statusline-command.sh`, and `ci/statusline-checks.sh` pins it. The cue is a
+balance between usage per turn (every turn re-reads the whole context) and interruptions. David
+chose 500k on 2026-11-17 and the 80% rule for small windows on 2026-11-18, replacing the 200k
+cue from VIL-402; 500k leaves time to write a handoff before compaction fires. If Claude Code
+reports the token count but not the window, the bar assumes 1M, keeps the 500k cue and draws
+neither the tick nor the compaction mark. If it reports neither the token count nor the window
 size, the meter shows a plain percentage with neither cue. Auto-compaction is only a backstop:
 `autoCompactWindow` puts it at 600k, 60% of a 1M window (since 2026-11-11; it was 400k). Claude
 Code caps the value at the model's own window, so a model with a smaller window compacts at its
@@ -46,3 +52,14 @@ usual point. On desk Macs and Windows, `helpers/migrate_claude_settings.py` adds
 it's missing but leaves an existing value alone; hal's server profile gets neither the seed nor
 that step (`docs/reference/install-and-server.md`). So a machine set to 400k keeps it until the
 value is changed in its `~/.claude/settings.json`.
+
+An agent can read its own context size from its session transcript,
+`~/.claude/projects/<project>/<session>.jsonl`: take the last `assistant` entry and sum its
+`message.usage` fields `input_tokens + cache_read_input_tokens + cache_creation_input_tokens`.
+That sum is the prompt size of the latest call. (Field names checked against a real transcript on 2026-11-18; they are Claude Code's, not a documented interface.)
+For example (`<file>` is the transcript):
+
+```
+jq -s '[.[] | select(.type=="assistant" and .message.usage) | .message.usage] | last
+       | .input_tokens + .cache_read_input_tokens + .cache_creation_input_tokens' <file>
+```

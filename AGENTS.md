@@ -235,6 +235,7 @@ Run these before committing. `bin/dot` (`~/.local/bin/dot` once installed) wraps
 | hal memory mirror (after changing `helpers/hal_memory_pull.sh` or its installer) | `ci/hal-memory-pull-checks.sh` | exit 0 (local only, macOS, temp folders, fake ssh, stub launchctl) |
 | hal-as-hal key (after changing `helpers/add_hal_as_hal_key.sh`) | `ci/hal-as-hal-key-checks.sh` | exit 0 (local only, temp folders, fake ssh and tailscale) |
 | hal shared clone (after changing `helpers/hal_shared_clone.sh`, `helpers/hal_shared_clone_sync.sh` or `helpers/hal_dotfiles_sync_check.sh`) | `ci/hal-shared-clone-checks.sh` | exit 0 (local only, macOS, temp folders, fake ssh, a local bare repo for GitHub) |
+| Statusline ctx meter (after changing `claude/statusline-command.sh`) | `ci/statusline-checks.sh` | exit 0 (local only, temp `CLAUDE_CONFIG_DIR`, needs `jq`) |
 
 **Dry-run must never mutate config.** `./install --dry-run` previews Dotbot directives
 without applying them. The only thing the wrapper does regardless is init the vendored

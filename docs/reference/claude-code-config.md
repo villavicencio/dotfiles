@@ -24,10 +24,14 @@ part of the plugin, not this repo.
   also reads as "brighter".
 - **Context meter.** A bar over the model's whole window (`context_window_size`, 1M when absent),
   labeled in tokens. Its color doesn't follow the bar: it ramps to yellow on the way to
-  `CTX_HANDOFF`, the 200k hand-off cue (VIL-402: every turn re-reads the whole context, so a
-  session should end there), and past it the fill turns solid. Ahead of the fill a dim ╎ marks the
-  hand-off cue and a white ┃ marks `autoCompactWindow`, read live from `settings.json`, so moving
-  it moves the marker; no setting, no marker. A shaded runway between the two read as context
+  `CTX_HANDOFF`, the 500k hand-off cue (a balance between usage per turn, since every turn
+  re-reads the whole context, and interruptions; it was 200k under VIL-402 until VIL-810), and past
+  it the fill turns solid. When the input names a window of 500k or less, the cue is 80% of that
+  window instead (160k on a 200k window): the ramp, the solid fill and the tick all use it. With
+  no window in the input the cue stays 500k and no tick or mark draws. Ahead of the fill a dim ╎
+  marks the hand-off cue and a white ┃ marks `autoCompactWindow`, read live from `settings.json`,
+  so moving it moves the marker; no setting, no marker. `ci/statusline-checks.sh` pins these
+  states (run by hand). A shaded runway between the two read as context
   already used, so the track stays plain.
 - **Slider width (VIL-82).** 20 cells, 5 points each. Three meters render ~105 columns, which fits a
   full-width pane but wraps in a split one, so 20 is the ceiling. Halving the step from 10 separated

@@ -75,9 +75,11 @@ ramp() {
 meter_color() { ramp $(( $1 * 1000 / 70 )); }
 
 # Context meter: a bar over the whole window (1M when absent) whose color ramps to
-# yellow at CTX_HANDOFF, the hand-off cue; ╎ marks the cue and ┃ marks autoCompactWindow,
-# read live. Details: docs/reference/claude-code-config.md.
-CTX_HANDOFF=200000
+# yellow at the hand-off cue; ╎ marks the cue and ┃ marks autoCompactWindow, read live.
+# The cue is CTX_HANDOFF (500k tokens), except that a window of CTX_HANDOFF or less
+# gets 80% of the window (160k on a 200k window), so a small model still sees the cue
+# before it fills. Details: docs/reference/claude-code-config.md.
+CTX_HANDOFF=500000
 
 # Render a BAR_CELLS-cell slider for a 0-100 value (the ccstatusline "slider"
 # style): cells left of the playhead are filled (U+2593 dark shade ->
@@ -314,14 +316,19 @@ if [ -n "$model" ] || [ -n "$used" ] || [ -n "$ctx_tok" ] || [ -n "$lim5" ] || [
     if [ "$ctx_tok" -ge 0 ] 2>/dev/null; then
       win=$ctx_win; [ "$win" -gt 0 ] 2>/dev/null || win=$CTX_WINDOW_DEFAULT
       u=$(( ctx_tok * 100 / win )); [ "$u" -gt 100 ] && u=100
-      c=$(ramp $(( ctx_tok * 1000 / CTX_HANDOFF )))
-      glyph=""; [ "$ctx_tok" -ge "$CTX_HANDOFF" ] && glyph='\342\226\210'
+      # The effective cue: CTX_HANDOFF, or 80% of a window the input names that is
+      # CTX_HANDOFF or smaller. An assumed window (none in the input) keeps CTX_HANDOFF.
+      cue=$CTX_HANDOFF
+      if [ "$win" = "$ctx_win" ] && [ "$win" -le "$CTX_HANDOFF" ]; then cue=$(( win * 8 / 10 )); fi
+      [ "$cue" -gt 0 ] || cue=1   # a 1-token window would make 0, and the ramp divides by it
+      c=$(ramp $(( ctx_tok * 1000 / cue )))
+      glyph=""; [ "$ctx_tok" -ge "$cue" ] && glyph='\342\226\210'
       # Tick and marker cells round to nearest, like the playhead. On an assumed
       # window (none in the input) their places would be a guess, so neither
       # draws; nor does a point at or past the window's end.
       tk=-1; mk=-1
       if [ "$win" = "$ctx_win" ]; then
-        [ "$CTX_HANDOFF" -lt "$win" ] && tk=$(( (CTX_HANDOFF * BAR_CELLS + win / 2) / win ))
+        [ "$cue" -lt "$win" ] && tk=$(( (cue * BAR_CELLS + win / 2) / win ))
         compact=$(jq -r '.autoCompactWindow // empty' "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/settings.json" 2>/dev/null)
         if [ "$compact" -gt 0 ] 2>/dev/null && [ "$compact" -lt "$win" ]; then
           mk=$(( (compact * BAR_CELLS + win / 2) / win ))
@@ -329,19 +336,19 @@ if [ -n "$model" ] || [ -n "$used" ] || [ -n "$ctx_tok" ] || [ -n "$lim5" ] || [
         # A point in the last half cell rounds to BAR_CELLS, one past the end.
         [ "$tk" -ge "$BAR_CELLS" ] && tk=$(( BAR_CELLS - 1 ))
         [ "$mk" -ge "$BAR_CELLS" ] && mk=$(( BAR_CELLS - 1 ))
-        # A compaction point within half a cell of 200k lands in the tick's cell:
+        # A compaction point within half a cell of the cue lands in the tick's cell:
         # the tick steps one cell to its own side of the marker, so both show. If
         # that side is off the bar, the tick isn't drawn rather than drawn on the
         # wrong side.
         if [ "$tk" -ge 0 ] && [ "$tk" -eq "$mk" ]; then
-          if [ "$CTX_HANDOFF" -le "$compact" ]; then tk=$(( mk - 1 )); else tk=$(( mk + 1 )); fi
+          if [ "$cue" -le "$compact" ]; then tk=$(( mk - 1 )); else tk=$(( mk + 1 )); fi
           [ "$tk" -ge "$BAR_CELLS" ] && tk=-1
         fi
       fi
       printf "%s\033[37mctx \033[0m" "$sep"; bar "$u" "$c" "$tk" "$mk" "$glyph"
       if [ "$win" != "$ctx_win" ]; then wl=""
       elif [ $(( win % 1000000 )) -eq 0 ]; then wl="/$(( win / 1000000 ))M"; else wl="/$(( win / 1000 ))k"; fi
-      # Round down, so the label never reads 200k before the fill turns solid.
+      # Round down, so the label never reads the cue before the fill turns solid.
       printf "%s %dk%s\033[0m" "$c" $(( ctx_tok / 1000 )) "$wl"; sep="  "
     elif [ -n "$used" ]; then
       # No token count and no window: no token claim, no hand-off cue, no marker.
