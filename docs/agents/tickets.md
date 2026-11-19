@@ -1,6 +1,6 @@
 # Writing Linear tickets
 
-One format for every Linear ticket in every project (VIL-797, decided with David 2026-11-17). This file is the source. The global `claude/CLAUDE.md` and `codex/AGENTS.md` point here under "Linear", and so will the `dv:ticket` skill (see the end of this file).
+One format for every Linear ticket in every project (VIL-797, decided with David 2026-11-17). This file is the source. The global `claude/CLAUDE.md` and `codex/AGENTS.md` point here under "Linear", and the `dv:ticket` skill reads it (see the end of this file).
 
 A ticket is often worked days later by an agent that knows only what the ticket says. A missing reason or a vague "done" costs a round of questions or a wrong result. The format exists to prevent those two failures.
 
@@ -183,4 +183,6 @@ In another repo's PR the id is the same; only the keyword changes. After the fir
 
 ## Filing and grooming
 
-Filing a ticket and grooming one will be done with the `dv:ticket` skill, which comes with VIL-797 (the second of its two PRs, in the skills repo). It doesn't exist yet. Until it does, write tickets by this file. `.claude/commands/ticket.md` in dotfiles still files them, and its Step 2 points here; it is retired when the skill exists.
+The `dv:ticket` skill, from the `dv` plugin (repo `villavicencio/skills`), files and grooms tickets in this format. `dv:ticket <request>` drafts a ticket, finds the Linear project and labels that fit, and creates it only after you confirm. `dv:ticket groom VIL-N` checks an existing ticket against this format and checks the facts it states, and proposes edits; it does not start the work.
+
+A ticket written by hand, in the Linear UI or by an agent without the skill, follows this file.

@@ -61,7 +61,7 @@ Each line is a rule; the file in parentheses has the why, the history and the ex
 - The `atlas`/`axiom`/`syd` functions and their Orca tabs: `docs/reference/hermes-commands.md`. hal's server profile: `docs/reference/install-and-server.md`. WSL and the Linux git overlay: `docs/reference/wsl-linux.md`. Work Mac setup: `docs/reference/work-mac.md`.
 
 **Tickets, branches and review** (`docs/reference/review-and-merge.md`)
-- Issues live in Linear (project Dotfiles, team key VIL); use `/ticket`. Never create GitHub issues.
+- Issues live in Linear (project Dotfiles, team key VIL); file and groom them with `dv:ticket`. Never create GitHub issues.
 - Behavior and config changes go on a branch (`feat/`, `fix/`, `chore/`, `docs/`, `style/`) and merge by PR. Docs, typos and handoffs can go straight to `master`. A ticket always gets its own branch, named `<type>/vil-N-<slug>` (e.g. `feat/vil-522-statusline-ticket`), so the statusline shows its id (VIL-522).
 - Review is review-stack (MergeWren). It reviews each new head of a non-draft PR in 2–6 minutes. Wait for the current head's verdict with `source bin/lib/mergewren-review.sh; mergewren_review <N>` (`docs/agents/code-review.md`, "Merging on a MergeWren review").
   It's merge-ready when that comment has no unwaived high or critical finding and the unresolved-threads check is empty. A `partial` or `failed` verdict, or "did not complete", means not reviewed. Don't wait for or trigger CodeRabbit here.
@@ -126,9 +126,8 @@ claude/
   statusline-command.sh  Statusline script (symlinked to ~/.claude/statusline-command.sh)
 ```
 
-Note: the `/handoff`, `/pickup`, and `/review-claudemd` slash commands now live in an
-external Claude Code plugin, not this repo. The only repo-local command is
-`.claude/commands/ticket.md` (a hidden `.claude/` dir for working *in* this repo).
+Note: the `/handoff`, `/pickup`, and `/review-claudemd` slash commands, and `dv:ticket`,
+live in the external `dv` Claude Code plugin, not this repo. The repo has no commands of its own.
 
 ---
 
