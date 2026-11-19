@@ -55,6 +55,7 @@ PR review goes through MergeWren (review-stack) by default, since 2026-11-03. It
 - Mark linked issues Done at merge. Mentioning a `VIL-` id in a PR title or body can auto-close it on merge, even in "VIL-411 filed" (mergewren#62, 2026-10-22). After merging, re-check every id the PR named and reopen the ones that aren't finished. A branch named after a ticket (`feat/vil-391-…`) can close it the same way when its PR merges, so a multi-part ticket gets reopened after the first part.
 - Put real newlines in Linear markdown, not literal `\n`.
 - Ticket format: write every Linear ticket as `docs/agents/tickets.md` says: a verb-first title, a Why, and Done means lines that a command or an observation can prove.
+- Ticket states: In Progress when work starts, In Review when the PR opens (set by the session that opens it), Done at merge; the PR description has one `Refs VIL-N` or `Fixes VIL-N` line per ticket. Details: `docs/agents/tickets.md`, "Ticket states".
 - A `someday` label marks a parked idea: worth keeping, not planned. Never suggest a `someday` issue as next work (pickups, handoffs, daily plans, backlog lists) unless I ask for someday items. When I say an idea is "maybe someday", add the label and set priority to none; removing the label brings it back. Atlas (hal, as `hal`) skips them in its weekday plan and posts the list to my Slack DM Fridays 16:00 PT (cron job `572d2f167b79`, script `~/.hermes/scripts/someday_digest.py`).
 
 ## Current facts
