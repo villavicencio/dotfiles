@@ -134,21 +134,13 @@ both, every time, before declaring a PR mergeable.**
 
 ### Step 1 — read the check description, not its state
 
-```bash
-gh pr checks <N> --json name,state,description \
-  -q '.[] | select(.name|test("CodeRabbit";"i")) | "\(.state)\t\(.description)"'
-```
-
-| Description | Check state | Did a review run? |
-|---|---|---|
-| `Review completed` | pass | **Yes** — go to step 2 |
-| `Review skipped: incremental reviews are disabled` | **pass** | **No** — request one with `@coderabbitai review` |
-| `Review rate limited` | **pass** | **No** — throttled; wait, or take the docs/config carve-out and record the throttle in the PR body |
-| `Review in progress` / `pending` | pending | Not finished — keep polling |
-| `Review failed — the head commit changed during the review` | — | **No** — a push aborted it; the allowance was spent for nothing |
-
-**Three of those five rows show a `pass` state, and only one of them means a review actually
-ran.** Treat `pass` as carrying no information until you have read the string next to it.
+A passing CodeRabbit check is not evidence a review ran — rate-limited, skipped and summary-only
+runs also pass, so read what the check says, not its state. The recipe that used to be here
+(`gh pr checks` with the check's description string) described CodeRabbit before about 2026-10-24,
+when it reported a commit status; since then it reports a check run, and `gh pr checks` shows an
+empty description for it. The current recipe lives in `docs/agents/code-review.md`, section
+"Merging on a CodeRabbit review": it reads the check run (`check-runs?check_name=CodeRabbit`) and
+checks for a `Summarized by CodeRabbit Free` comment.
 
 > The older rule — *poll `gh pr checks <N> \| grep -i '^CodeRabbit'` until it stops saying
 > `pending`* — is satisfied instantly by all three non-review states. A non-pending pass is not
