@@ -69,6 +69,20 @@ checks above still apply before Force. It works from inside that worktree, so a 
 merged its own PR cleans up before the Force delete closes it (VIL-414); source the
 worktree's own copy of the function, since the main checkout may not be pulled yet.
 
+**In a repo with no submodules, detach the Orca worktree before running the cleanup from
+another checkout.** There `cleanup_merged_branch` removes a linked worktree on the PR's branch,
+so run from the main checkout it deletes the directory an Orca session is still working in.
+Run `git -C <worktree> switch --detach` first, which detaches at the worktree's own HEAD and
+changes no files: the function then finds no worktree on the branch and deletes only the branch
+(skills, VIL-843 closeout, 2026-11-19).
+
+**`gh pr close --delete-branch` while a worktree has the branch checked out closes the PR and
+leaves the branch on origin.** For a PR from a branch in this repo (not a fork), delete it only
+while it still points at the PR's head:
+`git push --force-with-lease=refs/heads/<branch>:<head> origin :refs/heads/<branch>`, with
+`<head>` from `gh pr view <N> --json headRefOid -q .headRefOid`. A branch that moved since is
+refused; check with `git ls-remote origin refs/heads/<branch>` (skills PR 72, 2026-11-19).
+
 **There is deliberately no `scripts.archive` to clear the submodule first.** #225 tried one,
 and four review rounds each found a new way an automatic delete could lose work: a staged
 gitlink, remote-tracking refs that outlive their branch, a tag-only pin, branch and tag names,
