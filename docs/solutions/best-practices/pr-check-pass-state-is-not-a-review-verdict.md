@@ -1,5 +1,5 @@
 ---
-title: "A passing PR check is not a review — read the description string and enumerate unresolved threads"
+title: "A passing PR check is not a review — read the check run (its conclusion and title) and enumerate unresolved threads"
 date: 2026-08-25
 category: best-practices
 module: code-review-workflow
@@ -36,7 +36,7 @@ related_solutions:
   - "docs/solutions/best-practices/verify-the-instrument-before-trusting-a-negative.md — same root_cause; a verdict is only as good as the instrument, and here the blind instrument is a check's pass-state"
 ---
 
-# A green check is not a review — read the description string and enumerate the threads
+# A green check is not a review — read the check run and enumerate the threads
 
 ## Context
 
@@ -151,7 +151,7 @@ checks for a `Summarized by CodeRabbit Free` comment.
 
 ### Step 2 — enumerate unresolved threads
 
-The description only says whether a review *ran*. It never says what it found, and findings
+The check run only says whether a review *ran*. It never says what it found, and findings
 arrive as `COMMENTED` reviews that set no blocking verdict. The GraphQL `reviewThreads`
 connection is the only surface exposing `isResolved`, which REST does not:
 
