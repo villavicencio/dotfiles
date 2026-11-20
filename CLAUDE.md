@@ -81,7 +81,7 @@ docs/           Compound-engineering pipeline artifacts:
                 (this repo's long write-ups, moved out of CLAUDE.md)
 ci/             CI assets (Dockerfile for install-matrix's linux leg, PSScriptAnalyzer settings for its windows leg,
                 server-profile-checks.sh for its macos-server leg; cleanup-merged-branch-checks.sh,
-                mergewren-review-checks.sh, op-agent-checks.sh, desktop-commander-remote-log-checks.sh,
+                delete-leftover-branch-checks.sh, mergewren-review-checks.sh, op-agent-checks.sh, desktop-commander-remote-log-checks.sh,
                 hal-memory-pull-checks.sh, hal-as-hal-key-checks.sh, hal-shared-clone-checks.sh and
                 statusline-checks.sh, run by hand, not in CI)
 git/            gitconfig, gitignore, gitattributes, gitconfig.linux (Linux overlay — see
@@ -109,6 +109,7 @@ bin/            Repo CLI — bin/dot, bin/wt (one worktree per parallel session,
   lib/*.py      Python helpers for doctor/bench. Real files, NOT heredocs — see
                 docs/reference/tooling.md
   lib/cleanup-merged-branch.sh  the merged-branch cleanup function (docs/agents/code-review.md)
+  lib/delete-leftover-branch.sh  the leftover local branch delete (docs/agents/code-review.md)
 orca.yaml       Orca's setup script for each new worktree (docs/reference/orca-worktrees.md)
 .worktreeinclude  gitignored files copied into new worktrees (claude --worktree, wt new, orca.yaml)
 tmux/           tmux config

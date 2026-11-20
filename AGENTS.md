@@ -76,6 +76,7 @@ codex/      Codex global instructions — AGENTS.md symlinked to ~/.codex/AGENTS
 bin/        Repo CLI — bin/dot, bin/wt and bin/op-agent (symlinked to ~/.local/bin/)
             bin/lib/*.py — Python helpers for doctor/bench, deliberately NOT heredocs
             bin/lib/cleanup-merged-branch.sh — merged-branch cleanup, sourced by agents and `wt done`
+            bin/lib/delete-leftover-branch.sh — leftover local branch delete, sourced by agents
 orca.yaml   Orca's setup script for each new worktree: checks out the dotbot submodule and
             copies the files .worktreeinclude names. Never ./install from a worktree (the
             live links would point into it and dangle when it's removed). Removing an Orca
@@ -229,6 +230,7 @@ Run these before committing. `bin/dot` (`~/.local/bin/dot` once installed) wraps
 | Homebrew | `brew bundle check --file=brew/Brewfile` | satisfied |
 | Server profile | `ci/server-profile-checks.sh static` | exit 0 |
 | Merged-branch cleanup (after changing `bin/lib/cleanup-merged-branch.sh` or `wt done`) | `ci/cleanup-merged-branch-checks.sh` | exit 0, both shells (local only, not in CI) |
+| Leftover branch delete (after changing `bin/lib/delete-leftover-branch.sh`) | `ci/delete-leftover-branch-checks.sh` | exit 0, both shells (local only, not in CI) |
 | MergeWren wait (after changing `bin/lib/mergewren-review.sh`) | `ci/mergewren-review-checks.sh` | exit 0, both shells (local only, stub `gh`) |
 | `op-agent` guards (after changing `bin/op-agent`) | `ci/op-agent-checks.sh` | exit 0 (local only, stub `op`) |
 | Desktop Commander remote log rotation (after changing the job's logging in `helpers/desktop_commander_remote.sh`) | `ci/desktop-commander-remote-log-checks.sh` | exit 0 (local only, macOS, fake HOME; e2e needs Node) |
