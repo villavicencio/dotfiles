@@ -36,7 +36,8 @@ same-session, say so explicitly instead of pretending it's been hours.
 <!-- Moved out of claude/CLAUDE.md on 2026-10-28: David reads the meter; agents only need the 500k cue, which CLAUDE.md keeps. -->
 
 The statusline `ctx` meter turns full yellow with a solid fill at 500k tokens; that's the cue to
-hand off and start fresh. On a window of 500k or less the cue is 80% of the window instead
+hand off and start fresh, or `/clear` alone when nothing lives only in the session (see "Keep sessions small" in
+`claude/CLAUDE.md`). On a window of 500k or less the cue is 80% of the window instead
 (160k on a 200k window). When Claude Code reports the window size, the bar can also show a dim
 `╎` at the cue ahead of the fill and a white `┃` at `autoCompactWindow` (600k); when each one
 draws is in `claude/statusline-command.sh`, and `ci/statusline-checks.sh` pins it. The cue is a
