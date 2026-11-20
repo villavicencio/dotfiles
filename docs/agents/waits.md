@@ -30,9 +30,10 @@ it again.
 
 **Review waits: use the helpers, not a loop of your own.**
 
-- MergeWren: `source bin/lib/mergewren-review.sh`, then `mergewren_review <pr>`. It returns 0
-  with the verdict, 1 on a GitHub error, and 2 when its deadline passes with no verdict; the
-  other codes are listed at the top of that file.
+- MergeWren: `source <dotfiles clone>/bin/lib/mergewren-review.sh` (on the desk Macs the clone
+  is `~/Projects/Personal/dotfiles`), then `mergewren_review <pr>`. It returns 0 with the
+  verdict, 1 on a GitHub error, and 2 when its deadline passes with no verdict; the other codes
+  are listed at the top of that file.
 - CodeRabbit, on a repo not yet on MergeWren: `cr_wait` in `docs/agents/code-review.md`,
   "Merging on a CodeRabbit review". Only status 0 can mean a review; any other status is a stop.
 
@@ -47,10 +48,11 @@ it again.
    return code instead of counting as pending.
 
 ```bash
-wait_done() {  # wait_done <id>: 0 done, 1 error, 2 timed out, 3 unexpected reply
-  local i r
+wait_done() {  # wait_done <id>: 0 done, 2 timed out, 3 unexpected reply; else status-command's code
+  local i r rc
   for i in $(seq 1 20); do
-    r=$(status-command "$1") || { echo "ERROR: status-command failed (above)" >&2; return 1; }
+    r=$(status-command "$1"); rc=$?
+    if [ "$rc" -ne 0 ]; then echo "ERROR: status-command failed with $rc (above)" >&2; return "$rc"; fi
     case $r in
       DONE) echo "done"; return 0 ;;
       PENDING) sleep 60 ;;
