@@ -8,9 +8,10 @@
 
 # Fails closed: every check has to succeed, a command that fails keeps the branch, and the
 # delete is conditional on the tip that was checked. Local branch only; origin is never
-# changed. Returns 0 after deleting, 1 when it keeps the branch.
+# changed. Returns 0 after deleting, 1 when it keeps the branch, 2 when it deleted the branch
+# but couldn't remove (or check) its config section.
 delete_leftover_branch() {
-  local b=$1 tip rh d oid rl all n o L left common names w
+  local b=$1 tip rh d oid fmt lf rl line o x all left common names w rc
   [ -n "$b" ] || { echo "keeping: no branch named"; return 1; }
   git check-ref-format "refs/heads/$b" || { echo "keeping $b: not a valid branch name"; return 1; }
   tip=$(git rev-parse -q --verify "refs/heads/${b}^{commit}") && [ -n "$tip" ] \
@@ -30,17 +31,28 @@ delete_leftover_branch() {
     || { echo "keeping $b: couldn't fetch origin's $d"; return 1; }
   git merge-base --is-ancestor "$tip" "$oid" \
     || { echo "keeping $b: its tip isn't on origin's $d (or the check failed)"; return 1; }
-  # Every commit the branch has pointed at. Deleting the branch deletes this reflog, so a commit
-  # reset off it would be lost. No reflog at all can't be checked, so it keeps the branch too.
-  rl=$(git log -g --format=%H "refs/heads/$b" --) || { echo "keeping $b: couldn't read its reflog"; return 1; }
-  [ -n "$rl" ] || { echo "keeping $b: it has no reflog to check"; return 1; }
-  # git log -g silently skips an entry whose commit is missing, so also read each entry by
-  # number (that doesn't check the object; rev-list below fails on a missing one), and make
-  # sure that found at least as many entries.
-  all="" n=0
-  while o=$(git rev-parse -q --verify "refs/heads/${b}@{$n}"); do all="$all$o"$'\n'; n=$((n+1)); done
-  L=0; while IFS= read -r o; do L=$((L+1)); done <<< "$rl"
-  [ "$n" -ge "$L" ] || { echo "keeping $b: couldn't read its reflog"; return 1; }
+  # Every commit the branch's reflog names, on both sides of each entry. Deleting the branch
+  # deletes its reflog, so a commit reset off it would be lost. The raw file is read because
+  # `git log -g` and <branch>@{n} give only each entry's new side, which misses the old side of
+  # the oldest entry (a commit from before logging began, or from expired entries), and
+  # `git log -g` skips an entry whose commit is missing. No reflog can't be checked: keep.
+  fmt=$(git rev-parse --show-ref-format 2>/dev/null) && [ "$fmt" != files ] \
+    && { echo "keeping $b: refs here aren't stored as files ($fmt), so its reflog can't be read"; return 1; }
+  lf=$(git rev-parse --git-path "logs/refs/heads/$b") || { echo "keeping $b: couldn't find its reflog"; return 1; }
+  [ -e "$lf" ] || { echo "keeping $b: it has no reflog to check"; return 1; }
+  rl=$(cat "$lf") || { echo "keeping $b: couldn't read its reflog"; return 1; }
+  all=""
+  while IFS= read -r line; do
+    [ -n "$line" ] || continue
+    case $line in *" "*) ;; *) echo "keeping $b: its reflog has a line it can't read"; return 1 ;; esac
+    o=${line%% *}; line=${line#* }
+    for x in "$o" "${line%% *}"; do
+      case $x in ''|*[!0-9a-f]*) echo "keeping $b: its reflog has a line it can't read"; return 1 ;; esac
+      [ "${#x}" = "${#oid}" ] || { echo "keeping $b: its reflog has a line it can't read"; return 1; }
+      case $x in *[!0]*) all="$all$x"$'\n' ;; esac  # all zeros: the side before the branch existed
+    done
+  done <<< "$rl"
+  [ -n "$all" ] || { echo "keeping $b: it has no reflog to check"; return 1; }
   left=$(printf '%s' "$all" | git rev-list --stdin "^$oid") || { echo "keeping $b: couldn't check its reflog"; return 1; }
   [ -z "$left" ] || { echo "keeping $b: its reflog holds commits that aren't on origin's $d"; return 1; }
   # Worktrees last, right before the delete. update-ref -d would delete a checked-out branch,
@@ -63,8 +75,18 @@ delete_leftover_branch() {
     done <<< "$names"
   fi
   git update-ref -d "refs/heads/$b" "$tip" || { echo "keeping $b: it moved since the check, or the delete failed"; return 1; }
-  git config --remove-section "branch.$b" 2>/dev/null  # its upstream config, as git branch -d does
   printf 'deleted %s (was %s); to undo: git branch %q %s\n' "$b" "$tip" "$b" "$tip"
+  # Its config section (upstream and the like), as git branch -d removes it. The branch is gone
+  # either way, so a failure here returns 2, not "keeping": say so, or a branch recreated with
+  # this name inherits the old settings. Exit 1 from --get-regexp means no branch config at all.
+  names=$(git config --local --name-only --get-regexp '^branch\.'); rc=$?
+  [ "$rc" -le 1 ] || { printf 'config check failed: branch.%s may still be in git config; remove it with: git config --local --remove-section %q\n' "$b" "branch.$b"; return 2; }
+  while IFS= read -r line; do
+    [ "${line%.*}" = "branch.$b" ] || continue
+    git config --local --remove-section "branch.$b" && return 0
+    printf 'config removal failed: branch.%s is still in git config; remove it with: git config --local --remove-section %q\n' "$b" "branch.$b"
+    return 2
+  done <<< "$names"
   return 0
 }
 # 0 when a rebase or bisect in git dir $1 names branch $2, or its state can't be read; 1 if not.

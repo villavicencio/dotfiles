@@ -45,6 +45,11 @@ wrap() {  # wrap <case pattern> <action>: a git that runs <action> when its args
   printf '#!/bin/sh\ncase "$*" in %s) %s ;; esac\nexec %s "$@"\n' "$1" "$2" "$REALGIT" > "$T/bin/git"
   chmod +x "$T/bin/git"
 }
+catfail() {  # catfail <path suffix>: a cat that fails on a path ending in it, else real cat.
+  # Injected, not chmod 000: root, or a filesystem that ignores modes, can still read the file.
+  printf '#!/bin/sh\ncase "$1" in *%s) echo "cat: injected failure" >&2; exit 1 ;; esac\nexec %s "$@"\n' "$1" "$(command -v cat)" > "$T/bin/cat"
+  chmod +x "$T/bin/cat"
+}
 has()  { git -C "$T/main" rev-parse -q --verify "refs/heads/$1" >/dev/null; }
 kept() { [ "$RC" = 1 ] && has "${1:-left}" && grep -q "^keeping" "$T/out"; }
 done_() { [ "$fail" = "$f0" ] || { echo "  --- output:"; sed 's/^/  | /' "$T/out"; }; cd /; rm -rf "$T"; }
@@ -114,9 +119,9 @@ run; check "kept when the main checkout is rebasing it" 'kept && grep -q "rebase
 git rebase --abort
 done_
 f0=$fail; setup; git worktree add -q --detach "$T/wt" "$OLD"; gdw=$(git -C "$T/wt" rev-parse --absolute-git-dir)
-mkdir "$gdw/rebase-merge" && echo refs/heads/other > "$gdw/rebase-merge/head-name" && chmod 000 "$gdw/rebase-merge/head-name"
-run; chmod 644 "$gdw/rebase-merge/head-name"
-check "kept when a worktree's rebase state can't be read" 'kept && grep -q "rebase or bisect" "$T/out"'
+mkdir "$gdw/rebase-merge" && echo refs/heads/other > "$gdw/rebase-merge/head-name"; catfail "$gdw/rebase-merge/head-name"
+check "setup: the state names another branch, and reading it fails" '[ "$(cat "$gdw/rebase-merge/head-name")" = refs/heads/other ] && ! PATH="$T/bin:$PATH" cat "$gdw/rebase-merge/head-name" 2>/dev/null'
+run; check "kept when a worktree's rebase state can't be read" 'kept && grep -q "rebase or bisect" "$T/out"'
 done_
 
 echo "8. The reflog holds a commit reset off the branch: kept"
@@ -124,17 +129,38 @@ f0=$fail; setup; git switch -q left && echo y >> f && git commit -q -am y && git
 check "kept" 'kept && grep -q "reflog holds commits" "$T/out"'
 done_
 
-echo "9. No reflog, an unreadable reflog, a reflog naming a missing commit: kept"
+echo "9. No reflog, an unreadable or unparseable reflog, a missing commit, a commit only on an entry's old side, reftable: kept"
 f0=$fail; setup; rm .git/logs/refs/heads/left; run
 check "no reflog" 'kept && grep -q "no reflog" "$T/out"'
 done_
-f0=$fail; setup; chmod 000 .git/logs/refs/heads/left; run; chmod 644 .git/logs/refs/heads/left
-check "unreadable reflog" 'kept'
+f0=$fail; setup; : > .git/logs/refs/heads/left; run
+check "an empty reflog file" 'kept && grep -q "no reflog" "$T/out"'
+done_
+f0=$fail; setup; catfail logs/refs/heads/left
+check "setup: reading the reflog fails" '! PATH="$T/bin:$PATH" cat .git/logs/refs/heads/left 2>/dev/null'
+run; check "unreadable reflog" 'kept && grep -q "couldn.t read its reflog" "$T/out"'
+done_
+f0=$fail; setup; echo "not a reflog line" >> .git/logs/refs/heads/left; run
+check "a reflog line it can't parse" 'kept && grep -q "line it can.t read" "$T/out"'
+done_
+f0=$fail; setup; echo "$OLD" >> .git/logs/refs/heads/left; run
+check "a reflog line with one field (a valid commit id, on main)" 'kept && grep -q "line it can.t read" "$T/out"'
 done_
 f0=$fail; setup; git switch -q left && echo z >> f && git commit -q -am z; Z=$(git rev-parse HEAD); git reset -q --hard "$OLD"; git switch -q main
 rm -f ".git/objects/$(printf %s "$Z" | cut -c1-2)/$(printf %s "$Z" | cut -c3-)"; run
 check "setup: git log -g skips the missing entry" '! git log -g --format=%H refs/heads/left -- | grep -q "$Z"'
 check "reflog naming a missing commit" 'kept && grep -q "couldn.t check its reflog" "$T/out"'
+done_
+# The branch pointed at X (not on main) while it had no reflog; then it was reset to OLD with
+# logging on. The only record of X is the old side of the first entry.
+f0=$fail; setup; X=$(git commit-tree -p "$OLD" -m x "$(git rev-parse "$OLD^{tree}")")
+rm .git/logs/refs/heads/left; git -c core.logAllRefUpdates=false update-ref refs/heads/left "$X"
+git update-ref --create-reflog -m reset refs/heads/left "$OLD"
+check "setup: X is only the old side of the one entry" '[ "$(wc -l < .git/logs/refs/heads/left)" -eq 1 ] && [ "$(cut -d" " -f1 .git/logs/refs/heads/left)" = "$X" ] && ! git log -g --format=%H refs/heads/left -- | grep -q "$X" && ! git merge-base --is-ancestor "$X" main'
+run; check "a commit only on the first entry's old side" 'kept && grep -q "reflog holds commits" "$T/out"'
+done_
+f0=$fail; setup; wrap '"rev-parse --show-ref-format"' 'echo reftable; exit 0'; run
+check "refs not stored as files (reftable)" 'kept && grep -q "aren.t stored as files" "$T/out"'
 done_
 
 echo "10. Origin can't be asked, names no default branch, or the commit can't be fetched: kept"
@@ -156,17 +182,12 @@ check "origin moved on and the fetch fails" 'kept && grep -q "couldn.t fetch" "$
 done_
 
 echo "11. Each later git command fails: kept"
-for pat in '"check-ref-format"*' '"rev-parse -q --verify refs/heads/left^{commit}"' '"merge-base --is-ancestor"*' '"log -g"*' '"rev-list --stdin"*' '"worktree list"*' '"rev-parse --path-format=absolute --git-common-dir"' '"update-ref -d"*'; do
+for pat in '"check-ref-format"*' '"rev-parse -q --verify refs/heads/left^{commit}"' '"merge-base --is-ancestor"*' '"rev-parse --git-path"*' '"rev-list --stdin"*' '"worktree list"*' '"rev-parse --path-format=absolute --git-common-dir"' '"update-ref -d"*'; do
   f0=$fail; setup; wrap "$pat" 'exit 1'; run; rm "$T/bin/git"
   check "$pat fails" 'kept'
   done_
 done
 
-f0=$fail; setup; git branch -f left "$HEAD_OID"; git branch -f left "$OLD"
-check "setup: a 3-entry reflog, all on main" '[ "$(git log -g --format=%H refs/heads/left -- | wc -l)" -eq 3 ]'
-wrap '"rev-parse -q --verify refs/heads/left@{1}"' 'exit 128'; run
-check "reading the reflog by number stops early" 'kept && grep -q "couldn.t read its reflog" "$T/out"'
-done_
 f0=$fail; setup; printf '#!/bin/sh\nexit 2\n' > "$T/bin/grep"; chmod +x "$T/bin/grep"; run
 check "grep on the worktree list fails" 'kept && grep -q "couldn.t read the worktree list" "$T/out"'
 done_
@@ -174,6 +195,17 @@ done_
 echo "12. The branch moves between the checks and the delete: kept at its new tip"
 f0=$fail; setup; wrap '"update-ref -d refs/heads/left"*' "$REALGIT update-ref refs/heads/left \$($REALGIT rev-parse main)"; run; rm "$T/bin/git"
 check "kept, at main's commit" 'kept && [ "$(git rev-parse left)" = "$HEAD_OID" ]'
+done_
+
+echo "13. Its config section: removed only when it is the branch's own; a failure after the delete returns 2"
+f0=$fail; setup; git config branch.left.x.remote origin; run
+check "no section of its own: deleted, returns 0, branch.left.x left alone" '[ $RC = 0 ] && ! has left && [ "$(git config branch.left.x.remote)" = origin ]'
+done_
+f0=$fail; setup; git config branch.left.remote origin; wrap '"config --local --remove-section"*' 'exit 1'; run; rm "$T/bin/git"
+check "removal fails: returns 2, branch gone, config still there, says so" '[ $RC = 2 ] && ! has left && [ "$(git config branch.left.remote)" = origin ] && grep -q "^deleted left" "$T/out" && grep -q "config removal failed: branch.left is still in git config" "$T/out" && ! grep -q "^keeping" "$T/out"'
+done_
+f0=$fail; setup; git config branch.left.remote origin; wrap '"config --local --name-only"*' 'exit 3'; run; rm "$T/bin/git"
+check "the config check fails: returns 2, branch gone, says so" '[ $RC = 2 ] && ! has left && grep -q "config check failed: branch.left may still be in git config" "$T/out"'
 done_
 
 echo "== $SH: $pass passed, $fail failed"
