@@ -118,6 +118,11 @@ check "setup: the main checkout is mid-rebase from left, detached" '[ -z "$(git 
 run; check "kept when the main checkout is rebasing it" 'kept && grep -q "rebase or bisect" "$T/out"'
 git rebase --abort
 done_
+f0=$fail; setup; git switch -q left; git bisect start >/dev/null; git checkout -q --detach
+check "setup: the main checkout is bisecting from left, detached" '[ -z "$(git branch --show-current)" ] && [ -f .git/BISECT_START ]'
+run; check "kept when the main checkout is bisecting from it" 'kept && grep -q "rebase or bisect" "$T/out"'
+git bisect reset -q 2>/dev/null
+done_
 f0=$fail; setup; git worktree add -q --detach "$T/wt" "$OLD"; gdw=$(git -C "$T/wt" rev-parse --absolute-git-dir)
 mkdir "$gdw/rebase-merge" && echo refs/heads/other > "$gdw/rebase-merge/head-name"; catfail "$gdw/rebase-merge/head-name"
 check "setup: the state names another branch, and reading it fails" '[ "$(cat "$gdw/rebase-merge/head-name")" = refs/heads/other ] && ! PATH="$T/bin:$PATH" cat "$gdw/rebase-merge/head-name" 2>/dev/null'
@@ -205,6 +210,9 @@ for pat in '"check-ref-format"*' '"rev-parse -q --verify refs/heads/left^{commit
   done_
 done
 
+f0=$fail; setup; wrap '"worktree list --porcelain"' 'exit 0'; run
+check "git worktree list succeeds with no output" 'kept && grep -q "worktree list gave nothing" "$T/out"'
+done_
 f0=$fail; setup; printf '#!/bin/sh\nexit 2\n' > "$T/bin/grep"; chmod +x "$T/bin/grep"; run
 check "grep on the worktree list fails" 'kept && grep -q "couldn.t read the worktree list" "$T/out"'
 done_

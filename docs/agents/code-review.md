@@ -561,7 +561,7 @@ work went out on a `feat/` branch that was squash-merged, and after `orca worktr
 Orca-named branch was left at a commit already on `origin/main`, with no upstream and no PR.
 Run this function from any checkout of the repo, in bash or zsh. It returns 0 after deleting
 the branch, with the command that undoes it; 1 when it keeps the branch, with
-`keeping <branch>: <reason>`; and 2 when it deleted the branch but couldn't remove its config
+`keeping <branch>: <reason>` (`keeping: no branch named` when called without one); and 2 when it deleted the branch but couldn't remove its config
 section, or couldn't check for one, with the `git config` command that removes it:
 
 ```bash
@@ -610,8 +610,8 @@ makes `git rev-list --not <ref>` print nothing, which reads as "nothing missing"
   `git branch <branch> <tip>` (printed by the function) puts it back.
 - **Not covered:** the branch's copy on origin, a branch with commits the default branch lacks
   (a merged PR's head goes through "After the merge" above), stashes, tags, anything else.
-- **Tests:** `ci/delete-leftover-branch-checks.sh` (local only, not in CI), 58 checks under
-  each of bash and zsh, last run 2026-11-20. A leftover branch is deleted, also from a
+- **Tests:** `ci/delete-leftover-branch-checks.sh` (local only, not in CI), 61 checks under
+  each of bash and zsh (60 as root, where one is skipped), last run 2026-11-20. A leftover branch is deleted, also from a
   checkout that doesn't contain it, and when `origin/HEAD` is missing, the fetch refspec is
   narrow and `origin/main` is stale. It is kept when it is the default branch or not a valid
   or existing name; is checked out; is being rebased (merge or apply state) or bisected, in a
@@ -621,8 +621,8 @@ makes `git rev-list --not <ref>` print nothing, which reads as "nothing missing"
   commit, is missing, empty, unreadable or has a line it can't parse; or the refs are
   reftable, the ref-format check fails, or git is older than 2.45 (simulated). It is also
   kept when origin can't be reached, names no default branch or no commit, or the fetch
-  fails; when any of the git commands it checks with fails (each is injected), or `grep`
-  does; and when the branch moves between the checks and the delete. A failed config removal
+  fails; when a git command it checks with fails or `git worktree list` answers with nothing
+  (injected one at a time for most of them; the script lists which), or `grep` fails; and when the branch moves between the checks and the delete. A failed config removal
   or config check after the delete returns 2 with the branch gone and says so; a
   `branch.<branch>.x` section is left alone. Unreadable files are made with an injected
   failing `cat`, not `chmod 000`, which root can still read; the one exception, a git dir that

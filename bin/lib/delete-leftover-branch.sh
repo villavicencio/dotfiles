@@ -60,6 +60,7 @@ delete_leftover_branch() {
   # Worktrees last, right before the delete. update-ref -d would delete a checked-out branch,
   # or one a worktree is rebasing or bisecting (git worktree list shows those as detached).
   w=$(git worktree list --porcelain) || { echo "keeping $b: git worktree list failed"; return 1; }
+  [ -n "$w" ] || { echo "keeping $b: git worktree list gave nothing"; return 1; }  # it always lists the main one
   printf '%s\n' "$w" | grep -qxF "branch refs/heads/$b"
   case $? in
     0) echo "keeping $b: a worktree has it checked out"; return 1 ;;
