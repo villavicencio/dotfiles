@@ -67,9 +67,11 @@ wait_done() {
 }
 ```
 
-Put the real command and values in place of `status-command`, `DONE` and `PENDING`. Don't copy
-the short loop under "Polling `gh`" in `docs/agents/code-review.md` as a general shape: it ends
-with `echo "TIMEOUT"`, which exits 0, and takes any value but `PENDING` as done.
+Put the real command and values in place of `status-command`, `DONE` and `PENDING`. The `gh`
+wait example under "Polling `gh`" in `docs/agents/code-review.md` has the same shape: it is done
+only on an explicit `DONE`, returns 1 on timeout, returns 2 on an unexpected reply and 3 when
+`gh` fails. For a review wait, don't write a loop of either kind: use `mergewren_review` for
+MergeWren or `cr_wait` for CodeRabbit.
 
 ## Incidents
 
