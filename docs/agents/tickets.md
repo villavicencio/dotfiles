@@ -85,7 +85,7 @@ A Linear MCP `append` patch lands after the closing `>>>` marker, outside the co
 
 When a ticket moves to Done, it gets exactly one label from the `model` group: the model that wrote the merged change. If an escalation changed the author, credit the last one. Managers, reviewers and groomers are not credited.
 
-Read the model from the `Co-Authored-By:` trailers of the merged commits, never from the session doing the marking. The label is the model's name in lower case, with dashes for spaces and dots: `Claude Sonnet 5.5` becomes `claude-sonnet-5-5`. If no trailer names a model, add no label and say so. If the label doesn't exist yet in the `model` group, create it the first time a ticket needs it.
+Read the model from the `Co-Authored-By:` or `Worker-Model:` trailers of the merged commits, never from the session doing the marking. The hal overnight runner writes `Worker-Model:` instead of `Co-Authored-By:`. The label is the model's name in lower case, with dashes for spaces and dots: `Claude Sonnet 5.5` becomes `claude-sonnet-5-5`, and `Worker-Model: qwen3.8-27b` becomes `qwen3-8-27b`. If the commits name more than one model, across either trailer, take the model from the latest commit that names one. The ticket still gets exactly one label. If neither trailer names a model, add no label and say so. If the label doesn't exist yet in the `model` group, create it the first time a ticket needs it.
 
 ## Existing tickets
 
