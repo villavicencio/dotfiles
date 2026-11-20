@@ -134,8 +134,11 @@ both, every time, before declaring a PR mergeable.**
 
 ### Step 1 — read the check description, not its state
 
-A passing CodeRabbit check is not evidence a review ran — rate-limited, skipped and summary-only
-runs also pass, so read what the check says, not its state. The recipe that used to be here
+A CodeRabbit check that doesn't fail the PR is not evidence a review ran. A rate-limited run
+concludes `neutral` and a skipped run concludes `skipped`: neither fails the PR, neither is
+`success`, and neither is a review. A summary-only run concludes `success` and isn't a review
+either. So read the check run's conclusion and title, not its pass state. The recipe that used
+to be here
 (`gh pr checks` with the check's description string) described CodeRabbit before about 2026-10-24,
 when it reported a commit status; since then it reports a check run, and `gh pr checks` shows an
 empty description for it. The current recipe lives in `docs/agents/code-review.md`, section
