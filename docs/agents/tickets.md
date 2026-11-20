@@ -79,6 +79,14 @@ Put detail that only an agent needs in a collapsed section at the end of the des
 +++
 ```
 
+A Linear MCP `append` patch lands after the closing `>>>` marker, outside the collapsed section (seen 2026-11-19). So to change Agent notes, rewrite the whole description, with the `+++` markers.
+
+## Model credit
+
+When a ticket moves to Done, it gets exactly one label from the `model` group: the model that wrote the merged change. If an escalation changed the author, credit the last one. Managers, reviewers and groomers are not credited.
+
+Read the model from the `Co-Authored-By:` or `Worker-Model:` trailers in the PR's own commits, read in order before the squash, never from the session doing the marking: `gh pr view <N> --json commits` lists them oldest first with their messages. This repo squash-merges every PR, so the merged commit holds only copies of those trailers as body text and can't be relied on. The hal overnight runner writes `Worker-Model:` instead of `Co-Authored-By:`. The label is the model's name in lower case, with dashes for spaces and dots: `Claude Sonnet 5.5` becomes `claude-sonnet-5-5`, and `Worker-Model: qwen3.8-27b` becomes `qwen3-8-27b`. The label comes from the PR's last authoring commit: the newest commit in the `gh pr view <N> --json commits` list that carries the PR's own work, not a merge of the base branch into it. If that commit names a model (`Co-Authored-By:` or `Worker-Model:`), use that model. Don't fall back to an older commit's trailer. The ticket still gets exactly one label. If the last authoring commit doesn't name a model, add no label, and say in the Done comment that the last commit had no model trailer. If the label doesn't exist yet in the `model` group, create it the first time a ticket needs it.
+
 ## Existing tickets
 
 No bulk rewrite. A ticket is brought to the format when it is groomed: someone reads it for work, finds a gap, and fixes the gap. A ticket nobody grooms stays as written.
