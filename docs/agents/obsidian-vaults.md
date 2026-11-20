@@ -26,12 +26,15 @@ instructions (its `CLAUDE.md`/`AGENTS.md`, `## Vault`) name its section.
 - Claude Code projects keep harness memory *physically in their vault*:
   `~/.claude/projects/<slug>/memory` is a **symlink** to `~/Obsidian/scriptorium/<section>/memory`.
 - **New-project bootstrap** — a new Mac CC project gets a section, not a vault:
-  1. Ask David for the section's name (until VIL-742 settles names).
-  2. `mkdir -p ~/Obsidian/scriptorium/<section>/memory ~/Obsidian/scriptorium/<section>/inbox`
-  3. If `~/.claude/projects/<slug>/memory` exists as a real dir, move its contents into
+  1. Check that the vault is set up on this Mac: `test -d ~/Obsidian/scriptorium/.obsidian`.
+     If it fails, stop and tell David the vault isn't set up here. Setting it up is
+     Scribe's work in the obsidian-scriptorium repo; don't create the folder yourself.
+  2. Ask David for the section's name (until VIL-742 settles names).
+  3. `mkdir -p ~/Obsidian/scriptorium/<section>/memory ~/Obsidian/scriptorium/<section>/inbox`
+  4. If `~/.claude/projects/<slug>/memory` exists as a real dir, move its contents into
      the section's `memory/`; either way replace it with a symlink to it.
-  4. Add a `## Vault` section to the project's `CLAUDE.md`/`AGENTS.md` naming its section.
-  There is no `.obsidian` stamp; the vault already has one.
+  5. Add a `## Vault` section to the project's `CLAUDE.md`/`AGENTS.md` naming its section.
+  There is no `.obsidian` stamp to add; step 1 confirms the vault already has one.
 - **Standard vault config and theming** belong to the private repo
   `villavicencio/obsidian-scriptorium` (`~/Projects/obsidian-scriptorium`, agent Scribe,
   Linear project Scriptorium) since 2026-11-11. The standard is its `standard/.obsidian/`;
