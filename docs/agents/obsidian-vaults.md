@@ -1,27 +1,37 @@
-# Per-agent Obsidian vaults (Mac)
+# The Obsidian vault (Mac)
 
 <!-- Moved out of claude/CLAUDE.md on 2026-09-30 so it loads on demand instead of in every session. The global CLAUDE.md and codex/AGENTS.md keep the one-line rules and point here. -->
 
-Standard rev. 2026-07-15; supersedes the one-day one-vault experiment.
+Standard rev. 2026-11-19 (VIL-727): one vault with a section per project; supersedes the vault-per-project standard of 2026-07-15.
 
-Every project/agent/harness owns a small, self-contained Obsidian vault at
-`~/Obsidian/<name>/`, managed by that agent as it sees fit. There is no shared monolith.
-The exception is the hal mirror projects (`skills`, `bryancola`): the mirror job writes into
-sections of the `scriptorium` vault, `~/Obsidian/scriptorium/<section>/`, not vaults of their
-own (see "Projects that live on hal" below).
-Cross-vault reads are fine when useful (plain filesystem paths); write to another
-project's vault only when asked.
+The vault is `~/Obsidian/scriptorium/`. Each project's notes and memory live in its section,
+which is a top-level folder. Section names may change (VIL-742). A project's own
+instructions (its `CLAUDE.md`/`AGENTS.md`, `## Vault`) name its section.
+
+- Every agent may read the whole vault. Each section belongs to another agent, so read it
+  as theirs.
+- An agent writes only in its own section, `~/Obsidian/scriptorium/<section>/`. To leave a
+  note for another section's owner, write it in that section's `<section>/inbox/`.
+  Nowhere else.
+- `david/` is David's. Any agent may create and edit notes anywhere in it without asking.
+  Deleting, moving or renaming a note, or a bulk rewrite (the same change across more than
+  about five notes), needs a plan shown to David and his go. `david/inbox/` is where to
+  leave him a note. The Matter plugin writes `david/Matter` and may overwrite an edit made
+  there.
+- Agents on hal write nothing in the vault while hal's copy is download-only.
+- `syd` is a separate vault and stays out of these rules.
+- Source of these rules: obsidian-scriptorium `CLAUDE.md`, "Direction" (decided by David
+  on 2026-11-19, VIL-727).
 
 - Claude Code projects keep harness memory *physically in their vault*:
-  `~/.claude/projects/<slug>/memory` is a **symlink** to `~/Obsidian/<name>/memory`.
-- **New-project bootstrap** — first session in a Mac CC project with no vault:
-  1. `mkdir -p ~/Obsidian/<name>/memory`
-  2. If `~/.claude/projects/<slug>/memory` exists as a real dir, move its contents into
-     the vault memory dir; either way replace it with a symlink to it.
-  3. Stamp the standard config: `cp -R ~/Projects/obsidian-scriptorium/standard/.obsidian ~/Obsidian/<name>/.obsidian`
-  4. Append the "## Vault" declaration to the project's CLAUDE.md/AGENTS.md (copy the
-     shape from `~/Projects/agents/CLAUDE.md`).
-  (David registers it in Obsidian's UI via "Open folder as vault" whenever he wants it.)
+  `~/.claude/projects/<slug>/memory` is a **symlink** to `~/Obsidian/scriptorium/<section>/memory`.
+- **New-project bootstrap** — a new Mac CC project gets a section, not a vault:
+  1. Ask David for the section's name (until VIL-742 settles names).
+  2. `mkdir -p ~/Obsidian/scriptorium/<section>/memory ~/Obsidian/scriptorium/<section>/inbox`
+  3. If `~/.claude/projects/<slug>/memory` exists as a real dir, move its contents into
+     the section's `memory/`; either way replace it with a symlink to it.
+  4. Add a `## Vault` section to the project's `CLAUDE.md`/`AGENTS.md` naming its section.
+  There is no `.obsidian` stamp; the vault already has one.
 - **Standard vault config and theming** belong to the private repo
   `villavicencio/obsidian-scriptorium` (`~/Projects/obsidian-scriptorium`, agent Scribe,
   Linear project Scriptorium) since 2026-11-11. The standard is its `standard/.obsidian/`;
@@ -29,12 +39,14 @@ project's vault only when asked.
   hermes 2026-07-15), copied byte for byte. Changing a theme, snippet, plugin or plugin
   setting, applying the standard to a vault, and seeding a new standard are Scribe's work:
   the procedures and rules are in that repo's `CLAUDE.md`. This file keeps what dotfiles
-  still owns: where vaults live, the memory symlink, the bootstrap, and the hal mirror.
+  still owns: the vault's layout and write rules, the memory symlink, the bootstrap, and
+  the hal mirror.
   - 17 vaults on 2026-11-11. 15 are on the standard, `hermes` is the standard plus
     `gridexplorer`, and `syd` has its own config and is outside Scribe's scope.
 - **Synced vaults (Syncthing ↔ VPS): only `hermes`** (David+Atlas — personal/feeds/brain/
-  TaskNotes) **and `axiom`** (work), both served by the single syncthing-hermes container.
-  CC project vaults are Mac-local by design — do not add shares for them unless asked.
+  TaskNotes) **and `axiom`** (work), until they migrate into the vault; both are served by
+  the single syncthing-hermes container. Project sections are Mac-local by design — do not
+  add shares for them unless asked.
 - **Projects that live on hal** (as `david`: `skills`, `bryancola.com`) write memory on hal,
   at `/Users/david/.claude/projects/<slug>/memory/`, which is a real folder there (hal has no
   Obsidian). The LaunchAgent `com.dvillavicencio.hal-memory-pull` copies each one hourly into
