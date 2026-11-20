@@ -44,22 +44,26 @@ it again.
    doesn't know, is not "done".
 3. Returns non-zero when it runs out, so a caller that checks the exit status stops too.
    Printing `TIMEOUT` and exiting 0 reads as success.
-4. Keeps an error apart from "not yet": a failed status command stops the loop with its own
-   return code instead of counting as pending.
+4. Keeps an error apart from "not yet": it runs the status command inside an `if !`, so `set -e`
+   can't exit before the error is handled, and a failure stops the loop with a fixed code of its
+   own (3 below) instead of counting as pending. Don't pass the command's own code through: it
+   could clash with the loop's other codes.
 
 ```bash
-wait_done() {  # wait_done <id>: 0 done, 2 timed out, 3 unexpected reply; else status-command's code
-  local i r rc
+# wait_done <id> returns 0 done, 1 timed out, 2 unexpected reply, 3 status-command failed.
+wait_done() {
+  local i r
   for i in $(seq 1 20); do
-    r=$(status-command "$1"); rc=$?
-    if [ "$rc" -ne 0 ]; then echo "ERROR: status-command failed with $rc (above)" >&2; return "$rc"; fi
+    if ! r=$(status-command "$1"); then
+      echo "ERROR: status-command failed (error above)" >&2; return 3
+    fi
     case $r in
       DONE) echo "done"; return 0 ;;
       PENDING) sleep 60 ;;
-      *) echo "ERROR: unexpected reply '$r'" >&2; return 3 ;;
+      *) echo "ERROR: unexpected reply '$r'" >&2; return 2 ;;
     esac
   done
-  echo "TIMEOUT: not done after 20 tries" >&2; return 2
+  echo "TIMEOUT: not done after 20 tries" >&2; return 1
 }
 ```
 
