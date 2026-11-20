@@ -26,7 +26,9 @@ instructions (its `CLAUDE.md`/`AGENTS.md`, `## Vault`) name its section.
 - Claude Code projects keep harness memory *physically in their vault*:
   `~/.claude/projects/<slug>/memory` is a **symlink** to `~/Obsidian/scriptorium/<section>/memory`.
 - **New-project bootstrap** — a new Mac CC project gets a section, not a vault:
-  1. Check that the vault is set up on this Mac: `test -d ~/Obsidian/scriptorium/.obsidian`.
+  1. Check that the vault is set up on this Mac and that `~/Obsidian/scriptorium` is a real
+     folder, not a symlink:
+     `test ! -L ~/Obsidian/scriptorium && test -d ~/Obsidian/scriptorium/.obsidian`.
      If it fails, stop and tell David the vault isn't set up here. Setting it up is
      Scribe's work in the obsidian-scriptorium repo; don't create the folder yourself.
   2. Ask David for the section's name (until VIL-742 settles names).
