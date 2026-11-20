@@ -79,6 +79,14 @@ Put detail that only an agent needs in a collapsed section at the end of the des
 +++
 ```
 
+A Linear MCP `append` patch lands after the closing `>>>` marker, outside the collapsed section (seen 2026-11-19). So to change Agent notes, rewrite the whole description, with the `+++` markers.
+
+## Model credit
+
+When a ticket moves to Done, it gets exactly one label from the `model` group: the model that wrote the merged change. If an escalation changed the author, credit the last one. Managers, reviewers and groomers are not credited.
+
+Read the model from the `Co-Authored-By:` trailers of the merged commits, never from the session doing the marking. The label is the model's name in lower case, with dashes for spaces and dots: `Claude Sonnet 5.5` becomes `claude-sonnet-5-5`. If no trailer names a model, add no label and say so. If the label doesn't exist yet in the `model` group, create it the first time a ticket needs it.
+
 ## Existing tickets
 
 No bulk rewrite. A ticket is brought to the format when it is groomed: someone reads it for work, finds a gap, and fixes the gap. A ticket nobody grooms stays as written.
