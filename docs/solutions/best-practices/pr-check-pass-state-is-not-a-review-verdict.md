@@ -1,5 +1,5 @@
 ---
-title: "A passing PR check is not a review — read the check run (its conclusion and title) and enumerate unresolved threads"
+title: "A passing PR check is not a review — follow the check-run recipe and enumerate unresolved threads"
 date: 2026-08-25
 category: best-practices
 module: code-review-workflow
@@ -36,7 +36,7 @@ related_solutions:
   - "docs/solutions/best-practices/verify-the-instrument-before-trusting-a-negative.md — same root_cause; a verdict is only as good as the instrument, and here the blind instrument is a check's pass-state"
 ---
 
-# A green check is not a review — read the check run and enumerate the threads
+# A passing PR check is not a review — follow the check-run recipe and enumerate unresolved threads
 
 ## Context
 
@@ -129,8 +129,11 @@ this config, `Review skipped` on an open PR is the *default*, not an anomaly.
 ## Guidance
 
 **A check's pass/fail state is not evidence a review happened, and a completed review is not
-evidence its findings were triaged. Read the check run's conclusion and title, then enumerate
-the threads — both, every time, before declaring a PR mergeable.**
+evidence its findings were triaged. A review ran only when the recipe in
+`docs/agents/code-review.md` says so: the check run's conclusion, title and result line, and no
+`Summarized by CodeRabbit Free` comment on the PR,
+not from the conclusion and title alone. Then enumerate the threads — both, every time, before
+declaring a PR mergeable.**
 
 ### Step 1 — read the check run, not its pass state
 
@@ -151,7 +154,9 @@ checks for a `Summarized by CodeRabbit Free` comment.
 
 ### Step 2 — enumerate unresolved threads
 
-The check run only says whether a review *ran*. It never says what it found, and findings
+The check-run recipe in `docs/agents/code-review.md` says whether a review *ran*, and it takes
+every part of it: the conclusion, title and result line, and no `Summarized by CodeRabbit Free`
+comment, not the conclusion and title alone. It never says what it found, and findings
 arrive as `COMMENTED` reviews that set no blocking verdict. The GraphQL `reviewThreads`
 connection is the only surface exposing `isResolved`, which REST does not:
 
