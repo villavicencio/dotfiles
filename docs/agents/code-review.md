@@ -33,14 +33,27 @@ of the diff itself routes through the repo's reviewer.
 - **A wait loop must tell an error from "not yet".** Check `gh`'s exit status on every
   pass; on failure, print the error and stop. On dotfiles#259 (2026-11-02) a MergeWren wait
   loop passed `--arg` to `--jq`. Every pass failed, the empty output read as "still pending",
-  and it spun silently for about 20 minutes until David asked. Shape:
+  and it spun silently for about 20 minutes until David asked.
+  For a review wait, don't write a loop: use `mergewren_review` for MergeWren (see "Merging on
+  a MergeWren review" below) or `cr_wait` for CodeRabbit (see "Merging on a CodeRabbit
+  review" below). This bullet is one case of the general rule in `docs/agents/waits.md`; follow
+  that file for any other wait. A `gh` wait shape, where `<filter>` prints `PENDING` or `DONE`:
 
   ```bash
-  for i in $(seq 1 20); do
-    r=$(gh pr view <N> --json comments --jq '<filter>') || { echo "gh failed (error above)" >&2; exit 1; }
-    [ "$r" != PENDING ] && { printf '%s\n' "$r"; exit 0; }
-    sleep 60
-  done; echo "TIMEOUT"
+  gh_wait() {
+    local i r
+    for i in $(seq 1 20); do
+      if ! r=$(gh pr view <N> --json comments --jq '<filter>'); then
+        echo "gh failed (error above)" >&2; return 3
+      fi
+      case $r in
+        DONE) printf '%s\n' "$r"; return 0 ;;
+        PENDING) sleep 60 ;;
+        *) echo "unexpected reply '$r'" >&2; return 2 ;;
+      esac
+    done
+    echo "TIMEOUT" >&2; return 1
+  }
   ```
 
 ## Merging on a CodeRabbit review
