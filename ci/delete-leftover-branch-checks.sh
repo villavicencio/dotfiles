@@ -123,6 +123,17 @@ mkdir "$gdw/rebase-merge" && echo refs/heads/other > "$gdw/rebase-merge/head-nam
 check "setup: the state names another branch, and reading it fails" '[ "$(cat "$gdw/rebase-merge/head-name")" = refs/heads/other ] && ! PATH="$T/bin:$PATH" cat "$gdw/rebase-merge/head-name" 2>/dev/null'
 run; check "kept when a worktree's rebase state can't be read" 'kept && grep -q "rebase or bisect" "$T/out"'
 done_
+f0=$fail; setup; git worktree add -q --detach "$T/wt" "$OLD"; gdw=$(git -C "$T/wt" rev-parse --absolute-git-dir)
+mkdir "$gdw/rebase-apply" && echo refs/heads/left > "$gdw/rebase-apply/head-name"; run
+check "kept when a worktree's rebase-apply state names it" 'kept && grep -q "rebase or bisect" "$T/out"'
+done_
+# A linked worktree's git dir that can't be searched: the -e tests would read it as "no rebase".
+# chmod is the only way to make a shell test builtin fail, so skip, visibly, where it has no effect (root).
+f0=$fail; setup; git worktree add -q --detach "$T/wt" "$OLD"; gdw=$(git -C "$T/wt" rev-parse --absolute-git-dir); chmod 000 "$gdw"
+if [ -x "$gdw" ]; then echo "  SKIP a worktree git dir that can't be searched: chmod 000 has no effect here (root?)"
+else run; check "kept when a worktree's git dir can't be searched" 'kept && grep -q "rebase or bisect" "$T/out"'; fi
+chmod 755 "$gdw"
+done_
 
 echo "8. The reflog holds a commit reset off the branch: kept"
 f0=$fail; setup; git switch -q left && echo y >> f && git commit -q -am y && git reset -q --hard "$OLD" && git switch -q main; run
@@ -161,6 +172,12 @@ run; check "a commit only on the first entry's old side" 'kept && grep -q "reflo
 done_
 f0=$fail; setup; wrap '"rev-parse --show-ref-format"' 'echo reftable; exit 0'; run
 check "refs not stored as files (reftable)" 'kept && grep -q "aren.t stored as files" "$T/out"'
+done_
+f0=$fail; setup; wrap '"rev-parse --show-ref-format"' 'exit 1'; run
+check "the ref-format check fails" 'kept && grep -q "couldn.t tell how refs are stored" "$T/out"'
+done_
+f0=$fail; setup; wrap '"rev-parse --show-ref-format"' 'echo --show-ref-format; exit 0'; run
+check "git before 2.45 (rev-parse echoes the unknown flag)" 'kept && grep -q "aren.t stored as files" "$T/out"'
 done_
 
 echo "10. Origin can't be asked, names no default branch, or the commit can't be fetched: kept"

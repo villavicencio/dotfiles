@@ -569,8 +569,9 @@ source <dotfiles clone>/bin/lib/delete-leftover-branch.sh   # ~/Projects/Persona
 delete_leftover_branch <branch>
 ```
 
-It fails closed: every check has to succeed, and a command that fails, or answers with
-nothing, keeps the branch. A hand-typed chain of these commands doesn't: `! git worktree list
+It fails closed: before the delete, every check has to succeed, and a check whose command
+fails, or answers with nothing, keeps the branch. After the delete, only the config step can
+fail, and that returns 2. A hand-typed chain of these commands doesn't: `! git worktree list
 | grep` passes when `git worktree list` fails, and an empty reflog or a failed `git log -g`
 makes `git rev-list --not <ref>` print nothing, which reads as "nothing missing" (PR 296).
 
@@ -586,11 +587,15 @@ makes `git rev-list --not <ref>` print nothing, which reads as "nothing missing"
   new side, so the old side of the oldest entry is missed (a commit the branch held before
   logging began, or before older entries expired), and `git log -g` silently skips an entry
   whose commit is missing. A missing, empty or unreadable reflog, a line that isn't two commit
-  ids, or refs not stored as files (reftable) keeps the branch. A squash merge's original
+  ids, refs not stored as files (reftable), or a failed `git rev-parse --show-ref-format`
+  keeps the branch. git before 2.45 has no `--show-ref-format`, so there the function always
+  keeps the branch (accepted, 2026-11-20). A squash merge's original
   commits aren't on the default branch, so a branch that once held them is kept; ask.
 - **Worktrees, checked last.** It refuses a branch any worktree has checked out (the current
   checkout included), and one that a rebase or bisect in any worktree started from, which
-  `git worktree list` shows as detached.
+  `git worktree list` shows as detached. It reads git's rebase and bisect state files for
+  that; a git dir or state file it can't read counts as busy. These checks run just before
+  the delete, not during it (the known limit below).
 - **Why not `git branch -d`.** `-d` judges "merged" against the current checkout (or the
   branch's upstream), so from an unrelated checkout it refuses a branch that qualifies, and it
   isn't conditional on the tip that was checked. The function deletes with
@@ -605,17 +610,20 @@ makes `git rev-list --not <ref>` print nothing, which reads as "nothing missing"
   `git branch <branch> <tip>` (printed by the function) puts it back.
 - **Not covered:** the branch's copy on origin, a branch with commits the default branch lacks
   (a merged PR's head goes through "After the merge" above), stashes, tags, anything else.
-- **Tests:** `ci/delete-leftover-branch-checks.sh` (local only, not in CI), 54 checks under
+- **Tests:** `ci/delete-leftover-branch-checks.sh` (local only, not in CI), 58 checks under
   each of bash and zsh, last run 2026-11-20. A leftover branch is deleted, also from a
   checkout that doesn't contain it, and when `origin/HEAD` is missing, the fetch refspec is
   narrow and `origin/main` is stale. It is kept when it is the default branch or not a valid
-  or existing name; is checked out; is being rebased or bisected (in a linked worktree or the
-  main checkout, or a worktree's rebase state can't be read); is only on a stale `origin/main`
-  or a stale `origin/HEAD`'s branch; or its reflog holds a commit reset off it, holds one only
-  on the old side of its first entry, names a missing commit, is missing, empty, unreadable or
-  has a line it can't parse, or the refs are reftable. It is also kept when origin can't be
-  reached, names no default branch or no commit, or the fetch fails; when any git command it
-  checks with fails, or `grep` does; and when the branch moves between the checks and the
-  delete. A failed config removal or config check after the delete returns 2 with the branch
-  gone and says so; a `branch.<branch>.x` section is left alone. Unreadable files are made
-  with an injected failing `cat`, not `chmod 000`, which root can still read.
+  or existing name; is checked out; is being rebased (merge or apply state) or bisected, in a
+  linked worktree or the main checkout, or a worktree's rebase state or git dir can't be read;
+  is only on a stale `origin/main` or a stale `origin/HEAD`'s branch; or its reflog holds a
+  commit reset off it, holds one only on the old side of its first entry, names a missing
+  commit, is missing, empty, unreadable or has a line it can't parse; or the refs are
+  reftable, the ref-format check fails, or git is older than 2.45 (simulated). It is also
+  kept when origin can't be reached, names no default branch or no commit, or the fetch
+  fails; when any of the git commands it checks with fails (each is injected), or `grep`
+  does; and when the branch moves between the checks and the delete. A failed config removal
+  or config check after the delete returns 2 with the branch gone and says so; a
+  `branch.<branch>.x` section is left alone. Unreadable files are made with an injected
+  failing `cat`, not `chmod 000`, which root can still read; the one exception, a git dir that
+  can't be searched, uses `chmod 000` and prints `SKIP` where that has no effect.

@@ -36,8 +36,10 @@ delete_leftover_branch() {
   # `git log -g` and <branch>@{n} give only each entry's new side, which misses the old side of
   # the oldest entry (a commit from before logging began, or from expired entries), and
   # `git log -g` skips an entry whose commit is missing. No reflog can't be checked: keep.
-  fmt=$(git rev-parse --show-ref-format 2>/dev/null) && [ "$fmt" != files ] \
-    && { echo "keeping $b: refs here aren't stored as files ($fmt), so its reflog can't be read"; return 1; }
+  # The raw file is the reflog only when refs are stored as files. git before 2.45 has no
+  # --show-ref-format (rev-parse echoes the unknown flag back), so there it keeps the branch.
+  fmt=$(git rev-parse --show-ref-format) || { echo "keeping $b: couldn't tell how refs are stored here"; return 1; }
+  [ "$fmt" = files ] || { echo "keeping $b: refs here aren't stored as files (${fmt:-no answer}), so its reflog can't be read"; return 1; }
   lf=$(git rev-parse --git-path "logs/refs/heads/$b") || { echo "keeping $b: couldn't find its reflog"; return 1; }
   [ -e "$lf" ] || { echo "keeping $b: it has no reflog to check"; return 1; }
   rl=$(cat "$lf") || { echo "keeping $b: couldn't read its reflog"; return 1; }
@@ -92,6 +94,8 @@ delete_leftover_branch() {
 # 0 when a rebase or bisect in git dir $1 names branch $2, or its state can't be read; 1 if not.
 _dlb_busy() {
   local f c
+  # A git dir it can't look inside would make the -e tests below read as "no rebase": busy.
+  [ -d "$1" ] && [ -r "$1" ] && [ -x "$1" ] || return 0
   for f in rebase-merge/head-name rebase-apply/head-name; do
     [ -e "$1/$f" ] || continue
     c=$(cat "$1/$f") || return 0
