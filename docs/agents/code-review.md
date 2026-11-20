@@ -592,12 +592,12 @@ makes `git rev-list --not <ref>` print nothing, which reads as "nothing missing"
   then removes the branch's config section as `-d` does. Never `-D`.
 - **Not covered:** the branch's copy on origin, a branch with commits the default branch lacks
   (a merged PR's head goes through "After the merge" above), stashes, tags, anything else.
-- **Tests:** `ci/delete-leftover-branch-checks.sh` (local only, not in CI), 44 checks under
+- **Tests:** `ci/delete-leftover-branch-checks.sh` (local only, not in CI), 45 checks under
   each of bash and zsh, last run 2026-11-20. A leftover branch is deleted, also from a
   checkout that doesn't contain it, and when `origin/HEAD` is missing, the fetch refspec is
   narrow and `origin/main` is stale. It is kept when it is the default branch or not a valid
   or existing name, is checked out, is being rebased or bisected (in a linked worktree or the
-  main checkout), is only on a stale `origin/main` or a stale `origin/HEAD`'s branch, or its
+  main checkout, or a worktree's rebase state can't be read), is only on a stale `origin/main` or a stale `origin/HEAD`'s branch, or its
   reflog holds a commit reset off it, is missing, unreadable, or names a missing commit. It
   is also kept when origin can't be reached, names no default branch or no commit, or the
   fetch fails; when any git command it checks with fails, or `grep` does; and when the branch moves

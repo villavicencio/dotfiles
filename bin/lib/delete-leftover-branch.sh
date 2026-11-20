@@ -69,15 +69,15 @@ delete_leftover_branch() {
 }
 # 0 when a rebase or bisect in git dir $1 names branch $2, or its state can't be read; 1 if not.
 _dlb_busy() {
-  local f
+  local f c
   for f in rebase-merge/head-name rebase-apply/head-name; do
     [ -e "$1/$f" ] || continue
-    [ -r "$1/$f" ] || return 0
-    [ "$(cat "$1/$f")" = "refs/heads/$2" ] && return 0
+    c=$(cat "$1/$f") || return 0
+    [ "$c" = "refs/heads/$2" ] && return 0
   done
   if [ -e "$1/BISECT_START" ]; then
-    [ -r "$1/BISECT_START" ] || return 0
-    [ "$(cat "$1/BISECT_START")" = "$2" ] && return 0
+    c=$(cat "$1/BISECT_START") || return 0
+    [ "$c" = "$2" ] && return 0
   fi
   return 1
 }

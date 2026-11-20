@@ -113,6 +113,11 @@ check "setup: the main checkout is mid-rebase from left, detached" '[ -z "$(git 
 run; check "kept when the main checkout is rebasing it" 'kept && grep -q "rebase or bisect" "$T/out"'
 git rebase --abort
 done_
+f0=$fail; setup; git worktree add -q --detach "$T/wt" "$OLD"; gdw=$(git -C "$T/wt" rev-parse --absolute-git-dir)
+mkdir "$gdw/rebase-merge" && echo refs/heads/other > "$gdw/rebase-merge/head-name" && chmod 000 "$gdw/rebase-merge/head-name"
+run; chmod 644 "$gdw/rebase-merge/head-name"
+check "kept when a worktree's rebase state can't be read" 'kept && grep -q "rebase or bisect" "$T/out"'
+done_
 
 echo "8. The reflog holds a commit reset off the branch: kept"
 f0=$fail; setup; git switch -q left && echo y >> f && git commit -q -am y && git reset -q --hard "$OLD" && git switch -q main; run
