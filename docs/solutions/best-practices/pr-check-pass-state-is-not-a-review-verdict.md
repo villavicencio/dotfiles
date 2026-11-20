@@ -129,10 +129,10 @@ this config, `Review skipped` on an open PR is the *default*, not an anomaly.
 ## Guidance
 
 **A check's pass/fail state is not evidence a review happened, and a completed review is not
-evidence its findings were triaged. Read the description string, then enumerate the threads —
-both, every time, before declaring a PR mergeable.**
+evidence its findings were triaged. Read the check run's conclusion and title, then enumerate
+the threads — both, every time, before declaring a PR mergeable.**
 
-### Step 1 — read the check description, not its state
+### Step 1 — read the check run, not its pass state
 
 A CodeRabbit check that doesn't fail the PR is not evidence a review ran. A rate-limited run
 concludes `neutral` and a skipped run concludes `skipped`: neither fails the PR, neither is
