@@ -551,3 +551,39 @@ same file.
 - **Local merge, no remote, no PR:** there is no `MERGED` state or origin tip to check.
   Confirm `git merge-base --is-ancestor "$b" "$base"`, then `git branch -d "$b"`, which
   refuses an unmerged branch on its own. Local branch only.
+
+## Leftover local branch: delete without asking
+
+A local branch whose work is already on origin's default branch is deleted without asking
+(global rule, 2026-11-19). The typical one is the branch Orca keeps when it removes a
+worktree. In skills, Orca's worktree for a ticket sat on a branch named after the ticket, the
+work went out on a `feat/` branch that was squash-merged, and after `orca worktree rm` the
+Orca-named branch was left at a commit already on `origin/main`, with no upstream and no PR.
+Run this from any checkout of the repo, in bash or zsh. It deletes the branch or prints
+`keeping <branch>`:
+
+```bash
+b=<branch>; d=<default branch>   # d: git symbolic-ref --short refs/remotes/origin/HEAD, minus "origin/"
+git fetch -q origin &&
+[ "$b" != "$d" ] &&
+! git worktree list --porcelain | grep -qxF "branch refs/heads/$b" &&
+git merge-base --is-ancestor "refs/heads/$b" "refs/remotes/origin/$d" &&
+[ -z "$(git rev-list $(git log -g --format=%H "refs/heads/$b") --not "refs/remotes/origin/$d")" ] &&
+git branch -d "$b" || echo "keeping $b"
+```
+
+- **What each check covers.** The worktree list includes the current checkout, so the current
+  branch is refused too. The ancestry check proves the tip is on origin's default branch. The
+  reflog check covers commits the branch pointed at earlier, such as ones moved off it by
+  `git reset`: `git branch -d` deletes the branch's reflog with it, and once its worktree is
+  removed that worktree's HEAD reflog is gone too, so those commits would become unreachable.
+  A squash merge's original commits aren't on the default branch, so a branch that once held
+  them is kept; ask about it.
+- **Why `-d`.** `git branch -d` refuses a branch that isn't merged into the current branch (or
+  its upstream), and a branch that a worktree is rebasing or bisecting, which
+  `git worktree list` shows as detached. If it refuses, keep the branch and say so. Never `-D`.
+- **Not covered:** the branch's copy on origin, a branch with commits the default branch lacks
+  (a merged PR's head goes through "After the merge" above), stashes, tags, anything else.
+- **Tested 2026-11-20** in a scratch repo, bash and zsh: a branch at an older commit of `main`
+  was deleted; kept were a branch whose reflog held a commit reset off it, one checked out in a
+  worktree, one with a commit `main` lacks, and `main` itself.
