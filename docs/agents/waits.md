@@ -7,8 +7,9 @@ This file has the reasons.
 ## The rules
 
 **Every wait has a deadline.** Give each loop a loop count or a timeout, in the foreground or
-the background. When it runs out, print that it timed out and stop. A loop with no end can run
-for hours without anyone seeing it, and it keeps its agent alive the whole time.
+the background. When it runs out, print that it timed out and return non-zero, so a caller that
+checks the exit status stops too. A loop with no end can run for hours without anyone seeing it,
+and it keeps its agent alive the whole time.
 
 **Tell an error from "not yet".** Check the exit status of the command you poll on every pass.
 On a failure, print the error and stop. If a failure and "still pending" look the same (often
@@ -27,9 +28,42 @@ it again.
 
 ## The loop shape
 
-Use the bounded loop in `docs/agents/code-review.md`, "Polling `gh` (any reviewer, any repo)":
-a fixed number of passes, a stop on any failure, and `TIMEOUT` at the end. The shape works for
-any poll, not just `gh`.
+**Review waits: use the helpers, not a loop of your own.**
+
+- MergeWren: `source bin/lib/mergewren-review.sh`, then `mergewren_review <pr>`. It returns 0
+  with the verdict, 1 on a GitHub error, and 2 when its deadline passes with no verdict; the
+  other codes are listed at the top of that file.
+- CodeRabbit, on a repo not yet on MergeWren: `cr_wait` in `docs/agents/code-review.md`,
+  "Merging on a CodeRabbit review". Only status 0 can mean a review; any other status is a stop.
+
+**Any other wait: write a loop that does all four of these.**
+
+1. Tries a fixed number of times, or until a deadline on `$SECONDS`.
+2. Succeeds only on the explicit "done" value it checks for. An empty reply, or a value it
+   doesn't know, is not "done".
+3. Returns non-zero when it runs out, so a caller that checks the exit status stops too.
+   Printing `TIMEOUT` and exiting 0 reads as success.
+4. Keeps an error apart from "not yet": a failed status command stops the loop with its own
+   return code instead of counting as pending.
+
+```bash
+wait_done() {  # wait_done <id>: 0 done, 1 error, 2 timed out, 3 unexpected reply
+  local i r
+  for i in $(seq 1 20); do
+    r=$(status-command "$1") || { echo "ERROR: status-command failed (above)" >&2; return 1; }
+    case $r in
+      DONE) echo "done"; return 0 ;;
+      PENDING) sleep 60 ;;
+      *) echo "ERROR: unexpected reply '$r'" >&2; return 3 ;;
+    esac
+  done
+  echo "TIMEOUT: not done after 20 tries" >&2; return 2
+}
+```
+
+Put the real command and values in place of `status-command`, `DONE` and `PENDING`. Don't copy
+the short loop under "Polling `gh`" in `docs/agents/code-review.md` as a general shape: it ends
+with `echo "TIMEOUT"`, which exits 0, and takes any value but `PENDING` as done.
 
 ## Incidents
 
