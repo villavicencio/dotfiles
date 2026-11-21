@@ -1,5 +1,5 @@
 ---
-title: "A passing PR check is not a review — read the description string and enumerate unresolved threads"
+title: "A passing PR check is not a review — follow the check-run recipe and enumerate unresolved threads"
 date: 2026-08-25
 category: best-practices
 module: code-review-workflow
@@ -36,7 +36,7 @@ related_solutions:
   - "docs/solutions/best-practices/verify-the-instrument-before-trusting-a-negative.md — same root_cause; a verdict is only as good as the instrument, and here the blind instrument is a check's pass-state"
 ---
 
-# A green check is not a review — read the description string and enumerate the threads
+# A passing PR check is not a review — follow the check-run recipe and enumerate unresolved threads
 
 ## Context
 
@@ -129,26 +129,24 @@ this config, `Review skipped` on an open PR is the *default*, not an anomaly.
 ## Guidance
 
 **A check's pass/fail state is not evidence a review happened, and a completed review is not
-evidence its findings were triaged. Read the description string, then enumerate the threads —
-both, every time, before declaring a PR mergeable.**
+evidence its findings were triaged. A review ran only when the recipe in
+`docs/agents/code-review.md` says so: the check run's conclusion, title and result line, and no
+`Summarized by CodeRabbit Free` comment on the PR,
+not from the conclusion and title alone. Then enumerate the threads — both, every time, before
+declaring a PR mergeable.**
 
-### Step 1 — read the check description, not its state
+### Step 1 — read the check run, not its pass state
 
-```bash
-gh pr checks <N> --json name,state,description \
-  -q '.[] | select(.name|test("CodeRabbit";"i")) | "\(.state)\t\(.description)"'
-```
-
-| Description | Check state | Did a review run? |
-|---|---|---|
-| `Review completed` | pass | **Yes** — go to step 2 |
-| `Review skipped: incremental reviews are disabled` | **pass** | **No** — request one with `@coderabbitai review` |
-| `Review rate limited` | **pass** | **No** — throttled; wait, or take the docs/config carve-out and record the throttle in the PR body |
-| `Review in progress` / `pending` | pending | Not finished — keep polling |
-| `Review failed — the head commit changed during the review` | — | **No** — a push aborted it; the allowance was spent for nothing |
-
-**Three of those five rows show a `pass` state, and only one of them means a review actually
-ran.** Treat `pass` as carrying no information until you have read the string next to it.
+A CodeRabbit check that doesn't fail the PR is not evidence a review ran. A rate-limited run
+concludes `neutral` and a skipped run concludes `skipped`: neither fails the PR, neither is
+`success`, and neither is a review. A summary-only run concludes `success` and isn't a review
+either. So read the check run's conclusion and title, not its pass state. The recipe that used
+to be here
+(`gh pr checks` with the check's description string) described CodeRabbit before about 2026-10-24,
+when it reported a commit status; since then it reports a check run, and `gh pr checks` shows an
+empty description for it. The current recipe lives in `docs/agents/code-review.md`, section
+"Merging on a CodeRabbit review": it reads the check run (`check-runs?check_name=CodeRabbit`) and
+checks for a `Summarized by CodeRabbit Free` comment.
 
 > The older rule — *poll `gh pr checks <N> \| grep -i '^CodeRabbit'` until it stops saying
 > `pending`* — is satisfied instantly by all three non-review states. A non-pending pass is not
@@ -156,7 +154,9 @@ ran.** Treat `pass` as carrying no information until you have read the string ne
 
 ### Step 2 — enumerate unresolved threads
 
-The description only says whether a review *ran*. It never says what it found, and findings
+The check-run recipe in `docs/agents/code-review.md` says whether a review *ran*, and it takes
+every part of it: the conclusion, title and result line, and no `Summarized by CodeRabbit Free`
+comment, not the conclusion and title alone. It never says what it found, and findings
 arrive as `COMMENTED` reviews that set no blocking verdict. The GraphQL `reviewThreads`
 connection is the only surface exposing `isResolved`, which REST does not:
 
