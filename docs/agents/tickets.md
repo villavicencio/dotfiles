@@ -195,7 +195,7 @@ Two skills from the `dv` plugin (repo `villavicencio/skills`) work in this forma
 4. Proposes a size, with the count of repos and PRs, and decides whether to split the ticket.
 5. Looks once past the ticket's text for small improvements that belong in it, spin-off tickets (at most three) and process problems, such as a branch name that breaks a repo's rule.
 6. Asks every open decision as a multiple-choice interview, at most four questions a round. A numeric target is always David's to set.
-7. Applies only the numbered edits David approves, and files only the children and spin-offs David approved. A yes to a split or a spin-off in the interview approves filing it as shown.
+7. Applies only the numbered edits David approves, and files only the children and spin-offs David approved. A yes to a split or a spin-off in the interview approves filing it as shown. When it applies a grooming, it adds the `groomed` label to the ticket, so the board shows which tickets are groomed.
 
 **Splits.** A ticket is split when its parts can merge on their own in different repos, when it mixes a mechanical change with a design choice, when part of it is blocked, when it is large, or when one part is risky. It is not split when the parts must land together. The parent either becomes the first child or stays as the parent with the children under it, in which case its description is replaced by one whose Scope names the children. Linear can't create tickets and edit another in one step, so the children are filed first and the parent is changed last. A failure part way leaves the work in two places, never in none. Groom stops on a create error or when the parent changed since the split was approved, and lists what exists for David to settle.
 
