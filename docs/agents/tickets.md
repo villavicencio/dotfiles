@@ -83,13 +83,13 @@ A Linear MCP `append` patch lands after the closing `>>>` marker, outside the co
 
 ## Model credit
 
-When a ticket moves to Done, it gets one label from the `model` group, unless a rule below says to add none: the model that changed the most lines of the merged change. Managers, reviewers and groomers are not credited, and the model of the session doing the marking never counts.
+When a ticket moves to Done, it gets one label from the `model` group, unless a rule below says to add none: the model whose commits in the PR changed the most lines. Managers, reviewers and groomers are not credited, and the model of the session doing the marking never counts.
 
 Where to read it: the PR's own authoring commits, listed oldest first by `gh pr view <N> --json commits`. Leave out merges of the base branch into the PR. This repo squash-merges every PR, so the merged commit holds only copies of the source commits' trailers as body text and can't be relied on.
 
 A commit names its model in a `Co-Authored-By:` or `Worker-Model:` trailer, matched without regard to case (GitHub's squash merge writes `Co-authored-by:`). The hal overnight runner writes `Worker-Model:`. A commit with no such trailer names no model, and so does one that names two different models. The model name is the trailer's value without the `<email>` part.
 
-Count each commit's lines as additions plus deletions: `gh api repos/<owner>/<repo>/commits/<sha> -q .stats.total` gives it, and so does summing `git show --numstat <sha>`. Add the counts per model. Lines in commits that name no model are credited to nobody.
+Count each commit's lines as additions plus deletions: `gh api repos/<owner>/<repo>/commits/<sha> -q .stats.total` gives it, and so does summing `git show --numstat <sha>`. Add the counts per model. This measures churn across the commits, so lines a later commit undoes still count for the model that wrote them. Lines in commits that name no model are credited to nobody.
 
 - The label goes to the model with the most lines. If models tie for the most, it goes to the one whose newest commit comes latest in the list (the list is oldest first).
 - If the lines in commits that name no model are more than the top model's lines, add no label. If no authoring commit names a model, or no model has any lines, add no label either. In each case the Done comment says so and why.
