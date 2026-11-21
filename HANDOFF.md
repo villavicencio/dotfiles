@@ -1,55 +1,34 @@
 ---
-created_at: "2026-11-18T23:17:23-08:00"
+created_at: "2026-11-21T15:58:05-08:00"
 branch: "master"
-head: "ba62fdc"
+head: "df65209"
 worktree: "/Users/dvillavicencio/Projects/Personal/dotfiles"
 ---
-# HANDOFF — 2026-11-18, evening (PT)
+# HANDOFF — 2026-11-21, afternoon (PT)
 
-One long hub session in the main checkout, in Manager Mode, from the evening of 2026-11-17 to the evening of 2026-11-18 (PT). It closed the Manager Mode rollout (VIL-796) and the hal shared clone (VIL-700), filed four tickets, and did admin for the child worktree streams David ran. Nothing is in flight here: no open PRs in dotfiles or skills, the tree is clean, `master` matches origin.
+Hub session in the main checkout, in Manager Mode (admin only). It started with a pickup on 2026-11-18 and resumed on 2026-11-21. Work: answered a question about Linear auto-archive, merged dotfiles PR 294 (VIL-852) on David's approval, set up the Linear `model` label group, removed the finished VIL-852 worktree, and filed VIL-882. Nothing is in flight from this session. The tree is clean and `master` matches origin at `df65209`.
 
 ## What We Built
-- **VIL-796, Done.** Pointers to `dv:manager-mode` replaced the pasted copies: dotfiles PR 280 (`116c280`), obsidian-scriptorium `83974ce`, bryancola.com PR 52 (`da88e5e`), mergewren-web `998450e` (done by the MergeWren session), skills PR 65 (`4279b42`, release `dv--v0.9.1`). One done-means line is met only in part and is recorded on the ticket: the standing line made a fresh headless Sonnet session invoke the skill in 3 of 5 runs.
-- **Dotfiles PR 282 (`81c6f54`).** The "Fix rounds" bullet in `docs/agents/code-review.md`: the engineer waits for the reviewer in the foreground and reports a wait that ends without a verdict. It took three rounds; the third was David's call, with the rule cut down.
-- **VIL-700, Done.** `hal`'s old clone was moved aside to `dotfiles.pre-vil700` next to where it was; the undo is `restore-old-clone` in `helpers/hal_shared_clone.sh`. Closed the same evening by David's choice, skipping the runbook's one-night wait; the ticket says so.
-- **Tickets filed:** VIL-808 (bryancola.com: remove retired `dv:gauntlet` from its `CLAUDE.md`), VIL-809 (Argus: tag and publish a plugin release automatically), VIL-810 (hand-off cue 200k to 500k; merged since as PR 283 by its own stream), VIL-830 (rule: the session that opens a PR moves each covered ticket to In Review; Todo, branch `docs/vil-830-in-review-rule`).
-- **VIL-797, Done** (reported by its own stream, 2026-11-18 23:15 PT): dotfiles PRs 281 and 284, skills PRs 66 and 67, release `dv--v0.10.0`. Tickets are filed and groomed with `dv:ticket`; `/ticket` is gone.
-- **Handoff store tidied, 2026-11-18.** The four closed streams' files (VIL-761, VIL-797, VIL-799, VIL-810; all detached, worktrees already removed by David) were moved into `.git/handoffs/_done/`, not deleted. `dv:pickup` never archives a detached session's file on its own. Left in place: `villavicencio%2Fdocs-linear-completed-issues.md` (October, branch gone) and the `vil-700-phase2-scratch` folder.
-- **Linear cleanup, 2026-11-18.** 15 Dissolution stories with an open PR moved from In Progress to In Review (PRs 6 to 13 in `villavicencio/dissolution`; the list is in VIL-830's agent notes).
-- **Overnight Dissolution mission.** David launched it from a prompt written here, plus an update adding authored prose and art. This session never checked its result; the 8 open PRs are from that run.
-- **Memory notes** (project memory, not in the repo): `feedback_answer_is_not_a_go`, `feedback_main_session_admin_only`, `project_context_budget` (rewritten), and the mailbox paragraph in `feedback_mergewren_owns_mergewren`.
+- **PR 294 (VIL-852), squash-merged as `df65209`**, pinned to approved head `3c3211a`. The unresolved-threads check was empty. MergeWren findings `7170dec#1` and `3c3211a#1` were waived by David, with the follow-up in VIL-881. Branch `pilot/vil-852-20261119-220515` was deleted on origin by `cleanup_merged_branch` (no local copy existed). Its new rule lives in `docs/agents/tickets.md` "Model credit", plus the Done-at-merge line in `claude/CLAUDE.md` and `codex/AGENTS.md`.
+- **Linear, team VIL:** a new single-select label group `model`, with children `claude-opus-5-5` and `claude-sonnet-5-5`. VIL-852 is Done with `claude-sonnet-5-5`. My recount from `gh pr view 294 --json commits` gave Sonnet 33 lines and qwen3.8-27b 20; merge `3c3211a` was excluded. A future model gets its child label the first time a ticket needs it (`qwen3-8-27b` doesn't exist yet).
+- **VIL-852 worktree removed** (`~/orca/workspaces/dotfiles/vil-852-…`) with `orca worktree rm --force`, under the standing approval for finished Orca worktrees (#297). The checks passed: the only file outside git was an identical `settings.local.json`, dotbot was clean, and its 8 reflog-only commits were all PR 294's. Leftover branch `vil-852-credit-each-finished-ticket-to-the-model-that-wrote` (`d16ed76`) was deleted with `delete_leftover_branch`.
+- **VIL-882 filed** (hal Local Coding Pilot, Todo): the runner reads the ticket's current Decisions before planning, and the planner declines a brief, first or fix round, that contradicts one. Evidence is in hal `~/runs/queue/taken/` (account `david`): `41-vil-852.md` and the four `*-dotfiles-294.md` fix briefs.
 
 ## Decisions Made
-All David, by dialog or in chat, 2026-11-17 and 2026-11-18:
-- **The main checkout session is admin only**: tickets, moving things, housekeeping. Dev work goes to worktree streams he starts himself. Keep the main session open while children run, if the context allows.
-- **An answer to a side question is not a go.** Start ticket work only on words that start it.
-- **Hand-off cue is 500k**, or 80% of a window of 500k or less. Auto-compaction is at 600k.
-- **In Review rule (VIL-830):** the session that opens a PR sets each covered ticket to In Review and writes one `Refs` or `Fixes VIL-N` line per ticket in the PR description. Linear's PR link does not move status here: VIL-527 had its PR attached through the branch name and stayed In Progress.
-- **bryancola.com** carries the standing Manager Mode line in its `AGENTS.md`, reversing his 2026-11-14 "memory only" choice.
-- **Not decided:** a per-project `SessionStart` hook to invoke the skill deterministically. David questioned its point; no ticket was filed.
+- **A brief step that contradicts a ticket's recorded decision declines the run**, and the runner comments on the ticket (David, interview, 2026-11-21; recorded on VIL-882). Rejected options: the ticket overriding the brief, and running as briefed with a flag.
+- **Linear auto-archive (6 months) is fine as is:** archived issues stay viewable and restorable in the team's archives; only a manual delete is permanent after 30 days (linear.app/docs/delete-archive-issues, fetched 2026-11-20). The MCP's `list_issues` has `includeArchived`.
 
 ## What Didn't Work
-- **The hal mailbox to the MergeWren session.** It was retired on 2026-11-17; a stale handoff and memory note said otherwise. Messages go as paste-ready text that David carries.
-- **A brief that said "run the reviewer wait again if it times out"** (PR 282). MergeWren's high finding was right: a rerun resets the helper's limit. The rule now says report and stop.
-- **A fresh-session test prompt that said "start no agents"** biased the result; the rerun used a neutral prompt.
-- **Inferring that Linear moves tickets to In Review from the branch name.** David had moved them by hand.
+- Nothing failed this session.
 
 ## What's Next
-1. **VIL-830**, when David starts it as a worktree stream. One step is his: read the VIL team's pull request automations in Linear; if "on PR open" is unset, turning it on does most of the job.
-2. **VIL-813** (`dv:groom`) has three decisions waiting on David, per the VIL-810 stream's handoff. Also filed and not started: VIL-812, VIL-824, VIL-825, and VIL-836 (Argus: a `dv:closeout` skill, filed by the VIL-797 stream).
-3. **Waiting on David's yes (a deletion):** `.agents/skills/source-command-ticket/SKILL.md` in the main checkout is a gitignored Codex copy of the retired `/ticket` command, in the old format. A Codex session here may still offer it.
-4. **Noticed by the VIL-797 stream, not filed, David has not decided:** in the skills repo, the `dv` description in `.claude-plugin/marketplace.json` omits mnemosyne-ops, orca-setup, manager-mode and ticket; `plugins/dv/skills/ticket/evals/triggers.json` has no cases for plain-word groom requests.
-5. **Pull hal's shared clone** to current `master`, as `david` (`ssh hal`). Not checked this session whether it is current.
-6. **Dissolution:** stories In Progress with no open PR found (VIL-489 to VIL-492, VIL-817, VIL-820), and VIL-519, which PR 10 names. Not looked into.
-7. **Offers David has not answered** (no go given): an issue or PR to `erlhon9/orca-pod` for the hardcoded Korean topic prompt (`src/worker.ts`, `pod.suggestTopics`); a ticket for using Orca's workspace notes and unread flag as "needs you"; VIL-736 after VIL-700.
-8. **Carried, still unticketed:** the Garmin MCP connection timeouts; whether Hermes on hal is up; the `compinit` fix for this Mac. Stale In Progress tickets worth a look: VIL-107, VIL-360, VIL-454.
+1. **VIL-881** (Backlog): its blocker VIL-852 is Done, so it can start once David picks it up. Leave it in Backlog until work starts.
+2. **VIL-882** (Todo): whenever David starts it as a hal-pilot worktree stream. Editing `plan-prompt.md` needs David to add `Edit(plan-prompt.md)` to hal-pilot's `.claude/settings.local.json` first.
+3. **Four open pilot PRs in dotfiles**, not this session's work and not reviewed here: #285 (VIL-745), #286 (VIL-830), #287 (VIL-795), #295 (VIL-853). Check each one's MergeWren verdict and its ticket's state before anyone merges.
+4. **Carried from the 2026-11-18 handoff, not rechecked:** delete `.agents/skills/source-command-ticket/SKILL.md` (needs David's yes); the `marketplace.json` `dv` description and `ticket` trigger evals in skills (unfiled); pull hal's shared clone as `david`; Dissolution stories In Progress with no PR; the stale In Progress tickets VIL-107, VIL-360 and VIL-454.
 
 ## Gotchas & Watch-outs
-- **`dv:ticket` asks for a yes on the draft before creating.** VIL-830 was filed on David's earlier "agreed" without showing the draft; he was told. Show the draft next time.
-- **Read the context size, don't guess it:** the last assistant `usage` in the session transcript, or `/context`. The Orca chat UI has no statusline (VIL-798).
-- **Orca children are this checkout's worktrees.** "No open worktrees" was wrong once; check `git worktree list` and Orca's child list before saying so.
+- **The Model credit rule now applies at every Done.** Count lines per model from the PR's own commits (`gh pr view <N> --json commits`, then `git show --numstat`). Skip merges of the base branch. Match `Co-Authored-By:` and `Worker-Model:` without regard to case. The `model` group is single-select, so Linear itself enforces one label.
+- **hal briefs live in `~/runs/queue/taken/`** as `david`. hal's `stat` isn't BSD (`-f %Sm` fails); use `ls -l --time-style=+%F_%H:%M`.
 - **`.claude/worktrees/vil-721-hal-memory-sections`** (detached at `a9af0f3`) belongs to another session. Leave it.
-- **bryancola memory lives on hal** under account `david`; the Mac vault copies are copies. Backups from the 2026-11-17 edit sit one folder above the memory folder, suffixed `.bak-20261117`.
-- **bryancola.com's main checkout on hal** was one commit behind with another session's `HANDOFF.md` change when last seen.
-- **A PR that names a `VIL-` id can close it at merge.** Re-check each named ticket after a merge.
-- **Pulling on hal:** pull `david`'s clone as `david`; never run git in it as `hal`.
+- **The PR 294 body names VIL-852 only**, so no other ticket closed at the merge (checked).
