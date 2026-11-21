@@ -46,6 +46,16 @@ A planned ticket left in Backlog has one line stating the exact condition that m
 
 This is different from the `someday` label (`claude/CLAUDE.md`, Linear). A `someday` ticket is a parked idea that is worth keeping and isn't planned. It has no pull condition, and nobody suggests it as next work. A ticket with a pull condition is planned and is waiting on something named. If a ticket's pull condition can't be written, it is probably a `someday` ticket. Adding or removing the label stays David's call.
 
+## Ticket states
+
+A ticket moves between three states as work proceeds:
+
+- In Progress: when work on the ticket starts.
+- In Review: when its PR opens. The session that opens the PR sets it. In Manager Mode, the manager sets it when a hired engineer reports the PR open.
+- Done: at merge.
+
+A PR that covers several tickets moves each of them. The PR description carries one line per ticket it covers, `Refs VIL-N` or `Fixes VIL-N`, so the covered tickets can be read from the PR. See "Linking a PR to a ticket without closing it" for which word closes a ticket at merge.
+
 ## Linking a PR to a ticket without closing it
 
 A PR that only partly finishes a ticket says `Refs VIL-N` in its description. The PR that finishes the ticket says `Fixes VIL-N`. Put the line in the PR description only, not the title: the page says "Magic words in PR comments won't create links."
