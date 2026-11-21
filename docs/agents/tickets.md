@@ -83,9 +83,18 @@ A Linear MCP `append` patch lands after the closing `>>>` marker, outside the co
 
 ## Model credit
 
-When a ticket moves to Done, it gets exactly one label from the `model` group: the model that wrote the merged change. If an escalation changed the author, credit the last one. Managers, reviewers and groomers are not credited.
+When a ticket moves to Done, it gets one label from the `model` group, unless a rule below says to add none: the model that changed the most lines of the merged change. Managers, reviewers and groomers are not credited, and the model of the session doing the marking never counts.
 
-Read the model from the `Co-Authored-By:` or `Worker-Model:` trailers in the PR's own commits, read in order before the squash, never from the session doing the marking: `gh pr view <N> --json commits` lists them oldest first with their messages. This repo squash-merges every PR, so the merged commit holds only copies of those trailers as body text and can't be relied on. The hal overnight runner writes `Worker-Model:` instead of `Co-Authored-By:`. The label is the model's name in lower case, with dashes for spaces and dots: `Claude Sonnet 5.5` becomes `claude-sonnet-5-5`, and `Worker-Model: qwen3.8-27b` becomes `qwen3-8-27b`. The label comes from the PR's last authoring commit: the newest commit in the `gh pr view <N> --json commits` list that carries the PR's own work, not a merge of the base branch into it. If that commit names a model (`Co-Authored-By:` or `Worker-Model:`), use that model. Don't fall back to an older commit's trailer. The ticket still gets exactly one label. If the last authoring commit doesn't name a model, add no label, and say in the Done comment that the last commit had no model trailer. If the label doesn't exist yet in the `model` group, create it the first time a ticket needs it.
+Where to read it: the PR's own authoring commits, listed oldest first by `gh pr view <N> --json commits`. Leave out merges of the base branch into the PR. This repo squash-merges every PR, so the merged commit holds only copies of the source commits' trailers as body text and can't be relied on.
+
+A commit names its model in a `Co-Authored-By:` or `Worker-Model:` trailer, matched without regard to case (GitHub's squash merge writes `Co-authored-by:`). The hal overnight runner writes `Worker-Model:`. A commit with no such trailer names no model, and so does one that names two different models. The model name is the trailer's value without the `<email>` part.
+
+Count each commit's lines as additions plus deletions: `gh api repos/<owner>/<repo>/commits/<sha> -q .stats.total` gives it, and so does summing `git show --numstat <sha>`. Add the counts per model. Lines in commits that name no model are credited to nobody.
+
+- The label goes to the model with the most lines. If models tie for the most, it goes to the one whose newest commit comes latest in the list (the list is oldest first).
+- If the lines in commits that name no model are more than the top model's lines, add no label. If no authoring commit names a model, or no model has any lines, add no label either. In each case the Done comment says so and why.
+
+The label is the trailer's model name in lower case, with dashes for spaces and dots: `Claude Sonnet 5.5` becomes `claude-sonnet-5-5`, and `Worker-Model: qwen3.8-27b` becomes `qwen3-8-27b`. If the label doesn't exist yet in the `model` group, create it the first time a ticket needs it.
 
 ## Existing tickets
 
