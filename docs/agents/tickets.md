@@ -83,15 +83,19 @@ A Linear MCP `append` patch lands after the closing `>>>` marker, outside the co
 
 ## Model credit
 
-When a ticket moves to Done, it gets one label from the `model` group, unless a rule below says to add none: the model whose commits in the PR changed the most lines. Managers, reviewers and groomers are not credited, and the model of the session doing the marking never counts.
+When a ticket moves to Done, it gets one label from the `model` group, unless a rule below says to add none: the model whose commits in the ticket's merged work changed the most lines. Managers, reviewers and groomers are not credited, and the model of the session doing the marking never counts.
 
-Where to read it: the PR's own authoring commits, listed oldest first by `gh pr view <N> --json commits`. Leave out merges of the base branch into the PR. This repo squash-merges every PR, so the merged commit holds only copies of the source commits' trailers as body text and can't be relied on.
+Where to read it: the authoring commits of every merged PR linked to the ticket, not only the one that finishes it. For each PR, `gh pr view <N> --json commits` lists its commits oldest first; leave out merges of the base branch into the PR. This repo squash-merges every PR, so the merged commit holds only copies of the source commits' trailers as body text and can't be relied on.
 
-A commit names its model in a `Co-Authored-By:` or `Worker-Model:` trailer, matched without regard to case (GitHub's squash merge writes `Co-authored-by:`). The hal overnight runner writes `Worker-Model:`. A commit with no such trailer names no model, and so does one that names two different models. The model name is the trailer's value without the `<email>` part.
+- To find the PRs: use the PR attachments on the ticket in Linear, or `gh pr list --state merged --search "VIL-<N>" --json number,title`. The search matches the PR's title and body, so read each hit and drop any that names a different ticket (`VIL-85` also matches inside `VIL-852`).
+- Also count work with no PR (a direct commit or a local merge): the commits on the default branch whose message names the ticket id, found with `git log --no-merges -i --grep="VIL-<N>"`, leaving out every squash commit of a PR (its subject ends in `(#<PR>)`), since those PRs are counted above. They use the same trailer and counting rules below.
+- Put all the commits in one list ordered by committer date, oldest first (`committedDate` in the `gh pr view` output, `%cI` in `git log --format`).
+
+A commit names its model in a `Co-Authored-By:` or `Worker-Model:` trailer, matched without regard to case (GitHub's squash merge writes `Co-authored-by:`). The hal overnight runner writes `Worker-Model:`. A commit with no such trailer names no model, and so does one that names two different models (compared by their labels). The model name is the trailer's value without the `<email>` part.
 
 Count each commit's lines as additions plus deletions: `gh api repos/<owner>/<repo>/commits/<sha> -q .stats.total` gives it, and so does summing `git show --numstat <sha>`. Add the counts per model. This measures churn across the commits, so lines a later commit undoes still count for the model that wrote them. Lines in commits that name no model are credited to nobody.
 
-- The label goes to the model with the most lines. If models tie for the most, it goes to the one whose newest commit comes latest in the list (the list is oldest first).
+- The label goes to the model with the most lines. If models tie for the most, it goes to the one whose newest commit comes latest in that order.
 - If the lines in commits that name no model are more than the top model's lines, add no label. If no authoring commit names a model, or no model has any lines, add no label either. In each case the Done comment says so and why.
 
 The label is the trailer's model name in lower case, with dashes for spaces and dots: `Claude Sonnet 5.5` becomes `claude-sonnet-5-5`, and `Worker-Model: qwen3.8-27b` becomes `qwen3-8-27b`. If the label doesn't exist yet in the `model` group, create it the first time a ticket needs it.
