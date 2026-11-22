@@ -103,6 +103,21 @@ round, `orca worktree list` leaves out worktrees under `.claude/worktrees/` when
 `externalWorktreeVisibility` is `hide` (`orca repo show --repo <selector> --json`; Orca
 1.4.257, 2026-11-17).
 
+**A project whose sidebar fills with worktrees Orca didn't make has
+`externalWorktreeVisibility: show`.** Tools that run `git worktree add` in the clone (hal-pilot's
+runner, MergeWren review checkouts at a detached HEAD) then show up as `[pilot] …` and
+`Detached HEAD @ <sha>` entries. On 2026-11-21 review-stack in the `hal-orca` environment was
+`show`, while every project in hal's local runtime was `hide`. Check and fix it from the
+personal Mac, whose Orca is paired with `hal-orca` (a session on hal as `david` has no paired
+environments):
+
+```
+orca repo show --repo name:<repo> --environment hal-orca --json | grep -i externalWorktree
+orca repo set --repo name:<repo> --environment hal-orca --external-worktree-visibility hide
+```
+
+This only hides them from the sidebar; the worktrees stay on disk.
+
 ## What survives an Orca restart or update, and a reboot
 
 Checked 2026-11-03 on the personal Mac, Orca 1.4.238.
