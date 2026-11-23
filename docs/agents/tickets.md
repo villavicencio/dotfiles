@@ -15,7 +15,7 @@ One core format. Leave out a section that has nothing to say, so a typo ticket i
 | Out of scope | When something nearby is deliberately left alone | One line each. |
 | Done means | Always | A checklist. Each line is a result that a command or an observation can prove, not an activity ("the check exits 0", not "update the check"). |
 | Decisions | When any were made | The decision, who made it, the date. |
-| Size | When groomed | Small, medium or large, with the count of repos and PRs. |
+| Size | When groomed | Small, medium or large, with the count of repos and PRs, and story points (1, 2, 3, 5, 8 or 13) from the anchor table under "Filing and grooming", also set as the ticket's Linear estimate. |
 | Agent notes | When there is detail | Collapsed: paths, findings, what was checked and what was not. |
 
 Rules beside the table:
@@ -127,7 +127,7 @@ Things nearby that this ticket deliberately leaves alone. One line each.
 What was decided, by whom, on what date.
 
 ## Size
-Small, medium or large, with the count of repos and PRs. Fill in when groomed.
+Small, medium or large, with the count of repos and PRs, and story points (1, 2, 3, 5, 8 or 13). Fill in when groomed.
 ```
 
 ## Worked example 1: a small bug
@@ -153,7 +153,7 @@ Title: Fix the backup script exiting 0 when the archive step fails
 - [ ] With `~/backups` writable, `./backup.sh; echo "exit=$?"` prints `exit=0` and the archive exists.
 
 ## Size
-Small: one repo, one PR.
+Small: one repo, one PR. 2 points: a small change with one test.
 ```
 
 The bug adds Reproduction, Expected and Actual after Why. It has no Scope (one step), no Out of scope and no Decisions (nothing was decided), so it leaves those out.
@@ -185,7 +185,7 @@ When the sync service fails to push a note, the `notes` CLI still prints "synced
 * `notes-sync` merges and releases first, because the CLI needs the new field. David, 2026-11-17.
 
 ## Size
-Medium: two repos, two PRs.
+Medium: two repos, two PRs. 8 points: the change touches two repos.
 
 +++ Agent notes
 
@@ -213,12 +213,12 @@ Two skills from the `dv` plugin (repo `villavicencio/skills`) work in this forma
 1. Reads the ticket, its comments and its neighbors: related, blocking and blocked tickets, the parent and children, and each PR it names. It also searches the team for work that is already done or planned elsewhere.
 2. Checks the ticket against this format and lists the gaps.
 3. Checks every fact that a Scope step or a Done means line depends on, against the repo commit or the system the fact is about, and samples the rest. It closes a conditional step ("check whether X; if so, do Y") when one or two read-only commands settle it, and turns each prerequisite into a blocked-by relation when it maps to one ticket.
-4. Proposes a size, with the count of repos and PRs, and decides whether to split the ticket.
+4. Proposes a size, with the count of repos and PRs, and Fibonacci story points, and decides whether to split the ticket. Points measure the effort for whoever works the ticket, not its importance, and are set in Linear's estimate field. The anchor table: 1 = a one-line docs or config change; 2 = a small change with one test; 3 = a change across a few files with tests; 5 = a feature-sized change in one repo; 8 = a change that touches several modules or two repos; 13 = too big to run as one ticket. As a guide and not a rule, small is typically 1–3 points, medium 5, large 8–13. Above 8 it proposes a split, with each child pointed; a 13 is never left unsplit without David's explicit yes.
 5. Looks once past the ticket's text for small improvements that belong in it, spin-off tickets (at most three) and process problems, such as a branch name that breaks a repo's rule.
 6. Asks every open decision as a multiple-choice interview, at most four questions a round. A numeric target is always David's to set.
 7. Applies only the numbered edits David approves, and files only the children and spin-offs David approved. A yes to a split or a spin-off in the interview approves filing it as shown. When it applies a grooming, it adds the `groomed` label to the ticket, so the board shows which tickets are groomed.
 
-**Splits.** A ticket is split when its parts can merge on their own in different repos, when it mixes a mechanical change with a design choice, when part of it is blocked, when it is large, or when one part is risky. It is not split when the parts must land together. The parent either becomes the first child or stays as the parent with the children under it, in which case its description is replaced by one whose Scope names the children. Linear can't create tickets and edit another in one step, so the children are filed first and the parent is changed last. A failure part way leaves the work in two places, never in none. Groom stops on a create error or when the parent changed since the split was approved, and lists what exists for David to settle.
+**Splits.** A ticket is split when its parts can merge on their own in different repos, when it mixes a mechanical change with a design choice, when part of it is blocked, when it is large or pointed above 8, or when one part is risky. It is not split when the parts must land together. The parent either becomes the first child or stays as the parent with the children under it, in which case its description is replaced by one whose Scope names the children. Linear can't create tickets and edit another in one step, so the children are filed first and the parent is changed last. A failure part way leaves the work in two places, never in none. Groom stops on a create error or when the parent changed since the split was approved, and lists what exists for David to settle.
 
 **Spin-offs.** Work the ticket suggests but should not carry, filed as its own ticket related to the groomed one, after a duplicate search.
 
