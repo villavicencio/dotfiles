@@ -127,7 +127,7 @@ Things nearby that this ticket deliberately leaves alone. One line each.
 What was decided, by whom, on what date.
 
 ## Size
-Small, medium or large, with the count of repos and PRs. Fill in when groomed.
+Small, medium or large, with the count of repos and PRs, and story points (1, 2, 3, 5, 8 or 13). Fill in when groomed.
 ```
 
 ## Worked example 1: a small bug
@@ -153,7 +153,7 @@ Title: Fix the backup script exiting 0 when the archive step fails
 - [ ] With `~/backups` writable, `./backup.sh; echo "exit=$?"` prints `exit=0` and the archive exists.
 
 ## Size
-Small: one repo, one PR.
+Small: one repo, one PR. 2 points: a small change with one test.
 ```
 
 The bug adds Reproduction, Expected and Actual after Why. It has no Scope (one step), no Out of scope and no Decisions (nothing was decided), so it leaves those out.
@@ -185,7 +185,7 @@ When the sync service fails to push a note, the `notes` CLI still prints "synced
 * `notes-sync` merges and releases first, because the CLI needs the new field. David, 2026-11-17.
 
 ## Size
-Medium: two repos, two PRs.
+Medium: two repos, two PRs. 8 points: the change touches two repos.
 
 +++ Agent notes
 
