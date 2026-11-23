@@ -44,7 +44,7 @@ A bug's Done means still follows the rule above: usually the Reproduction now gi
 
 A planned ticket left in Backlog has one line stating the exact condition that makes it ready (a `someday` ticket is the exception, below): "Pull when the VIL-N review lands" or "Pull when David picks a date for the migration". A condition names an event or a decision someone can observe, not "later" or "when there's time".
 
-When the condition names a ticket that is still open, or an open PR attached to one, the waiting ticket also gets Linear's blocked-by relation on that ticket, and the line stays. A ticket named only as an example or as background is related, not a blocker, and a wait that maps to no open ticket (a decision, a PR no ticket tracks) has the line alone.
+When the condition names a ticket that is still open, or an open PR attached to one, the waiting ticket also gets Linear's blocked-by relation on that ticket, and the line stays; a wait that maps to no ticket (a decision, a PR no ticket tracks) has the line alone, and one whose ticket is Canceled or a Duplicate, whose PR closed without merging or is open while its ticket is closed, or that could be more than one ticket goes to David first. A ticket named only as an example or as background is related, not a blocker.
 
 This is different from the `someday` label (`claude/CLAUDE.md`, Linear). A `someday` ticket is a parked idea that is worth keeping and isn't planned. It has no pull condition, and nobody suggests it as next work. A ticket with a pull condition is planned and is waiting on something named. If a ticket's pull condition can't be written, it is probably a `someday` ticket. Adding or removing the label stays David's call.
 
