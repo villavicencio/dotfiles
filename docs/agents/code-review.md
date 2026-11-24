@@ -516,7 +516,7 @@ same file.
   fails it after HEAD moved). If the branch moved or is checked out elsewhere, the worktree
   stays detached and the function prints `REATTACH FAILED`. If the origin push fails, it prints `RESTORE FAILED` with
   the exact `git -C <main checkout> push` that restores it, shell-quoted with `printf %q`. The local branch still
-  holds the commit either way. The closing `git fetch --prune` runs after both deletes and
+  holds the commit either way. The closing `git fetch --prune origin` runs after both deletes and
   isn't rolled back; if it fails, only a stale `origin/<branch>` tracking ref is left.
   Worktrees are touched only after origin accepted the delete, and are re-checked right before.
 - **Why `update-ref -d` and not `git branch -D`:** a squash or rebase merge leaves the branch
@@ -561,7 +561,7 @@ same file.
   refuses a submodule worktree before the PR lookup and holds no files, but reports copies an earlier run left in `wt-held/` first. Master's function and
   `wt` failed 19 of the first 41 checks. Rerun them with `ci/cleanup-merged-branch-checks.sh`
   after changing the function or `wt done` (local only, not in CI).
-- **Retested 2026-11-24 (VIL-1010)**, bash and zsh, 74 checks. Run from inside a linked
+- **Retested 2026-11-24 (VIL-1010)**, bash and zsh, 76 checks. Run from inside a linked
   worktree without submodules, it removes the worktree, deletes both copies, returns 0 and
   leaves the shell in the main checkout; before the fix it printed "moved mid-run" and
   `RESTORE FAILED` there (dotfiles PR 272, 2026-11-15). With the move to the main checkout
@@ -570,7 +570,9 @@ same file.
   checkout, it stops with only `git worktree list` run, before even a fetch. When the shell's
   worktree has its own `origin` (worktree config), the delete, the rollback and `gh` still go
   by the main checkout's, and the worktree's remote is left alone. A `cd` function or a zsh
-  `chpwd` hook that prints doesn't confuse it.
+  `chpwd` hook that prints doesn't confuse it. A worktree added on the branch during the PR
+  lookup is checked too, and the closing fetch prunes `origin` even when the main checkout's
+  branch tracks another remote.
 - **Local merge, no remote, no PR:** there is no `MERGED` state or origin tip to check.
   Confirm `git merge-base --is-ancestor "$b" "$base"`, then `git branch -d "$b"`, which
   refuses an unmerged branch on its own. Local branch only.

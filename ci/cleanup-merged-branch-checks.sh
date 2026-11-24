@@ -227,15 +227,34 @@ done_
 
 echo "8f. The shell's worktree has its own origin (worktree config): one origin throughout"
 # The local delete fails, so origin is pushed back. The delete, that rollback and gh all go by
-# the main checkout's settings; the worktree's own remote is never touched.
+# the main checkout's settings. The worktree's own remote has another tip, so a delete there
+# would be refused (lease) and a restore there would move it.
 f0=$fail; setup; git worktree add -q "$T/wt" feat/x; git clone -q --bare "$T/origin.git" "$T/other.git"
+OTIP=$(git commit-tree -p "$OID" -m other "$OID^{tree}") && git push -q -f "$T/other.git" "$OTIP:refs/heads/feat/x"
 git -C "$T/main" config extensions.worktreeConfig true
 git -C "$T/wt" config --worktree remote.origin.url "$T/other.git"
 printf '#!/bin/sh\ncase "$*" in *"update-ref -d refs/heads/feat/x"*) exit 1;; esac\nexec %s "$@"\n' "$REALGIT" > "$T/bin/git"
 chmod +x "$T/bin/git"; run "$T/wt"; rm "$T/bin/git"
 check "returns 1, origin restored at the merged head" '[ $RC = 1 ] && origin_at "$OID" && grep -q "restored origin/feat/x" "$T/out"'
-check "the worktree's own remote untouched" '[ "$(git ls-remote "$T/other.git" refs/heads/feat/x | cut -f1)" = "$OID" ]'
+check "the worktree's own remote untouched" '[ "$(git ls-remote "$T/other.git" refs/heads/feat/x | cut -f1)" = "$OTIP" ]'
 check "gh ran in the main checkout" '[ "$(cat "$T/gh-cwd")" = "$T/main" ]'
+done_
+
+echo "8h. Origin already deleted, the main checkout's branch tracks another remote: origin is pruned"
+f0=$fail; setup; git clone -q --bare "$T/origin.git" "$T/up.git"
+git remote add up "$T/up.git" && git fetch -q up && git branch -q -u up/master master
+git -C "$T/origin.git" update-ref -d refs/heads/feat/x  # GitHub's auto-delete; origin/feat/x stays here
+git rev-parse -q --verify refs/remotes/origin/feat/x >/dev/null || echo "setup: no origin/feat/x"
+run
+check "returns 0, local deleted, origin/feat/x pruned" \
+  '[ $RC = 0 ] && ! local_has && ! git -C "$T/main" rev-parse -q --verify refs/remotes/origin/feat/x >/dev/null'
+done_
+
+echo "8i. Another session adds a worktree on the branch during the PR lookup: it is checked too"
+f0=$fail; setup; mv "$T/bin/gh" "$T/gh.real"
+printf '#!/bin/sh\n[ "$1 $2" = "pr view" ] && git worktree add -q %s feat/x >/dev/null 2>&1\nexec %s "$@"\n' "$T/wt2" "$T/gh.real" > "$T/bin/gh"
+chmod +x "$T/bin/gh"; run
+check "returns 0, that worktree removed with the branch" '[ $RC = 0 ] && [ ! -e "$T/wt2" ] && ! local_has && ! origin_has'
 done_
 
 echo "8g. Same as 8b, with a cd function and a zsh chpwd hook that print"

@@ -43,6 +43,8 @@ cleanup_merged_branch() {
   fi
   # Worktrees on $b: all clean before anything changes. A linked one will be removed, which
   # deletes ignored files too (.env, build output), so for those ignored files count as dirty.
+  # List them again: one may have been added during the PR lookup or the fetch.
+  wl=$(git -C "$main" worktree list --porcelain) || { echo "git worktree list failed: stop"; return 1; }
   wts=$(printf '%s\n' "$wl" | awk -v r="branch refs/heads/$b" '/^worktree /{w=substr($0,10)} $0==r{print w}')
   while IFS= read -r w; do
     [ -n "$w" ] || continue
@@ -112,7 +114,7 @@ cleanup_merged_branch() {
     echo "$w is detached at $(git -C "$w" rev-parse --short HEAD), and git can't remove it (submodules)."
     echo "  It may still hold ignored files. Check it, then Force delete it in Orca, or (not Orca's) run: git worktree remove --force $(printf %q "$w")"
   done < <(printf '%s\n' "$detached")
-  git -C "$main" fetch --prune
+  git -C "$main" fetch --prune origin
 }
 # After removing worktree $1: if that took the shell's directory with it, move the shell to the
 # main worktree $2. The function is sourced, so the shell would otherwise sit in a deleted
