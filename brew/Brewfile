@@ -146,7 +146,6 @@ brew "xmlto"
 # --- Casks ---
 cask "coderabbit"           # CodeRabbit CLI
 cask "corelocationcli"      # CLI to read macOS CoreLocation (location-based tooling)
-cask "docker-desktop"
 cask "font-fira-code-nerd-font"      # Nerd Font (replaces manual fonts/ + install_fonts.sh)
 cask "font-jetbrains-mono-nerd-font" # terminal + iTerm profile font
 cask "git-credential-manager"
