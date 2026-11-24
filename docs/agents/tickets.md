@@ -22,6 +22,9 @@ Rules beside the table:
 
 - **Title.** Starts with a verb and names the outcome: "Fix the backup script exiting 0 when the archive step fails", not "Backup script bug".
 - **Done means lines are results, not activities.** "`grep -n "tickets.md" claude/CLAUDE.md` prints one line" can be checked. "Update CLAUDE.md" cannot. If a line can't name a command or an observation, the ticket isn't ready.
+- **A Done means command fails first.** A command in a Done means line fails on the default branch before the work and passes after it. Run it on the default branch when writing the ticket and note the result in the line ("nothing at `abc1234`"). A line that already passes proves nothing, so rewrite it until it fails, unless the line guards behavior that must not change and says so. A line with no command (an observation, such as a review verdict) says what would show it unmet.
+- **A ticket is sized to one PR.** Work that needs more PRs is split into child tickets, one per PR, at grooming (`dv:groom`, "Splits" under "Filing and grooming"). If a ticket must stay whole, each partial PR uses `Refs` (see "Linking a PR to a ticket without closing it").
+- **Decisions bind briefs.** A brief, a plan or a hired agent's instructions must not contradict a recorded decision. If one has to, the decision is changed on the ticket first, with who changed it and the date, and then the brief is written.
 - **Given/When/Then** is allowed inside Done means for behavior with a clear trigger (a hook, a CLI command, a review verdict). It is not required.
 - **The user-story sentence** ("As a [role], I want [thing], so that [reason]") is optional and never required. It suits a feature with a distinct user. Most tickets here are infrastructure, agent procedure or docs, where the user is David or an agent and the sentence comes out forced. Why already carries the reason.
 - **Length.** Ask "is someone going to read what I'm writing?" (magical.pm's Linear issue templates, read 2026-11-17). Write what that reader needs to start and to know when to stop, and cut the rest. Detail that only an agent needs goes under Agent notes.
@@ -47,6 +50,18 @@ A planned ticket left in Backlog has one line stating the exact condition that m
 When the condition names a ticket that is still open, or an open PR attached to one, the waiting ticket also gets Linear's blocked-by relation on that ticket, and the line stays: it names the exact event, and once that event happens (the review lands, the PR merges) the relation is stale and comes off even if that ticket stays open for other work (`dv:groom` removes one whose stated PR has merged); a wait that maps to no ticket (a decision, a PR no ticket tracks) has the line alone, and one whose ticket is Canceled or a Duplicate, whose PR closed without merging or is open while its ticket is closed, or that could be more than one ticket goes to David first. A ticket named only as an example or as background is related, not a blocker.
 
 This is different from the `someday` label (`claude/CLAUDE.md`, Linear). A `someday` ticket is a parked idea that is worth keeping and isn't planned. It has no pull condition, and nobody suggests it as next work. A ticket with a pull condition is planned and is waiting on something named. If a ticket's pull condition can't be written, it is probably a `someday` ticket. Adding or removing the label stays David's call.
+
+## Ticket states
+
+A ticket's state matches where its work is. The global Linear rules (`claude/CLAUDE.md` and `codex/AGENTS.md`, under "Linear") are the source; this section applies them to ticket work.
+
+- In Progress: the turn work on the ticket starts, before any PR exists (in Manager Mode, the turn the manager briefs the engineer), and while its PR is a draft.
+- In Review: when its PR opens and waits on review.
+- Done: when the PR that finishes it merges. A `Refs` PR doesn't finish the ticket: after one merges, read the ticket's state and fix it as the global "At every seam" rule says.
+
+The session that opens the PR moves the ticket to In Review in that same turn, if Linear hasn't. In Manager Mode, the manager does it when a hired engineer reports the PR open. Team VIL's PR automation in Linear is not confirmed set, so read the ticket's state; don't assume the automation moved it.
+
+A PR that covers several tickets moves each of them. Its description carries one line per ticket it covers, `Refs VIL-N` or `Fixes VIL-N`, so each ticket is linked and its state can be checked from the PR. Which word to use is in the next section.
 
 ## Linking a PR to a ticket without closing it
 
@@ -123,13 +138,13 @@ Numbered list of what changes. Leave out for a one-step ticket.
 Things nearby that this ticket deliberately leaves alone. One line each.
 
 ## Done means
-- [ ] Each line is a result a command or an observation can prove, not an activity.
+- [ ] Each line is a result a command or an observation can prove, not an activity. A command fails on the default branch before the work and passes after it.
 
 ## Decisions
-What was decided, by whom, on what date.
+What was decided, by whom, on what date. A brief must not contradict it.
 
 ## Size
-Small, medium or large, with the count of repos and PRs, and story points (1, 2, 3, 5, 8 or 13). Fill in when groomed.
+Small, medium or large, with the count of repos and PRs, and story points (1, 2, 3, 5, 8 or 13). A ticket is sized to one PR; split it if it needs more. Fill in when groomed.
 ```
 
 ## Worked example 1: a small bug
@@ -152,7 +167,7 @@ Title: Fix the backup script exiting 0 when the archive step fails
 
 ## Done means
 - [ ] With `~/backups` read-only, `./backup.sh; echo "exit=$?"` prints `exit=1` and does not print "done".
-- [ ] With `~/backups` writable, `./backup.sh; echo "exit=$?"` prints `exit=0` and the archive exists.
+- [ ] With `~/backups` writable, `./backup.sh; echo "exit=$?"` prints `exit=0` and the archive exists (guards unchanged behavior).
 
 ## Size
 Small: one repo, one PR. 2 points: a small change with one test.
@@ -179,7 +194,7 @@ When the sync service fails to push a note, the `notes` CLI still prints "synced
 ## Done means
 - [ ] `curl -s localhost:8080/status | jq .errors` against a service holding a failed note prints a non-empty list.
 - [ ] `notes sync; echo "exit=$?"` against that service prints the failed note's name and `exit=1`.
-- [ ] `notes sync; echo "exit=$?"` with no failed notes prints `synced` and `exit=0`.
+- [ ] `notes sync; echo "exit=$?"` with no failed notes prints `synced` and `exit=0` (guards unchanged behavior).
 - [ ] With a released `notes-sync` (not a local build) running, the `notes sync` check above still prints `exit=1` for a failed note.
 
 ## Decisions
@@ -196,6 +211,8 @@ Medium: two repos, two PRs. 8 points: the change touches two repos.
 
 +++
 ```
+
+This ticket was kept whole by decision, so each PR uses a keyword. Under the sizing rule alone it would be two tickets, one per repo.
 
 Order of the PRs, with the keyword each uses:
 
