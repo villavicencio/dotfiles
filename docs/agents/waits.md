@@ -50,12 +50,12 @@ it again.
    could clash with the loop's other codes.
 
 ```bash
-# wait_done <id> returns 0 done, 1 timed out, 2 unexpected reply, 3 status-command failed.
+# wait_done <id> returns 0 done, 1 timed out, 2 unexpected reply, 3 status command failed.
 wait_done() {
   local i r
   for i in $(seq 1 20); do
-    if ! r=$(status-command "$1"); then
-      echo "ERROR: status-command failed (error above)" >&2; return 3
+    if ! r=$(<status-command> "$1"); then
+      echo "ERROR: the status command failed (error above)" >&2; return 3
     fi
     case $r in
       DONE) echo "done"; return 0 ;;
@@ -67,7 +67,7 @@ wait_done() {
 }
 ```
 
-Put the real command and values in place of `status-command`, `DONE` and `PENDING`. The `gh`
+Put the real command and values in place of `<status-command>`, `DONE` and `PENDING`. The `gh`
 wait example under "Polling `gh`" in `docs/agents/code-review.md` has the same shape: it is done
 only on an explicit `DONE`, returns 1 on timeout, returns 2 on an unexpected reply and 3 when
 `gh` fails. For a review wait, don't write a loop of either kind: use `mergewren_review` for
