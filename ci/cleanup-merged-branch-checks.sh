@@ -56,10 +56,15 @@ orca_wt() {
   git -C "$T/wt" -c protocol.file.allow=always submodule -q update --init
   [ -e "$(git -C "$T/wt" rev-parse --absolute-git-dir)/modules" ] || echo "setup: no modules dir"
 }
-run() {  # run [dir]: run the function from dir (default $T/main) under $SH; output in $T/out
-  (cd "${1:-$T/main}" && PATH="$T/bin:$PATH" "$SH" ${SHFLAGS:+"$SHFLAGS"} -c ". '$LIB'; cleanup_merged_branch 7 master" >"$T/out" 2>&1)
+# run [dir]: run the function from dir (default $T/main) under $SH; output in $T/out, and
+# the shell's working directory after it in $T/cwd. $PRE, if set, runs after sourcing.
+run() {
+  (cd "${1:-$T/main}" && PATH="$T/bin:$PATH" "$SH" ${SHFLAGS:+"$SHFLAGS"} \
+    -c ". '$LIB'; ${PRE:-} cleanup_merged_branch 7 master; r=\$?; printf '%s\\n' \"\$PWD\" >'$T/cwd'; exit \$r" >"$T/out" 2>&1)
   RC=$?
 }
+# Turns off the move to the main checkout, so the shell stays in a directory the run removed.
+STAY='_cmb_leave_removed() { :; };'
 origin_has() { [ -n "$(git -C "$T/main" ls-remote origin refs/heads/feat/x)" ]; }
 origin_at()  { [ "$(git -C "$T/main" ls-remote origin refs/heads/feat/x | cut -f1)" = "$1" ]; }
 local_has()  { git -C "$T/main" rev-parse -q --verify refs/heads/feat/x >/dev/null; }
@@ -85,6 +90,7 @@ check "returns 0" '[ $RC = 0 ]'
 check "origin deleted" '! origin_has'
 check "local deleted" '! local_has'
 check "worktree detached at the tip" '[ -z "$(wt_branch)" ] && [ "$(wt_head)" = "$TIP" ]'
+check "shell still in the worktree" '[ "$(cat "$T/cwd")" = "$T/wt" ]'
 done_
 
 echo "3. Stale local copy (PR rebased on GitHub), Orca-like worktree"
@@ -136,6 +142,7 @@ check "returns 1" '[ $RC = 1 ]'
 check "origin restored at the merged head" 'origin_at "$OID"'
 check "local kept (at its new tip)" 'local_has'
 check "worktree left detached at its own HEAD" '[ -z "$(wt_branch)" ] && [ "$(wt_head)" = "$TIP" ]'
+check "says it moved" 'grep -q "local feat/x moved mid-run: keeping it" "$T/out"'
 check "REATTACH FAILED reported" 'grep -q "REATTACH FAILED: $T/wt" "$T/out"'
 done_
 
@@ -174,9 +181,44 @@ f0=$fail; setup; orca_wt; git worktree lock "$T/wt"; run
 check "returns 1, all kept" '[ $RC = 1 ] && origin_at "$OID" && local_has && [ "$(wt_branch)" = feat/x ]'
 done_
 
-echo "8. Linked worktree without submodules is still removed"
+echo "8a. Linked worktree without submodules is still removed"
 f0=$fail; setup; git worktree add -q "$T/wt" feat/x; run
 check "returns 0, removed, both deleted" '[ $RC = 0 ] && [ ! -e "$T/wt" ] && ! origin_has && ! local_has'
+done_
+
+echo "8b. Same, run from inside the worktree it removes (VIL-1010)"
+f0=$fail; setup; git worktree add -q "$T/wt" feat/x; run "$T/wt"
+check "returns 0" '[ $RC = 0 ]'
+check "worktree removed" '[ ! -e "$T/wt" ]'
+check "origin and local deleted" '! origin_has && ! local_has'
+check "no false move, restore or git error" '! grep -q -e "moved mid-run" -e "RESTORE FAILED" -e "fatal:" "$T/out"'
+check "shell moved to the main checkout" '[ "$(cat "$T/cwd")" = "$T/main" ]'
+done_
+
+echo "8c. Same, with the shell left in the removed directory: the git calls after it still work"
+f0=$fail; setup; git worktree add -q "$T/wt" feat/x; PRE=$STAY; run "$T/wt"; PRE=
+check "returns 0, removed, both deleted" '[ $RC = 0 ] && [ ! -e "$T/wt" ] && ! origin_has && ! local_has'
+check "no false move, restore or git error" '! grep -q -e "moved mid-run" -e "RESTORE FAILED" -e "fatal:" "$T/out"'
+check "shell still in the removed directory" '[ "$(cat "$T/cwd")" = "$T/wt" ]'
+done_
+
+echo "8d. Same, and the local branch moves mid-run: origin is restored from the removed directory"
+f0=$fail; setup; git worktree add -q "$T/wt" feat/x; OTHER=$(git -C "$T/main" rev-parse master)
+printf '#!/bin/sh\ncase "$*" in *"update-ref -d refs/heads/feat/x"*) %s -C %s update-ref refs/heads/feat/x %s;; esac\nexec %s "$@"\n' \
+  "$REALGIT" "$T/main" "$OTHER" "$REALGIT" > "$T/bin/git"
+chmod +x "$T/bin/git"; PRE=$STAY; run "$T/wt"; PRE=; rm "$T/bin/git"
+check "returns 1" '[ $RC = 1 ]'
+check "says it moved" 'grep -q "local feat/x moved mid-run: keeping it" "$T/out"'
+check "origin restored at the merged head" 'origin_at "$OID" && ! grep -q "RESTORE FAILED" "$T/out"'
+check "local kept at its new tip" '[ "$(git -C "$T/main" rev-parse feat/x)" = "$OTHER" ]'
+done_
+
+echo "8e. git can't run in the main worktree: stop before anything changes"
+f0=$fail; setup; git worktree add -q "$T/wt" feat/x
+printf '#!/bin/sh\ncase "$*" in *"-C %s rev-parse --git-dir"*) exit 1;; esac\nexec %s "$@"\n' "$T/main" "$REALGIT" > "$T/bin/git"
+chmod +x "$T/bin/git"; run "$T/wt"; rm "$T/bin/git"
+check "returns 1, all kept" '[ $RC = 1 ] && [ -d "$T/wt" ] && origin_at "$OID" && local_has'
+check "says why" 'grep -q "can.t run git in the main worktree $T/main: stop" "$T/out"'
 done_
 
 echo "9. Linked worktree without submodules, ignored file: kept"

@@ -3,6 +3,7 @@
 # Source this file (bash or zsh), then run it from any worktree of the repo:
 #   source <dotfiles clone>/bin/lib/cleanup-merged-branch.sh   # ~/Projects/Personal/dotfiles on the desk Macs
 #   cleanup_merged_branch <pr> <default branch>
+# Run from inside the linked worktree it removes, it moves the shell to the main worktree.
 # Why each check exists: docs/agents/code-review.md, "After the merge". bin/wt's
 # `wt done` calls it too. This file is the only copy; edit it here.
 
@@ -33,6 +34,12 @@ cleanup_merged_branch() {
   # deletes ignored files too (.env, build output), so for those ignored files count as dirty.
   wl=$(git worktree list --porcelain) || { echo "git worktree list failed: stop"; return 1; }
   main=$(printf '%s\n' "$wl" | awk '/^worktree /{print substr($0,10); exit}')
+  # The shell's own directory may be a worktree this run removes, so from that step on each git
+  # call names its directory with -C: the worktree it acts on, or the main worktree, which is
+  # never removed. Check now that git runs there.
+  if [ -z "$main" ] || ! git -C "$main" rev-parse --git-dir >/dev/null 2>&1; then
+    echo "can't run git in the main worktree ${main:-?}: stop"; return 1
+  fi
   wts=$(printf '%s\n' "$wl" | awk -v r="branch refs/heads/$b" '/^worktree /{w=substr($0,10)} $0==r{print w}')
   while IFS= read -r w; do
     [ -n "$w" ] || continue
@@ -86,37 +93,49 @@ cleanup_merged_branch() {
         git -C "$w" symbolic-ref -q HEAD >/dev/null || detached="$detached$w"$'\n'
         [ "$sw" = 0 ]; }
     else
-      s=$(git -C "$w" status --porcelain --ignored) && [ -z "$s" ] && git worktree remove "$w"
-    fi || { echo "couldn't clear $w: keeping $b"; _cmb_reattach "$b" "$detached"
-            _cmb_restore_origin "$deleted" "$b" "$oid"; return 1; }
+      s=$(git -C "$w" status --porcelain --ignored) && [ -z "$s" ] && git -C "$main" worktree remove "$w" \
+        && _cmb_leave_removed "$w" "$main"
+    fi || { echo "couldn't clear $w: keeping $b"; _cmb_reattach "$main" "$b" "$detached"
+            _cmb_restore_origin "$main" "$deleted" "$b" "$oid"; return 1; }
   done < <(printf '%s\n' "$wts")
   # Local: refuses unless the tip is still the one checked above (branch -D deletes whatever).
-  if [ -n "$tip" ] && ! git update-ref -d "refs/heads/$b" "$tip"; then
-    echo "local $b moved mid-run: keeping it"; _cmb_reattach "$b" "$detached"
-    _cmb_restore_origin "$deleted" "$b" "$oid"; return 1
+  if [ -n "$tip" ] && ! git -C "$main" update-ref -d "refs/heads/$b" "$tip"; then
+    echo "local $b moved mid-run: keeping it"; _cmb_reattach "$main" "$b" "$detached"
+    _cmb_restore_origin "$main" "$deleted" "$b" "$oid"; return 1
   fi
   while IFS= read -r w; do
     [ -n "$w" ] || continue
     echo "$w is detached at $(git -C "$w" rev-parse --short HEAD), and git can't remove it (submodules)."
     echo "  It may still hold ignored files. Check it, then Force delete it in Orca, or (not Orca's) run: git worktree remove --force $(printf %q "$w")"
   done < <(printf '%s\n' "$detached")
-  git fetch --prune
+  git -C "$main" fetch --prune
 }
-# Put each worktree this run detached back on $1, when $1 still points at its HEAD and no other
+# After removing worktree $1: if that took the shell's directory with it, move the shell to the
+# main worktree $2. The function is sourced, so the shell would otherwise sit in a deleted
+# directory where every command fails. Only then does it change directory; it never fails.
+_cmb_leave_removed() {
+  [ -d "${PWD:-.}" ] && return 0
+  if builtin cd -- "$2" >/dev/null 2>&1; then echo "the shell was in $1, now removed: moved it to $2"
+  else echo "the shell was in $1, now removed, and can't cd to $2: cd somewhere that exists"; fi
+  return 0
+}
+# Put each worktree this run detached back on $2, when $2 still points at its HEAD and no other
 # worktree has checked it out since. symbolic-ref only moves HEAD, so no file changes either way.
+# $1 is the main worktree, where the repo-wide git calls run.
 _cmb_reattach() {
   local w h wl
   while IFS= read -r w; do
     [ -n "$w" ] || continue
-    h=$(git -C "$w" rev-parse HEAD) && [ "$(git rev-parse -q --verify "refs/heads/$1")" = "$h" ] \
-      && wl=$(git worktree list --porcelain) && ! printf '%s\n' "$wl" | grep -qxF "branch refs/heads/$1" \
-      && git -C "$w" symbolic-ref HEAD "refs/heads/$1" && { echo "put $w back on $1"; continue; }
-    echo "REATTACH FAILED: $w is detached at ${h:-?}, and $1 is elsewhere, gone, or checked out in another worktree"
-  done < <(printf '%s\n' "$2")
+    h=$(git -C "$w" rev-parse HEAD) && [ "$(git -C "$1" rev-parse -q --verify "refs/heads/$2")" = "$h" ] \
+      && wl=$(git -C "$1" worktree list --porcelain) && ! printf '%s\n' "$wl" | grep -qxF "branch refs/heads/$2" \
+      && git -C "$w" symbolic-ref HEAD "refs/heads/$2" && { echo "put $w back on $2"; continue; }
+    echo "REATTACH FAILED: $w is detached at ${h:-?}, and $2 is elsewhere, gone, or checked out in another worktree"
+  done < <(printf '%s\n' "$3")
 }
 # Put origin's branch back at the merged head after a failure, if this run deleted it.
+# Usage: _cmb_restore_origin <main worktree> <deleted: 1 or 0> <branch> <merged head>
 _cmb_restore_origin() {
-  [ "$1" = 1 ] || return 0
-  if git push -q origin "${3}:refs/heads/$2"; then echo "restored origin/$2"
-  else printf 'RESTORE FAILED: origin/%s is deleted; run: git push origin %q\n' "$2" "${3}:refs/heads/$2"; fi
+  [ "$2" = 1 ] || return 0
+  if git -C "$1" push -q origin "${4}:refs/heads/$3"; then echo "restored origin/$3"
+  else printf 'RESTORE FAILED: origin/%s is deleted; run: git -C %q push origin %q\n' "$3" "$1" "${4}:refs/heads/$3"; fi
 }
