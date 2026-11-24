@@ -174,10 +174,11 @@ findings arrive as `COMMENTED` reviews that set no blocking verdict. The GraphQL
 connection is the only surface exposing `isResolved`, which REST does not:
 
 ```bash
-gh api graphql -F owner=<owner> -F repo=<repo> -F pr=<N> -f query='
-query($owner:String!,$repo:String!,$pr:Int!){
+gh api graphql --paginate -F owner=<owner> -F repo=<repo> -F pr=<N> -f query='
+query($owner:String!,$repo:String!,$pr:Int!,$endCursor:String){
   repository(owner:$owner,name:$repo){ pullRequest(number:$pr){
-    reviewThreads(first:100){ nodes{
+    reviewThreads(first:100,after:$endCursor){
+      pageInfo{ hasNextPage endCursor } nodes{
       isResolved path line originalLine
       comments(last:1){ nodes{ author{login} createdAt } } } } } } }' \
  -q '.data.repository.pullRequest.reviewThreads.nodes[]
