@@ -138,13 +138,13 @@ Numbered list of what changes. Leave out for a one-step ticket.
 Things nearby that this ticket deliberately leaves alone. One line each.
 
 ## Done means
-- [ ] Each line is a result a command or an observation can prove, not an activity. A command fails on the default branch before the work and passes after it.
+- [ ] Each line is a result a command or an observation can prove, not an activity. A command fails on the default branch before the work and passes after it, unless the line says it guards unchanged behavior.
 
 ## Decisions
 What was decided, by whom, on what date. A brief must not contradict it.
 
 ## Size
-Small, medium or large, with the count of repos and PRs, and story points (1, 2, 3, 5, 8 or 13). A ticket is sized to one PR; split it if it needs more. Fill in when groomed.
+Small, medium or large, with the count of repos and PRs, and story points (1, 2, 3, 5, 8 or 13). A ticket is sized to one PR; split it if it needs more, or keep it whole and use `Refs` on each partial PR. Fill in when groomed.
 ```
 
 ## Worked example 1: a small bug
