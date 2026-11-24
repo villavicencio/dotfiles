@@ -71,7 +71,7 @@
 
 | Severity | Write-up | Date |
 |---|---|---|
-| High | [A passing PR check is not a review — read the description string and enumerate unresolved threads](best-practices/pr-check-pass-state-is-not-a-review-verdict.md) | 2026-08-25 |
+| High | [A passing PR check is not a review — follow the full CodeRabbit check-run recipe, summary-only check included, and enumerate unresolved threads](best-practices/pr-check-pass-state-is-not-a-review-verdict.md) | 2026-08-25 |
 | medium | [Clean up a merged branch before Force-deleting the Orca worktree your session runs in](best-practices/merged-branch-cleanup-from-inside-an-orca-worktree.md) | 2026-10-21 |
 
 ## cross-machine setup (corporate mac)
