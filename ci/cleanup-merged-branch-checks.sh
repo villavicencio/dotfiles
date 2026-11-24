@@ -43,8 +43,8 @@ setup() {
   OID=$(git rev-parse feat/x) TIP=$OID
   cat > "$T/bin/gh" <<EOF
 #!/bin/sh
-# gh pr view <N> --json ... -q ...: the merged PR's head
-[ "\$1 \$2" = "pr view" ] && { echo "feat/x \$(cat "$T/oid") false"; exit 0; }
+# gh pr view <N> --json ... -q ...: the merged PR's head (and where gh ran, in $T/gh-cwd)
+[ "\$1 \$2" = "pr view" ] && { pwd -P > "$T/gh-cwd"; echo "feat/x \$(cat "$T/oid") false"; exit 0; }
 [ "\$1 \$2" = "pr list" ] && { echo "7 \$(cat "$T/oid")"; exit 0; }
 exit 1
 EOF
@@ -213,12 +213,36 @@ check "origin restored at the merged head" 'origin_at "$OID" && ! grep -q "RESTO
 check "local kept at its new tip" '[ "$(git -C "$T/main" rev-parse feat/x)" = "$OTHER" ]'
 done_
 
-echo "8e. git can't run in the main worktree: stop before anything changes"
-f0=$fail; setup; git worktree add -q "$T/wt" feat/x
-printf '#!/bin/sh\ncase "$*" in *"-C %s rev-parse --git-dir"*) exit 1;; esac\nexec %s "$@"\n' "$T/main" "$REALGIT" > "$T/bin/git"
+echo "8e. git can't run in the main worktree: stop before anything else, even a fetch"
+# A merged head that isn't here, so the stale-copy check would fetch it if it ran first.
+f0=$fail; setup; git worktree add -q "$T/wt" feat/x; echo 1111111111111111111111111111111111111111 > "$T/oid"
+printf '#!/bin/sh\necho "$*" >> %s\ncase "$*" in *"-C %s rev-parse --git-dir"*) exit 1;; esac\nexec %s "$@"\n' \
+  "$T/gitlog" "$T/main" "$REALGIT" > "$T/bin/git"
 chmod +x "$T/bin/git"; run "$T/wt"; rm "$T/bin/git"
 check "returns 1, all kept" '[ $RC = 1 ] && [ -d "$T/wt" ] && origin_at "$OID" && local_has'
 check "says why" 'grep -q "can.t run git in the main worktree $T/main: stop" "$T/out"'
+check "only git worktree list ran before it" \
+  '[ "$(sed -n 1p "$T/gitlog")" = "worktree list --porcelain" ] && [ "$(grep -c "" "$T/gitlog")" = 2 ]'
+done_
+
+echo "8f. The shell's worktree has its own origin (worktree config): one origin throughout"
+# The local delete fails, so origin is pushed back. The delete, that rollback and gh all go by
+# the main checkout's settings; the worktree's own remote is never touched.
+f0=$fail; setup; git worktree add -q "$T/wt" feat/x; git clone -q --bare "$T/origin.git" "$T/other.git"
+git -C "$T/main" config extensions.worktreeConfig true
+git -C "$T/wt" config --worktree remote.origin.url "$T/other.git"
+printf '#!/bin/sh\ncase "$*" in *"update-ref -d refs/heads/feat/x"*) exit 1;; esac\nexec %s "$@"\n' "$REALGIT" > "$T/bin/git"
+chmod +x "$T/bin/git"; run "$T/wt"; rm "$T/bin/git"
+check "returns 1, origin restored at the merged head" '[ $RC = 1 ] && origin_at "$OID" && grep -q "restored origin/feat/x" "$T/out"'
+check "the worktree's own remote untouched" '[ "$(git ls-remote "$T/other.git" refs/heads/feat/x | cut -f1)" = "$OID" ]'
+check "gh ran in the main checkout" '[ "$(cat "$T/gh-cwd")" = "$T/main" ]'
+done_
+
+echo "8g. Same as 8b, with a cd function and a zsh chpwd hook that print"
+f0=$fail; setup; git worktree add -q "$T/wt" feat/x
+PRE='cd() { echo noise; builtin cd "$@"; }; chpwd() { echo noise; };'; run "$T/wt"; PRE=
+check "returns 0, removed, both deleted, shell in the main checkout" \
+  '[ $RC = 0 ] && [ ! -e "$T/wt" ] && ! origin_has && ! local_has && [ "$(cat "$T/cwd")" = "$T/main" ]'
 done_
 
 echo "9. Linked worktree without submodules, ignored file: kept"
