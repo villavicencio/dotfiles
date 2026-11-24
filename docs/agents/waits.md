@@ -102,20 +102,23 @@ itself a little before the cap (7000 s below), so it exits with its own code ins
 stopped.
 
 ```bash
-# Once, at the start: the overall deadline, here 8 h from now.
+# Once, before the first chunk: the overall deadline (here 8 h from now) and the function file.
 echo $(( $(date +%s) + 8*3600 )) > <deadline-file>
-
+cat > <wait-chunk-file> <<'EOF'
 # wait_chunk <id> <deadline-file> returns 0 done, 1 overall deadline passed, 2 unexpected reply,
 # 3 status command failed or bad deadline file, 4 this chunk is over and the deadline has not
 # passed: run it again.
 wait_chunk() {
-  local r now deadline chunk_end
+  local r now nap deadline chunk_end
   deadline=$(cat "$2" 2>/dev/null)
   case $deadline in
     ''|*[!0-9]*) echo "ERROR: no valid deadline in '$2'" >&2; return 3 ;;
   esac
   chunk_end=$(( $(date +%s) + 7000 ))
   while :; do
+    now=$(date +%s)
+    if [ "$now" -ge "$deadline" ]; then echo "TIMEOUT: overall deadline passed" >&2; return 1; fi
+    if [ "$now" -ge "$chunk_end" ]; then return 4; fi
     if ! r=$(<status-command> "$1"); then
       echo "ERROR: the status command failed (error above)" >&2; return 3
     fi
@@ -124,19 +127,27 @@ wait_chunk() {
       PENDING) ;;
       *) echo "ERROR: unexpected reply '$r'" >&2; return 2 ;;
     esac
-    now=$(date +%s)
-    if [ "$now" -ge "$deadline" ]; then echo "TIMEOUT: overall deadline passed" >&2; return 1; fi
-    if [ "$now" -ge "$chunk_end" ]; then return 4; fi
-    sleep 60
+    nap=$(( deadline - $(date +%s) ))
+    if [ "$nap" -gt 60 ]; then nap=60; fi
+    if [ "$nap" -gt 0 ]; then sleep "$nap"; fi
   done
 }
+EOF
 ```
 
-Run each chunk as a background Bash call with `timeout` 7200000 or less, and read its code with
-`rc=0; wait_chunk <id> <deadline-file> || rc=$?`, since 4 is a normal result and would exit a
-`set -e` script. On 4, start the next chunk. 0 is done; 1, 2 and 3 are stops. Any code outside
-0 to 4 means the chunk was stopped from outside (the cap, a signal): check the clock against
-the deadline before you start another.
+Each chunk is a new background Bash call, a fresh shell with none of the earlier definitions, so
+it sources the function file and runs `wait_chunk` itself:
+
+```bash
+source <wait-chunk-file>
+rc=0; wait_chunk <id> <deadline-file> || rc=$?
+echo "wait_chunk exit $rc"
+```
+
+Give each chunk call a `timeout` of 7200000 or less. Read its code with `|| rc=$?`, since 4 is a
+normal result and would exit a `set -e` script. On 4, start the next chunk. 0 is done; 1, 2 and
+3 are stops. Any code outside 0 to 4 means the chunk was stopped from outside (the cap, a
+signal): check the clock against the deadline before you start another.
 
 ## Incidents
 
