@@ -194,16 +194,19 @@ case_ inner-merge VIL-23 2026-02-01T00:00:00Z
 repo acme/app
 c g 1 "base for the conflict"
 br -b feat/vil-23; c a 3 "pr work" "$A"; printf 'pr side\n' > "$R/g"; c - 0 "pr edits g" "$A"
-br -b sub HEAD~1; c b 4 "sub-branch work" "$B"; printf 'sub side\n' > "$R/g"; c - 0 "sub edits g" "$B"
+br -b sub HEAD~1; c b 10 "sub-branch work" "$B"; printf 'sub side\n' > "$R/g"; c - 0 "sub edits g" "$B"
 br feat/vil-23; tick=$((tick + 1)); stamp git -C "$R" merge -q --no-ff -m x sub >/dev/null 2>&1
 printf 'resolved\n' > "$R/g"; git -C "$R" add g; stamp git -C "$R" commit -q -m "Merge sub" -m "$A"
 h=$(sha HEAD); squash feat/vil-23 "work (#1)"; pr 1 feat/vil-23 "$h" "$(sha HEAD)" "work"
 run
-has "the merge's conflict fix is counted" "^      from acme/app#1 merge inside the PR \(its own changes, remerge-diff\): Merge sub"
-lacks "the merge isn't counted whole" "merge of the base branch"
-has "claude-opus-5-5 gets its commits and the conflict fix" "^  claude-opus-5-5 +(1[0-9]|[6-9]) lines"
-model qwen3-8-27b 6
-label claude-opus-5-5
+# The merge's own change, worked out by hand: git's merge of g holds the 5 conflict lines
+# (<<<, pr side, ===, sub side, >>>) and the fix keeps 1 new line, so 5 deleted + 1 added = 6.
+# Counted whole (its diff from its first parent), it would be 12: b's 10 lines and g's 2.
+has "the merge's own change is 6 lines" "^  [-0-9TZ:]+  [0-9a-f]{7}       6 lines  Claude Opus 5.5$"
+has "...from the merge, measured as its own changes" "^      from acme/app#1 merge inside the PR \(its own changes, remerge-diff\): Merge sub"
+model claude-opus-5-5 11
+model qwen3-8-27b 12
+label qwen3-8-27b
 
 # --- the same repo named in two casings is searched and counted once ---------------------
 case_ slug-case VIL-25 2026-02-01T00:00:00Z https://github.com/Acme/App/pull/1
