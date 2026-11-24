@@ -8,11 +8,11 @@ cleanup = true
 # Skip JetBrains IDEs (not installed) and system RubyGems (managed through RVM).
 # Skip pnpm: ~/package.json pins `packageManager: yarn@...`, so pnpm correctly
 # refuses to run there — yarn step handles the actual updates.
-# Skip containers: no container runtime is in the Brewfile (or installed on the
-# desk Mac), so topgrade's container image-update step has nothing to update.
-# Skip colima: installed out of band, and the runtime-update step needs a
-# running VM (fails `colima is not running` when it's down). Only the in-VM
-# runtime step is skipped.
+# Skip containers: topgrade's image-update step needs a running container
+# daemon, and none is kept running: the Brewfile no longer installs Docker
+# Desktop, and colima (installed out of band) runs its VM only on demand.
+# Skip colima: same reason. Its runtime-update step needs the VM running (fails
+# `colima is not running` when it's down); only the in-VM runtime step is skipped.
 # Skip microsoft_office: not used; msupdate fires `XPC Connection invalidated`
 # every run when no Office app is foregrounded — pure noise.
 # Skip vim: its Neovim step runs a plugin update against ~/.config/nvim. Where

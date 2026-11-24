@@ -21,9 +21,10 @@
 # 3. chsh: PAM auth fails on hosted macOS. dotbot-conf/darwin.yaml's chsh
 #    directive is CI-gated via `[[ "${CI:-false}" != "true" ]]`. If chsh
 #    breaks on a real machine we won't catch it here.
-# 4. Container runtime: no Brewfile installs one, so nothing in CI can run
-#    `docker`. If a future helper invokes `docker ps`, gate it on the
-#    same CI env-var pattern as chsh.
+# 4. Container runtime: no Brewfile installs one, so no docker daemon runs in CI.
+#    The macos-server leg runs with CI=false and puts a `docker` stub (exits 0
+#    for any args) on PATH. A future helper that invokes `docker ps` must gate
+#    on a real daemon answering, not on the CI env var or `docker` merely existing.
 # 5. Corporate-SSL paths (work-Mac via TLS-intercepting proxy) — would require a
 #    self-hosted runner or cert-redaction strategy. Not in scope.
 # 6. Credential-pattern detection: R3's grep covers `/Users/<user>/`
