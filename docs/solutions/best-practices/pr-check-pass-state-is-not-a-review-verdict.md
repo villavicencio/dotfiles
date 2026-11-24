@@ -1,5 +1,5 @@
 ---
-title: "A passing PR check is not a review — follow the check-run recipe and enumerate unresolved threads"
+title: "A passing PR check is not a review — follow the full CodeRabbit check-run recipe, summary-only check included, and enumerate unresolved threads"
 date: 2026-08-25
 category: best-practices
 module: code-review-workflow
@@ -13,7 +13,7 @@ applies_when:
   - "Merging after pushing fixes, when the requested re-review may have posted new findings since anyone last looked"
   - "Any merge gate whose signal is a binary pass/fail that a third-party bot deliberately never fails"
 symptoms:
-  - "`gh pr checks <N>` shows the CodeRabbit row as `pass` while its description reads `Review skipped: incremental reviews are disabled`"
+  - "Before about 2026-10-24, `gh pr checks <N>` showed the CodeRabbit row as `pass` while its description read `Review skipped: incremental reviews are disabled`"
   - "`gh pr view <N> --json mergeStateStatus` returns `CLEAN` on a PR that still carries untriaged findings"
   - "A check reading `Review completed` on a PR whose most recent re-review posted findings nobody read"
   - "Unresolved review threads surface only by accident, from an unrelated question"
@@ -36,7 +36,7 @@ related_solutions:
   - "docs/solutions/best-practices/verify-the-instrument-before-trusting-a-negative.md — same root_cause; a verdict is only as good as the instrument, and here the blind instrument is a check's pass-state"
 ---
 
-# A passing PR check is not a review — follow the check-run recipe and enumerate unresolved threads
+# A passing PR check is not a review — follow the full CodeRabbit check-run recipe, summary-only check included, and enumerate unresolved threads
 
 ## Context
 
@@ -47,8 +47,8 @@ and ready to merge. The evidence was a `gh pr checks` line showing `pass` and a
 - **#178** — check `pass`, description **`Review skipped: incremental reviews are disabled`**.
   A passing check on which *no review ran for the pushed head*. It still carried two untriaged
   findings from its one initial review, with no reply on either thread.
-- **#177** — at report time the check read `pass — Review completed`, the string that *does*
-  mean a review ran. But a re-review requested after the first round of fixes had posted **two
+- **#177** — at report time the check read `pass — Review completed`, the string that, in a
+  public repo, meant a review ran (a summary-only run reads the same today). But a re-review requested after the first round of fixes had posted **two
   new findings** nobody had read. One was cosmetic (markdownlint MD040). One was a real bug.
 - **#176** — genuinely clean: `Review completed`, two findings, both fixed, both confirmed,
   both threads resolved. The control case.
@@ -129,35 +129,37 @@ this config, `Review skipped` on an open PR is the *default*, not an anomaly.
 ## Guidance
 
 **A check's pass/fail state is not evidence a review happened, and a completed review is not
-evidence its findings were triaged. A review ran only when the recipe in
-`docs/agents/code-review.md` says so: the check run's conclusion, title and result line, and no
-`Summarized by CodeRabbit Free` comment on the PR,
-not from the conclusion and title alone. Then enumerate the threads — both, every time, before
-declaring a PR mergeable.**
+evidence its findings were triaged. A review ran only when all four parts of the recipe in
+`docs/agents/code-review.md` ("Merging on a CodeRabbit review") say so: the check run's
+conclusion, its title, its result line (the first line of its summary), and no
+`Summarized by CodeRabbit Free` comment on the PR. The conclusion and title alone can't tell a
+review from a summary-only run. Then enumerate the threads (step 2) before declaring a PR
+mergeable.**
 
 ### Step 1 — read the check run, not its pass state
 
 A CodeRabbit check that doesn't fail the PR is not evidence a review ran. A rate-limited run
-concludes `neutral` and a skipped run concludes `skipped`: neither fails the PR, neither is
-`success`, and neither is a review. A summary-only run concludes `success` and isn't a review
-either. So read the check run's conclusion and title, not its pass state. The recipe that used
-to be here
-(`gh pr checks` with the check's description string) described CodeRabbit before about 2026-10-24,
-when it reported a commit status; since then it reports a check run, and `gh pr checks` shows an
-empty description for it. The current recipe lives in `docs/agents/code-review.md`, section
-"Merging on a CodeRabbit review": it reads the check run (`check-runs?check_name=CodeRabbit`) and
-checks for a `Summarized by CodeRabbit Free` comment.
+concludes `neutral` and a skipped run concludes `skipped`: neither fails the PR, neither is a
+review, and neither concludes `success`. A summary-only run on the Free plan concludes `success`
+with the title `Finished`, the same as a review, so the conclusion and title can't separate the
+two. Read all four: the check run's conclusion, its title, its result line, and whether a
+`Summarized by CodeRabbit Free` comment is on the PR. The commands, and a table of what each
+combination means, are in `docs/agents/code-review.md`, section "Merging on a CodeRabbit review".
 
-> The older rule — *poll `gh pr checks <N> \| grep -i '^CodeRabbit'` until it stops saying
-> `pending`* — is satisfied instantly by all three non-review states. A non-pending pass is not
-> a completed review.
+The recipe that used to be here (`gh pr checks` with the check's description string) described
+CodeRabbit before about 2026-10-24, when it reported a commit status. Since then it reports a
+check run, and `gh pr checks` shows an empty description for it.
+
+> The older rule, from before 2026-10-24 — *poll `gh pr checks <N> \| grep -i '^CodeRabbit'`
+> until it stops saying `pending`* — was satisfied instantly by all three non-review states. A
+> non-pending pass is not a completed review.
 
 ### Step 2 — enumerate unresolved threads
 
-The check-run recipe in `docs/agents/code-review.md` says whether a review *ran*, and it takes
-every part of it: the conclusion, title and result line, and no `Summarized by CodeRabbit Free`
-comment, not the conclusion and title alone. It never says what it found, and findings
-arrive as `COMMENTED` reviews that set no blocking verdict. The GraphQL `reviewThreads`
+The check-run recipe in `docs/agents/code-review.md` says whether a review *ran*, and only when
+all four parts are read: the conclusion, title, result line, and the `Summarized by CodeRabbit
+Free` comment check, not the conclusion and title alone. It doesn't say what the review found, and
+findings arrive as `COMMENTED` reviews that set no blocking verdict. The GraphQL `reviewThreads`
 connection is the only surface exposing `isResolved`, which REST does not:
 
 ```bash
@@ -248,6 +250,9 @@ the skip and its reason when reporting the merge.
 
 ### Before — the report that was wrong
 
+This is the commit-status output as it looked before about 2026-10-24. Today `gh pr checks`
+shows an empty description for CodeRabbit.
+
 ```text
 $ gh pr checks 178 | grep -i '^CodeRabbit'
 CodeRabbit	pass	0		Review skipped: incremental reviews are disabled
@@ -258,7 +263,11 @@ CodeRabbit	pass	0		Review skipped: incremental reviews are disabled
 Reported: *"#178 is green — ready to merge."* Reality: no review ran on the pushed head, and two
 findings sat untriaged.
 
-### After — the same PR, both steps
+### After — the same PR, both steps (as run before 2026-10-24)
+
+The first step here reads the old description string. Since about 2026-10-24 it is the check-run
+recipe in `docs/agents/code-review.md`, "Merging on a CodeRabbit review", with all four parts
+read. The thread step is unchanged.
 
 ```text
 $ gh pr checks 178 --json name,state,description -q '...'
@@ -272,7 +281,7 @@ UNRESOLVED  CLAUDE.md:345  last=coderabbitai
 Correct report: *"#178 is NOT ready. The passing check is `Review skipped` — no review ran on the
 current head, and two findings are unresolved."*
 
-### The control case
+### The control case (as run before 2026-10-24)
 
 ```text
 $ gh pr checks 176 --json name,state,description -q '...'
@@ -282,7 +291,9 @@ $ threads 176
                        # empty
 ```
 
-Both signals agree. This is the only combination supporting "ready to merge."
+Both signals agreed. In that period this was the combination that supported "ready to merge." Today
+the first signal needs all four parts of the check-run recipe, including the check for a
+`Summarized by CodeRabbit Free` comment, and the second is unchanged.
 
 ### The re-review trap — #177
 
