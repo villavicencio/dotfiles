@@ -189,18 +189,32 @@ model claude-opus-5-5 6
 lacks "main's own commit is not counted" "meanwhile on main"
 label claude-opus-5-5
 
-# --- a merge inside a PR is skipped; the commits it merged count on their own ------------
+# --- a merge inside a PR: the commits it merged count, and so does its conflict fix ------
 case_ inner-merge VIL-23 2026-02-01T00:00:00Z
 repo acme/app
-br -b feat/vil-23; c a 3 "pr work" "$A"
-br -b sub; c b 4 "sub-branch work" "$B"
-br feat/vil-23; tick=$((tick + 1)); stamp git -C "$R" merge -q --no-ff --no-edit -m "Merge sub" -m "$A" sub
+c g 1 "base for the conflict"
+br -b feat/vil-23; c a 3 "pr work" "$A"; printf 'pr side\n' > "$R/g"; c - 0 "pr edits g" "$A"
+br -b sub HEAD~1; c b 4 "sub-branch work" "$B"; printf 'sub side\n' > "$R/g"; c - 0 "sub edits g" "$B"
+br feat/vil-23; tick=$((tick + 1)); stamp git -C "$R" merge -q --no-ff -m x sub >/dev/null 2>&1
+printf 'resolved\n' > "$R/g"; git -C "$R" add g; stamp git -C "$R" commit -q -m "Merge sub" -m "$A"
 h=$(sha HEAD); squash feat/vil-23 "work (#1)"; pr 1 feat/vil-23 "$h" "$(sha HEAD)" "work"
 run
-has "the merge inside the PR is skipped" "acme/app#1: merge inside the PR \(the commits it merges are counted\)"
-model claude-opus-5-5 3
-model qwen3-8-27b 4
-label qwen3-8-27b
+has "the merge's conflict fix is counted" "^      from acme/app#1 merge inside the PR \(its own changes, remerge-diff\): Merge sub"
+lacks "the merge isn't counted whole" "merge of the base branch"
+has "claude-opus-5-5 gets its commits and the conflict fix" "^  claude-opus-5-5 +(1[0-9]|[6-9]) lines"
+model qwen3-8-27b 6
+label claude-opus-5-5
+
+# --- the same repo named in two casings is searched and counted once ---------------------
+case_ slug-case VIL-25 2026-02-01T00:00:00Z https://github.com/Acme/App/pull/1
+repo acme/app
+br -b feat/vil-25; c a 10 "work" "$A"; h=$(sha HEAD)
+squash feat/vil-25 "work (#1)"; pr 1 feat/vil-25 "$h" "$(sha HEAD)" "work"
+run
+has "one repo line for both names" "^  acme/app  \(Linear attachment, current clone\)"
+has "one PR line, found both ways" "acme/app#1  merged  found by: Linear attachment, branch "
+model claude-opus-5-5 10
+label claude-opus-5-5
 
 # --- an attached PR that wasn't merged, and a local merge in a repo with no clone here ----
 case_ other-repo-merge VIL-24 2026-02-01T00:00:00Z https://github.com/acme/other/pull/9
@@ -262,7 +276,7 @@ stamp git -C "$R" commit -q -m "Merge branch 'feat/vil-20-local' (VIL-20)" -m "$
 run
 has "the branch commit is counted from the local merge" "^      from acme/app local merge [0-9a-f]{7} into main: branch work, no id"
 has "the merge's conflict fix is counted" "local merge [0-9a-f]{7} into main \(its own changes, remerge-diff\)"
-has "the merge of main into the branch is skipped" "merge inside the merged branch"
+has "the merge of main into the branch is skipped" "merge of main into the merged branch"
 lacks "main's own work is not counted" "main work, not this ticket|early main work"
 model claude-opus-5-5 10
 has "qwen3-8-27b gets the conflict fix" "^  qwen3-8-27b +[1-9][0-9]* lines"

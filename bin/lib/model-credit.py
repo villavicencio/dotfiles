@@ -8,13 +8,16 @@ no DOTFILES_DRY_RUN guard.
 
 Where the work comes from, for each repo searched (the repos of the ticket's Linear PR
 attachments, the current clone's origin, and each --repo):
-  * merged PRs: the ones attached to the ticket in Linear, plus every merged PR whose title,
-    body or head branch names the ticket id (an exact match: VIL-85 doesn't match VIL-852).
-    Closed PRs are read newest-updated first, back to the ticket's creation.
+  * merged PRs: the ones attached to the ticket in Linear, plus each merged PR whose title,
+    body or head branch names the ticket id (standing alone: VIL-85 doesn't match VIL-852).
+    Closed PRs are read newest-updated first, back to the ticket's creation. A merge of the
+    base branch into a PR is skipped; a merge inside it adds only its own changes.
   * no-PR work on the default branch (read from GitHub, not from what's checked out): commits
     whose message names the id and that no merged PR landed, and local merges whose message
     names the id. A local merge counts the commits it brought in (named or not) and its own
-    changes (`git show --remerge-diff`, when the local clone has the commit).
+    changes.
+A merge's own changes are its conflict fixes (`git show --remerge-diff`), measured only when the
+current clone is that repo and has the commit.
 
 Test hooks, for ci/model-credit-checks.sh only: MODEL_CREDIT_LINEAR_FIXTURE (a file holding
 the Linear GraphQL response, read instead of calling Linear) and MODEL_CREDIT_PER_PAGE (the
@@ -179,7 +182,7 @@ def current_repo():
     if p.returncode != 0:
         return None
     m = re.search(r"github\.com[:/]+([^/]+/[^/]+?)(?:\.git)?/?$", p.stdout.strip())
-    return m.group(1) if m else None
+    return m.group(1).lower() if m else None
 
 
 def remerge_lines(sha):
@@ -229,7 +232,10 @@ class Credit:
 def find_repos(args, issue):
     repos = {}
 
+    # GitHub ignores case in owner/name, so the slug is lower-cased once, here, and every
+    # key built from it (repos, PRs, counted commits) names a repo one way.
     def add(slug, why):
+        slug = slug.lower()
         repos.setdefault(slug, [])
         if why not in repos[slug]:
             repos[slug].append(why)
@@ -239,7 +245,7 @@ def find_repos(args, issue):
         for node in issue["attachments"]["nodes"]:
             m = PR_URL.match(node.get("url") or "")
             if m:
-                attached.append((m.group(1), int(m.group(2))))
+                attached.append((m.group(1).lower(), int(m.group(2))))
                 add(m.group(1), "Linear attachment")
             else:
                 other.append(node.get("url") or "?")
@@ -270,7 +276,22 @@ def find_prs(repos, attached, idre, created, credit):
     return prs
 
 
-def count_prs(prs, credit):
+def count_merge_own(slug, c, where, cur, credit):
+    """Count a merge's own changes (its conflict fixes) as the merge's commit, or say why not."""
+    sha = c["sha"]
+    own = remerge_lines(sha) if slug == cur else None
+    if own is None:
+        why = "no local clone of this repo" if slug != cur else \
+            "the local clone lacks the commit (git fetch origin)"
+        credit.skip(slug, sha, where, f"the merge's own changes not measured: {why}")
+    elif own == 0:
+        credit.skip(slug, sha, where, "the merge itself changed nothing beyond git's merge")
+    else:
+        credit.add(slug, sha, f"{where} (its own changes, remerge-diff)", lines=own,
+                   message=c["commit"]["message"], date=c["commit"]["committer"]["date"])
+
+
+def count_prs(prs, cur, credit):
     for (slug, n), rec in sorted(prs.items()):
         where = f"{slug}#{n}"
         if not rec["pr"].get("merged_at"):
@@ -283,9 +304,14 @@ def count_prs(prs, credit):
         in_pr = {c["sha"] for c in commits}
         for c in commits:
             if len(c["parents"]) > 1:
-                outside = [p["sha"] for p in c["parents"][1:] if p["sha"] not in in_pr]
-                credit.skip(slug, c["sha"], where, "merge of the base branch into the PR" if outside
-                            else "merge inside the PR (the commits it merges are counted)")
+                # A parent the PR doesn't list is on the base branch: GitHub lists the head's
+                # commits that the base lacks.
+                if any(p["sha"] not in in_pr for p in c["parents"][1:]):
+                    credit.skip(slug, c["sha"], where, "merge of the base branch into the PR")
+                else:
+                    # A merge inside the PR: the commits it merges are counted on their own,
+                    # so only its own changes are added.
+                    count_merge_own(slug, c, f"{where} merge inside the PR", cur, credit)
                 continue
             credit.add(slug, c["sha"], where)
 
@@ -337,21 +363,17 @@ def count_default_branch(slug, idre, created, prs, cur, credit):
         brought = list(pages(cmp_path, key="commits"))
         if len(brought) < total:
             credit.notes.append(f"{mwhere}: GitHub listed {len(brought)} of {total} commits")
+        brought_shas = {b["sha"] for b in brought}
         for b in brought:
             if len(b["parents"]) > 1:
-                credit.skip(slug, b["sha"], mwhere, "merge inside the merged branch")
+                # As in a PR: a parent the merge didn't bring in is on the default branch.
+                if all(p["sha"] in brought_shas for p in b["parents"][1:]):
+                    count_merge_own(slug, b, f"{mwhere}, merge inside the merged branch", cur, credit)
+                else:
+                    credit.skip(slug, b["sha"], mwhere, f"merge of {branch} into the merged branch")
             else:
                 credit.add(slug, b["sha"], mwhere)
-        own = remerge_lines(sha) if slug == cur else None
-        if own is None:
-            why = "no local clone of this repo" if slug != cur else \
-                "the local clone lacks the commit (git fetch origin)"
-            credit.skip(slug, sha, mwhere, f"the merge's own changes not measured: {why}")
-        elif own == 0:
-            credit.skip(slug, sha, mwhere, "the merge itself changed nothing beyond git's merge")
-        else:
-            credit.add(slug, sha, f"{mwhere} (its own changes, remerge-diff)", lines=own,
-                       message=c["commit"]["message"], date=c["commit"]["committer"]["date"])
+        count_merge_own(slug, c, mwhere, cur, credit)
     for c in [c for c in named if len(c["parents"]) <= 1]:
         sha, where = c["sha"], f"{slug} {branch}"
         if (slug, sha) in credit.counted:
@@ -414,7 +436,7 @@ def main(argv):
 
     credit = Credit()
     prs = find_prs(repos, attached, idre, created, credit)
-    count_prs(prs, credit)
+    count_prs(prs, cur, credit)
     for slug in repos:
         count_default_branch(slug, idre, created, prs, cur, credit)
     rows, per, newest, names, nobody, label, why = decide(credit)

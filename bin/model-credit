@@ -3,7 +3,7 @@
 # model-credit — the lines each model changed in a ticket's merged work, and the `model` label
 # the rule gives. Symlinked to ~/.local/bin/model-credit.
 #
-#   model-credit VIL-N [--repo owner/name ...] [--no-linear]
+#   model-credit <ticket-id> [--repo owner/name ...] [--no-linear]    e.g. model-credit VIL-852
 #
 # The rule is docs/agents/tickets.md, "Model credit"; the Python is bin/lib/model-credit.py.
 # It only reads (Linear through op-agent, GitHub through gh, the local clone), so it has no
