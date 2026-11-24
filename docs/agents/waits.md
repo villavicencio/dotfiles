@@ -139,14 +139,17 @@ Each chunk is a new background Bash call, a fresh shell with none of the earlier
 it sources the function file and runs `wait_chunk` itself:
 
 ```bash
-source <wait-chunk-file>
+source <wait-chunk-file> || exit 3
 rc=0; wait_chunk <id> <deadline-file> || rc=$?
 echo "wait_chunk exit $rc"
+exit "$rc"
 ```
 
-Give each chunk call a `timeout` of 7200000 or less. Read its code with `|| rc=$?`, since 4 is a
-normal result and would exit a `set -e` script. On 4, start the next chunk. 0 is done; 1, 2 and
-3 are stops. Any code outside 0 to 4 means the chunk was stopped from outside (the cap, a
+Give each chunk call a `timeout` of 7200000 or less. The call exits with `wait_chunk`'s code, and
+prints it too: 0 is done, 1 is deadline passed, 2 and 3 are errors (3 also when the deadline file
+is bad or the function file won't source), and 4 is a normal chunk end, so start the next chunk.
+The block captures the code with `|| rc=$?`, so a 4 doesn't end a `set -e` shell before the
+`echo` and `exit`. Any code outside 0 to 4 means the chunk was stopped from outside (the cap, a
 signal): check the clock against the deadline before you start another.
 
 ## Incidents
