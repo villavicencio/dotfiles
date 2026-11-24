@@ -74,7 +74,7 @@ claude/     Claude Code config, delivered into ~/.claude/ two different ways:
 codex/      Codex global instructions — AGENTS.md symlinked to ~/.codex/AGENTS.md
             (kept short on purpose, like claude/CLAUDE.md; both point at docs/agents/)
 bin/        Repo CLI — bin/dot, bin/wt, bin/op-agent and bin/model-credit (symlinked to ~/.local/bin/)
-            bin/lib/*.py — Python helpers for doctor/bench, deliberately NOT heredocs
+            bin/lib/*.py — Python helpers for doctor, bench and model-credit, deliberately NOT heredocs
             bin/lib/cleanup-merged-branch.sh — merged-branch cleanup, sourced by agents and `wt done`
             bin/lib/delete-leftover-branch.sh — leftover local branch delete, sourced by agents
 orca.yaml   Orca's setup script for each new worktree: checks out the dotbot submodule and

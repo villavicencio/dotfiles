@@ -189,6 +189,34 @@ model claude-opus-5-5 6
 lacks "main's own commit is not counted" "meanwhile on main"
 label claude-opus-5-5
 
+# --- a merge inside a PR is skipped; the commits it merged count on their own ------------
+case_ inner-merge VIL-23 2026-02-01T00:00:00Z
+repo acme/app
+br -b feat/vil-23; c a 3 "pr work" "$A"
+br -b sub; c b 4 "sub-branch work" "$B"
+br feat/vil-23; tick=$((tick + 1)); stamp git -C "$R" merge -q --no-ff --no-edit -m "Merge sub" -m "$A" sub
+h=$(sha HEAD); squash feat/vil-23 "work (#1)"; pr 1 feat/vil-23 "$h" "$(sha HEAD)" "work"
+run
+has "the merge inside the PR is skipped" "acme/app#1: merge inside the PR \(the commits it merges are counted\)"
+model claude-opus-5-5 3
+model qwen3-8-27b 4
+label qwen3-8-27b
+
+# --- an attached PR that wasn't merged, and a local merge in a repo with no clone here ----
+case_ other-repo-merge VIL-24 2026-02-01T00:00:00Z https://github.com/acme/other/pull/9
+repo acme/other
+br -b feat/vil-24; c a 5 "other work" "$A"; h=$(sha HEAD)
+python3 -c 'import json, sys; json.dump([{"number": 9, "head_ref": "feat/vil-24", "head": sys.argv[2], "merged": False, "title": "unmerged"}], open(sys.argv[1], "w"))' "$CASE/gh/acme/other.prs.json" "$h"
+br main; c m 1 "main moves on"
+tick=$((tick + 1)); stamp git -C "$R" merge -q --no-ff -m "Merge feat/vil-24 (VIL-24)" -m "$B" feat/vil-24
+repo acme/app
+run
+has "the unmerged attached PR is skipped" "acme/other#9  NOT merged, skipped"
+has "the local merge's commits are counted" "^      from acme/other local merge [0-9a-f]{7} into main: other work"
+has "the merge's own changes are not measured" "the merge's own changes not measured: no local clone of this repo"
+model claude-opus-5-5 5
+label claude-opus-5-5
+
 # --- a commit naming two models counts for neither; the same model twice is one ---------
 case_ two-models VIL-18 2026-02-01T00:00:00Z
 repo acme/app
