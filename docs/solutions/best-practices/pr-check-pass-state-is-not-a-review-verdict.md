@@ -128,6 +128,11 @@ this config, `Review skipped` on an open PR is the *default*, not an anomaly.
 
 ## Guidance
 
+The CodeRabbit check-run recipe below applies to a repo where CodeRabbit is the review gate. In a
+repo reviewed by MergeWren (dotfiles is one), the gate is the MergeWren verdict (`mergewren_review`,
+`docs/agents/code-review.md`, "Merging on a MergeWren review") and a CodeRabbit check there is
+informational. The thread check in step 2 applies in both.
+
 **A check's pass/fail state is not evidence a review happened, and a completed review is not
 evidence its findings were triaged. A review ran only when all four parts of the recipe in
 `docs/agents/code-review.md` ("Merging on a CodeRabbit review") say so: the check run's
@@ -138,6 +143,9 @@ mergeable.**
 
 ### Step 1 — read the check run, not its pass state
 
+This step is for a repo where CodeRabbit is the review gate; in a MergeWren repo, read the
+MergeWren verdict instead (see Guidance).
+
 A CodeRabbit check that doesn't fail the PR is not evidence a review ran. A rate-limited run
 concludes `neutral` and a skipped run concludes `skipped`: neither fails the PR, neither is a
 review, and neither concludes `success`. A summary-only run on the Free plan concludes `success`
@@ -145,12 +153,15 @@ with the title `Finished`, the same as a review, so the conclusion and title can
 two. Read all four: the check run's conclusion, its title, its result line, and whether a
 `Summarized by CodeRabbit Free` comment is on the PR. The commands, and a table of what each
 combination means, are in `docs/agents/code-review.md`, section "Merging on a CodeRabbit review".
+After requesting a re-review, that section also has `cr_wait`, which reads only check runs that
+started at or after CodeRabbit's reply to the request, so an older run on the same head isn't mistaken
+for the new one.
 
 The recipe that used to be here (`gh pr checks` with the check's description string) described
 CodeRabbit before about 2026-10-24, when it reported a commit status. Since then it reports a
 check run, and `gh pr checks` shows an empty description for it.
 
-> The older rule, from before 2026-10-24 — *poll `gh pr checks <N> \| grep -i '^CodeRabbit'`
+> The older rule, from before 2026-10-24 — *poll `gh pr checks <N> | grep -i '^CodeRabbit'`
 > until it stops saying `pending`* — was satisfied instantly by all three non-review states. A
 > non-pending pass is not a completed review.
 
@@ -228,7 +239,7 @@ construction.
 
 ## When to Apply
 
-Apply both steps before:
+Apply both steps (step 1 only where CodeRabbit is the gate) before:
 
 - Declaring any PR green, clean, or ready to merge.
 - Running `gh pr merge`, autonomously or on request.
@@ -238,11 +249,11 @@ Apply both steps before:
 Re-run **step 2** specifically after every `@coderabbitai review` round, and after any push to a
 PR that already had a review.
 
-Applies to any repo with `auto_incremental_review: false` (`skills`, `dotfiles`). Repos on
+Applies to any CodeRabbit-gated repo with `auto_incremental_review: false` (`skills` and `dotfiles` were, before MergeWren). Repos on
 push-triggered re-review (`borealis`) will not show `Review skipped`, but the throttle string,
 the `COMMENTED`-verdict gap, thread enumeration, and re-reviews-add-findings all apply unchanged.
 
-Step 1 is cheap enough to be unconditional; step 2 is one API call. The documented "a trivial
+Where CodeRabbit is the gate, step 1 is cheap enough to be unconditional; step 2 is one API call. The documented "a trivial
 diff may skip review" carve-out is about *not requesting* a review, and still requires stating
 the skip and its reason when reporting the merge.
 
