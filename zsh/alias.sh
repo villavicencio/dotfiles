@@ -70,6 +70,9 @@ command -v sha1sum >/dev/null || alias sha1sum="shasum"
 # Trim new lines and copy to clipboard
 alias c="tr -d '\n' | pbcopy"
 
+# Copy hal's latest paste (/Users/Shared/hal-paste/latest.txt) to the clipboard
+alias halpaste='ssh hal cat /Users/Shared/hal-paste/latest.txt | pbcopy'
+
 # Recursively delete `.DS_Store` files
 alias cleanup="find . -type f -name '*.DS_Store' -ls -delete"
 
