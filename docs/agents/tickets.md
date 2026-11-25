@@ -69,7 +69,7 @@ op-agent read -f -o "$t" op://Agents/linear-api/password && { printf 'Authorizat
   set -o pipefail
   curl -fsS https://api.linear.app/graphql -H @"$h" -H 'Content-Type: application/json' \
     -d '{"query":"{ team(id: \"aa64de41-7507-4a6a-bdb6-af799cf9282e\") { gitAutomationStates { nodes { event targetBranch { branchPattern } state { name } } } } }"}' \
-  | jq -r '.data.team.gitAutomationStates.nodes[] | "\(.event)\t\(.targetBranch.branchPattern // "any branch")\t\(.state.name)"'
+  | jq -r 'if .errors then error(.errors | tostring) else .data.team.gitAutomationStates.nodes[] end | "\(.event)\t\(.targetBranch.branchPattern // "any branch")\t\(.state.name)"'
 )
 rc=$?; rm -f "$t" "$h" || rc=1; (exit $rc)
 ```
