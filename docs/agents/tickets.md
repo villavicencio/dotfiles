@@ -61,14 +61,17 @@ A ticket's state matches where its work is. The global Linear rules (`claude/CLA
 
 The session that opens the PR moves the ticket to In Review in that same turn, if Linear hasn't. In Manager Mode, the manager does it when a hired engineer reports the PR open. Team VIL's PR automation in Linear is confirmed set (read from Linear's API on 2026-11-24): drafted → In Progress, opened → In Review, review requested → In Review, merged → Done. Ready for merge has no rule, and no rule filters on target branch. Still read the ticket's state; don't assume the automation moved it.
 
-To check the live settings, read the key through `op-agent` into a temp file (never echo it) and query Linear's GraphQL API. Team VIL's id is `aa64de41-7507-4a6a-bdb6-af799cf9282e`:
+To check the live settings, read the key through `op-agent` into a temp file (never echo it, and keep it out of `curl`'s arguments by passing it as a header file) and query Linear's GraphQL API. Team VIL's id is `aa64de41-7507-4a6a-bdb6-af799cf9282e`:
 
 ```bash
-t=$(mktemp); op-agent read -f -o "$t" op://Agents/linear-api/password && \
-  curl -s https://api.linear.app/graphql -H "Authorization: $(cat "$t")" -H 'Content-Type: application/json' \
+t=$(mktemp); h=$(mktemp)
+op-agent read -f -o "$t" op://Agents/linear-api/password && { printf 'Authorization: '; cat "$t"; } > "$h" && (
+  set -o pipefail
+  curl -fsS https://api.linear.app/graphql -H @"$h" -H 'Content-Type: application/json' \
     -d '{"query":"{ team(id: \"aa64de41-7507-4a6a-bdb6-af799cf9282e\") { gitAutomationStates { nodes { event targetBranch { branchPattern } state { name } } } } }"}' \
   | jq -r '.data.team.gitAutomationStates.nodes[] | "\(.event)\t\(.targetBranch.branchPattern // "any branch")\t\(.state.name)"'
-rc=$?; rm -f "$t" || rc=1; (exit $rc)
+)
+rc=$?; rm -f "$t" "$h" || rc=1; (exit $rc)
 ```
 
 Expect `draft`, `start`, `review` and `merge` rows. A missing row means that event moves nothing.
