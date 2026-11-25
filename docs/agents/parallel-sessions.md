@@ -125,7 +125,7 @@ then carries it, and the statusline shows it as a link to the issue.
   `git status`), the held copies are moved back. A copy is left in `wt-held/`, and named, only
   when something now stands at its path or the move fails, and `wt done` then refuses to run
   again until `wt-held/` is empty, since removing the worktree would delete what's in it.
-  `cleanup_merged_branch` ends with `git fetch --prune`, which can fail after the worktree and
+  `cleanup_merged_branch` ends with `git fetch --prune origin`, which can fail after the worktree and
   branches are already gone; `wt done` then says so, and there is nothing to move back.
 
 ## Roles

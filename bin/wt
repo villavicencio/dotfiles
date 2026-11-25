@@ -380,7 +380,7 @@ Move each back into $dir (or delete it) before running 'wt done' again"
     . "$REPO/bin/lib/cleanup-merged-branch.sh" || { printf '%s\n' "$held" | unhold_carried "$dir"; die "can't load $REPO/bin/lib/cleanup-merged-branch.sh"; }
     note "PR #$pr merged; cleaning up $b"
     if (cd "$m" && cleanup_merged_branch "$pr" "$def"); then return 0; fi
-    # Its last step (`git fetch --prune`) can fail after the worktree and branches are gone.
+    # Its last step (`git fetch --prune origin`) can fail after the worktree and branches are gone.
     if [ -e "$dir" ]; then
       printf '%s\n' "$held" | unhold_carried "$dir"
       die "cleanup stopped (reason above); the worktree is still there"
