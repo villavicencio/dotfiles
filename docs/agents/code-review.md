@@ -438,8 +438,23 @@ rounds (the first three) are for a PR under its reviewer.
   new findings. The more a round changes beyond the findings, the more it invites another round.
 - **Triage each finding.** Fix what weakens what the PR protects. Decline the rest with a
   reason, recorded where this file says: on the thread and in the PR body.
-- **Stop at two fix rounds.** Then bring David the list of what is still open, and don't start
-  a third round on your own.
+- **Two fix rounds go ahead on their own. A third goes ahead only when it is low-risk;
+  otherwise it needs David's go.** A third round is low-risk when each open finding is low or
+  medium and sits on lines the previous fix round changed. Open means the `still open` and
+  `new` findings the reviewer lists for the head, minus any you declined with a reason. A
+  low-risk third round goes ahead without asking: write one line in the PR body saying it went
+  ahead under this rule and why it qualified. Bring David the list of open findings instead
+  when any one is high or critical, or when any one sits on lines the previous fix round
+  didn't change. A fourth round goes to David too.
+
+  To tell which lines the previous fix round changed, read the incremental review comment
+  MergeWren posted for the pushed fix; the full confirmation that follows it has no range.
+  The comment's heading says `Incremental since <a>`. Its count line says
+  `read-only review of the change <a>..<b>`, where `<b>` is the fix's head, and counts
+  findings as `still open` and `new`. A still-open finding carried over from an earlier round
+  can sit outside `<a>..<b>`, and then the third round goes to David. With no incremental
+  comment (only a full review), compare the finding's lines with `git diff <a> <b>` for the
+  fix push yourself, and if you can't tell, ask David.
 - **Strip two things from a PR's docs before it opens:** multi-line shell procedures, and
   absolute claims ("always", "never", "every") you haven't tested. Both draw findings.
 - **A reviewer panel before review doesn't replace the review.** The ban on hand-rolled
