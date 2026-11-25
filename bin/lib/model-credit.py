@@ -20,7 +20,8 @@ A merge's own changes are its conflict fixes (`git show --remerge-diff`), measur
 current clone is that repo and has the commit.
 
 Test hooks, for ci/model-credit-checks.sh only: MODEL_CREDIT_LINEAR_FIXTURE (a file holding
-the Linear GraphQL response, read instead of calling Linear) and MODEL_CREDIT_PER_PAGE (the
+the Linear GraphQL response, or {"pages": {"<after cursor>": response}} with "" for the first
+page, read instead of calling Linear) and MODEL_CREDIT_PER_PAGE (the
 GitHub page size). `gh` is found on PATH, so the checks put a fake one first.
 """
 import argparse
@@ -39,8 +40,9 @@ from datetime import datetime, timedelta
 LINEAR_URL = "https://api.linear.app/graphql"
 LINEAR_KEY_REF = "op://Agents/linear-api/password"
 LINEAR_QUERY = (
-    "query($id: String!) { issue(id: $id) { identifier createdAt "
-    "attachments(first: 250) { pageInfo { hasNextPage } nodes { url } } } }"
+    "query($id: String!, $after: String) { issue(id: $id) { identifier createdAt "
+    "attachments(first: 250, after: $after) { pageInfo { hasNextPage endCursor } "
+    "nodes { url } } } }"
 )
 PER_PAGE = int(os.environ.get("MODEL_CREDIT_PER_PAGE", "100"))
 MAX_PAGES = 500
@@ -65,9 +67,9 @@ def iso(dt):
 
 
 def id_pattern(ticket):
-    # Not preceded by a letter or digit, not followed by a letter, digit or underscore:
-    # VIL-85 matches `feat/vil-85-x` and `(VIL-85)`, not `VIL-852`, `VIL-85a` or `VIL-85_x`.
-    return re.compile(r"(?<![A-Za-z0-9])" + re.escape(ticket) + r"(?![A-Za-z0-9_])", re.I)
+    # Not next to a letter, digit or underscore on either side: VIL-85 matches
+    # `feat/vil-85-x` and `(VIL-85)`, not `VIL-852`, `VIL-85a`, `VIL-85_x` or `x_VIL-85`.
+    return re.compile(r"(?<![A-Za-z0-9_])" + re.escape(ticket) + r"(?![A-Za-z0-9_])", re.I)
 
 
 def label_of(name):
@@ -147,28 +149,54 @@ def read_linear_key():
     return key
 
 
-def linear_issue(ticket):
+def linear_page(ticket, after, key):
+    """One page of the ticket's attachments, as Linear's GraphQL response."""
     fixture = os.environ.get("MODEL_CREDIT_LINEAR_FIXTURE")
     if fixture:
         with open(fixture) as fh:
             data = json.load(fh)
-    else:
-        body = json.dumps({"query": LINEAR_QUERY, "variables": {"id": ticket}}).encode()
-        req = urllib.request.Request(LINEAR_URL, data=body, headers={
-            "Authorization": read_linear_key(), "Content-Type": "application/json"})
-        try:
-            with urllib.request.urlopen(req, timeout=30) as r:
-                data = json.load(r)
-        except urllib.error.HTTPError as e:
-            raise Fail(f"Linear API: HTTP {e.code}")
-        except urllib.error.URLError as e:
-            raise Fail(f"Linear API: {e.reason}")
-    if data.get("errors"):
-        raise Fail("Linear API: " + "; ".join(e.get("message", "?") for e in data["errors"]))
-    issue = (data.get("data") or {}).get("issue")
-    if not issue:
-        raise Fail(f"Linear has no issue {ticket}")
-    return issue
+        if "pages" in data:
+            if (after or "") not in data["pages"]:
+                raise Fail(f"Linear API: no page after cursor {after!r}")
+            return data["pages"][after or ""]
+        if after:
+            raise Fail(f"Linear API: no page after cursor {after!r}")
+        return data
+    body = json.dumps({"query": LINEAR_QUERY,
+                       "variables": {"id": ticket, "after": after}}).encode()
+    req = urllib.request.Request(LINEAR_URL, data=body, headers={
+        "Authorization": key, "Content-Type": "application/json"})
+    try:
+        with urllib.request.urlopen(req, timeout=30) as r:
+            return json.load(r)
+    except urllib.error.HTTPError as e:
+        raise Fail(f"Linear API: HTTP {e.code}")
+    except urllib.error.URLError as e:
+        raise Fail(f"Linear API: {e.reason}")
+
+
+def linear_issue(ticket):
+    """The ticket with all its attachments, page by page. A page that can't be read stops the
+    run: a partial attachment list could change the label."""
+    key = None if os.environ.get("MODEL_CREDIT_LINEAR_FIXTURE") else read_linear_key()
+    issue, nodes, after = None, [], None
+    for _ in range(MAX_PAGES):
+        data = linear_page(ticket, after, key)
+        if data.get("errors"):
+            raise Fail("Linear API: " + "; ".join(e.get("message", "?") for e in data["errors"]))
+        page = (data.get("data") or {}).get("issue")
+        if not page:
+            raise Fail(f"Linear has no issue {ticket}")
+        issue = issue or page
+        nodes += page["attachments"]["nodes"]
+        info = page["attachments"].get("pageInfo") or {}
+        if not info.get("hasNextPage"):
+            issue["attachments"] = {"nodes": nodes}
+            return issue
+        after = info.get("endCursor")
+        if not after:
+            raise Fail("Linear API: more attachments, but no cursor to read them")
+    raise Fail(f"Linear API: more than {MAX_PAGES} pages of attachments")
 
 
 # --- local git ----------------------------------------------------------------------------
@@ -445,8 +473,6 @@ def main(argv):
     if issue:
         pr_list = ", ".join(f"{s}#{n}" for s, n in attached) or "none"
         out.append(f"Linear: created {issue['createdAt']}; PR attachments: {pr_list}")
-        if issue["attachments"].get("pageInfo", {}).get("hasNextPage"):
-            out.append("  ! Linear has more than 250 attachments; only the first 250 were read")
         for u in other:
             out.append(f"  other attachment, not a GitHub PR (ignored): {u}")
     else:

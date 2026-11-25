@@ -151,10 +151,12 @@ squash feat/vil-85-x "this ticket (#2)"; pr 2 feat/vil-85-x "$h" "$(sha HEAD)" "
 br -b feat/vil-85feature; c d 30 "a letter right after the number" "$B"; h=$(sha HEAD)
 squash feat/vil-85feature "letter (#3)"; pr 3 feat/vil-85feature "$h" "$(sha HEAD)" "letter" "see VIL-85a"
 c e 20 "an underscore right after the number, VIL-85_extra" "$B"
+c e 15 "an underscore right before, see x_VIL-85" "$B"
 run
 has "PR #2 is found by its branch, feat/vil-85-x" "acme/app#2  merged  found by: branch "
 lacks "PR #3 (feat/vil-85feature, VIL-85a) is not counted" "acme/app#3 "
 lacks "the VIL-85_extra direct commit is not counted" "underscore right after"
+lacks "the x_VIL-85 direct commit is not counted" "underscore right before"
 lacks "PR #1 (VIL-852) is not counted" "acme/app#1 "
 lacks "the VIL-852 direct commit is not counted" "direct, other ticket"
 lacks "qwen3-8-27b gets no lines" "qwen3-8-27b"
@@ -239,6 +241,36 @@ has "the local merge's commits are counted" "^      from acme/other local merge 
 has "the merge's own changes are not measured" "the merge's own changes not measured: no local clone of this repo"
 model claude-opus-5-5 5
 label claude-opus-5-5
+
+# --- Linear attachments over two pages are all read; a page that can't be read stops it --
+# linear_pages <pages.json args>: write the Linear fixture as {"pages": {cursor: response}};
+# each argument is "<cursor>|<next cursor or ->|<PR url>".
+linear_pages() {
+  python3 -c 'import json, sys
+pages = {}
+for a in sys.argv[2:]:
+    cur, nxt, url = a.split("|")
+    pages[cur] = {"data": {"issue": {"identifier": "VIL-26", "createdAt": "2026-02-01T00:00:00Z",
+      "attachments": {"pageInfo": {"hasNextPage": nxt != "-", "endCursor": None if nxt == "-" else nxt},
+                      "nodes": [{"url": url}]}}}}
+json.dump({"pages": pages}, open(sys.argv[1], "w"))' "$CASE/linear.json" "$@"
+}
+case_ linear-pages VIL-26 2026-02-01T00:00:00Z
+repo acme/app
+br -b one; c a 4 "first, not named" "$A"; h=$(sha HEAD); squash one "first (#1)"; pr 1 one "$h" "$(sha HEAD)" "first"
+br -b two; c b 9 "second, not named" "$B"; h=$(sha HEAD); squash two "second (#2)"; pr 2 two "$h" "$(sha HEAD)" "second"
+linear_pages "|c1|https://github.com/acme/app/pull/1" "c1|-|https://github.com/acme/app/pull/2"
+run
+has "both pages' PRs are listed" "PR attachments: acme/app#1, acme/app#2$"
+has "the second page's PR is counted" "acme/app#2  merged  found by: Linear attachment "
+model claude-opus-5-5 4
+model qwen3-8-27b 9
+label qwen3-8-27b
+linear_pages "|c1|https://github.com/acme/app/pull/1"
+run
+if [ "$RC" = 1 ] && ! printf '%s\n' "$OUT" | grep -q '^Label:' && printf '%s\n' "$OUT" | grep -q "no page after cursor 'c1'"; then
+  echo "ok      a page that can't be read exits 1 with no label"
+else echo "FAIL    unreadable second page: rc=$RC"; show; fail=1; fi
 
 # --- a commit naming two models counts for neither; the same model twice is one ---------
 case_ two-models VIL-18 2026-02-01T00:00:00Z
