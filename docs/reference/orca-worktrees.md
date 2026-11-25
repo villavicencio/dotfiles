@@ -118,6 +118,10 @@ orca repo set --repo name:<repo> --environment hal-orca --external-worktree-visi
 
 This only hides them from the sidebar; the worktrees stay on disk.
 
+## Launching an agent in a worktree
+
+- `--agent` without `--surface` can open a terminal even when the agent's Chat UI default is Chat; pass `--surface chat` and read `launch.outcome` / `launch.receipt.detail` from `--json`. Source: on 2026-11-25, VIL-925's worktree was created without the flag and Claude opened as a terminal although Settings > Chat UI had Chat as Claude's default; the cause is unknown.
+
 ## What survives an Orca restart or update, and a reboot
 
 Checked 2026-11-03 on the personal Mac, Orca 1.4.238.
