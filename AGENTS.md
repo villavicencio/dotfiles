@@ -73,8 +73,8 @@ claude/     Claude Code config, delivered into ~/.claude/ two different ways:
             settings.json                  → COPY-SEEDED, never symlinked (see gotchas)
 codex/      Codex global instructions — AGENTS.md symlinked to ~/.codex/AGENTS.md
             (kept short on purpose, like claude/CLAUDE.md; both point at docs/agents/)
-bin/        Repo CLI — bin/dot, bin/wt and bin/op-agent (symlinked to ~/.local/bin/)
-            bin/lib/*.py — Python helpers for doctor/bench, deliberately NOT heredocs
+bin/        Repo CLI — bin/dot, bin/wt, bin/op-agent and bin/model-credit (symlinked to ~/.local/bin/)
+            bin/lib/*.py — Python helpers for doctor, bench and model-credit, deliberately NOT heredocs
             bin/lib/cleanup-merged-branch.sh — merged-branch cleanup, sourced by agents and `wt done`
             bin/lib/delete-leftover-branch.sh — leftover local branch delete, sourced by agents
 orca.yaml   Orca's setup script for each new worktree: checks out the dotbot submodule and
@@ -238,6 +238,7 @@ Run these before committing. `bin/dot` (`~/.local/bin/dot` once installed) wraps
 | hal-as-hal key (after changing `helpers/add_hal_as_hal_key.sh`) | `ci/hal-as-hal-key-checks.sh` | exit 0 (local only, temp folders, fake ssh and tailscale) |
 | hal shared clone (after changing `helpers/hal_shared_clone.sh`, `helpers/hal_shared_clone_sync.sh` or `helpers/hal_dotfiles_sync_check.sh`) | `ci/hal-shared-clone-checks.sh` | exit 0 (local only, macOS, temp folders, fake ssh, a local bare repo for GitHub) |
 | Statusline ctx meter (after changing `claude/statusline-command.sh`) | `ci/statusline-checks.sh` | exit 0 (local only, temp `CLAUDE_CONFIG_DIR`, needs `jq`) |
+| Model credit (after changing `bin/model-credit` or `bin/lib/model-credit.py`) | `ci/model-credit-checks.sh` | exit 0 (local only, fixture git repos behind a fake `gh`, a file for Linear) |
 
 **Dry-run must never mutate config.** `./install --dry-run` previews Dotbot directives
 without applying them. The only thing the wrapper does regardless is init the vendored

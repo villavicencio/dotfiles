@@ -82,8 +82,9 @@ docs/           Compound-engineering pipeline artifacts:
 ci/             CI assets (Dockerfile for install-matrix's linux leg, PSScriptAnalyzer settings for its windows leg,
                 server-profile-checks.sh for its macos-server leg; cleanup-merged-branch-checks.sh,
                 delete-leftover-branch-checks.sh, mergewren-review-checks.sh, op-agent-checks.sh, desktop-commander-remote-log-checks.sh,
-                hal-memory-pull-checks.sh, hal-as-hal-key-checks.sh, hal-shared-clone-checks.sh and
-                statusline-checks.sh, run by hand, not in CI)
+                hal-memory-pull-checks.sh, hal-as-hal-key-checks.sh, hal-shared-clone-checks.sh,
+                statusline-checks.sh and model-credit-checks.sh (with its fake gh,
+                model-credit-fake-gh.py), run by hand, not in CI)
 git/            gitconfig, gitignore, gitattributes, gitconfig.linux (Linux overlay — see
                 docs/reference/wsl-linux.md)
 helpers/        Bash scripts called by the install pipeline
@@ -104,9 +105,10 @@ windows/        Windows layer, applied by install.ps1 at the repo root (NOT Dotb
                           a separate opt-in step, NOT run by install.ps1
   install_nvim.ps1        nvim plugin bootstrap — the helpers/install_nvim.sh counterpart
 bin/            Repo CLI — bin/dot, bin/wt (one worktree per parallel session,
-                docs/agents/parallel-sessions.md), and bin/op-agent (1Password for agents,
+                docs/agents/parallel-sessions.md), bin/model-credit (a ticket's `model` label,
+                docs/agents/tickets.md "Model credit"), and bin/op-agent (1Password for agents,
                 docs/agents/1password.md); all symlinked into ~/.local/bin
-  lib/*.py      Python helpers for doctor/bench. Real files, NOT heredocs — see
+  lib/*.py      Python helpers for doctor, bench and model-credit. Real files, NOT heredocs — see
                 docs/reference/tooling.md
   lib/cleanup-merged-branch.sh  the merged-branch cleanup function (docs/agents/code-review.md)
   lib/delete-leftover-branch.sh  the leftover local branch delete (docs/agents/code-review.md)
