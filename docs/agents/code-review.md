@@ -567,12 +567,12 @@ same file.
   `RESTORE FAILED` there (dotfiles PR 272, 2026-11-15). With the move to the main checkout
   turned off, so the shell stays in the removed directory, it still succeeds, and if the local
   branch really moves mid-run it says so and restores origin. If git can't run in the main
-  checkout, it stops with only `git worktree list` run, before even a fetch. When the shell's
-  worktree has its own `origin` (worktree config), the delete, the rollback and `gh` still go
-  by the main checkout's, and the worktree's remote is left alone. A `cd` function or a zsh
-  `chpwd` hook that prints doesn't confuse it. A worktree added on the branch during the PR
-  lookup is checked too, and the closing fetch prunes `origin` even when the main checkout's
-  branch tracks another remote.
+  checkout, it stops after `git worktree list` and the failing check itself, before the PR
+  lookup or any fetch. When the shell's worktree has its own `origin` (worktree config), the
+  delete, the rollback and `gh` still go by the main checkout's, and the worktree's remote is
+  left alone. A `cd` function or a zsh `chpwd` hook that prints doesn't confuse it. A worktree
+  added on the branch during the PR lookup is checked too, and the closing fetch prunes
+  `origin` even when the main checkout's branch tracks another remote.
 - **Local merge, no remote, no PR:** there is no `MERGED` state or origin tip to check.
   Confirm `git merge-base --is-ancestor "$b" "$base"`, then `git branch -d "$b"`, which
   refuses an unmerged branch on its own. Local branch only.
