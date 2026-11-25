@@ -65,9 +65,9 @@ def iso(dt):
 
 
 def id_pattern(ticket):
-    # Not preceded by a letter or digit, not followed by a digit: VIL-85 matches
-    # `feat/vil-85-x` and `(VIL-85)`, not `VIL-852`.
-    return re.compile(r"(?<![A-Za-z0-9])" + re.escape(ticket) + r"(?![0-9])", re.I)
+    # Not preceded by a letter or digit, not followed by a letter, digit or underscore:
+    # VIL-85 matches `feat/vil-85-x` and `(VIL-85)`, not `VIL-852`, `VIL-85a` or `VIL-85_x`.
+    return re.compile(r"(?<![A-Za-z0-9])" + re.escape(ticket) + r"(?![A-Za-z0-9_])", re.I)
 
 
 def label_of(name):

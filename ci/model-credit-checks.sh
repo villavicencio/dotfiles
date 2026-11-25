@@ -147,8 +147,14 @@ squash pilot/vil-852-20261119 "other ticket (VIL-852) (#1)"
 pr 1 pilot/vil-852-20261119 "$h" "$(sha HEAD)" "other ticket (VIL-852)" "Refs VIL-852"
 c a 40 "direct, other ticket VIL-852" "$B"
 br -b feat/vil-85-x; c b 5 "this ticket" "$A"; h=$(sha HEAD)
-squash feat/vil-85-x "this ticket (#2)"; pr 2 feat/vil-85-x "$h" "$(sha HEAD)" "this ticket (VIL-85)"
+squash feat/vil-85-x "this ticket (#2)"; pr 2 feat/vil-85-x "$h" "$(sha HEAD)" "this ticket"
+br -b feat/vil-85feature; c d 30 "a letter right after the number" "$B"; h=$(sha HEAD)
+squash feat/vil-85feature "letter (#3)"; pr 3 feat/vil-85feature "$h" "$(sha HEAD)" "letter" "see VIL-85a"
+c e 20 "an underscore right after the number, VIL-85_extra" "$B"
 run
+has "PR #2 is found by its branch, feat/vil-85-x" "acme/app#2  merged  found by: branch "
+lacks "PR #3 (feat/vil-85feature, VIL-85a) is not counted" "acme/app#3 "
+lacks "the VIL-85_extra direct commit is not counted" "underscore right after"
 lacks "PR #1 (VIL-852) is not counted" "acme/app#1 "
 lacks "the VIL-852 direct commit is not counted" "direct, other ticket"
 lacks "qwen3-8-27b gets no lines" "qwen3-8-27b"
