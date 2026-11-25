@@ -85,7 +85,7 @@ own HEAD, so no file changes, and deletes the local branch only while it's still
 it checked. If the detach or the local delete fails, it pushes origin back and re-attaches the
 worktree if HEAD was detached (a failing post-checkout hook fails the switch after detaching),
 the branch hasn't moved, and no other worktree has checked it out. It then prints `<path> is detached at <sha>` and how to
-remove it, and ends with `git fetch --prune`. That fetch runs after both deletes and isn't
+remove it, and ends with `git fetch --prune origin`. That fetch runs after both deletes and isn't
 rolled back: if it fails, only a stale `origin/<branch>` tracking ref is left. The branch
 is kept, and the worktree stays on it, whenever the local tip holds work the merge didn't
 take or the worktree has changes or untracked files.

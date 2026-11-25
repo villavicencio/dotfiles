@@ -467,16 +467,16 @@ source <dotfiles clone>/bin/lib/cleanup-merged-branch.sh   # ~/Projects/Personal
 cleanup_merged_branch <pr> <default branch>
 ```
 
-Run it from any worktree of the repo, in bash or zsh, with one exception: **not from inside a
-linked worktree on the PR's branch that has no initialized submodules** (a `wt` worktree, for
-one). The function removes that worktree, which is the shell's own directory, and every git
-call after that fails with "fatal: Unable to read current working directory": it then prints
-"local <branch> moved mid-run: keeping it" and a `RESTORE FAILED` line with a `git push` to
-recreate the origin branch, though nothing moved and the PR is merged (dotfiles PR 272,
-2026-11-15). Don't run that push; `cd` to the main checkout and delete the local branch there,
-conditional on its OID (`git update-ref -d refs/heads/<branch> <oid>`). `wt done` is safe: it
-runs the function from the main checkout. An Orca worktree with initialized submodules is only
-detached, not removed, so running from inside it works (`docs/reference/orca-worktrees.md`).
+Run it from any worktree of the repo, in bash or zsh. Its first step finds the main checkout
+(`git worktree list`) and checks that git runs there, stopping if it can't. After that it works
+from the main checkout, which is never removed: each git call names its directory with
+`git -C` (the main checkout, or the worktree it acts on), and `gh` runs there too. So removing
+the shell's own directory doesn't break it, and a worktree with its own remote settings can't
+split the delete and the rollback between two remotes. Run from inside a linked worktree on
+the PR's branch that has no initialized submodules (a `wt` worktree, for one), it removes that
+worktree and then moves the shell to the main checkout, and says so; otherwise the shell stays
+where it was (VIL-1010). An Orca worktree with initialized submodules is only detached, not
+removed, so the shell stays in it (`docs/reference/orca-worktrees.md`).
 Right after a merge the main checkout may not be pulled yet, so source the copy in a worktree
 that has a newer one (by its path; the shell can stay in the main checkout). The function lives
 only in `bin/lib/cleanup-merged-branch.sh`; `wt done` (see `parallel-sessions.md`) sources the
@@ -515,8 +515,8 @@ same file.
   when HEAD ended up detached, even if `git switch` failed (a failing post-checkout hook
   fails it after HEAD moved). If the branch moved or is checked out elsewhere, the worktree
   stays detached and the function prints `REATTACH FAILED`. If the origin push fails, it prints `RESTORE FAILED` with
-  the exact `git push` that restores it, shell-quoted with `printf %q`. The local branch still
-  holds the commit either way. The closing `git fetch --prune` runs after both deletes and
+  the exact `git -C <main checkout> push` that restores it, shell-quoted with `printf %q`. The local branch still
+  holds the commit either way. The closing `git fetch --prune origin` runs after both deletes and
   isn't rolled back; if it fails, only a stale `origin/<branch>` tracking ref is left.
   Worktrees are touched only after origin accepted the delete, and are re-checked right before.
 - **Why `update-ref -d` and not `git branch -D`:** a squash or rebase merge leaves the branch
@@ -561,6 +561,18 @@ same file.
   refuses a submodule worktree before the PR lookup and holds no files, but reports copies an earlier run left in `wt-held/` first. Master's function and
   `wt` failed 19 of the first 41 checks. Rerun them with `ci/cleanup-merged-branch-checks.sh`
   after changing the function or `wt done` (local only, not in CI).
+- **Retested 2026-11-24 (VIL-1010)**, bash and zsh, 76 checks. Run from inside a linked
+  worktree without submodules, it removes the worktree, deletes both copies, returns 0 and
+  leaves the shell in the main checkout; before the fix it printed "moved mid-run" and
+  `RESTORE FAILED` there (dotfiles PR 272, 2026-11-15). With the move to the main checkout
+  turned off, so the shell stays in the removed directory, it still succeeds, and if the local
+  branch really moves mid-run it says so and restores origin. If git can't run in the main
+  checkout, it stops after `git worktree list` and the failing check itself, before the PR
+  lookup or any fetch. When the shell's worktree has its own `origin` (worktree config), the
+  delete, the rollback and `gh` still go by the main checkout's, and the worktree's remote is
+  left alone. A `cd` function or a zsh `chpwd` hook that prints doesn't confuse it. A worktree
+  added on the branch during the PR lookup is checked too, and the closing fetch prunes
+  `origin` even when the main checkout's branch tracks another remote.
 - **Local merge, no remote, no PR:** there is no `MERGED` state or origin tip to check.
   Confirm `git merge-base --is-ancestor "$b" "$base"`, then `git branch -d "$b"`, which
   refuses an unmerged branch on its own. Local branch only.
