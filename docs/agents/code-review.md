@@ -440,10 +440,11 @@ rounds (the first three) are for a PR under its reviewer.
   reason, recorded where this file says: on the thread and in the PR body.
 - **Two fix rounds go ahead on their own. A third goes ahead only when it is low-risk;
   otherwise it needs David's go.** A third round is low-risk when each open finding is low or
-  medium and sits on lines the previous fix round changed. Open means the `still open` and
-  `new` findings in MergeWren's comments for the head, the incremental one and the full
-  confirmation that follows it, minus any low or medium finding you declined with a reason. A
-  declined high or critical finding stays on the list, and only David waives it. A low-risk
+  medium and sits on lines the previous fix round changed. Open means all findings from any
+  round of this PR that are not yet fixed or waived: each unresolved review thread, plus any
+  finding listed without a thread in any MergeWren comment on the PR. A finding leaves the
+  list when its fix is verified. A declined low or medium one leaves it too, with the reason
+  on the thread; a declined high or critical one stays until David waives it. A low-risk
   third round goes ahead without asking: write one line in the PR body saying it went ahead
   under this rule and why it qualified. Bring David the list of open findings instead when
   any one is high or critical, or when any one sits on lines the previous fix round didn't
@@ -455,8 +456,8 @@ rounds (the first three) are for a PR under its reviewer.
   where `<b>` is the fix's head. With no incremental comment, `<a>` is the `review-stack:head=`
   marker of the review before the fix. That range names commits, not lines, so run
   `git diff -U0 <a> <b>` and check each open finding's `path:line` against the changed
-  hunks. A finding outside them, including a still-open one carried over from an earlier
-  round, sends the third round to David. If you can't tell, ask David.
+  hunks' new-side line numbers. A finding outside them, including a still-open one carried
+  over from an earlier round, sends the third round to David. If you can't tell, ask David.
 - **Strip two things from a PR's docs before it opens:** multi-line shell procedures, and
   absolute claims ("always", "never", "every") you haven't tested. Both draw findings.
 - **A reviewer panel before review doesn't replace the review.** The ban on hand-rolled
