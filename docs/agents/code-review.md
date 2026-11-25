@@ -355,7 +355,7 @@ that `git diff --name-only origin/<default>...<branch>` lists only the branch's 
 Merge only on a `mergeable` verdict (or one whose every finding is fixed or declined with
 David) with the unresolved-threads check (above) empty. A `partial` or `failed` verdict, "The
 review did not complete", or exit 4 (no verdict line) means the head wasn't fully reviewed:
-don't merge, tell David. Each finding is also an inline thread;
+don't merge, tell David. Each inline finding is also a thread;
 resolve it once it's fixed or declined. MergeWren doesn't read thread replies, so a decline
 goes in the PR body too. Repo-specific detail (dotfiles' stale-finding case on #239) stays in
 that repo's docs.
@@ -438,8 +438,29 @@ rounds (the first three) are for a PR under its reviewer.
   new findings. The more a round changes beyond the findings, the more it invites another round.
 - **Triage each finding.** Fix what weakens what the PR protects. Decline the rest with a
   reason, recorded where this file says: on the thread and in the PR body.
-- **Stop at two fix rounds.** Then bring David the list of what is still open, and don't start
-  a third round on your own.
+- **Two fix rounds go ahead on their own. A third goes ahead only when it is low-risk;
+  otherwise it needs David's go.** A third round is low-risk when each open finding is low or
+  medium and sits on lines the previous fix round changed. Open means all findings from any
+  round of this PR that are not yet fixed or waived: each unresolved review thread, plus any
+  finding listed without a thread in any MergeWren comment on the PR. A finding leaves the
+  list when its fix is verified. A declined low or medium one leaves it too, with the reason
+  on its thread and in the PR body, or in the PR body alone if it has no thread; a declined
+  high or critical one stays until David waives it. A low-risk third round goes ahead
+  without asking: write one line in the PR body saying it went ahead under this rule and why
+  it qualified. Bring David the list of open findings instead when any one is high or
+  critical, or when any one sits on lines the previous fix round didn't change. A fourth
+  round goes to David too.
+
+  To tell which lines the previous fix round changed, take `<a>`, the head MergeWren
+  reviewed before the fix. The incremental comment gives it. Its heading says
+  `Incremental since <a>`, and its count line says `read-only review of the change <a>..<b>`,
+  where `<b>` is the fix's head. With no incremental comment, `<a>` is the `review-stack:head=`
+  marker of the review before the fix. That range names commits, not lines, so run
+  `git diff -U0 <a> <b>` and check each open finding's `path:line` against the changed
+  hunks' new-side line numbers. A finding carried over from an earlier round keeps the
+  `path:line` of its older comment, so first map it to its position at `<b>`: use its
+  thread's `line` if GitHub sets one, or find the same text in the file at `<b>`. A finding
+  outside the hunks sends the third round to David. If you can't map or tell, ask David.
 - **Strip two things from a PR's docs before it opens:** multi-line shell procedures, and
   absolute claims ("always", "never", "every") you haven't tested. Both draw findings.
 - **A reviewer panel before review doesn't replace the review.** The ban on hand-rolled
