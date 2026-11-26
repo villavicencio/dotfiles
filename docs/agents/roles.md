@@ -42,13 +42,11 @@ none.
 
 - **Fills it:** the home session, running in a repo's main checkout on the default branch, with
   `dv:director-mode` on.
-- **Decides:** the routine calls for the Manager sessions under it, as `dv:director-mode` defines
-  them: fix rounds beyond a session's own (under `docs/agents/code-review.md`, "Fix rounds"),
-  scope cuts, the kinds of delete the global standing approvals cover, and other clear-cut
-  questions. It owns the things there is only one of:
-  merges (after MergeWren's verdict), the cleanup after each merge, and the true state of the
-  tickets (`docs/agents/parallel-sessions.md`, "Roles"). It opens a ticket's worktree on request
-  and recommends which sessions to start next.
+- **Decides:** the routine calls for the Manager sessions under it. `dv:director-mode` lists
+  them, such as scope cuts and the kinds of delete the global standing approvals cover. It owns
+  the things there is only one of: merges (after the reviewer's verdict), the cleanup after each
+  merge, and the true state of the tickets (`docs/agents/parallel-sessions.md`, "Roles"). It opens
+  a ticket's worktree on request and recommends which sessions to start next.
 - **Hands up:** what it doesn't decide, up the chain, under the routing rule in `dv:director-mode`.
 - **Does not:** hire engineers for a ticket's work. That belongs to the ticket's Manager. It hires
   only for work that isn't a ticket's own.
