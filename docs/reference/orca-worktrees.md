@@ -121,6 +121,7 @@ This only hides them from the sidebar; the worktrees stay on disk.
 ## Launching an agent in a worktree
 
 - `--agent` without `--surface` can open a terminal even when the agent's Chat UI default is Chat; pass `--surface chat` and read `launch.outcome` / `launch.receipt.detail` from `--json`. Source: on 2026-11-25, VIL-925's worktree was created without the flag and Claude opened as a terminal although Settings > Chat UI had Chat as Claude's default; the cause is unknown.
+- `orca project setup-delete --force` detaches a chat from its worktree but leaves the chat's Claude process running. Find and stop that process yourself before treating the worktree as free (`lsof +D <worktree>` lists it). Source: the VIL-1178 session's closeout note, 2026-11-26 on hal (Orca 1.4.277). It was seen while removing a disposable test clone and hasn't been re-run since.
 
 ## What survives an Orca restart or update, and a reboot
 
