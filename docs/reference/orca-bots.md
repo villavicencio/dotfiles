@@ -257,7 +257,7 @@ and nothing is set up until you reply.
 |---|---|
 | "Held for David" / the closing interview | **Needs you** |
 | Worktree session per ticket (`dv:manager-mode`) | Worker in its own worktree under the bot |
-| `open worktree VIL-N` | `@Orca <handle>` on the issue, or `orca orchestration send --to "bot:<name>"`; the `bot:<handle>` label didn't fire from David's account (VIL-1177) |
+| `open worktree VIL-N` | A comment `@Orca <handle> open worktree VIL-N` on the issue, or `orca orchestration send --to "bot:<name>" --chat new --type question --subject "Open a worktree for VIL-N" --body "open worktree VIL-N"`; the `bot:<handle>` label didn't fire from David's account (VIL-1177) |
 | Director's session-start sweep | **Look around** (read-only Suggestions) |
 | Memory files plus `dv:handoff` | `MEMORY.md` with nightly upkeep |
 
@@ -370,3 +370,29 @@ bot's Codex session files). Check them again on a newer Orca.
    David's account got none, whether set when the issue was created or added after. So the
    handle was right, and the label doesn't fire for David's own label. Check: a
    `[scratch]` ticket with an `@Orca <handle>` comment gets a reply from the Orca app.
+9. **Send every question for the Head by mail, never by dialog** (the sessions' skills).
+   What the Head of Skills pilot showed on 2026-11-25:
+   - **Dialogs reached the CEO.** A worktree session's AskUserQuestion dialog shows in
+     David's Orca UI, and no CLI command answers it ("Asking a bot from a Claude Code
+     session", above). One session's `dv:groom` treated a schedule time as a target only
+     David sets, and asked him for the weekly review's time (VIL-1179, Decisions).
+   - **A session took the Director's answer for no answer** when it named an option and
+     added a note, or relayed the Head's decision, and held the question for David. Both
+     count as an answer (VIL-1178, comment of 2026-11-25).
+   - **A reply waits behind an open dialog.** Mail to a session with an open dialog is
+     queued until someone answers the dialog.
+   - **The route that works:** `orca orchestration send --to "bot:<name>" --chat new --type
+     question`. The answer was back 7 s after the send, in two tests (VIL-1177). The Linear
+     mention took 13 s and wakes nobody. The label didn't fire.
+   - The Head talks to David in his Home Chat.
+10. **Prove the handoff** (an agent). Before the setup ticket closes, show each setting from
+    runtime and config evidence, as VIL-1176 did on 2026-11-25. The UI wasn't observed, and
+    the Head accepted the substitution.
+    - `~/.orca/bots/<folder>/bot.json`: `agent`, and `members` (`[]` means David alone).
+    - The bot's Codex session files (step 6): `model`, `reasoning_effort` and
+      `approval_policy`.
+    - `orca google status --json`: `"bots": []` means no bot has Google.
+    - `SOUL.md`'s sha256 (`shasum -a 256`), recorded on the ticket, and checked again after
+      David's first message in the Home Chat is handled (step 4: that run may rewrite it).
+    - In a fresh chat (`--chat new` reads the soul again), he names the CEO's 1% and each
+      standing approval in his soul.
