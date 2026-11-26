@@ -63,7 +63,7 @@ settings.
 | Source | How to ask | Automation triggers | Acts as | Path |
 |---|---|---|---|---|
 | Bot chat | Open the bot, or `@bot` in any Orca chat | Schedules: hourly, daily, weekdays, weekly, cron, RRULE | You | Local |
-| Linear | `@Orca <handle>` on an issue (not `@<handle>`), or label `bot:<handle>` | Issue assigned, mention, new issue, issue moved | Orca app for the reply; you for other Linear writes | Orca Cloud |
+| Linear | `@Orca <handle>` on an issue (not `@<handle>`), or label `bot:<handle>` (didn't fire from David's account; see below) | Issue assigned, mention, new issue, issue moved | Orca app for the reply; you for other Linear writes | Orca Cloud |
 | GitHub | Mention on an issue or PR, per the bot's **How to ask** line | New issue or PR, push, comment, review, review request, label, CI fail or pass, merge conflict, merge, deploy, security alert, finished workflow run | Orca app for the reply; your `gh` login and git login for the rest | Orca Cloud |
 | Slack | `@bot-name` in a channel, or a DM | Mentions and DMs | The bot's own Slack app | Orca Cloud |
 | Webhook | Any tool calls the URL (**Copy URL** on the automation card) | Each call | No identity | Orca Cloud |
@@ -85,6 +85,56 @@ settings.
 - When someone else asked for the work, Orca adds `asked by <name> via <bot>` to new Linear
   comments, Gmail drafts, calendar events and Docs comments.
 
+### Asking a bot from a Claude Code session
+
+Tested on hal with Orca 1.4.277 on 2026-11-25 (VIL-1177), against the Head of Skills.
+
+- **Use the Orca CLI.** Send the question with `orca orchestration send --to "bot:<name>"
+  --chat new --type question --subject "<title>" --body "<question>"`. It prints a
+  `messageId`. The bot opens a new chat, answers, and Orca sends the answer back as mail.
+  The Head answered in 7 s, and in 19 s when the question was to open a worktree. The
+  path is local to the bot's computer and needs neither Orca Cloud nor Linear.
+- **The answer lands in the asker's Orca chat and wakes it.** It comes from
+  `orca_session_id:<the bot's chat>`, with subject `Re: <title>` and
+  `payload.requestId=<messageId>`. A subagent shares its parent's Orca session, so a
+  subagent's answer lands in the parent's chat.
+- **To read the answer without consuming it:** `orca orchestration inbox --terminal
+  "orca_session_id:$ORCA_AGENT_SESSION_ID" --limit 5 --full`, and match `requestId`.
+  `orca orchestration check --peek` printed "No messages." with and without `--terminal`.
+  `orca bot chats` shows the bot's last narration ("I'll send the timestamp…"), not its
+  answer.
+- Nothing logs the exchange in Linear. The asker posts the question and the answer on the
+  ticket itself.
+- **A Linear mention also works, but wakes nobody.** A comment `@Orca <handle> <question>`
+  from David's account got a threaded reply from the Orca app in 13 s, headed
+  `**Head of Skills**`. The asker has to poll the ticket's comments for it. Use it when a
+  record on the ticket matters more than the wake. The Linear MCP turns a
+  plain `@orca` in a comment body into a real mention of the Orca app user.
+- **The `bot:<handle>` label didn't fire from David's account**, whether it was set when
+  the issue was created or added 11 s later. No reply came in 10 minutes either time. Who
+  can ask is David alone, so a label from anyone else wasn't tested.
+- The bot can message a Claude Code chat the same way (`orchestration send --to
+  orca_session_id:<id>`) and read it with `orca agent read <id>`. The Head's question to
+  the Director's chat was answered in 25 s.
+
+**Gotchas:**
+
+- **An open AskUserQuestion can't be answered from the CLI.** No `orca` command answers a
+  chat's open dialog (`orchestration deny` is only for a worker's permission prompt). Mail
+  sent to that chat waits behind it: Orca prints "Queued behind an open prompt; … sees it
+  after the prompt is answered."
+- **A dialog puts the question in front of David.** A scratch chat's AskUserQuestion showed
+  in David's Orca UI. A session that means to ask a bot sends mail; it never opens a dialog.
+- **No CLI command closes a bot chat** (VIL-1156). Each `--chat new` question and each
+  Linear mention opens one more. Reuse a chat with `--chat <id>` from `orca bot chats`.
+- **A bot in Full access can open a worktree with a chat in it.** The Head ran
+  `orca worktree create --repo path:<repo> --name <name> --linear-issue <id> --no-parent
+  --setup skip --agent claude --surface chat --prompt "<work>" --json`, and it returned
+  `result.launch.outcome.kind: structured` (Orca's name for a chat). So a bot can start
+  sessions without David.
+- `orca terminal send` doesn't reach a chat: a chat has no terminal, and the help says
+  never to type into another agent's input.
+
 ### The CLI the docs don't list
 
 Orca 1.4.269 on hal has a **Bots** group in `orca --help` that the docs don't mention. It
@@ -101,7 +151,8 @@ gives a running bot tools for each service:
   `orca sheets read|write|upsert`.
 
 `orca automations` (scheduled prompts in a repo or workspace) and `orca orchestration`
-(runs, tasks, workers, decision gates; experimental) are separate from bots.
+(runs, tasks, workers, decision gates; experimental) are separate from bots, though
+`orca orchestration send --to "bot:<name>"` is how a session asks a bot a question (above).
 
 ## Security
 
@@ -297,15 +348,22 @@ bot's Codex session files). Check them again on a newer Orca.
      the first-run rules, so they wait for David's first message in the Home Chat.
    - The bot answers with a message to the Orca chat the sender runs in, for `--type handoff`
      too. A subagent shares its parent's Orca session, so the answer lands in the parent's
-     chat. `orca bot chats --bot "<name>" --json` shows the last ask and answer, and the
-     chat's Codex session file has the full text.
+     chat. `orca bot chats --bot "<name>" --json` shows the last ask and the bot's last
+     words, which can be its narration rather than the answer. Read the answer as the
+     section "Asking a bot from a Claude Code session" says; the chat's Codex session file
+     has the full text.
    - The Head of Skills was asked "What do you decide, and what goes to the CEO?" (he named
      the five items of the CEO's 1%) and "Which dv skills can you use?" (he named all 16 in
      dv 0.38.0).
-8. **Find the handle and check the label** (an agent, then David). No command prints the
-   bot's handle for `@Orca <handle>` and `bot:<handle>`: `orca bot connectors` lists only the
-   Linear workspace and teams, and the docs put the handle in the **How to ask** line on the
-   bot's Linear card in the UI. On 2026-11-25 the label `bot:head-of-skills`, a guess from the
-   folder name, went on a `[scratch]` ticket from David's account and got no reply in 10
-   minutes. Either that isn't the handle, or Orca skips a label David's own account adds
-   (VIL-1177 finds out which). David reads the handle on the card before the next try.
+8. **Know the handle; on Linear, mention rather than label** (an agent). The handle for
+   `@Orca <handle>` and `bot:<handle>` is the bot's folder name (`head-of-skills`). No
+   command prints it: `orca bot connectors` lists only the Linear workspace and teams. Orca's
+   own UI code builds the **How to ask** line from the folder, in
+   `~/.orca-remote/orcad-<build>/out/mobile-web/assets/*.js` (Orca 1.4.277):
+   `t("bots.linear.howToAskPlain","Mention @Orca {{handle}} on an issue, or add the label
+   bot:{{handle}}.",{handle:o.folder})`. `orcad-server.js` also sends `handle:R.folder` to
+   Orca Cloud. On 2026-11-25 (VIL-1177) a comment `@orca head-of-skills …` from David's
+   account got the Head's reply on the ticket in 13 s. The label `bot:head-of-skills` from
+   David's account got none, whether set when the issue was created or added after. So the
+   handle was right, and the label doesn't fire for David's own label. Check: a
+   `[scratch]` ticket with an `@Orca <handle>` comment gets a reply from the Orca app.
