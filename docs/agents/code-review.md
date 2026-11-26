@@ -356,8 +356,17 @@ Merge only on a `mergeable` verdict (or one whose every finding is fixed or decl
 David) with the unresolved-threads check (above) empty. A `partial` or `failed` verdict, "The
 review did not complete", or exit 4 (no verdict line) means the head wasn't fully reviewed:
 don't merge, tell David. Each inline finding is also a thread;
-resolve it once it's fixed or declined. MergeWren doesn't read thread replies, so a decline
-goes in the PR body too. Repo-specific detail (dotfiles' stale-finding case on #239) stays in
+resolve it once it's fixed or declined. MergeWren reads the thread's replies at its next review of
+a new head, and only two forms decide anything:
+- A fix: a reply that names a commit of the PR made after the finding's head.
+- A decline: a reply whose own text starts exactly `Declined:`, with that case and the colon, and
+  that names no fix commit.
+
+"Declined for this release…" or "**Declined:**" decides nothing, and the finding stays open
+(mergewren `CLAUDE.md`, plan §13.136 D104, since 2026-11-25; skills PR 119, 2026-11-26). A
+critical or security finding can't be declined through a thread. MergeWren reads the replies only
+when it reviews a new head; nothing on this machine re-runs a review of the same head. Put each
+decline in the PR body too. Repo-specific detail (dotfiles' stale-finding case on #239) stays in
 that repo's docs.
 
 ## Rate limits — per developer, not per repository
