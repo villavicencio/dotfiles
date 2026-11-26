@@ -512,7 +512,11 @@ same file.
 - **Worktrees.** Every worktree on the branch must be clean before anything changes. A
   linked worktree without initialized submodules is removed, and `git worktree remove` deletes
   ignored files (`.env`, build output), so for those `--ignored` output counts as dirty too
-  (one with submodules is detached instead; next point). The primary
+  (one with submodules is detached instead; next point). So an Orca worktree whose setup made a
+  `.venv/` keeps its branch on the first run (`has changes, untracked or ignored files`).
+  Check that the ignored files are build output or copies of the main checkout's, remove the
+  worktree with `orca worktree rm --force`, then run the function again. The second run
+  deletes the branch (skills, 2026-11-26: PRs 111 to 117). The primary
   worktree can't be removed; it switches to the default branch, so before origin changes the
   function checks that the default branch exists and isn't checked out in another worktree.
   It also refuses a linked worktree that is locked.
