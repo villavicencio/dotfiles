@@ -360,7 +360,9 @@ resolve it once it's fixed or declined. MergeWren reads the thread's replies at 
 a new head, and only two forms decide anything:
 - A fix: a reply that names a commit of the PR made after the finding's head.
 - A decline: a reply whose own text starts exactly `Declined:`, with that case and the colon, and
-  that names no fix commit.
+  that names no fix commit. The thread must also be resolved; a marked reply on an open thread
+  decides nothing, and MergeWren raises the finding again under a new id (skills PR 121,
+  2026-11-26).
 
 "Declined for this release…" or "**Declined:**" decides nothing, and the finding stays open
 (mergewren `CLAUDE.md`, plan §13.136 D104, since 2026-11-25; skills PR 119, 2026-11-26). A
