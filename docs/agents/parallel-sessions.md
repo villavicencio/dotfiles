@@ -130,6 +130,8 @@ then carries it, and the statusline shows it as a link to the issue.
 
 ## Roles
 
+The five agent roles (CEO, Head of a department, Director, Manager, Engineer) and who decides what: `docs/agents/roles.md`. The list below is the home session and the worktree sessions.
+
 - **The home session** (the main checkout, on the default branch) owns the things there's only
   one of:
   - merges, and the `wt done` after each;
