@@ -92,8 +92,9 @@ Tested on hal with Orca 1.4.277 on 2026-11-25 (VIL-1177), against the Head of Sk
 - **Use the Orca CLI.** Send the question with `orca orchestration send --to "bot:<name>"
   --chat new --type question --subject "<title>" --body "<question>"`. It prints a
   `messageId`. The bot opens a new chat, answers, and Orca sends the answer back as mail.
-  The Head answered in 7 s, and in 19 s when the question was to open a worktree. The
-  path is local to the bot's computer and needs neither Orca Cloud nor Linear.
+  Two plain questions (one in the VIL-1177 tests, one the Director's own check) were each
+  answered 7 s after the send; a question to open a worktree took 19 s. The path is local
+  to the bot's computer and needs neither Orca Cloud nor Linear.
 - **The answer lands in the asker's Orca chat and wakes it.** It comes from
   `orca_session_id:<the bot's chat>`, with subject `Re: <title>` and
   `payload.requestId=<messageId>`. A subagent shares its parent's Orca session, so a
@@ -369,7 +370,7 @@ bot's Codex session files). Check them again on a newer Orca.
    `t("bots.linear.howToAskPlain","Mention @Orca {{handle}} on an issue, or add the label
    bot:{{handle}}.",{handle:o.folder})`. `orcad-server.js` also sends `handle:R.folder` to
    Orca Cloud. On 2026-11-25 (VIL-1177) a comment `@orca head-of-skills …` from David's
-   account got the Head's reply on the ticket in 13 s. The label `bot:head-of-skills` from
+   account got the Head's reply on the ticket. The label `bot:head-of-skills` from
    David's account got none, whether set when the issue was created or added after. So the
    handle was right, and the label doesn't fire for David's own label. Check: a
    `[scratch]` ticket with an `@Orca <handle>` comment gets a reply from the Orca app.
@@ -385,9 +386,9 @@ bot's Codex session files). Check them again on a newer Orca.
    - **A reply waits behind an open dialog.** Mail to a session with an open dialog is
      queued until someone answers the dialog.
    - **The route that works:** `orca orchestration send --to "bot:<name>" --chat new --type
-     question --subject "<title>" --body "<question>"`. The answer was back 7 s after the
-     send, in two tests (VIL-1177). The Linear mention took 13 s and wakes nobody. The
-     label didn't fire.
+     question --subject "<title>" --body "<question>"`. The Linear mention also works but
+     wakes nobody, and the label didn't fire. Timings are in "Asking a bot from a Claude
+     Code session", above.
    - The Head talks to David in his Home Chat.
 10. **Prove the handoff** (an agent). Before the setup ticket closes, show each setting from
     runtime and config evidence, as VIL-1176 did on 2026-11-25. The UI wasn't observed, and
