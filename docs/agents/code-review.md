@@ -445,6 +445,10 @@ rounds (the first three) are for a PR under its reviewer.
 - **Keep a fix round to what the findings ask.** A large fix can push MergeWren from an
   incremental round (see "Merging on a MergeWren review") to a full re-review, which samples
   new findings. The more a round changes beyond the findings, the more it invites another round.
+  Merging the default branch into a long-reviewed PR has the same effect. On skills PR 118
+  (2026-11-26), every round after the merge-in was a full review ("full review:
+  interdiff-too-large"), and each found a new issue in text that hadn't changed. Merge the
+  default branch in once, just before handover, not between fix rounds.
 - **Triage each finding.** Fix what weakens what the PR protects. Decline the rest with a
   reason, recorded where this file says: on the thread and in the PR body.
 - **Two fix rounds go ahead on their own. A third goes ahead only when it is low-risk;
