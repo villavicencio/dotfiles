@@ -155,9 +155,9 @@ gives a running bot tools for each service:
   `orca sheets read|write|upsert`.
 
 `orca automations` (scheduled prompts in a repo or workspace) and `orca orchestration`
-(runs, tasks, workers, decision gates; experimental) are separate from bots, though
-`orca orchestration send --to "bot:<name>" --type question --subject "<title>"` is how a
-session asks a bot a question (above).
+(runs, tasks, workers, decision gates; experimental) are separate from bots. A session asks
+a bot a question with `orchestration send`, as "Asking a bot from a Claude Code session"
+(above) shows.
 
 ## Security
 
@@ -307,7 +307,7 @@ bot's Codex session files). Check them again on a newer Orca.
      updated; this replaces your earlier standing instructions. They rank below the user's
      current request.]" A question sent to an open chat (step 7) didn't get it: that chat
      kept its old soul. A new chat reads the file again.
-   - **Give standing permission for PR approvals in the soul.** Orca's built-in bot prompt says "Approve, request changes or merge only when your owner asks; a review for anyone else is a comment review" (in `orcad-server.js`, Orca 1.4.277). No bot-folder file can change that prompt. A standing request from David written in `SOUL.md` counts as the owner asking. The Head of Skills has one for routine Skills PRs (2026-11-25), and confirmed it in a fresh chat sent with `orca orchestration send --to "bot:Head of Skills" --chat new --type question`.
+   - **Give standing permission for PR approvals in the soul.** Orca's built-in bot prompt says "Approve, request changes or merge only when your owner asks; a review for anyone else is a comment review" (in `orcad-server.js`, Orca 1.4.277). No bot-folder file can change that prompt. A standing request from David written in `SOUL.md` counts as the owner asking. The Head of Skills has one for routine Skills PRs (2026-11-25), and confirmed it in a fresh chat: a `--chat new` question, sent as step 7 shows.
    - **Put the hard limits under `## Never`.** A new bot stays in its first run until David's
      first message in its Home Chat is handled. That turn's rules tell the bot to write
      `SOUL.md` itself and to keep any `## Never` section as it is. The Head of Skills' soul
