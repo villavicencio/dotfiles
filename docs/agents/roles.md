@@ -13,8 +13,11 @@ The chain, from the top:
 4. **Manager**: a session with `dv:manager-mode` on, usually a ticket's worktree session.
 5. **Engineer**: an agent a Manager or Director hires.
 
-A role follows the mode a session has on, not where it runs. A home session can run Manager Mode,
-as this repo's own sessions do (`CLAUDE.md`, "Operating mode").
+Roles follow the mode a session has on. Merges, deploys and cleanup follow the home session
+whatever mode it runs (`docs/agents/parallel-sessions.md`, "Roles"). A home session can run
+Manager Mode, as this repo's own sessions do (`CLAUDE.md`, "Operating mode"). When David said
+`run it here` for a ticket, that session tells David the PR passed and waits for his word on who
+merges it (`dv:manager-mode`, "What you do yourself").
 
 Each role decides its own routine calls and hands up what it doesn't decide, to the role above it.
 This page sets no authority beyond what the skills and the global instructions already give.
@@ -47,10 +50,11 @@ none.
 - **Fills it:** a session with `dv:director-mode` on, usually the home session, running in a
   repo's main checkout on the default branch.
 - **Decides:** the routine calls for the Manager sessions under it. `dv:director-mode` lists
-  them, such as scope cuts and the kinds of delete the global standing approvals cover. It owns
-  the things there is only one of: merges (after the reviewer's verdict), the cleanup after each
-  merge, and the true state of the tickets (`docs/agents/parallel-sessions.md`, "Roles"). It opens
-  a ticket's worktree on request and recommends which sessions to start next.
+  them, such as scope cuts and the kinds of delete the global standing approvals cover. In the
+  home session it owns the things there is only one of: merges (after the reviewer's verdict) and
+  the cleanup after each merge (`docs/agents/parallel-sessions.md`, "Roles"). It keeps the
+  tickets' states true. It opens a ticket's worktree on request and recommends which sessions to
+  start next.
 - **Hands up:** what it doesn't decide, up the chain, under the routing rule in `dv:director-mode`.
 - **Does not:** hire engineers for a ticket's work. That belongs to the ticket's Manager. It hires
   only for work that isn't a ticket's own.
@@ -62,8 +66,9 @@ none.
 - **Decides:** the plan, the briefs, the order of work, and whether an Engineer's report meets the
   brief. It runs MergeWren fix rounds 1 and 2 on its PR. It never writes code.
 - **Hands up:** a question goes to the Director first (`dv:manager-mode`, "Questions go to the
-  Director first"). A PR that passed MergeWren goes to the Director to merge. A Manager never
-  merges.
+  Director first"). A PR that passed MergeWren goes to the Director, in the home session, to
+  merge. A Manager never merges. A home session running Manager Mode for a ticket has no
+  Director: it tells David the PR passed and waits for his word on who merges.
 - **Hires:** the Engineers for its ticket, each on a named model and effort.
 
 ## Engineer
@@ -78,7 +83,7 @@ none.
 
 In a repo MergeWren (review-stack) covers, it is the PR reviewer. It reviews every new head of an
 open, non-draft PR and posts a verdict. It is a gate each such PR passes, not a role that decides.
-The Manager fixes or declines its findings, and the Director merges under the rules in
-`docs/agents/code-review.md`. That file also says which repos MergeWren covers, what a repo not
-yet onboarded or one that names its own reviewer does instead, and how to wait for a verdict
-("Merging on a MergeWren review").
+The Manager fixes or declines its findings, and the Director, in the home session, merges under
+the rules in `docs/agents/code-review.md`. That file also says which repos MergeWren covers, what a
+repo not yet onboarded or one that names its own reviewer does instead, and how to wait for a
+verdict ("Merging on a MergeWren review").
