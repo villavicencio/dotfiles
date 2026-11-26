@@ -113,14 +113,15 @@ Tested on hal with Orca 1.4.277 on 2026-11-25 (VIL-1177), against the Head of Sk
 - **The `bot:<handle>` label didn't fire from David's account**, whether it was set when
   the issue was created or added 11 s later. No reply came in 10 minutes either time. Who
   can ask is David alone, so a label from anyone else wasn't tested.
-- The bot can message a Claude Code chat the same way (`orchestration send --to
-  orca_session_id:<id>`) and read it with `orca agent read <id>`. The Head's question to
-  the Director's chat was answered in 25 s.
+- The bot can message a Claude Code chat the same way, with `orca orchestration send --to
+  "orca_session_id:<id>" --type question --subject "<title>" --body "<question>"`, and
+  read it with `orca agent read "orca_session_id:<id>"`. The Head's question to the
+  Director's chat was answered in 25 s.
 
 **Gotchas:**
 
 - **An open AskUserQuestion can't be answered from the CLI.** No `orca` command answers a
-  chat's open dialog (`orchestration deny` is only for a worker's permission prompt). Mail
+  chat's open dialog (`orca orchestration deny` is only for a worker's permission prompt). Mail
   sent to that chat waits behind it: Orca prints "Queued behind an open prompt; … sees it
   after the prompt is answered."
 - **A dialog puts the question in front of David.** A scratch chat's AskUserQuestion showed
