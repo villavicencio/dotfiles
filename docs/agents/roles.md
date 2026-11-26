@@ -42,9 +42,10 @@ none.
 
 - **Fills it:** the home session, running in a repo's main checkout on the default branch, with
   `dv:director-mode` on.
-- **Decides:** the routine calls for the Manager sessions under it: fix rounds past a session's
-  own two, scope cuts, the kinds of delete the global standing approvals cover, and any other
-  clear-cut question, as `dv:director-mode` defines it. It owns the things there is only one of:
+- **Decides:** the routine calls for the Manager sessions under it, as `dv:director-mode` defines
+  them: fix rounds beyond a session's own (under `docs/agents/code-review.md`, "Fix rounds"),
+  scope cuts, the kinds of delete the global standing approvals cover, and other clear-cut
+  questions. It owns the things there is only one of:
   merges (after MergeWren's verdict), the cleanup after each merge, and the true state of the
   tickets (`docs/agents/parallel-sessions.md`, "Roles"). It opens a ticket's worktree on request
   and recommends which sessions to start next.
@@ -72,8 +73,9 @@ none.
 
 ## MergeWren
 
-MergeWren (review-stack) is the PR reviewer. It reviews every new head of an open, non-draft PR
-and posts a verdict. It is a gate every PR passes, not a role that decides. The Manager fixes or
-declines its findings, and the Director merges under the rules in
-`docs/agents/code-review.md`. Nothing stands in for it. How to wait for a verdict, and what its
-return codes mean: the same file, "Merging on a MergeWren review".
+In a repo MergeWren (review-stack) covers, it is the PR reviewer. It reviews every new head of an
+open, non-draft PR and posts a verdict. It is a gate each such PR passes, not a role that decides.
+The Manager fixes or declines its findings, and the Director merges under the rules in
+`docs/agents/code-review.md`. That file also says which repos MergeWren covers, what a repo not
+yet onboarded or one that names its own reviewer does instead, and how to wait for a verdict
+("Merging on a MergeWren review").
