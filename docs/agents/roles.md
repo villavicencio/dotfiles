@@ -8,9 +8,13 @@ The chain, from the top:
 
 1. **CEO**: David.
 2. **Head of a department** ("Head" below): an Orca bot.
-3. **Director**: the home session in a repo's main checkout.
-4. **Manager**: a ticket's worktree session.
+3. **Director**: a session with `dv:director-mode` on, usually the home session in a repo's main
+   checkout.
+4. **Manager**: a session with `dv:manager-mode` on, usually a ticket's worktree session.
 5. **Engineer**: an agent a Manager or Director hires.
+
+A role follows the mode a session has on, not where it runs. A home session can run Manager Mode,
+as this repo's own sessions do (`CLAUDE.md`, "Operating mode").
 
 Each role decides its own routine calls and hands up what it doesn't decide, to the role above it.
 This page sets no authority beyond what the skills and the global instructions already give.
@@ -40,8 +44,8 @@ none.
 
 ## Director
 
-- **Fills it:** the home session, running in a repo's main checkout on the default branch, with
-  `dv:director-mode` on.
+- **Fills it:** a session with `dv:director-mode` on, usually the home session, running in a
+  repo's main checkout on the default branch.
 - **Decides:** the routine calls for the Manager sessions under it. `dv:director-mode` lists
   them, such as scope cuts and the kinds of delete the global standing approvals cover. It owns
   the things there is only one of: merges (after the reviewer's verdict), the cleanup after each
@@ -53,7 +57,8 @@ none.
 
 ## Manager
 
-- **Fills it:** a ticket's worktree session, running `dv:manager-mode`. One per ticket.
+- **Fills it:** a session with `dv:manager-mode` on, usually a ticket's worktree session. One per
+  ticket.
 - **Decides:** the plan, the briefs, the order of work, and whether an Engineer's report meets the
   brief. It runs MergeWren fix rounds 1 and 2 on its PR. It never writes code.
 - **Hands up:** a question goes to the Director first (`dv:manager-mode`, "Questions go to the
