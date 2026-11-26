@@ -102,9 +102,9 @@ Tested on hal with Orca 1.4.277 on 2026-11-25 (VIL-1177), against the Head of Sk
   question's `messageId`: `orca orchestration inbox --terminal
   "orca_session_id:$ORCA_AGENT_SESSION_ID" --limit 100 --full --json | jq -r
   '.result.messages[] | select(.thread_id=="<messageId>") | .body'`. Raise `--limit` if
-  the mailbox is busy. `orca orchestration check --peek` printed "No messages." with and without `--terminal`.
-  `orca bot chats` shows the bot's last narration ("I'll send the timestamp…"), not its
-  answer.
+  the mailbox is busy. `orca orchestration check --peek` printed "No messages." with and
+  without `--terminal`. `orca bot chats --bot "<name>"` shows the bot's last narration
+  ("I'll send the timestamp…"), not its answer.
 - Nothing logs the exchange in Linear. The asker posts the question and the answer on the
   ticket itself.
 - **A Linear mention also works, but wakes nobody.** A comment `@Orca <handle> <question>`
@@ -129,7 +129,8 @@ Tested on hal with Orca 1.4.277 on 2026-11-25 (VIL-1177), against the Head of Sk
 - **A dialog puts the question in front of David.** A scratch chat's AskUserQuestion showed
   in David's Orca UI. A session that means to ask a bot sends mail; it never opens a dialog.
 - **No CLI command closes a bot chat** (VIL-1156). Each `--chat new` question and each
-  Linear mention opens one more. Reuse a chat with `--chat <id>` from `orca bot chats`.
+  Linear mention opens one more. Reuse a chat with `--chat <id>` from
+  `orca bot chats --bot "<name>"`.
 - **A bot in Full access can open a worktree with a chat in it.** The Head ran
   `orca worktree create --repo path:<repo> --name <name> --linear-issue <id> --no-parent
   --setup skip --agent claude --surface chat --prompt "<work>" --json`, and it returned
@@ -155,7 +156,8 @@ gives a running bot tools for each service:
 
 `orca automations` (scheduled prompts in a repo or workspace) and `orca orchestration`
 (runs, tasks, workers, decision gates; experimental) are separate from bots, though
-`orca orchestration send --to "bot:<name>"` is how a session asks a bot a question (above).
+`orca orchestration send --to "bot:<name>" --type question --subject "<title>"` is how a
+session asks a bot a question (above).
 
 ## Security
 
@@ -360,8 +362,9 @@ bot's Codex session files). Check them again on a newer Orca.
      dv 0.38.0).
 8. **Know the handle; on Linear, mention rather than label** (an agent). The handle for
    `@Orca <handle>` and `bot:<handle>` is the bot's folder name (`head-of-skills`). No
-   command prints it: `orca bot connectors` lists only the Linear workspace and teams. Orca's
-   own UI code builds the **How to ask** line from the folder, in
+   command prints it: `orca bot connectors`, run in the bot's own chat, lists only the
+   Linear workspace and teams. Orca's own UI code builds the **How to ask** line from the
+   folder, in
    `~/.orca-remote/orcad-<build>/out/mobile-web/assets/*.js` (Orca 1.4.277):
    `t("bots.linear.howToAskPlain","Mention @Orca {{handle}} on an issue, or add the label
    bot:{{handle}}.",{handle:o.folder})`. `orcad-server.js` also sends `handle:R.folder` to
@@ -382,17 +385,20 @@ bot's Codex session files). Check them again on a newer Orca.
    - **A reply waits behind an open dialog.** Mail to a session with an open dialog is
      queued until someone answers the dialog.
    - **The route that works:** `orca orchestration send --to "bot:<name>" --chat new --type
-     question`. The answer was back 7 s after the send, in two tests (VIL-1177). The Linear
-     mention took 13 s and wakes nobody. The label didn't fire.
+     question --subject "<title>" --body "<question>"`. The answer was back 7 s after the
+     send, in two tests (VIL-1177). The Linear mention took 13 s and wakes nobody. The
+     label didn't fire.
    - The Head talks to David in his Home Chat.
 10. **Prove the handoff** (an agent). Before the setup ticket closes, show each setting from
     runtime and config evidence, as VIL-1176 did on 2026-11-25. The UI wasn't observed, and
     the Head accepted the substitution.
     - `~/.orca/bots/<folder>/bot.json`: `agent`, and `members` (`[]` means David alone).
-    - The bot's Codex session files (step 6): `model`, `reasoning_effort` and
-      `approval_policy`.
+    - The bot's Codex session files (step 6): `model`, `reasoning_effort`, and
+      `approval_policy: never` with `permission_profile: disabled` (Full access).
     - `orca google status --json`: `"bots": []` means no bot has Google.
-    - `SOUL.md`'s sha256 (`shasum -a 256`), recorded on the ticket, and checked again after
-      David's first message in the Home Chat is handled (step 4: that run may rewrite it).
-    - In a fresh chat (`--chat new` reads the soul again), he names the CEO's 1% and each
-      standing approval in his soul.
+    - `SOUL.md`'s sha256 (`shasum -a 256 "$HOME/.orca/bots/<folder>/SOUL.md"`), recorded
+      on the ticket, and checked again after David's first message in the Home Chat is
+      handled (step 4: that run may rewrite it).
+    - In a fresh chat, which reads the soul again (`orca orchestration send --to
+      "bot:<name>" --chat new --type question --subject "<title>" --body "<question>"`),
+      he names the CEO's 1% and each standing approval in his soul.
