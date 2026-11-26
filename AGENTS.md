@@ -479,5 +479,5 @@ Once VIL-700's move is complete on hal (its `relink` step, run as `hal` with `DO
 
 Deeper write-ups for past bugs and decisions live in `docs/solutions/` (grouped by
 category, indexed in `docs/solutions/INDEX.md`), and the per-area reference (Windows, WSL,
-the server profile, Claude Code config, Orca worktrees, review) in `docs/reference/`.
+the server profile, Claude Code config, Orca worktrees, Orca Bots, review) in `docs/reference/`.
 Consult them before re-deriving a fix.
