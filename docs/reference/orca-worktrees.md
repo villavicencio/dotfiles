@@ -122,6 +122,11 @@ This only hides them from the sidebar; the worktrees stay on disk.
 
 - `--agent` without `--surface` can open a terminal even when the agent's Chat UI default is Chat; pass `--surface chat` and read `launch.outcome` / `launch.receipt.detail` from `--json`. Source: on 2026-11-25, VIL-925's worktree was created without the flag and Claude opened as a terminal although Settings > Chat UI had Chat as Claude's default; the cause is unknown.
 - `orca project setup-delete --force` detaches a chat from its worktree but leaves the chat's Claude process running. Find and stop that process yourself before treating the worktree as free (`lsof +D <worktree>` lists it). Source: the VIL-1178 session's closeout note, 2026-11-26 on hal (Orca 1.4.277). It was seen while removing a disposable test clone and hasn't been re-run since.
+- Supervised workers (`orca orchestration worker-*`), Orca 1.4.277 on hal, 2026-11-26. Read from Orca's server code and live probes by the VIL-1206 and VIL-1207 sessions.
+  - `worker-stop` also closes the worker's bound terminals, though its help text says otherwise. Don't use it on a worker whose terminals matter.
+  - `worker-release` never lists the bound terminals it closed in its receipt, and a failed close appears only in Orca's log.
+  - `worker-start` picks chat or terminal from the "new agent tabs" setting and has no flag to override it.
+  - A chat handed a task with `--terminal orca_session_id:<id>` is recorded as external (mode terminal, ownership external). `worker-release` then always returns `retained`, so Orca never closes that chat.
 
 ## What survives an Orca restart or update, and a reboot
 
