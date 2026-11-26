@@ -15,15 +15,14 @@ The chain, from the top:
 
 Roles follow the mode a session has on. Merges, deploys and cleanup follow the home session
 whatever mode it runs (`docs/agents/parallel-sessions.md`, "Roles"). A home session can run
-Manager Mode, as this repo's own sessions do (`CLAUDE.md`, "Operating mode"). When David said
-`run it here` for a ticket, that session tells David the PR passed and waits for his word on who
-merges it (`dv:manager-mode`, "What you do yourself").
+Manager Mode, as this repo's own sessions do (`CLAUDE.md`, "Operating mode"). Who merges its PR is
+in `dv:manager-mode`, "What you do yourself".
 
 Each role decides its own routine calls and hands up what it doesn't decide, to the role above it.
 This page sets no authority beyond what the skills and the global instructions already give.
 
 The CEO's 1% is the only thing a Head hands up to the CEO. What it holds, and the rule that sends a
-question up the chain, are in the `dv:director-mode` section "Answer a worktree session's question"
+question up the chain, are in the `dv:director-mode` section "The Head and the CEO's 1%"
 (skills repo, `plugins/dv/skills/director-mode/SKILL.md`). That is the one copy; this page keeps
 none.
 
@@ -32,7 +31,7 @@ none.
 - **Fills it:** David.
 - **Decides:** the direction, and the CEO's 1%.
 - **Hands up:** nothing; this is the top of the chain.
-- **Gets from below:** only the CEO's 1%, and only from a Head.
+- **Gets from below:** in a department with a Head, only the CEO's 1%, and only from that Head.
 
 ## Head of a department
 
@@ -66,9 +65,7 @@ none.
 - **Decides:** the plan, the briefs, the order of work, and whether an Engineer's report meets the
   brief. It runs MergeWren fix rounds 1 and 2 on its PR. It never writes code.
 - **Hands up:** a question goes to the Director first (`dv:manager-mode`, "Questions go to the
-  Director first"). A PR that passed MergeWren goes to the Director, in the home session, to
-  merge. A Manager never merges. A home session running Manager Mode for a ticket has no
-  Director: it tells David the PR passed and waits for his word on who merges.
+  Director first"). Who merges its PR is in `dv:manager-mode`, "What you do yourself".
 - **Hires:** the Engineers for its ticket, each on a named model and effort.
 
 ## Engineer
