@@ -98,9 +98,11 @@ Tested on hal with Orca 1.4.277 on 2026-11-25 (VIL-1177), against the Head of Sk
   `orca_session_id:<the bot's chat>`, with subject `Re: <title>` and
   `payload.requestId=<messageId>`. A subagent shares its parent's Orca session, so a
   subagent's answer lands in the parent's chat.
-- **To read the answer without consuming it:** `orca orchestration inbox --terminal
-  "orca_session_id:$ORCA_AGENT_SESSION_ID" --limit 5 --full`, and match `requestId`.
-  `orca orchestration check --peek` printed "No messages." with and without `--terminal`.
+- **To read the answer without consuming it,** select it by its thread, which is the
+  question's `messageId`: `orca orchestration inbox --terminal
+  "orca_session_id:$ORCA_AGENT_SESSION_ID" --limit 100 --full --json | jq -r
+  '.result.messages[] | select(.thread_id=="<messageId>") | .body'`. Raise `--limit` if
+  the mailbox is busy. `orca orchestration check --peek` printed "No messages." with and without `--terminal`.
   `orca bot chats` shows the bot's last narration ("I'll send the timestamp…"), not its
   answer.
 - Nothing logs the exchange in Linear. The asker posts the question and the answer on the
@@ -255,7 +257,7 @@ and nothing is set up until you reply.
 |---|---|
 | "Held for David" / the closing interview | **Needs you** |
 | Worktree session per ticket (`dv:manager-mode`) | Worker in its own worktree under the bot |
-| `open worktree VIL-N` | Linear `bot:<handle>` label or `@Orca <handle>` |
+| `open worktree VIL-N` | `@Orca <handle>` on the issue, or `orca orchestration send --to "bot:<name>"`; the `bot:<handle>` label didn't fire from David's account (VIL-1177) |
 | Director's session-start sweep | **Look around** (read-only Suggestions) |
 | Memory files plus `dv:handoff` | `MEMORY.md` with nightly upkeep |
 
