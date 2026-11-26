@@ -1,7 +1,7 @@
 # Orca Bots
 
 A map of Orca's Bots feature, read from Orca's docs on 2026-11-25 at about 16:30 PST, when
-the newest Orca was 1.4.274 (2026-11-24) and hal ran 1.4.269. Bots first shipped in 1.4.265
+the newest Orca was 1.4.274 (2026-11-24) and hal ran 1.4.269. hal's server has run 1.4.277 since 2026-11-25 17:12 PT. Bots first shipped in 1.4.265
 (2026-11-19) and changed in almost every release after it.
 
 **Re-fetch before you act on anything here.** Versions, defaults, triggers, limits and
@@ -165,6 +165,10 @@ Agents: On, Agent or Off) stops idle sleep, but on a Mac closing the lid still s
 a bot that's always reachable, the docs say to run it on a paired server and keep that awake:
 **Settings → Remote Orca Servers**, or `orca serve` / `orca serve service install` headless.
 Agent logins must be on the server.
+
+### Updating hal's Orca server
+
+hal's `hal-svc` runtime is a managed headless server (`~/.orca-remote/orcad-<build>`). `orca status --json` reports `remoteUpdateSupport.installMode: unsupported-headless-serve`, so it doesn't update itself. On 2026-11-25, updating the Orca app on the Mac copied the new build to hal (1.4.277, `orcad-0.1.0+7aef96f6a2a4`) without switching to it: `~/.orca-remote/orcad-active.json` still named the old build. The switch happened only when the `hal-svc` server restarted (17:12 PT), and the open chats came back by themselves. Check with `orca --version` on hal, and read `active` and `activeAppVersion` in `orcad-active.json`.
 
 ## Import
 
