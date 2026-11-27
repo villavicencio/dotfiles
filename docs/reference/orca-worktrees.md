@@ -126,6 +126,11 @@ This only hides them from the sidebar; the worktrees stay on disk.
   still has an Orca session UUID (`orca agent list --worktree path:<dir>` and `orca agent show`
   print it, kind `terminal`); Orca just doesn't export `ORCA_AGENT_SESSION_ID` into its shell, so
   read the id from the CLI, not from inside the pane (VIL-1218 T8 fixture, 2026-11-27).
+- A chat whose process has gone (state `done` in `orca agent list`, missing from ListAgents, so
+  SendMessage to its old socket fails with ENOENT) wakes on
+  `orca orchestration send --to orca_session_id:<id> --body-file <file>`: its state goes to
+  `working`, and it comes back with a new SendMessage name. Source: the skills Director waking
+  four finished worktree chats on hal, 2026-11-27 (Orca 1.4.277).
 - `ORCA_AGENT_HOOK_TOKEN`, which every agent pane gets in its environment, is not per session. Orca's agent-status hook server makes it once with `randomUUID()` when it starts and gives the same value to every pane it spawns. Hook scripts send it as `X-Orca-Agent-Hook-Token` to `127.0.0.1` only. It changes only when the Orca runtime, or its hook transport, restarts. So a pane that prints `env` puts a still-live local token in its transcript. Restarting the Orca runtime rotates it. Source: orcad `0.1.0+7aef96f6a2a4` `orcad-server.js`, read 2026-11-27 for VIL-1191's lab leak.
 - Supervised workers (`orca orchestration worker-*`), Orca 1.4.277 on hal, 2026-11-26. Read from Orca's server code and live probes by the VIL-1206 and VIL-1207 sessions.
   - `worker-stop` also closes the worker's bound terminals, though its help text says otherwise. Don't use it on a worker whose terminals matter.
